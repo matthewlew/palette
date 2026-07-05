@@ -309,11 +309,25 @@ describe('buildGradientCss', () => {
     expect(css).toBe('conic-gradient(#ff0000 0%, #00ff00 50%, #0000ff 100%)')
   })
 
-  it('builds a nested conic-gradient with hard 90deg stops for square type', () => {
+  it('builds a nested conic-gradient with hard stops sized to the stop count for square type', () => {
     const css = buildGradientCss('square', stops)
     expect(css).toContain('conic-gradient(from 0deg')
-    expect(css).toContain('#ff0000 0deg 90deg')
-    expect(css).toContain('#00ff00 90deg 180deg')
+    expect(css).toContain('#ff0000 0deg 120deg')
+    expect(css).toContain('#00ff00 120deg 240deg')
+  })
+
+  it('scales square-type wedge width down as more stops are added (3-12 stop range)', () => {
+    const sixStops: GradientStop[] = [
+      { hex: '#ff0000', position: 0 },
+      { hex: '#ff8800', position: 20 },
+      { hex: '#ffff00', position: 40 },
+      { hex: '#00ff00', position: 60 },
+      { hex: '#0000ff', position: 80 },
+      { hex: '#8800ff', position: 100 },
+    ]
+    const css = buildGradientCss('square', sixStops)
+    expect(css).toContain('#ff0000 0deg 60deg')
+    expect(css).toContain('#8800ff 300deg 360deg')
   })
 
   it('throws for fewer than 2 stops', () => {
@@ -348,9 +362,9 @@ function stopsToCss(stops: GradientStop[]): string {
 }
 
 function buildSquareGradient(stops: GradientStop[]): string {
-  const segmentCount = Math.min(stops.length, 4)
+  const segmentCount = stops.length
   const degreesPerSegment = 360 / segmentCount
-  const segments = stops.slice(0, segmentCount).map((stop, i) => {
+  const segments = stops.map((stop, i) => {
     const start = i * degreesPerSegment
     const end = (i + 1) * degreesPerSegment
     return `${stop.hex} ${start}deg ${end}deg`
@@ -377,7 +391,7 @@ export function buildGradientCss(type: GradientType, stops: GradientStop[]): str
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `npm test -- gradient`
-Expected: `5 passed`
+Expected: `6 passed`
 
 - [ ] **Step 5: Commit**
 
