@@ -13,7 +13,9 @@ export function Drawer({ saved, onSelect }: DrawerProps) {
       {saved.map((gradient) => (
         <button
           key={gradient.id}
+          type="button"
           data-testid="drawer-thumbnail"
+          aria-label={`Saved ${gradient.type} gradient`}
           className={styles.thumbnail}
           style={{ backgroundImage: buildGradientCss(gradient.type, gradient.stops) }}
           onClick={() => onSelect(gradient)}
