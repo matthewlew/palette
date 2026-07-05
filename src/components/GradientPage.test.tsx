@@ -17,7 +17,7 @@ describe('GradientPage', () => {
     render(<GradientPage gradient={gradient} onSave={vi.fn()} onEdit={vi.fn()} />)
     const page = screen.getByTestId('gradient-page')
     expect(page.style.backgroundImage).toContain('linear-gradient')
-    expect(page.style.backgroundImage).toContain('#ff0000')
+    expect(page.style.backgroundImage).toContain('rgb(255, 0, 0)')
   })
 
   it('calls onSave and shows a heart flash on double-tap', () => {
