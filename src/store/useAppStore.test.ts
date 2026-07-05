@@ -1,0 +1,60 @@
+import { describe, it, expect, beforeEach } from 'vitest'
+import { useAppStore } from './useAppStore'
+import type { Gradient } from './types'
+
+const sampleGradient: Gradient = {
+  id: 'g1',
+  type: 'linear',
+  stops: [
+    { hex: '#ff0000', position: 0 },
+    { hex: '#0000ff', position: 100 },
+  ],
+}
+
+beforeEach(() => {
+  localStorage.clear()
+  useAppStore.setState(useAppStore.getInitialState())
+})
+
+describe('useAppStore', () => {
+  it('starts in explore mode with no saved gradients', () => {
+    const state = useAppStore.getState()
+    expect(state.mode).toBe('explore')
+    expect(state.saved).toEqual([])
+  })
+
+  it('sets the current gradient', () => {
+    useAppStore.getState().setCurrentGradient(sampleGradient)
+    expect(useAppStore.getState().current).toEqual(sampleGradient)
+  })
+
+  it('saves a gradient to the drawer', () => {
+    useAppStore.getState().saveGradient(sampleGradient)
+    expect(useAppStore.getState().saved).toHaveLength(1)
+    expect(useAppStore.getState().saved[0]).toEqual(sampleGradient)
+  })
+
+  it('dedupes saving the same gradient signature twice', () => {
+    useAppStore.getState().saveGradient(sampleGradient)
+    useAppStore.getState().saveGradient({ ...sampleGradient, id: 'g1-dup' })
+    expect(useAppStore.getState().saved).toHaveLength(1)
+  })
+
+  it('persists saved gradients to localStorage', () => {
+    useAppStore.getState().saveGradient(sampleGradient)
+    const raw = localStorage.getItem('palette-saved-gradients')
+    expect(raw).not.toBeNull()
+    expect(JSON.parse(raw!).state.saved).toHaveLength(1)
+  })
+
+  it('switches to edit mode', () => {
+    useAppStore.getState().enterEditMode()
+    expect(useAppStore.getState().mode).toBe('edit')
+  })
+
+  it('switches back to explore mode', () => {
+    useAppStore.getState().enterEditMode()
+    useAppStore.getState().exitEditMode()
+    expect(useAppStore.getState().mode).toBe('explore')
+  })
+})
