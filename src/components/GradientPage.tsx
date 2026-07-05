@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { buildGradientCss } from '../lib/gradient'
 import { useDoubleTap } from '../hooks/useDoubleTap'
 import type { Gradient } from '../store/types'
@@ -12,11 +12,23 @@ interface GradientPageProps {
 
 export function GradientPage({ gradient, onSave, onEdit }: GradientPageProps) {
   const [showHeart, setShowHeart] = useState(false)
+  const heartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (heartTimeoutRef.current) {
+        clearTimeout(heartTimeoutRef.current)
+      }
+    }
+  }, [])
 
   function handleDoubleTap() {
     onSave(gradient)
     setShowHeart(true)
-    setTimeout(() => setShowHeart(false), 500)
+    heartTimeoutRef.current = setTimeout(() => {
+      setShowHeart(false)
+      heartTimeoutRef.current = null
+    }, 500)
   }
 
   const { onPointerUp } = useDoubleTap(handleDoubleTap, onEdit)
