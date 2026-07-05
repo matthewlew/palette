@@ -980,12 +980,14 @@ git commit -m "feat: add GradientPage with double-tap save and heart flash anima
 
 ---
 
-## Task 8: Feed component (scroll-snap generation)
+## Task 8: Feed component (scroll-snap generation, double-buffered)
 
 **Files:**
 - Create: `src/components/Feed.tsx`
 - Create: `src/components/Feed.module.css`
 - Test: `src/components/Feed.test.tsx`
+
+**Note (post-review amendment):** The first implementation of this task rendered a single `GradientPage` (100vh) inside a 100vh container with `overflow-y: scroll`. Since content height equalled container height, `scrollHeight === clientHeight` always — there was nothing to scroll in a real browser, so the "swipe to generate" interaction from the spec did not actually work outside of unit tests that stub `scrollTop`/`scrollHeight`/`clientHeight` directly. The fix below double-buffers the feed: it renders the current gradient AND a pre-generated "next" gradient stacked below it, giving the container genuine `2 * 100vh` of scrollable content. Scrolling near the bottom promotes `next` to `current`, generates a fresh `next`, and resets `scrollTop` to 0 so the view snaps back to the top page — creating the illusion of an infinite single-page feed.
 
 - [ ] **Step 1: Write failing tests**
 
@@ -1009,7 +1011,15 @@ describe('Feed', () => {
 
   it('renders a GradientPage for the current gradient', () => {
     render(<Feed />)
-    expect(screen.getByTestId('gradient-page')).toBeInTheDocument()
+    expect(screen.getAllByTestId('gradient-page').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('double-buffers by rendering both the current and next GradientPage, giving the container real scrollable content', () => {
+    render(<Feed />)
+    // jsdom doesn't compute real layout, so we can't assert pixel scrollHeight;
+    // the meaningful assertion is that 2 stacked pages are rendered, which is
+    // what makes scrollHeight > clientHeight possible in a real browser.
+    expect(screen.getAllByTestId('gradient-page')).toHaveLength(2)
   })
 
   it('generates a new gradient when scrolled near the bottom boundary', () => {
@@ -1024,8 +1034,22 @@ describe('Feed', () => {
     Object.defineProperty(container, 'clientHeight', { value: 800, writable: true })
     container.dispatchEvent(new Event('scroll'))
 
+    // Promoting `next` to `current` doesn't itself call generateGradientStops,
+    // but replacing the now-consumed `next` with a fresh one does.
     expect(generateSpy).toHaveBeenCalled()
     expect(useAppStore.getState().current).not.toEqual(first)
+  })
+
+  it('resets scrollTop to 0 after promoting the next gradient, so the feed snaps back to the top page', () => {
+    render(<Feed />)
+    const container = screen.getByTestId('feed-container') as HTMLDivElement
+
+    Object.defineProperty(container, 'scrollTop', { value: 900, writable: true })
+    Object.defineProperty(container, 'scrollHeight', { value: 1000, writable: true })
+    Object.defineProperty(container, 'clientHeight', { value: 800, writable: true })
+    container.dispatchEvent(new Event('scroll'))
+
+    expect(container.scrollTop).toBe(0)
   })
 })
 ```
@@ -1046,10 +1070,12 @@ Expected: FAIL — `Cannot find module './Feed'`
 }
 ```
 
+Note: the container CSS itself doesn't need to change for the double-buffer fix — `height: 100vh` and `overflow-y: scroll` are already correct. The fix is about content height (two stacked `GradientPage`s = `2 * 100vh`), not container styling.
+
 - [ ] **Step 4: Implement `src/components/Feed.tsx`**
 
 ```tsx
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import { generateGradientStops } from '../lib/palette'
 import { GradientPage } from './GradientPage'
@@ -1079,6 +1105,7 @@ export function Feed() {
   const saveGradient = useAppStore((s) => s.saveGradient)
   const enterEditMode = useAppStore((s) => s.enterEditMode)
   const containerRef = useRef<HTMLDivElement>(null)
+  const [nextGradient, setNextGradient] = useState<Gradient>(() => makeGradient())
 
   useEffect(() => {
     if (!current) {
@@ -1091,7 +1118,9 @@ export function Feed() {
     if (!el) return
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
     if (distanceFromBottom < SCROLL_BOUNDARY_PX) {
-      setCurrentGradient(makeGradient())
+      setCurrentGradient(nextGradient)
+      setNextGradient(makeGradient())
+      el.scrollTop = 0
     }
   }
 
@@ -1105,15 +1134,18 @@ export function Feed() {
       onScroll={handleScroll}
     >
       <GradientPage gradient={current} onSave={saveGradient} onEdit={enterEditMode} />
+      <GradientPage gradient={nextGradient} onSave={saveGradient} onEdit={enterEditMode} />
     </div>
   )
 }
 ```
 
+Rendering two stacked `GradientPage` instances (current + next) is what gives the container genuine `2 * 100vh` of content, so `scrollHeight > clientHeight` and the feed is actually scrollable in a real browser — not just in tests that stub layout properties.
+
 - [ ] **Step 5: Run test to verify it passes**
 
 Run: `npm test -- Feed`
-Expected: `3 passed`
+Expected: `5 passed`
 
 - [ ] **Step 6: Commit**
 
@@ -1121,6 +1153,8 @@ Expected: `3 passed`
 git add src/components/Feed.tsx src/components/Feed.module.css src/components/Feed.test.tsx
 git commit -m "feat: add scroll-snap Feed that generates gradients on demand"
 ```
+
+(Historical note: the initial commit for this task shipped the single-page version described above; a follow-up commit, `fix: double-buffer Feed so scroll container has real scrollable content`, applied the double-buffer fix documented in this section.)
 
 ---
 
