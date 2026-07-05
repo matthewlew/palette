@@ -16,7 +16,12 @@ describe('Feed', () => {
 
   it('renders a GradientPage for the current gradient', () => {
     render(<Feed />)
-    expect(screen.getByTestId('gradient-page')).toBeInTheDocument()
+    expect(screen.getAllByTestId('gradient-page').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('double-buffers by rendering both the current and next GradientPage, giving the container real scrollable content', () => {
+    render(<Feed />)
+    expect(screen.getAllByTestId('gradient-page')).toHaveLength(2)
   })
 
   it('generates a new gradient when scrolled near the bottom boundary', () => {
@@ -31,7 +36,21 @@ describe('Feed', () => {
     Object.defineProperty(container, 'clientHeight', { value: 800, writable: true })
     container.dispatchEvent(new Event('scroll'))
 
+    // Promoting `next` to `current` doesn't itself call generateGradientStops,
+    // but replacing the now-consumed `next` with a fresh one does.
     expect(generateSpy).toHaveBeenCalled()
     expect(useAppStore.getState().current).not.toEqual(first)
+  })
+
+  it('resets scrollTop to 0 after promoting the next gradient, so the feed snaps back to the top page', () => {
+    render(<Feed />)
+    const container = screen.getByTestId('feed-container') as HTMLDivElement
+
+    Object.defineProperty(container, 'scrollTop', { value: 900, writable: true })
+    Object.defineProperty(container, 'scrollHeight', { value: 1000, writable: true })
+    Object.defineProperty(container, 'clientHeight', { value: 800, writable: true })
+    container.dispatchEvent(new Event('scroll'))
+
+    expect(container.scrollTop).toBe(0)
   })
 })

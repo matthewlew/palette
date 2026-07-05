@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import { generateGradientStops } from '../lib/palette'
 import { GradientPage } from './GradientPage'
@@ -28,6 +28,7 @@ export function Feed() {
   const saveGradient = useAppStore((s) => s.saveGradient)
   const enterEditMode = useAppStore((s) => s.enterEditMode)
   const containerRef = useRef<HTMLDivElement>(null)
+  const [nextGradient, setNextGradient] = useState<Gradient>(() => makeGradient())
 
   useEffect(() => {
     if (!current) {
@@ -40,7 +41,9 @@ export function Feed() {
     if (!el) return
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
     if (distanceFromBottom < SCROLL_BOUNDARY_PX) {
-      setCurrentGradient(makeGradient())
+      setCurrentGradient(nextGradient)
+      setNextGradient(makeGradient())
+      el.scrollTop = 0
     }
   }
 
@@ -54,6 +57,7 @@ export function Feed() {
       onScroll={handleScroll}
     >
       <GradientPage gradient={current} onSave={saveGradient} onEdit={enterEditMode} />
+      <GradientPage gradient={nextGradient} onSave={saveGradient} onEdit={enterEditMode} />
     </div>
   )
 }
