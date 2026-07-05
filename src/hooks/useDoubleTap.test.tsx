@@ -45,4 +45,20 @@ describe('useDoubleTap', () => {
     expect(onSingleTap).toHaveBeenCalledTimes(1)
     vi.useRealTimers()
   })
+
+  it('does not fire onSingleTap after a double-tap is detected', () => {
+    vi.useFakeTimers()
+    const onDoubleTap = vi.fn()
+    const onSingleTap = vi.fn()
+    const { getByTestId } = render(<TestTarget onDoubleTap={onDoubleTap} onSingleTap={onSingleTap} />)
+    const target = getByTestId('target')
+
+    fireEvent.pointerUp(target)
+    fireEvent.pointerUp(target)
+    vi.advanceTimersByTime(350)
+
+    expect(onDoubleTap).toHaveBeenCalledTimes(1)
+    expect(onSingleTap).not.toHaveBeenCalled()
+    vi.useRealTimers()
+  })
 })
