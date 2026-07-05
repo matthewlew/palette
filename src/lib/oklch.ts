@@ -70,13 +70,17 @@ function gammaToLinear(c: number): number {
   return (c < 0 ? -1 : 1) * Math.pow((abs + 0.055) / 1.055, 2.4)
 }
 
+function clamp255(v: number): number {
+  return Math.min(255, Math.max(0, v))
+}
+
 export function oklchToSrgb(oklch: Oklch): Srgb {
   const oklab = oklchToOklab(oklch)
   const linear = oklabToLinearSrgb(oklab)
   return {
-    r: linearToGamma(linear.r) * 255,
-    g: linearToGamma(linear.g) * 255,
-    b: linearToGamma(linear.b) * 255,
+    r: clamp255(linearToGamma(linear.r) * 255),
+    g: clamp255(linearToGamma(linear.g) * 255),
+    b: clamp255(linearToGamma(linear.b) * 255),
   }
 }
 
