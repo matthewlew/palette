@@ -11,6 +11,9 @@ const sampleGradient: Gradient = {
   ],
 }
 
+// Requires the "test" script's NODE_OPTIONS=--no-experimental-webstorage flag
+// (package.json) — Node 25's native localStorage global otherwise shadows
+// jsdom's, and localStorage.clear() below throws.
 beforeEach(() => {
   localStorage.clear()
   useAppStore.setState(useAppStore.getInitialState())
@@ -37,6 +40,16 @@ describe('useAppStore', () => {
   it('dedupes saving the same gradient signature twice', () => {
     useAppStore.getState().saveGradient(sampleGradient)
     useAppStore.getState().saveGradient({ ...sampleGradient, id: 'g1-dup' })
+    expect(useAppStore.getState().saved).toHaveLength(1)
+  })
+
+  it('dedupes gradients whose stops are the same but in a different order', () => {
+    useAppStore.getState().saveGradient(sampleGradient)
+    useAppStore.getState().saveGradient({
+      ...sampleGradient,
+      id: 'g1-reordered',
+      stops: [...sampleGradient.stops].reverse(),
+    })
     expect(useAppStore.getState().saved).toHaveLength(1)
   })
 

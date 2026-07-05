@@ -3,7 +3,8 @@ import { persist } from 'zustand/middleware'
 import type { Gradient, ViewMode } from './types'
 
 function gradientSignature(gradient: Gradient): string {
-  return `${gradient.type}:${gradient.stops.map((s) => `${s.hex}@${s.position}`).join(',')}`
+  const sortedStops = [...gradient.stops].sort((a, b) => a.position - b.position)
+  return `${gradient.type}:${sortedStops.map((s) => `${s.hex}@${s.position}`).join(',')}`
 }
 
 interface AppState {
