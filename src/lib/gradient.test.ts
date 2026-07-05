@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildGradientCss, type GradientStop, type GradientType } from './gradient'
+import { buildGradientCss, type GradientStop } from './gradient'
 
 const stops: GradientStop[] = [
   { hex: '#ff0000', position: 0 },
