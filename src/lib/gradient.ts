@@ -16,10 +16,10 @@ function stopsToCss(stops: GradientStop[]): string {
 }
 
 function buildSquareGradient(stops: GradientStop[]): string {
-  const segmentCount = 4
+  const segmentCount = stops.length
   const degreesPerSegment = 360 / segmentCount
   const segments = Array.from({ length: segmentCount }, (_, i) => {
-    const stop = stops[i % stops.length]
+    const stop = stops[i]
     const start = i * degreesPerSegment
     const end = (i + 1) * degreesPerSegment
     return `${stop.hex} ${start}deg ${end}deg`
