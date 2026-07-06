@@ -133,6 +133,26 @@ describe('Feed', () => {
     }
   })
 
+  it('locks the geometry type from the pre-existing store gradient at mount, not a random pick', () => {
+    const preExisting = {
+      id: 'pre-existing-id',
+      type: 'square' as const,
+      stops: [
+        { hex: '#123456', position: 0 },
+        { hex: '#abcdef', position: 100 },
+      ],
+    }
+    useAppStore.getState().setCurrentGradient(preExisting)
+
+    render(<Feed />)
+    const container = screen.getByTestId('feed-container')
+
+    fireEvent.wheel(container, { deltaY: STEP_PX })
+
+    expect(useAppStore.getState().current).not.toEqual(preExisting)
+    expect(useAppStore.getState().current!.type).toBe('square')
+  })
+
   it('vibrates once per real step crossed via wheel scrubbing', () => {
     const vibrateMock = vi.fn()
     Object.defineProperty(navigator, 'vibrate', {

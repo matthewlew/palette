@@ -46,11 +46,12 @@ export function Feed() {
 
   // The gradient "shape" (geometry type) is locked once per Feed mount so
   // that scrubbing through the rolodex only varies colors/stops, never the
-  // underlying shape. Lazily initialized so it's picked exactly once.
+  // underlying shape. `useRef` has no lazy initializer, so this starts as
+  // null and is resolved exactly once in the mount effect below, where
+  // `current` (from the store) is read at the correct point in time: if a
+  // gradient already exists in the store at mount, its type is reused;
+  // otherwise a random type is picked.
   const lockedTypeRef = useRef<GradientType | null>(null)
-  if (lockedTypeRef.current === null) {
-    lockedTypeRef.current = pickRandomType()
-  }
 
   // The single piece of React state: whatever gradient is currently shown.
   // Re-renders are triggered explicitly via setDisplayed, never implicitly.
@@ -59,10 +60,14 @@ export function Feed() {
   // Initialize history with a first gradient on mount, if the store doesn't
   // already have one. This is the only place that writes to the store AND
   // to `displayed`/history as a single, deliberate action, so it can't race
-  // with the external-sync effect below.
+  // with the external-sync effect below. This is also where the locked
+  // geometry type is resolved (see lockedTypeRef comment above).
   useEffect(() => {
+    if (lockedTypeRef.current === null) {
+      lockedTypeRef.current = current ? current.type : pickRandomType()
+    }
     if (historyRef.current.length === 0) {
-      const initial = current ?? makeGradient(lockedTypeRef.current!)
+      const initial = current ?? makeGradient(lockedTypeRef.current)
       historyRef.current = [initial]
       indexRef.current = 0
       setDisplayed(initial)
