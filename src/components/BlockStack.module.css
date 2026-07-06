@@ -1,0 +1,33 @@
+.stack {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.block {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  border-top: 1px solid transparent;
+  min-height: 0;
+}
+
+.label {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.removeButton {
+  background: none;
+  border: none;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  color: inherit;
+}
