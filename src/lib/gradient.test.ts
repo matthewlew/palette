@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { buildGradientCss, type GradientStop } from './gradient'
+import { blendOklchHex, hexToOklch } from './oklch'
 
 const stops: GradientStop[] = [
   { hex: '#ff0000', position: 0 },
@@ -51,5 +52,64 @@ describe('buildGradientCss', () => {
 
   it('throws for fewer than 2 stops', () => {
     expect(() => buildGradientCss('linear', [stops[0]])).toThrow()
+  })
+})
+
+describe('buildGradientCss reversed flag', () => {
+  it('reverses stop order when reversed=true, for a type that is otherwise order-sensitive', () => {
+    const forward = buildGradientCss('linear', stops, false)
+    const reversed = buildGradientCss('linear', stops, true)
+    expect(forward).toBe('linear-gradient(180deg, #ff0000 0%, #00ff00 50%, #0000ff 100%)')
+    expect(reversed).toBe('linear-gradient(180deg, #0000ff 0%, #00ff00 50%, #ff0000 100%)')
+  })
+
+  it('defaults to reversed=false when the third argument is omitted', () => {
+    expect(buildGradientCss('linear', stops)).toBe(buildGradientCss('linear', stops, false))
+  })
+})
+
+describe('buildGradientCss mirror type', () => {
+  it('builds a symmetric linear-gradient without duplicating the midpoint stop', () => {
+    const css = buildGradientCss('mirror', stops)
+    // 3 input stops -> mirrored to 5: A, B, C, B, A (C is the single axis of symmetry)
+    expect(css).toContain('linear-gradient(180deg,')
+    expect(css).toContain('#ff0000 0%')
+    expect(css).toContain('#0000ff 100%')
+    // The color one step in from each end should be the middle color (B, #00ff00),
+    // and the true center of the 5-stop sequence should be the original last color (C).
+    const matches = css.match(/#[0-9a-f]{6} \d+%/g)!
+    expect(matches).toHaveLength(5)
+    expect(matches[2]).toBe('#0000ff 50%')
+  })
+
+  it('respects the reversed flag for mirror type', () => {
+    const forward = buildGradientCss('mirror', stops, false)
+    const reversed = buildGradientCss('mirror', stops, true)
+    expect(forward).not.toBe(reversed)
+  })
+})
+
+describe('buildGradientCss repeat type', () => {
+  it('builds a linear-gradient that repeats the stop sequence twice with a blended seam', () => {
+    const css = buildGradientCss('repeat', stops)
+    expect(css).toContain('linear-gradient(180deg,')
+    // 3 stops repeated with one inserted seam stop = 7 total stops.
+    const matches = css.match(/#[0-9a-f]{6} \d+%/g)!
+    expect(matches).toHaveLength(7)
+    // The sequence is [A,B,C,seam,A,B,C], so the very first and very last
+    // stops are both the original last color's repeat-cycle bookends: the
+    // first stop is A (#ff0000) and the last stop is C (#0000ff) — the
+    // second full pass through the same 3 colors.
+    expect(matches[0]).toBe('#ff0000 0%')
+    expect(matches[6]).toBe('#0000ff 100%')
+  })
+
+  it('inserts a seam color that is an OKLCH blend of the last and first colors', () => {
+    const css = buildGradientCss('repeat', stops)
+    const matches = css.match(/#[0-9a-f]{6}/g)!
+    const seamHex = matches[3] // index 3 of 7 stops is the middle/seam stop
+    const expectedSeam = blendOklchHex('#0000ff', '#ff0000', 0.5)
+    // Compare lightness rather than exact hex, since rounding can differ by 1.
+    expect(Math.abs(hexToOklch(seamHex).l - hexToOklch(expectedSeam).l)).toBeLessThan(0.02)
   })
 })

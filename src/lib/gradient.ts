@@ -1,3 +1,5 @@
+import { blendOklchHex } from './oklch'
+
 export type GradientType = 'linear' | 'radial' | 'angular' | 'square' | 'mirror' | 'repeat'
 
 export interface GradientStop {
@@ -27,17 +29,52 @@ function buildSquareGradient(stops: GradientStop[]): string {
   return `conic-gradient(from 0deg, ${segments.join(', ')})`
 }
 
-export function buildGradientCss(type: GradientType, stops: GradientStop[]): string {
+function applyReversed(stops: GradientStop[], reversed: boolean): GradientStop[] {
+  if (!reversed) return stops
+  const reversedHexes = [...stops].reverse().map((s) => s.hex)
+  return stops.map((s, i) => ({ hex: reversedHexes[i], position: s.position }))
+}
+
+function positionedStops(hexes: string[]): GradientStop[] {
+  const count = hexes.length
+  return hexes.map((hex, i) => ({
+    hex,
+    position: count === 1 ? 0 : Math.round((i / (count - 1)) * 100),
+  }))
+}
+
+function buildMirrorGradient(stops: GradientStop[]): string {
+  const forward = stops.map((s) => s.hex)
+  // Reflect the sequence, using the last color as the single axis of symmetry
+  // and looping back to it rather than all the way back to the first color:
+  // [A,B,C] -> [A,B,C,B,C].
+  const mirrored = [...forward, ...forward.slice(1)]
+  return `linear-gradient(180deg, ${stopsToCss(positionedStops(mirrored))})`
+}
+
+function buildRepeatGradient(stops: GradientStop[]): string {
+  const hexes = stops.map((s) => s.hex)
+  const seam = blendOklchHex(hexes[hexes.length - 1], hexes[0], 0.5)
+  const sequence = [...hexes, seam, ...hexes]
+  return `linear-gradient(180deg, ${stopsToCss(positionedStops(sequence))})`
+}
+
+export function buildGradientCss(type: GradientType, stops: GradientStop[], reversed = false): string {
   assertStops(stops)
+  const orderedStops = applyReversed(stops, reversed)
 
   switch (type) {
     case 'linear':
-      return `linear-gradient(180deg, ${stopsToCss(stops)})`
+      return `linear-gradient(180deg, ${stopsToCss(orderedStops)})`
     case 'radial':
-      return `radial-gradient(circle, ${stopsToCss(stops)})`
+      return `radial-gradient(circle, ${stopsToCss(orderedStops)})`
     case 'angular':
-      return `conic-gradient(${stopsToCss(stops)})`
+      return `conic-gradient(${stopsToCss(orderedStops)})`
     case 'square':
-      return buildSquareGradient(stops)
+      return buildSquareGradient(orderedStops)
+    case 'mirror':
+      return buildMirrorGradient(orderedStops)
+    case 'repeat':
+      return buildRepeatGradient(orderedStops)
   }
 }
