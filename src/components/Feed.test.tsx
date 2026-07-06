@@ -1,11 +1,18 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { Feed } from './Feed'
 import { useAppStore } from '../store/useAppStore'
 import * as paletteLib from '../lib/palette'
 
+const STEP_PX = 80
+
 beforeEach(() => {
   useAppStore.setState(useAppStore.getInitialState())
+})
+
+afterEach(() => {
+  cleanup()
+  vi.restoreAllMocks()
 })
 
 describe('Feed', () => {
@@ -14,43 +21,101 @@ describe('Feed', () => {
     expect(useAppStore.getState().current).not.toBeNull()
   })
 
-  it('renders a GradientPage for the current gradient', () => {
+  it('renders exactly one GradientPage (no double-buffer)', () => {
     render(<Feed />)
-    expect(screen.getAllByTestId('gradient-page').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByTestId('gradient-page')).toHaveLength(1)
   })
 
-  it('double-buffers by rendering both the current and next GradientPage, giving the container real scrollable content', () => {
-    render(<Feed />)
-    expect(screen.getAllByTestId('gradient-page')).toHaveLength(2)
-  })
-
-  it('generates a new gradient when scrolled near the bottom boundary', () => {
+  it('crosses the step threshold via accumulated wheel deltaY and shows a new gradient', () => {
     render(<Feed />)
     const first = useAppStore.getState().current
     const container = screen.getByTestId('feed-container')
 
     const generateSpy = vi.spyOn(paletteLib, 'generateGradientStops')
 
-    Object.defineProperty(container, 'scrollTop', { value: 900, writable: true })
-    Object.defineProperty(container, 'scrollHeight', { value: 1000, writable: true })
-    Object.defineProperty(container, 'clientHeight', { value: 800, writable: true })
-    container.dispatchEvent(new Event('scroll'))
+    fireEvent.wheel(container, { deltaY: STEP_PX })
 
-    // Promoting `next` to `current` doesn't itself call generateGradientStops,
-    // but replacing the now-consumed `next` with a fresh one does.
     expect(generateSpy).toHaveBeenCalled()
     expect(useAppStore.getState().current).not.toEqual(first)
   })
 
-  it('resets scrollTop to 0 after promoting the next gradient, so the feed snaps back to the top page', () => {
+  it('scrolling backward after moving forward returns to the exact same previous gradient', () => {
     render(<Feed />)
-    const container = screen.getByTestId('feed-container') as HTMLDivElement
+    const first = useAppStore.getState().current
 
-    Object.defineProperty(container, 'scrollTop', { value: 900, writable: true })
-    Object.defineProperty(container, 'scrollHeight', { value: 1000, writable: true })
-    Object.defineProperty(container, 'clientHeight', { value: 800, writable: true })
-    container.dispatchEvent(new Event('scroll'))
+    const container = screen.getByTestId('feed-container')
 
-    expect(container.scrollTop).toBe(0)
+    // Advance forward one step.
+    fireEvent.wheel(container, { deltaY: STEP_PX })
+    const second = useAppStore.getState().current
+    expect(second).not.toEqual(first)
+
+    // Advance forward another step.
+    fireEvent.wheel(container, { deltaY: STEP_PX })
+    const third = useAppStore.getState().current
+    expect(third).not.toEqual(second)
+
+    // Now scroll back one step: should return to `second`, not a fresh gradient.
+    fireEvent.wheel(container, { deltaY: -STEP_PX })
+    expect(useAppStore.getState().current).toEqual(second)
+
+    // Scroll back again: should return to `first`.
+    fireEvent.wheel(container, { deltaY: -STEP_PX })
+    expect(useAppStore.getState().current).toEqual(first)
+  })
+
+  it('does not go below index 0 when scrolling backward past the first gradient', () => {
+    render(<Feed />)
+    const first = useAppStore.getState().current
+    const container = screen.getByTestId('feed-container')
+
+    const generateSpy = vi.spyOn(paletteLib, 'generateGradientStops')
+
+    fireEvent.wheel(container, { deltaY: -STEP_PX })
+    fireEvent.wheel(container, { deltaY: -STEP_PX })
+
+    expect(useAppStore.getState().current).toEqual(first)
+    expect(generateSpy).not.toHaveBeenCalled()
+  })
+
+  it('accumulates sub-threshold wheel deltas without changing the gradient until the threshold is crossed', () => {
+    render(<Feed />)
+    const first = useAppStore.getState().current
+    const container = screen.getByTestId('feed-container')
+
+    fireEvent.wheel(container, { deltaY: STEP_PX / 2 })
+    expect(useAppStore.getState().current).toEqual(first)
+
+    fireEvent.wheel(container, { deltaY: STEP_PX / 2 })
+    expect(useAppStore.getState().current).not.toEqual(first)
+  })
+
+  it('syncs an externally-set store.current (e.g. Drawer selection) by overwriting the current slot without generating a new gradient', () => {
+    render(<Feed />)
+    const container = screen.getByTestId('feed-container')
+
+    // Advance forward once so we're at index 1.
+    fireEvent.wheel(container, { deltaY: STEP_PX })
+    const atIndexOne = useAppStore.getState().current
+
+    const externalGradient = {
+      id: 'external-id',
+      type: 'linear' as const,
+      stops: [
+        { hex: '#000000', position: 0 },
+        { hex: '#ffffff', position: 100 },
+      ],
+    }
+
+    useAppStore.getState().setCurrentGradient(externalGradient)
+
+    expect(useAppStore.getState().current).toEqual(externalGradient)
+    expect(useAppStore.getState().current).not.toEqual(atIndexOne)
+
+    // Scrolling backward one step should now return to the ORIGINAL first
+    // gradient (index 0), not `atIndexOne`, confirming the external gradient
+    // overwrote the slot at the current index rather than shifting it.
+    fireEvent.wheel(container, { deltaY: -STEP_PX })
+    expect(screen.getAllByTestId('gradient-page')).toHaveLength(1)
   })
 })
