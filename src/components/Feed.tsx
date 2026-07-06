@@ -12,11 +12,17 @@ function pickRandomType(): GradientType {
   return GEOMETRY_TYPES[Math.floor(Math.random() * GEOMETRY_TYPES.length)]
 }
 
-function makeGradient(): Gradient {
+function makeGradient(type: GradientType): Gradient {
   return {
     id: crypto.randomUUID(),
-    type: pickRandomType(),
+    type,
     stops: generateGradientStops(),
+  }
+}
+
+function vibrateStep() {
+  if ('vibrate' in navigator) {
+    navigator.vibrate(10)
   }
 }
 
@@ -38,6 +44,14 @@ export function Feed() {
   const accumulatedDeltaRef = useRef(0)
   const lastTouchYRef = useRef<number | null>(null)
 
+  // The gradient "shape" (geometry type) is locked once per Feed mount so
+  // that scrubbing through the rolodex only varies colors/stops, never the
+  // underlying shape. Lazily initialized so it's picked exactly once.
+  const lockedTypeRef = useRef<GradientType | null>(null)
+  if (lockedTypeRef.current === null) {
+    lockedTypeRef.current = pickRandomType()
+  }
+
   // The single piece of React state: whatever gradient is currently shown.
   // Re-renders are triggered explicitly via setDisplayed, never implicitly.
   const [displayed, setDisplayed] = useState<Gradient | null>(null)
@@ -48,7 +62,7 @@ export function Feed() {
   // with the external-sync effect below.
   useEffect(() => {
     if (historyRef.current.length === 0) {
-      const initial = current ?? makeGradient()
+      const initial = current ?? makeGradient(lockedTypeRef.current!)
       historyRef.current = [initial]
       indexRef.current = 0
       setDisplayed(initial)
@@ -84,9 +98,14 @@ export function Feed() {
       return
     }
 
+    if (newIndex === indexRef.current) {
+      return
+    }
+
     if (newIndex >= history.length) {
-      // Forward past the end of history: generate a brand-new gradient.
-      const fresh = makeGradient()
+      // Forward past the end of history: generate a brand-new gradient,
+      // keeping the same locked shape for this Feed session.
+      const fresh = makeGradient(lockedTypeRef.current!)
       history.push(fresh)
     }
 
@@ -94,6 +113,7 @@ export function Feed() {
     const next = history[newIndex]
     setDisplayed(next)
     setCurrentGradient(next)
+    vibrateStep()
   }
 
   function consumeAccumulatedDelta() {

@@ -118,4 +118,75 @@ describe('Feed', () => {
     fireEvent.wheel(container, { deltaY: -STEP_PX })
     expect(screen.getAllByTestId('gradient-page')).toHaveLength(1)
   })
+
+  it('keeps the same gradient shape/type across multiple forward-generated gradients in one mount', () => {
+    render(<Feed />)
+    const container = screen.getByTestId('feed-container')
+
+    const first = useAppStore.getState().current
+    expect(first).not.toBeNull()
+    const lockedType = first!.type
+
+    for (let i = 0; i < 4; i++) {
+      fireEvent.wheel(container, { deltaY: STEP_PX })
+      expect(useAppStore.getState().current!.type).toBe(lockedType)
+    }
+  })
+
+  it('vibrates once per real step crossed via wheel scrubbing', () => {
+    const vibrateMock = vi.fn()
+    Object.defineProperty(navigator, 'vibrate', {
+      value: vibrateMock,
+      configurable: true,
+    })
+
+    render(<Feed />)
+    const container = screen.getByTestId('feed-container')
+
+    fireEvent.wheel(container, { deltaY: STEP_PX })
+    expect(vibrateMock).toHaveBeenCalledTimes(1)
+    expect(vibrateMock).toHaveBeenCalledWith(10)
+
+    fireEvent.wheel(container, { deltaY: STEP_PX })
+    expect(vibrateMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not vibrate when scrolling backward is a no-op at the floor (index 0)', () => {
+    const vibrateMock = vi.fn()
+    Object.defineProperty(navigator, 'vibrate', {
+      value: vibrateMock,
+      configurable: true,
+    })
+
+    render(<Feed />)
+    const container = screen.getByTestId('feed-container')
+
+    fireEvent.wheel(container, { deltaY: -STEP_PX })
+    fireEvent.wheel(container, { deltaY: -STEP_PX })
+
+    expect(vibrateMock).not.toHaveBeenCalled()
+  })
+
+  it('does not vibrate when store.current changes externally (Drawer selection), only on actual scrub steps', () => {
+    const vibrateMock = vi.fn()
+    Object.defineProperty(navigator, 'vibrate', {
+      value: vibrateMock,
+      configurable: true,
+    })
+
+    render(<Feed />)
+
+    const externalGradient = {
+      id: 'external-id-2',
+      type: 'linear' as const,
+      stops: [
+        { hex: '#111111', position: 0 },
+        { hex: '#eeeeee', position: 100 },
+      ],
+    }
+
+    useAppStore.getState().setCurrentGradient(externalGradient)
+
+    expect(vibrateMock).not.toHaveBeenCalled()
+  })
 })
