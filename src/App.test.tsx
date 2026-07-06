@@ -14,7 +14,7 @@ describe('App', () => {
     expect(screen.getByTestId('feed-container')).toBeInTheDocument()
   })
 
-  it('shows the EditModeStub after a single tap on the gradient', () => {
+  it('shows the EditMode after a single tap on the gradient', () => {
     vi.useFakeTimers()
     render(<App />)
     const [page] = screen.getAllByTestId('gradient-page')
@@ -24,7 +24,7 @@ describe('App', () => {
       vi.advanceTimersByTime(350)
     })
 
-    expect(screen.getByTestId('edit-mode-stub')).toBeInTheDocument()
+    expect(screen.getByTestId('edit-mode')).toBeInTheDocument()
     vi.useRealTimers()
   })
 
