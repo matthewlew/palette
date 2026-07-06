@@ -1,4 +1,4 @@
-export type GradientType = 'linear' | 'radial' | 'angular' | 'square'
+export type GradientType = 'linear' | 'radial' | 'angular' | 'square' | 'mirror' | 'repeat'
 
 export interface GradientStop {
   hex: string
