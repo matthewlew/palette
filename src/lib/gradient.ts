@@ -45,10 +45,9 @@ function positionedStops(hexes: string[]): GradientStop[] {
 
 function buildMirrorGradient(stops: GradientStop[]): string {
   const forward = stops.map((s) => s.hex)
-  // Reflect the sequence, using the last color as the single axis of symmetry
-  // and looping back to it rather than all the way back to the first color:
-  // [A,B,C] -> [A,B,C,B,C].
-  const mirrored = [...forward, ...forward.slice(1)]
+  // A true palindrome: reflect back to the start without duplicating the
+  // last color at the axis of symmetry: [A,B,C] -> [A,B,C,B,A].
+  const mirrored = [...forward, ...forward.slice(0, -1).reverse()]
   return `linear-gradient(180deg, ${stopsToCss(positionedStops(mirrored))})`
 }
 

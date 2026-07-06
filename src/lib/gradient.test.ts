@@ -69,17 +69,17 @@ describe('buildGradientCss reversed flag', () => {
 })
 
 describe('buildGradientCss mirror type', () => {
-  it('builds a symmetric linear-gradient without duplicating the midpoint stop', () => {
+  it('builds a true palindrome (A,B,C,B,A) without duplicating the midpoint stop', () => {
     const css = buildGradientCss('mirror', stops)
-    // 3 input stops -> mirrored to 5: A, B, C, B, A (C is the single axis of symmetry)
+    // 3 input stops -> mirrored to 5: A, B, C, B, A. A true reflection starts
+    // AND ends at the same color (A); C is the single axis of symmetry in the
+    // middle, not at either end.
     expect(css).toContain('linear-gradient(180deg,')
-    expect(css).toContain('#ff0000 0%')
-    expect(css).toContain('#0000ff 100%')
-    // The color one step in from each end should be the middle color (B, #00ff00),
-    // and the true center of the 5-stop sequence should be the original last color (C).
     const matches = css.match(/#[0-9a-f]{6} \d+%/g)!
     expect(matches).toHaveLength(5)
+    expect(matches[0]).toBe('#ff0000 0%')
     expect(matches[2]).toBe('#0000ff 50%')
+    expect(matches[4]).toBe('#ff0000 100%')
   })
 
   it('respects the reversed flag for mirror type', () => {
