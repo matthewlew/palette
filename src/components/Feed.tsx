@@ -13,10 +13,13 @@ function pickRandomType(): GradientType {
 }
 
 function makeGradient(type: GradientType): Gradient {
+  const { seedName, stops } = generateGradientStops()
   return {
     id: crypto.randomUUID(),
     type,
-    stops: generateGradientStops(),
+    stops,
+    seedName,
+    reversed: false,
   }
 }
 

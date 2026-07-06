@@ -38,7 +38,7 @@ export function GradientPage({ gradient, onSave, onEdit }: GradientPageProps) {
       data-testid="gradient-page"
       className={styles.page}
       style={{
-        backgroundImage: buildGradientCss(gradient.type, gradient.stops),
+        backgroundImage: buildGradientCss(gradient.type, gradient.stops, gradient.reversed),
         touchAction: 'manipulation',
       }}
       onPointerUp={onPointerUp}

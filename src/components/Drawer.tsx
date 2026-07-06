@@ -17,7 +17,7 @@ export function Drawer({ saved, onSelect }: DrawerProps) {
           data-testid="drawer-thumbnail"
           aria-label={`Saved ${gradient.type} gradient`}
           className={styles.thumbnail}
-          style={{ backgroundImage: buildGradientCss(gradient.type, gradient.stops) }}
+          style={{ backgroundImage: buildGradientCss(gradient.type, gradient.stops, gradient.reversed) }}
           onClick={() => onSelect(gradient)}
         />
       ))}
