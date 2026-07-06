@@ -22,6 +22,10 @@ export function useDragReorder<T>(items: T[], onReorder: (next: T[]) => void) {
   const startTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const accumulatedDeltaRef = useRef(0)
   const lastPointerYRef = useRef<number | null>(null)
+  // Mirrors the latest `items` into a ref on every render so pointer-move
+  // handlers (which fire between renders) always see the current list. Safe
+  // to assign during render: nothing reads it synchronously in this same
+  // render, only later from event-handler closures after commit.
   const itemsRef = useRef(items)
   itemsRef.current = items
 
@@ -60,6 +64,10 @@ export function useDragReorder<T>(items: T[], onReorder: (next: T[]) => void) {
       lastPointerYRef.current = clientY
       return
     }
+    // Dragging down moves the item to a later index — the natural,
+    // non-inverted mapping for reordering a list. This is the opposite sign
+    // convention from Feed.tsx's scroll handling, which deliberately inverts
+    // "drag up" to mean "scroll forward"; the two aren't the same operation.
     accumulatedDeltaRef.current += clientY - lastPointerYRef.current
     lastPointerYRef.current = clientY
 
