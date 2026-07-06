@@ -209,4 +209,63 @@ describe('Feed', () => {
 
     expect(vibrateMock).not.toHaveBeenCalled()
   })
+
+  it('crosses the step threshold via accumulated touchmove drag (dragging up = forward)', () => {
+    render(<Feed />)
+    const first = useAppStore.getState().current
+    const container = screen.getByTestId('feed-container')
+
+    const generateSpy = vi.spyOn(paletteLib, 'generateGradientStops')
+
+    fireEvent.touchStart(container, { touches: [{ clientY: 400 }] })
+    // Drag up in two increments totaling STEP_PX of upward movement.
+    fireEvent.touchMove(container, { touches: [{ clientY: 400 - STEP_PX / 2 }] })
+    fireEvent.touchMove(container, { touches: [{ clientY: 400 - STEP_PX }] })
+
+    expect(generateSpy).toHaveBeenCalled()
+    expect(useAppStore.getState().current).not.toEqual(first)
+  })
+
+  it('drags down via touchmove to move backward through history', () => {
+    render(<Feed />)
+    const container = screen.getByTestId('feed-container')
+
+    // Move forward one step via wheel first, to have history to go back through.
+    fireEvent.wheel(container, { deltaY: STEP_PX })
+    const second = useAppStore.getState().current
+
+    fireEvent.wheel(container, { deltaY: STEP_PX })
+    expect(useAppStore.getState().current).not.toEqual(second)
+
+    // Now drag DOWN (increasing clientY) via touch to move backward.
+    fireEvent.touchStart(container, { touches: [{ clientY: 200 }] })
+    fireEvent.touchMove(container, { touches: [{ clientY: 200 + STEP_PX }] })
+
+    expect(useAppStore.getState().current).toEqual(second)
+  })
+
+  it('resets tracked touch position on touchend, so a later gesture is not affected by a prior aborted one', () => {
+    render(<Feed />)
+    const first = useAppStore.getState().current
+    const container = screen.getByTestId('feed-container')
+
+    // First gesture: move partway (not enough to cross threshold), then abort via touchend
+    // WITHOUT a subsequent touchstart resetting the tracked position naturally.
+    fireEvent.touchStart(container, { touches: [{ clientY: 500 }] })
+    fireEvent.touchMove(container, { touches: [{ clientY: 500 - STEP_PX / 4 }] })
+    fireEvent.touchEnd(container)
+    expect(useAppStore.getState().current).toEqual(first)
+
+    // Simulate the next gesture as a "naked" touchmove without a preceding
+    // touchstart in between (e.g. a stray/duplicate move event, or a browser
+    // that doesn't always fire touchstart cleanly). If touchend had reset
+    // lastTouchYRef to null, this move is ignored (per the touchY == null ||
+    // lastTouchYRef.current == null guard) rather than computing a delta
+    // from the stale prior gesture's last position (500 - STEP_PX/4).
+    fireEvent.touchMove(container, { touches: [{ clientY: 500 - STEP_PX / 4 - STEP_PX }] })
+
+    // With correct reset behavior, this move is dropped (treated as a new
+    // gesture start), so the gradient should NOT have changed.
+    expect(useAppStore.getState().current).toEqual(first)
+  })
 })
