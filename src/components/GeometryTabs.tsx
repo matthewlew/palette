@@ -31,6 +31,7 @@ export function GeometryTabs({ type, onSelectType, onToggleReversed }: GeometryT
         <button
           key={tab.type}
           type="button"
+          aria-pressed={tab.type === type}
           className={tab.type === type ? styles.tabActive : styles.tab}
           onClick={() => handleTap(tab.type)}
         >
