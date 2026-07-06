@@ -22,6 +22,12 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   const [editableStops, setEditableStops] = useState<EditableStop[]>(() => toEditableStops(gradient.stops))
   const blockContainerRef = useRef<HTMLDivElement>(null) as RefObject<HTMLDivElement>
 
+  // Re-derives editableStops only when the gradient identity changes, not on
+  // every stops mutation — safe only because nothing else calls
+  // setCurrentGradient while EditMode is mounted (Feed, the only other
+  // caller, is unmounted whenever mode === 'edit'). If a future change adds
+  // another setCurrentGradient caller reachable in edit mode, this would
+  // silently drift from the store.
   useEffect(() => {
     setEditableStops(toEditableStops(gradient.stops))
     // eslint-disable-next-line react-hooks/exhaustive-deps
