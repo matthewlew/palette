@@ -14,7 +14,12 @@ function jitter(color: Oklch): Oklch {
   }
 }
 
-export function generateGradientStops(): GradientStop[] {
+export interface GeneratedGradientStops {
+  seedName: string
+  stops: GradientStop[]
+}
+
+export function generateGradientStops(): GeneratedGradientStops {
   const seed = pickRandom(SEED_PALETTES)
   const stopCount = 3 + Math.floor(Math.random() * 4) // 3-6
 
@@ -24,8 +29,10 @@ export function generateGradientStops(): GradientStop[] {
     colors.push(jitter(base))
   }
 
-  return colors.map((color, i) => ({
+  const stops = colors.map((color, i) => ({
     hex: oklchToHex(color),
     position: Math.round((i / (stopCount - 1)) * 100),
   }))
+
+  return { seedName: seed.name, stops }
 }
