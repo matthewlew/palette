@@ -31,6 +31,9 @@ function buildSquareGradient(stops: GradientStop[]): string {
 
 function applyReversed(stops: GradientStop[], reversed: boolean): GradientStop[] {
   if (!reversed) return stops
+  // Swap which color sits at each position, but keep positions themselves
+  // fixed — CSS gradient rendering is driven by position, not array order,
+  // so reversing whole {hex, position} stop objects together is a no-op.
   const reversedHexes = [...stops].reverse().map((s) => s.hex)
   return stops.map((s, i) => ({ hex: reversedHexes[i], position: s.position }))
 }
