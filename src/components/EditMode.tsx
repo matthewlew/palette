@@ -38,7 +38,6 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   const saveGradient = useAppStore((s) => s.saveGradient)
   const activeColorSet = useAppStore((s) => s.activeColorSet)
   const [editableStops, setEditableStops] = useState<EditableStop[]>(() => toEditableStops(gradient.stops))
-  const [insertionIndex, setInsertionIndex] = useState<number | null>(null)
   const blockContainerRef = useRef<HTMLDivElement>(null) as RefObject<HTMLDivElement>
   const { visible: heartVisible, flash } = useHeartFlash()
   const editHint = useHint('edit')
@@ -88,19 +87,8 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
     return point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom
   }
 
-  function handleTrayDragMove(point: { x: number; y: number }) {
-    const el = blockContainerRef.current
-    if (!el || isWheel) return
-    if (!isPointOverElement(point, el)) {
-      setInsertionIndex(null)
-      return
-    }
-    setInsertionIndex(verticalInsertionIndex(point.y, computeStackMidpoints(el)))
-  }
-
   function handleDragAddFromTray(hex: string, point: { x: number; y: number }) {
     const el = blockContainerRef.current
-    setInsertionIndex(null)
     if (!el) return
     if (!isPointOverElement(point, el)) return
     if (isWheel) {
@@ -195,7 +183,6 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
         onTapAdd={handleTapAdd}
         onTapRemove={handleTapRemove}
         onDragAdd={handleDragAddFromTray}
-        onDragMove={handleTrayDragMove}
       />
       {editHint.visible && <Hint text="Tap a swatch to edit" visible={editHint.visible} />}
     </div>
