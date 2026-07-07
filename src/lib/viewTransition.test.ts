@@ -3,7 +3,6 @@ import { withViewTransition } from './viewTransition'
 
 afterEach(() => {
   vi.unstubAllGlobals()
-  // @ts-expect-error cleanup test-only property
   delete (document as any).startViewTransition
 })
 
