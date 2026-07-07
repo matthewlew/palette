@@ -158,6 +158,23 @@ describe('EditMode', () => {
     expect(updated.stops.map((s) => s.position)).toEqual([0, 50, 100])
   })
 
+  it('sorting also re-equalizes the on-screen flow handle positions, not just the store', () => {
+    const unequalPositions: Gradient = {
+      id: 'g3b',
+      type: 'linear',
+      stops: [
+        { hex: '#0000ff', position: 5 }, // dark
+        { hex: '#00ff00', position: 40 }, // light
+        { hex: '#ff0000', position: 95 }, // mid
+      ],
+      reversed: false,
+    }
+    render(<EditMode gradient={unequalPositions} onExit={vi.fn()} />)
+    fireEvent.click(screen.getByLabelText('Sort by lightness'))
+    const handles = screen.getAllByRole('slider')
+    expect(handles.map((h) => h.getAttribute('aria-valuenow'))).toEqual(['0', '50', '100'])
+  })
+
   it('drag-adding a swatch onto the flow track (non-wheel type) inserts using the largest-gap heuristic', () => {
     vi.useFakeTimers()
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)

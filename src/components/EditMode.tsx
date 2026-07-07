@@ -53,11 +53,12 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   }, [])
 
   function commit(nextStops: EditableStop[], overrides?: Partial<Pick<Gradient, 'type' | 'reversed'>>) {
-    setEditableStops(nextStops)
+    const equalized = equalizePositions(nextStops)
+    setEditableStops(nextStops.map((stop, i) => ({ ...stop, position: equalized[i].position })))
     setCurrentGradient({
       ...gradient,
       ...overrides,
-      stops: equalizePositions(nextStops),
+      stops: equalized,
     })
   }
 
