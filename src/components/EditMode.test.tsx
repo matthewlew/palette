@@ -124,6 +124,23 @@ describe('EditMode', () => {
     expect(updated.stops.map((s) => s.hex)).toEqual(['#0000ff', '#ff0000', '#00ff00'])
   })
 
+  it('sorting by lightness also re-equalizes stop positions evenly', () => {
+    const unequalPositions: Gradient = {
+      id: 'g3',
+      type: 'linear',
+      stops: [
+        { hex: '#0000ff', position: 5 }, // dark
+        { hex: '#00ff00', position: 40 }, // light
+        { hex: '#ff0000', position: 95 }, // mid
+      ],
+      reversed: false,
+    }
+    render(<EditMode gradient={unequalPositions} onExit={vi.fn()} />)
+    fireEvent.click(screen.getByLabelText('Sort by lightness'))
+    const updated = useAppStore.getState().current!
+    expect(updated.stops.map((s) => s.position)).toEqual([0, 50, 100])
+  })
+
   it('drag-adding a swatch inserts at the computed index, not just appended', () => {
     vi.useFakeTimers()
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
