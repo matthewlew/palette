@@ -23,7 +23,8 @@
 }
 
 .preview {
-  flex: 0 0 40%;
+  flex: 1;
+  min-height: 0;
   position: relative;
   touch-action: manipulation;
 }
@@ -48,8 +49,10 @@
 }
 
 .blockArea {
-  flex: 1;
+  position: relative;
+  flex: 0 0 72px;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   min-height: 0;
 }

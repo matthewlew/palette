@@ -32,22 +32,36 @@ describe('FlowEditor', () => {
     }
   })
 
-  it('ArrowUp decreases position by 1 and ArrowDown increases it by 1', () => {
+  it('ArrowLeft decreases position by 1 and ArrowRight increases it by 1', () => {
     const onMove = vi.fn()
     render(<FlowEditor stops={stops} onMove={onMove} onTapStop={vi.fn()} />)
     const handle = screen.getByLabelText('Stop #00ff00')
-    fireEvent.keyDown(handle, { key: 'ArrowUp' })
+    fireEvent.keyDown(handle, { key: 'ArrowLeft' })
     expect(onMove).toHaveBeenCalledWith('b', 49)
-    fireEvent.keyDown(handle, { key: 'ArrowDown' })
+    fireEvent.keyDown(handle, { key: 'ArrowRight' })
     expect(onMove).toHaveBeenCalledWith('b', 51)
   })
 
-  it('Shift+ArrowUp/ArrowDown moves position by 10', () => {
+  it('Shift+ArrowRight moves position by 10', () => {
     const onMove = vi.fn()
     render(<FlowEditor stops={stops} onMove={onMove} onTapStop={vi.fn()} />)
     const handle = screen.getByLabelText('Stop #00ff00')
-    fireEvent.keyDown(handle, { key: 'ArrowDown', shiftKey: true })
+    fireEvent.keyDown(handle, { key: 'ArrowRight', shiftKey: true })
     expect(onMove).toHaveBeenCalledWith('b', 60)
+  })
+
+  it('positions handles horizontally via left%', () => {
+    render(<FlowEditor stops={stops} onMove={vi.fn()} onTapStop={vi.fn()} />)
+    const handle = screen.getByLabelText('Stop #00ff00')
+    expect(handle.style.left).toBe('50%')
+    expect(handle.style.top).toBe('')
+  })
+
+  it('sets aria-orientation="horizontal" on every handle', () => {
+    render(<FlowEditor stops={stops} onMove={vi.fn()} onTapStop={vi.fn()} />)
+    for (const slider of screen.getAllByRole('slider')) {
+      expect(slider.getAttribute('aria-orientation')).toBe('horizontal')
+    }
   })
 
   it('tapping a handle (pointerdown/up with <6px movement) calls onTapStop with that stop id', () => {
