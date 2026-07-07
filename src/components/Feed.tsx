@@ -32,7 +32,7 @@ function vibrateStep() {
   }
 }
 
-const STEP_PX = 80
+const STEP_PX = 60
 
 export function Feed() {
   const current = useAppStore((s) => s.current)
@@ -52,6 +52,8 @@ export function Feed() {
   const indexRef = useRef(0)
   const accumulatedDeltaRef = useRef(0)
   const lastTouchYRef = useRef<number | null>(null)
+  const velocityRef = useRef(0)
+  const lastMoveTimeRef = useRef<number | null>(null)
 
   // The gradient "shape" (geometry type) is locked once per Feed mount so
   // that scrubbing through the rolodex only varies colors/stops, never the
@@ -169,19 +171,29 @@ export function Feed() {
 
     function handleTouchStart(e: TouchEvent) {
       lastTouchYRef.current = e.touches[0]?.clientY ?? null
+      lastMoveTimeRef.current = performance.now()
+      velocityRef.current = 0
     }
 
     function handleTouchMove(e: TouchEvent) {
       scrollHintDismissRef.current()
       e.preventDefault()
       const touchY = e.touches[0]?.clientY
+      const now = performance.now()
       if (touchY == null || lastTouchYRef.current == null) {
         lastTouchYRef.current = touchY ?? null
+        lastMoveTimeRef.current = now
         return
       }
       // Dragging up (finger moves to smaller Y) should behave like scrolling
       // forward (deltaY > 0), matching the wheel convention.
       const delta = lastTouchYRef.current - touchY
+      const dt = lastMoveTimeRef.current == null ? 0 : now - lastMoveTimeRef.current
+      if (dt >= 1) {
+        const instantV = delta / dt
+        velocityRef.current = 0.8 * instantV + 0.2 * velocityRef.current
+        lastMoveTimeRef.current = now
+      }
       lastTouchYRef.current = touchY
       accumulatedDeltaRef.current += delta
       consumeAccumulatedDelta()

@@ -4,7 +4,7 @@ import { Feed } from './Feed'
 import { useAppStore } from '../store/useAppStore'
 import * as paletteLib from '../lib/palette'
 
-const STEP_PX = 80
+const STEP_PX = 60
 
 beforeEach(() => {
   useAppStore.setState(useAppStore.getInitialState())
@@ -268,6 +268,26 @@ describe('Feed', () => {
     // With correct reset behavior, this move is dropped (treated as a new
     // gesture start), so the gradient should NOT have changed.
     expect(useAppStore.getState().current).toEqual(first)
+  })
+
+  it('a slow drag (60px over 500ms) advances exactly 1 step and does not trigger extra momentum steps', () => {
+    render(<Feed />)
+    const first = useAppStore.getState().current
+    const container = screen.getByTestId('feed-container')
+
+    let now = 0
+    const nowSpy = vi.spyOn(performance, 'now').mockImplementation(() => now)
+
+    fireEvent.touchStart(container, { touches: [{ clientY: 500 }] })
+    now = 250
+    fireEvent.touchMove(container, { touches: [{ clientY: 470 }] })
+    now = 500
+    fireEvent.touchMove(container, { touches: [{ clientY: 440 }] })
+    fireEvent.touchEnd(container)
+
+    expect(useAppStore.getState().current).not.toEqual(first)
+
+    nowSpy.mockRestore()
   })
 
   it('calls withViewTransition when entering edit mode via single tap', async () => {
