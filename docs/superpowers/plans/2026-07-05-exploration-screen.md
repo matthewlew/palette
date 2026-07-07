@@ -309,11 +309,25 @@ describe('buildGradientCss', () => {
     expect(css).toBe('conic-gradient(#ff0000 0%, #00ff00 50%, #0000ff 100%)')
   })
 
-  it('builds a nested conic-gradient with hard 90deg stops for square type', () => {
+  it('builds a nested conic-gradient with hard stops sized to the stop count for square type', () => {
     const css = buildGradientCss('square', stops)
     expect(css).toContain('conic-gradient(from 0deg')
-    expect(css).toContain('#ff0000 0deg 90deg')
-    expect(css).toContain('#00ff00 90deg 180deg')
+    expect(css).toContain('#ff0000 0deg 120deg')
+    expect(css).toContain('#00ff00 120deg 240deg')
+  })
+
+  it('scales square-type wedge width down as more stops are added (3-12 stop range)', () => {
+    const sixStops: GradientStop[] = [
+      { hex: '#ff0000', position: 0 },
+      { hex: '#ff8800', position: 20 },
+      { hex: '#ffff00', position: 40 },
+      { hex: '#00ff00', position: 60 },
+      { hex: '#0000ff', position: 80 },
+      { hex: '#8800ff', position: 100 },
+    ]
+    const css = buildGradientCss('square', sixStops)
+    expect(css).toContain('#ff0000 0deg 60deg')
+    expect(css).toContain('#8800ff 300deg 360deg')
   })
 
   it('throws for fewer than 2 stops', () => {
@@ -348,9 +362,9 @@ function stopsToCss(stops: GradientStop[]): string {
 }
 
 function buildSquareGradient(stops: GradientStop[]): string {
-  const segmentCount = Math.min(stops.length, 4)
+  const segmentCount = stops.length
   const degreesPerSegment = 360 / segmentCount
-  const segments = stops.slice(0, segmentCount).map((stop, i) => {
+  const segments = stops.map((stop, i) => {
     const start = i * degreesPerSegment
     const end = (i + 1) * degreesPerSegment
     return `${stop.hex} ${start}deg ${end}deg`
@@ -377,7 +391,7 @@ export function buildGradientCss(type: GradientType, stops: GradientStop[]): str
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `npm test -- gradient`
-Expected: `5 passed`
+Expected: `6 passed`
 
 - [ ] **Step 5: Commit**
 
@@ -966,60 +980,41 @@ git commit -m "feat: add GradientPage with double-tap save and heart flash anima
 
 ---
 
-## Task 8: Feed component (scroll-snap generation)
+
+## Task 8: Feed component (scrub-driven rolodex, gesture-based navigation)
 
 **Files:**
 - Create: `src/components/Feed.tsx`
 - Create: `src/components/Feed.module.css`
 - Test: `src/components/Feed.test.tsx`
 
+**Note (second post-review amendment — replaces the double-buffer/scroll-snap design entirely):** Live browser testing of the double-buffered scroll-snap design (previous amendment, below) surfaced two confirmed problems: (1) the page **physically scrolled vertically** — visible page movement that felt wrong and behaved oddly with a mouse/trackpad on desktop — because the container was a real `overflow-y: scroll` element; and (2) the current→next swap, driven by a `scroll` event listener promoting `next` to `current` near the bottom boundary, felt **abrupt and "flashing too rapid"** rather than being driven smoothly by how far the user had actually scrubbed.
+
+The fix abandons real DOM scrolling entirely and replaces it with a **scrub-driven rolodex**: the gradient view is a single fixed full-viewport element that never visually moves. Wheel and touch gestures are captured as raw input (with native scroll prevented via non-passive listeners and `e.preventDefault()`), accumulated against a fixed step threshold (`STEP_PX = 80`), and once a full step is crossed the view **hard-cuts** to the next/previous gradient — no animation, no crossfade, no visible scrolling. This directly addresses both bugs: nothing in the DOM scrolls, so there's no physical page movement, and the swap is driven by an explicit, tunable distance threshold rather than a scroll-position heuristic, so it no longer feels abrupt or flashes.
+
+The rolodex maintains real bidirectional history: an ordered array of gradients generated this session plus a current index. Scrolling forward past the end of history generates and appends a brand-new gradient; scrolling backward moves the index back through gradients already generated (true undo/redo, not fresh randoms in both directions), floored at index 0.
+
+**Note (third amendment — haptics and locked geometry type, folded back in after the fact):** A subsequent commit added two behaviors to `Feed.tsx` that were implemented directly against the running code and never folded back into this plan doc: (1) haptic feedback via `navigator.vibrate(10)`, called once per real step actually consumed (`vibrateStep()` inside `goTo`), but not on no-op scrolls (e.g. floored at index 0) or on external store syncs (Drawer selection); and (2) a per-mount locked geometry `type` (`lockedTypeRef`), so that scrubbing forward through the rolodex generates new gradients that vary color/stops only, never shape, for the lifetime of a single `Feed` mount.
+
+**Note (fourth amendment — mount-consistency bug fix for locked geometry type):** The locked-geometry-type mechanism above had a bug: `lockedTypeRef.current` was initialized via `pickRandomType()` unconditionally, outside of and prior to the mount effect that reads `store.current` — so on mount it always picked a random shape, even when the store already held an existing gradient (e.g. returning from Edit Mode, or a gradient previously selected from the Drawer before `Feed` remounted). This meant the very first forward scrub could generate a gradient with a different shape than what was already on screen, defeating the purpose of the lock. The fix moves the lock resolution inside the existing mount `useEffect` (where `current` is already read): if `current` exists at mount, `lockedTypeRef.current` is set to `current.type`; only if `current` is absent does it fall back to `pickRandomType()`. A regression test was added to `Feed.test.tsx` asserting that a gradient of type `'square'` pre-set into `useAppStore` before rendering `Feed` remains the locked type after a forward scrub.
+
 - [ ] **Step 1: Write failing tests**
 
-Create `src/components/Feed.test.tsx`:
-```tsx
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import { Feed } from './Feed'
-import { useAppStore } from '../store/useAppStore'
-import * as paletteLib from '../lib/palette'
+Create `src/components/Feed.test.tsx` covering, at minimum:
+- generates an initial gradient on mount if none exists
+- renders exactly one `GradientPage` (no more double-buffer)
+- firing enough accumulated `wheel` `deltaY` to cross `STEP_PX` changes the displayed gradient and calls `generateGradientStops` again
+- scrolling backward after having moved forward returns to the exact same previous gradient (the key "real history" behavioral test), not a fresh random one
+- the index cannot go below 0 — scrolling backward past the first gradient is a no-op (doesn't generate anything new, doesn't error)
+- sub-threshold accumulated deltas don't change the displayed gradient until the threshold is crossed
+- an externally-set `store.current` (simulating Drawer selection) overwrites the rolodex's current slot in place, without shifting the index or generating a new gradient
 
-beforeEach(() => {
-  useAppStore.setState(useAppStore.getInitialState())
-})
-
-describe('Feed', () => {
-  it('generates an initial gradient on mount if none exists', () => {
-    render(<Feed />)
-    expect(useAppStore.getState().current).not.toBeNull()
-  })
-
-  it('renders a GradientPage for the current gradient', () => {
-    render(<Feed />)
-    expect(screen.getByTestId('gradient-page')).toBeInTheDocument()
-  })
-
-  it('generates a new gradient when scrolled near the bottom boundary', () => {
-    render(<Feed />)
-    const first = useAppStore.getState().current
-    const container = screen.getByTestId('feed-container')
-
-    const generateSpy = vi.spyOn(paletteLib, 'generateGradientStops')
-
-    Object.defineProperty(container, 'scrollTop', { value: 900, writable: true })
-    Object.defineProperty(container, 'scrollHeight', { value: 1000, writable: true })
-    Object.defineProperty(container, 'clientHeight', { value: 800, writable: true })
-    container.dispatchEvent(new Event('scroll'))
-
-    expect(generateSpy).toHaveBeenCalled()
-    expect(useAppStore.getState().current).not.toEqual(first)
-  })
-})
-```
+Use `fireEvent.wheel(container, { deltaY })` from `@testing-library/react`, with `deltaY` values matched to `STEP_PX`.
 
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `npm test -- Feed`
-Expected: FAIL — `Cannot find module './Feed'`
+Expected: FAIL — old double-buffer assertions (e.g. exactly 2 `GradientPage`s, `scrollTop` reset) no longer hold against the new implementation.
 
 - [ ] **Step 3: Implement `src/components/Feed.module.css`**
 
@@ -1027,86 +1022,49 @@ Expected: FAIL — `Cannot find module './Feed'`
 .container {
   width: 100%;
   height: 100vh;
-  overflow-y: scroll;
-  scroll-snap-type: y mandatory;
+  touch-action: none;
 }
 ```
+
+No `overflow-y`/`scroll-snap-type` — there's no real scrolling anymore. `touch-action: none` prevents native touch-driven scrolling/panning so the manual touch delta tracking in `Feed.tsx` has full control.
 
 - [ ] **Step 4: Implement `src/components/Feed.tsx`**
 
-```tsx
-import { useEffect, useRef } from 'react'
-import { useAppStore } from '../store/useAppStore'
-import { generateGradientStops } from '../lib/palette'
-import { GradientPage } from './GradientPage'
-import type { GradientType } from '../lib/gradient'
-import type { Gradient } from '../store/types'
-import styles from './Feed.module.css'
-
-const GEOMETRY_TYPES: GradientType[] = ['linear', 'radial', 'angular', 'square']
-
-function pickRandomType(): GradientType {
-  return GEOMETRY_TYPES[Math.floor(Math.random() * GEOMETRY_TYPES.length)]
-}
-
-function makeGradient(): Gradient {
-  return {
-    id: crypto.randomUUID(),
-    type: pickRandomType(),
-    stops: generateGradientStops(),
-  }
-}
-
-const SCROLL_BOUNDARY_PX = 100
-
-export function Feed() {
-  const current = useAppStore((s) => s.current)
-  const setCurrentGradient = useAppStore((s) => s.setCurrentGradient)
-  const saveGradient = useAppStore((s) => s.saveGradient)
-  const enterEditMode = useAppStore((s) => s.enterEditMode)
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!current) {
-      setCurrentGradient(makeGradient())
-    }
-  }, [current, setCurrentGradient])
-
-  function handleScroll() {
-    const el = containerRef.current
-    if (!el) return
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
-    if (distanceFromBottom < SCROLL_BOUNDARY_PX) {
-      setCurrentGradient(makeGradient())
-    }
-  }
-
-  if (!current) return null
-
-  return (
-    <div
-      data-testid="feed-container"
-      ref={containerRef}
-      className={styles.container}
-      onScroll={handleScroll}
-    >
-      <GradientPage gradient={current} onSave={saveGradient} onEdit={enterEditMode} />
-    </div>
-  )
-}
-```
+Key mechanics:
+- `historyRef` (array of `Gradient`), `indexRef` (number), and `accumulatedDeltaRef` (number) are plain refs, not React state — they must mutate synchronously across many rapid wheel/touch events without waiting on re-renders.
+- A single piece of React state, `displayed: Gradient | null`, exists purely to trigger re-renders with whatever gradient the rolodex currently points at.
+- `goTo(newIndex)` is a plain synchronous function (not a `setState` updater side-effect) called directly from event handlers: it floors at 0 (no-op below), generates and appends a fresh gradient via `makeGradient()` when stepping past the end of history, then updates `indexRef`, `displayed`, and `store.current` together as one deliberate action.
+- Wheel (`e.deltaY`) and touch-drag delta (difference between consecutive `touchmove` Y positions, not from the original `touchstart`) accumulate into `accumulatedDeltaRef`; whenever the accumulated magnitude crosses `STEP_PX` (80px), one step is consumed and `goTo` is called, with the leftover sub-threshold remainder carried over.
+- Wheel/touch listeners are attached via a native (non-React-synthetic) `addEventListener` with `{ passive: false }` in a `useEffect`, so `preventDefault()` reliably suppresses native scroll — React's synthetic wheel/touch handlers aren't guaranteed non-passive across versions/browsers.
+- External store changes (Drawer selection) are detected in a single effect keyed on `current`: if `current.id` differs from the gradient at the rolodex's tracked index, the slot at that index is overwritten and `displayed` updated — without touching `indexRef` or generating anything new. This is the *only* effect that reacts to `current`; `goTo` and the mount-init effect update the store directly and synchronously alongside `displayed`, so there's no separate "sync displayed → store" effect to race against the external-sync effect (an earlier draft had two effects doing this in each direction, which ping-ponged into an infinite update loop under React 18 StrictMode-style double effects — consolidating to one direction of effect-driven sync fixed it).
+- `Feed` still renders exactly one `<GradientPage gradient={displayed} ... />`; it stays prop-free and store-driven exactly as before.
 
 - [ ] **Step 5: Run test to verify it passes**
 
 Run: `npm test -- Feed`
-Expected: `3 passed`
+Expected: all Feed tests pass.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/components/Feed.tsx src/components/Feed.module.css src/components/Feed.test.tsx
-git commit -m "feat: add scroll-snap Feed that generates gradients on demand"
+git add src/components/Feed.tsx src/components/Feed.module.css src/components/Feed.test.tsx docs/superpowers/plans/2026-07-05-exploration-screen.md
+git commit -m "fix: replace scroll-snap Feed with scrub-driven rolodex navigation"
 ```
+
+(Historical note: the original commit for this task shipped a single-page scroll-snap version; a first follow-up, `fix: double-buffer Feed so scroll container has real scrollable content`, addressed a "nothing to scroll" bug (documented in the amendment below). Live browser testing of that double-buffered version then surfaced physical page-scrolling and abrupt-swap problems, prompting this second, larger rewrite to a gesture-driven virtual rolodex with no real DOM scrolling at all.)
+
+---
+
+**Amendment history — original scroll-snap/double-buffer design (superseded above):**
+
+**Files:**
+- Create: `src/components/Feed.tsx`
+- Create: `src/components/Feed.module.css`
+- Test: `src/components/Feed.test.tsx`
+
+**Note (post-review amendment):** The first implementation of this task rendered a single `GradientPage` (100vh) inside a 100vh container with `overflow-y: scroll`. Since content height equalled container height, `scrollHeight === clientHeight` always — there was nothing to scroll in a real browser, so the "swipe to generate" interaction from the spec did not actually work outside of unit tests that stub `scrollTop`/`scrollHeight`/`clientHeight` directly. The fix below double-buffers the feed: it renders the current gradient AND a pre-generated "next" gradient stacked below it, giving the container genuine `2 * 100vh` of scrollable content. Scrolling near the bottom promotes `next` to `current`, generates a fresh `next`, and resets `scrollTop` to 0 so the view snaps back to the top page — creating the illusion of an infinite single-page feed.
+
+This double-buffer design was itself superseded after live browser testing (see the amendment at the top of this task) found that it still physically scrolled the page and swapped too abruptly; the current implementation is the scrub-driven rolodex described above.
 
 ---
 

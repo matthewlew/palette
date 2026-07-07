@@ -1,0 +1,271 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { Feed } from './Feed'
+import { useAppStore } from '../store/useAppStore'
+import * as paletteLib from '../lib/palette'
+
+const STEP_PX = 80
+
+beforeEach(() => {
+  useAppStore.setState(useAppStore.getInitialState())
+})
+
+afterEach(() => {
+  cleanup()
+  vi.restoreAllMocks()
+})
+
+describe('Feed', () => {
+  it('generates an initial gradient on mount if none exists', () => {
+    render(<Feed />)
+    expect(useAppStore.getState().current).not.toBeNull()
+  })
+
+  it('renders exactly one GradientPage (no double-buffer)', () => {
+    render(<Feed />)
+    expect(screen.getAllByTestId('gradient-page')).toHaveLength(1)
+  })
+
+  it('crosses the step threshold via accumulated wheel deltaY and shows a new gradient', () => {
+    render(<Feed />)
+    const first = useAppStore.getState().current
+    const container = screen.getByTestId('feed-container')
+
+    const generateSpy = vi.spyOn(paletteLib, 'generateGradientStops')
+
+    fireEvent.wheel(container, { deltaY: STEP_PX })
+
+    expect(generateSpy).toHaveBeenCalled()
+    expect(useAppStore.getState().current).not.toEqual(first)
+  })
+
+  it('scrolling backward after moving forward returns to the exact same previous gradient', () => {
+    render(<Feed />)
+    const first = useAppStore.getState().current
+
+    const container = screen.getByTestId('feed-container')
+
+    // Advance forward one step.
+    fireEvent.wheel(container, { deltaY: STEP_PX })
+    const second = useAppStore.getState().current
+    expect(second).not.toEqual(first)
+
+    // Advance forward another step.
+    fireEvent.wheel(container, { deltaY: STEP_PX })
+    const third = useAppStore.getState().current
+    expect(third).not.toEqual(second)
+
+    // Now scroll back one step: should return to `second`, not a fresh gradient.
+    fireEvent.wheel(container, { deltaY: -STEP_PX })
+    expect(useAppStore.getState().current).toEqual(second)
+
+    // Scroll back again: should return to `first`.
+    fireEvent.wheel(container, { deltaY: -STEP_PX })
+    expect(useAppStore.getState().current).toEqual(first)
+  })
+
+  it('does not go below index 0 when scrolling backward past the first gradient', () => {
+    render(<Feed />)
+    const first = useAppStore.getState().current
+    const container = screen.getByTestId('feed-container')
+
+    const generateSpy = vi.spyOn(paletteLib, 'generateGradientStops')
+
+    fireEvent.wheel(container, { deltaY: -STEP_PX })
+    fireEvent.wheel(container, { deltaY: -STEP_PX })
+
+    expect(useAppStore.getState().current).toEqual(first)
+    expect(generateSpy).not.toHaveBeenCalled()
+  })
+
+  it('accumulates sub-threshold wheel deltas without changing the gradient until the threshold is crossed', () => {
+    render(<Feed />)
+    const first = useAppStore.getState().current
+    const container = screen.getByTestId('feed-container')
+
+    fireEvent.wheel(container, { deltaY: STEP_PX / 2 })
+    expect(useAppStore.getState().current).toEqual(first)
+
+    fireEvent.wheel(container, { deltaY: STEP_PX / 2 })
+    expect(useAppStore.getState().current).not.toEqual(first)
+  })
+
+  it('syncs an externally-set store.current (e.g. Drawer selection) by overwriting the current slot without generating a new gradient', () => {
+    render(<Feed />)
+    const container = screen.getByTestId('feed-container')
+
+    // Advance forward once so we're at index 1.
+    fireEvent.wheel(container, { deltaY: STEP_PX })
+    const atIndexOne = useAppStore.getState().current
+
+    const externalGradient = {
+      id: 'external-id',
+      type: 'linear' as const,
+      stops: [
+        { hex: '#000000', position: 0 },
+        { hex: '#ffffff', position: 100 },
+      ],
+    }
+
+    useAppStore.getState().setCurrentGradient(externalGradient)
+
+    expect(useAppStore.getState().current).toEqual(externalGradient)
+    expect(useAppStore.getState().current).not.toEqual(atIndexOne)
+
+    // Scrolling backward one step should now return to the ORIGINAL first
+    // gradient (index 0), not `atIndexOne`, confirming the external gradient
+    // overwrote the slot at the current index rather than shifting it.
+    fireEvent.wheel(container, { deltaY: -STEP_PX })
+    expect(screen.getAllByTestId('gradient-page')).toHaveLength(1)
+  })
+
+  it('keeps the same gradient shape/type across multiple forward-generated gradients in one mount', () => {
+    render(<Feed />)
+    const container = screen.getByTestId('feed-container')
+
+    const first = useAppStore.getState().current
+    expect(first).not.toBeNull()
+    const lockedType = first!.type
+
+    for (let i = 0; i < 4; i++) {
+      fireEvent.wheel(container, { deltaY: STEP_PX })
+      expect(useAppStore.getState().current!.type).toBe(lockedType)
+    }
+  })
+
+  it('locks the geometry type from the pre-existing store gradient at mount, not a random pick', () => {
+    const preExisting = {
+      id: 'pre-existing-id',
+      type: 'square' as const,
+      stops: [
+        { hex: '#123456', position: 0 },
+        { hex: '#abcdef', position: 100 },
+      ],
+    }
+    useAppStore.getState().setCurrentGradient(preExisting)
+
+    render(<Feed />)
+    const container = screen.getByTestId('feed-container')
+
+    fireEvent.wheel(container, { deltaY: STEP_PX })
+
+    expect(useAppStore.getState().current).not.toEqual(preExisting)
+    expect(useAppStore.getState().current!.type).toBe('square')
+  })
+
+  it('vibrates once per real step crossed via wheel scrubbing', () => {
+    const vibrateMock = vi.fn()
+    Object.defineProperty(navigator, 'vibrate', {
+      value: vibrateMock,
+      configurable: true,
+    })
+
+    render(<Feed />)
+    const container = screen.getByTestId('feed-container')
+
+    fireEvent.wheel(container, { deltaY: STEP_PX })
+    expect(vibrateMock).toHaveBeenCalledTimes(1)
+    expect(vibrateMock).toHaveBeenCalledWith(10)
+
+    fireEvent.wheel(container, { deltaY: STEP_PX })
+    expect(vibrateMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not vibrate when scrolling backward is a no-op at the floor (index 0)', () => {
+    const vibrateMock = vi.fn()
+    Object.defineProperty(navigator, 'vibrate', {
+      value: vibrateMock,
+      configurable: true,
+    })
+
+    render(<Feed />)
+    const container = screen.getByTestId('feed-container')
+
+    fireEvent.wheel(container, { deltaY: -STEP_PX })
+    fireEvent.wheel(container, { deltaY: -STEP_PX })
+
+    expect(vibrateMock).not.toHaveBeenCalled()
+  })
+
+  it('does not vibrate when store.current changes externally (Drawer selection), only on actual scrub steps', () => {
+    const vibrateMock = vi.fn()
+    Object.defineProperty(navigator, 'vibrate', {
+      value: vibrateMock,
+      configurable: true,
+    })
+
+    render(<Feed />)
+
+    const externalGradient = {
+      id: 'external-id-2',
+      type: 'linear' as const,
+      stops: [
+        { hex: '#111111', position: 0 },
+        { hex: '#eeeeee', position: 100 },
+      ],
+    }
+
+    useAppStore.getState().setCurrentGradient(externalGradient)
+
+    expect(vibrateMock).not.toHaveBeenCalled()
+  })
+
+  it('crosses the step threshold via accumulated touchmove drag (dragging up = forward)', () => {
+    render(<Feed />)
+    const first = useAppStore.getState().current
+    const container = screen.getByTestId('feed-container')
+
+    const generateSpy = vi.spyOn(paletteLib, 'generateGradientStops')
+
+    fireEvent.touchStart(container, { touches: [{ clientY: 400 }] })
+    // Drag up in two increments totaling STEP_PX of upward movement.
+    fireEvent.touchMove(container, { touches: [{ clientY: 400 - STEP_PX / 2 }] })
+    fireEvent.touchMove(container, { touches: [{ clientY: 400 - STEP_PX }] })
+
+    expect(generateSpy).toHaveBeenCalled()
+    expect(useAppStore.getState().current).not.toEqual(first)
+  })
+
+  it('drags down via touchmove to move backward through history', () => {
+    render(<Feed />)
+    const container = screen.getByTestId('feed-container')
+
+    // Move forward one step via wheel first, to have history to go back through.
+    fireEvent.wheel(container, { deltaY: STEP_PX })
+    const second = useAppStore.getState().current
+
+    fireEvent.wheel(container, { deltaY: STEP_PX })
+    expect(useAppStore.getState().current).not.toEqual(second)
+
+    // Now drag DOWN (increasing clientY) via touch to move backward.
+    fireEvent.touchStart(container, { touches: [{ clientY: 200 }] })
+    fireEvent.touchMove(container, { touches: [{ clientY: 200 + STEP_PX }] })
+
+    expect(useAppStore.getState().current).toEqual(second)
+  })
+
+  it('resets tracked touch position on touchend, so a later gesture is not affected by a prior aborted one', () => {
+    render(<Feed />)
+    const first = useAppStore.getState().current
+    const container = screen.getByTestId('feed-container')
+
+    // First gesture: move partway (not enough to cross threshold), then abort via touchend
+    // WITHOUT a subsequent touchstart resetting the tracked position naturally.
+    fireEvent.touchStart(container, { touches: [{ clientY: 500 }] })
+    fireEvent.touchMove(container, { touches: [{ clientY: 500 - STEP_PX / 4 }] })
+    fireEvent.touchEnd(container)
+    expect(useAppStore.getState().current).toEqual(first)
+
+    // Simulate the next gesture as a "naked" touchmove without a preceding
+    // touchstart in between (e.g. a stray/duplicate move event, or a browser
+    // that doesn't always fire touchstart cleanly). If touchend had reset
+    // lastTouchYRef to null, this move is ignored (per the touchY == null ||
+    // lastTouchYRef.current == null guard) rather than computing a delta
+    // from the stale prior gesture's last position (500 - STEP_PX/4).
+    fireEvent.touchMove(container, { touches: [{ clientY: 500 - STEP_PX / 4 - STEP_PX }] })
+
+    // With correct reset behavior, this move is dropped (treated as a new
+    // gesture start), so the gradient should NOT have changed.
+    expect(useAppStore.getState().current).toEqual(first)
+  })
+})
