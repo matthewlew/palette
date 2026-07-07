@@ -57,4 +57,10 @@ describe('TurrellSquare', () => {
     expect(parseFloat(layer.style.width)).toBe(100)
     expect(parseFloat(layer.style.height)).toBe(100)
   })
+
+  it('applies a custom blur radius when blurPx is provided', () => {
+    render(<TurrellSquare stops={stops} blurPx={4} />)
+    const layers = screen.getAllByTestId('turrell-layer')
+    expect(layers[0].style.filter).toBe('blur(4px)')
+  })
 })

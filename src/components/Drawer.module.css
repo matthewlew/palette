@@ -17,6 +17,9 @@
   border-radius: 8px;
   border: none;
   cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  padding: 0;
 }
 
 .sortLabel {

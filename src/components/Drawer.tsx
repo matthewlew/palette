@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { buildGradientCss } from '../lib/gradient'
 import { gradientMetric, type SortKey } from '../lib/sortColors'
 import type { Gradient } from '../store/types'
+import { TurrellSquare } from './TurrellSquare'
 import styles from './Drawer.module.css'
 
 interface DrawerProps {
@@ -47,9 +48,14 @@ export function Drawer({ saved, onSelect }: DrawerProps) {
           data-testid="drawer-thumbnail"
           aria-label={`Saved ${gradient.type} gradient`}
           className={styles.thumbnail}
-          style={{ backgroundImage: buildGradientCss(gradient.type, gradient.stops, gradient.reversed) }}
+          style={{
+            backgroundImage:
+              gradient.type === 'square' ? undefined : buildGradientCss(gradient.type, gradient.stops, gradient.reversed),
+          }}
           onClick={() => onSelect(gradient)}
-        />
+        >
+          {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} blurPx={4} />}
+        </button>
       ))}
     </div>
   )

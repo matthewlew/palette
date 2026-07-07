@@ -44,4 +44,19 @@ describe('Drawer', () => {
     const select = screen.getByLabelText('Sort saved palettes') as HTMLSelectElement
     expect(select.value).toBe('newest')
   })
+
+  it('renders the TurrellSquare treatment (not a conic background) for saved square gradients', () => {
+    const squareGradient: Gradient = {
+      id: 'sq1',
+      type: 'square',
+      stops: [
+        { hex: '#ff0000', position: 0 },
+        { hex: '#0000ff', position: 100 },
+      ],
+    }
+    render(<Drawer saved={[squareGradient]} onSelect={vi.fn()} />)
+    const thumbnail = screen.getByTestId('drawer-thumbnail')
+    expect(screen.getByTestId('turrell-square')).toBeInTheDocument()
+    expect(thumbnail.style.backgroundImage).toBe('')
+  })
 })

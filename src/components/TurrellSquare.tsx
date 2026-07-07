@@ -4,9 +4,10 @@ import styles from './TurrellSquare.module.css'
 interface TurrellSquareProps {
   stops: GradientStop[]
   reversed?: boolean
+  blurPx?: number
 }
 
-export function TurrellSquare({ stops, reversed = false }: TurrellSquareProps) {
+export function TurrellSquare({ stops, reversed = false, blurPx }: TurrellSquareProps) {
   const ordered = reversed ? [...stops].reverse() : stops
 
   return (
@@ -27,6 +28,7 @@ export function TurrellSquare({ stops, reversed = false }: TurrellSquareProps) {
               backgroundColor: stop.hex,
               width: `${scalePercent}%`,
               height: `${scalePercent}%`,
+              filter: blurPx != null ? `blur(${blurPx}px)` : undefined,
             }}
           />
         )
