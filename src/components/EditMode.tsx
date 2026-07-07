@@ -1,7 +1,16 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import { buildGradientCss, type GradientType } from '../lib/gradient'
-import { toEditableStops, equalizePositions, removeStopAt, addStop, removeLastByHex, type EditableStop } from '../lib/stopOrdering'
+import {
+  toEditableStops,
+  equalizePositions,
+  removeStopAt,
+  addStop,
+  removeLastByHex,
+  moveStop,
+  toGradientStops,
+  type EditableStop,
+} from '../lib/stopOrdering'
 import { verticalInsertionIndex } from '../lib/insertionIndex'
 import { sortByOklch, type SortKey } from '../lib/sortColors'
 import { useDoubleTap } from '../hooks/useDoubleTap'
@@ -10,7 +19,7 @@ import { useHint } from '../hooks/useHint'
 import { HeartFlash } from './HeartFlash'
 import { Hint } from './Hint'
 import { GeometryTabs } from './GeometryTabs'
-import { BlockStack } from './BlockStack'
+import { FlowEditor } from './FlowEditor'
 import { BlockWheel } from './BlockWheel'
 import { SwatchTray } from './SwatchTray'
 import { TurrellSquare } from './TurrellSquare'
@@ -116,6 +125,21 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
     commit(sortByOklch(editableStops, (s) => s.hex, key))
   }
 
+  function handleTapStop(_id: string) {
+    // Placeholder hook for a future "tap to change color" UI. No such UI
+    // exists yet in this codebase (BlockStack never wired one either), so
+    // this intentionally does nothing until that flow is built.
+  }
+
+  function handleMoveStop(id: string, position: number) {
+    const nextStops = moveStop(editableStops, id, position)
+    setEditableStops(nextStops)
+    setCurrentGradient({
+      ...gradient,
+      stops: toGradientStops(nextStops),
+    })
+  }
+
   function handleLike() {
     saveGradient(gradient)
     flash()
@@ -162,13 +186,7 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
             containerRef={blockContainerRef}
           />
         ) : (
-          <BlockStack
-            stops={editableStops}
-            onReorder={(next) => commit(next)}
-            onRemove={handleRemove}
-            containerRef={blockContainerRef}
-            insertionIndex={insertionIndex}
-          />
+          <FlowEditor stops={editableStops} onMove={handleMoveStop} onTapStop={handleTapStop} containerRef={blockContainerRef} />
         )}
       </div>
       <SwatchTray

@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { EditMode } from './EditMode'
 import { useAppStore } from '../store/useAppStore'
+import { DEFAULT_COLOR_SET } from '../lib/colorSets'
+import { oklchToHex } from '../lib/oklch'
 import type { Gradient } from '../store/types'
 
 const gradient: Gradient = {
@@ -30,7 +32,7 @@ describe('EditMode', () => {
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
     expect(screen.getByTestId('edit-mode-preview')).toBeInTheDocument()
     expect(screen.getByText('Linear')).toBeInTheDocument()
-    expect(screen.getAllByTestId('stack-block')).toHaveLength(3)
+    expect(screen.getAllByTestId('flow-handle')).toHaveLength(3)
     expect(screen.getAllByTestId('swatch').length).toBe(60)
   })
 
@@ -58,12 +60,27 @@ describe('EditMode', () => {
     expect(useAppStore.getState().current!.reversed).toBe(false)
   })
 
-  it('removing a block updates the store to have one fewer, re-equalized stop', () => {
-    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
-    fireEvent.click(screen.getAllByTestId('remove-block')[1])
+  it('tapping an already-selected swatch removes a stop, re-equalizing positions', () => {
+    vi.useFakeTimers()
+    const swatchHex = oklchToHex(DEFAULT_COLOR_SET.colors[5].value)
+    const gradientWithSwatchStop: Gradient = {
+      id: 'g4',
+      type: 'linear',
+      stops: [
+        { hex: '#ff0000', position: 0 },
+        { hex: swatchHex, position: 50 },
+        { hex: '#0000ff', position: 100 },
+      ],
+      reversed: false,
+    }
+    render(<EditMode gradient={gradientWithSwatchStop} onExit={vi.fn()} />)
+    const selectedSwatch = screen.getAllByTestId('swatch')[5]
+    fireEvent.pointerDown(selectedSwatch)
+    fireEvent.pointerUp(document)
     const updated = useAppStore.getState().current!
     expect(updated.stops).toHaveLength(2)
     expect(updated.stops.map((s) => s.position)).toEqual([0, 100])
+    vi.useRealTimers()
   })
 
   it('has no Done button; has a back chevron that calls onExit', () => {
@@ -173,5 +190,34 @@ describe('EditMode', () => {
 
     expect(localStorage.getItem('palette-hint-edit')).toBe('1')
     vi.useRealTimers()
+  })
+
+  it('dragging a flow handle updates the store gradient position for that stop in real time', () => {
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    const handle = screen.getByLabelText('Stop #00ff00')
+
+    fireEvent.pointerDown(handle, { clientX: 10, clientY: 10 })
+    fireEvent.pointerMove(handle, { clientX: 10, clientY: 10 })
+
+    const updated = useAppStore.getState().current!
+    const movedStop = updated.stops.find((s) => s.hex === '#00ff00')!
+    expect(movedStop.position).toBe(100)
+  })
+
+  it('exiting preserves exact custom positions without re-equalizing', () => {
+    const onExit = vi.fn()
+    render(<EditMode gradient={gradient} onExit={onExit} />)
+    const handle = screen.getByLabelText('Stop #00ff00')
+
+    fireEvent.pointerDown(handle, { clientX: 10, clientY: 10 })
+    fireEvent.pointerMove(handle, { clientX: 10, clientY: 10 })
+    fireEvent.pointerUp(handle, { clientX: 10, clientY: 10 })
+
+    fireEvent.click(screen.getByLabelText('Back'))
+    expect(onExit).toHaveBeenCalledTimes(1)
+
+    const updated = useAppStore.getState().current!
+    const movedStop = updated.stops.find((s) => s.hex === '#00ff00')!
+    expect(movedStop.position).toBe(100)
   })
 })
