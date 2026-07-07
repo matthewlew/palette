@@ -19,9 +19,11 @@ describe('buildGradientCss', () => {
     expect(css).toBe('radial-gradient(circle, #ff0000 0%, #00ff00 50%, #0000ff 100%)')
   })
 
-  it('builds a conic-gradient string for angular type', () => {
+  it('builds a conic-gradient string for angular type that blends the seam back to the first color', () => {
     const css = buildGradientCss('angular', stops)
-    expect(css).toBe('conic-gradient(#ff0000 0%, #00ff00 50%, #0000ff 100%)')
+    // 3 stops (0%,50%,100%) compressed by 3/4 -> (0%,38%,75%), then the first
+    // color repeated at 100% closes the seam instead of a hard 360deg->0deg cut.
+    expect(css).toBe('conic-gradient(#ff0000 0%, #00ff00 38%, #0000ff 75%, #ff0000 100%)')
   })
 
   it('builds a nested conic-gradient with hard stops sized to the stop count for square type', () => {

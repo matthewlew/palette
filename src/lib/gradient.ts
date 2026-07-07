@@ -29,6 +29,16 @@ function buildSquareGradient(stops: GradientStop[]): string {
   return `conic-gradient(from 0deg, ${segments.join(', ')})`
 }
 
+function buildAngularGradient(stops: GradientStop[]): string {
+  // Compress existing positions to leave room for a final segment that
+  // blends the last color back to the first, eliminating the hard seam at
+  // 360deg/0deg that a plain conic-gradient produces.
+  const scaleFactor = stops.length / (stops.length + 1)
+  const compressed = stops.map((s) => ({ hex: s.hex, position: Math.round(s.position * scaleFactor) }))
+  const withSeam = [...compressed, { hex: stops[0].hex, position: 100 }]
+  return `conic-gradient(${stopsToCss(withSeam)})`
+}
+
 function applyReversed(stops: GradientStop[], reversed: boolean): GradientStop[] {
   if (!reversed) return stops
   // Swap which color sits at each position, but keep positions themselves
@@ -71,7 +81,7 @@ export function buildGradientCss(type: GradientType, stops: GradientStop[], reve
     case 'radial':
       return `radial-gradient(circle, ${stopsToCss(orderedStops)})`
     case 'angular':
-      return `conic-gradient(${stopsToCss(orderedStops)})`
+      return buildAngularGradient(orderedStops)
     case 'square':
       return buildSquareGradient(orderedStops)
     case 'mirror':
