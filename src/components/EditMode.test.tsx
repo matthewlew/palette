@@ -105,4 +105,18 @@ describe('EditMode', () => {
     expect(useAppStore.getState().current!.stops).toHaveLength(4)
     vi.useRealTimers()
   })
+
+  it('drag-adding a swatch inserts at the computed index, not just appended', () => {
+    vi.useFakeTimers()
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    const swatch = screen.getAllByTestId('swatch')[10]
+    fireEvent.pointerDown(swatch, { clientX: 0, clientY: 0 })
+    vi.advanceTimersByTime(150)
+    // jsdom returns all-zero getBoundingClientRect by default, so every block
+    // midpoint is 0 and the pointer at y=0 resolves to insertion index 0.
+    fireEvent.pointerUp(document, { clientX: 0, clientY: 0 })
+    const updated = useAppStore.getState().current!
+    expect(updated.stops).toHaveLength(4)
+    vi.useRealTimers()
+  })
 })

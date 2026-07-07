@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import { buildGradientCss, type GradientType } from '../lib/gradient'
 import { toEditableStops, equalizePositions, removeStopAt, addStop, removeLastByHex, type EditableStop } from '../lib/stopOrdering'
+import { verticalInsertionIndex } from '../lib/insertionIndex'
 import { useDoubleTap } from '../hooks/useDoubleTap'
 import { useHeartFlash } from '../hooks/useHeartFlash'
 import { HeartFlash } from './HeartFlash'
@@ -25,6 +26,7 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   const saveGradient = useAppStore((s) => s.saveGradient)
   const activeColorSet = useAppStore((s) => s.activeColorSet)
   const [editableStops, setEditableStops] = useState<EditableStop[]>(() => toEditableStops(gradient.stops))
+  const [insertionIndex, setInsertionIndex] = useState<number | null>(null)
   const blockContainerRef = useRef<HTMLDivElement>(null) as RefObject<HTMLDivElement>
   const { visible: heartVisible, flash } = useHeartFlash()
 
@@ -55,15 +57,40 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
     commit(editableStops, { reversed: !gradient.reversed })
   }
 
+  function computeStackMidpoints(el: HTMLDivElement): number[] {
+    return Array.from(el.querySelectorAll<HTMLElement>('[data-testid="stack-block"]')).map((b) => {
+      const r = b.getBoundingClientRect()
+      return r.top + r.height / 2
+    })
+  }
+
+  function handleTrayDragMove(point: { x: number; y: number }) {
+    const el = blockContainerRef.current
+    if (!el || isWheel) return
+    const rect = el.getBoundingClientRect()
+    const isOver = point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom
+    if (!isOver) {
+      setInsertionIndex(null)
+      return
+    }
+    setInsertionIndex(verticalInsertionIndex(point.y, computeStackMidpoints(el)))
+  }
+
   function handleDragAddFromTray(hex: string, point: { x: number; y: number }) {
     const el = blockContainerRef.current
+    setInsertionIndex(null)
     if (!el) return
     const rect = el.getBoundingClientRect()
     const isOverStack =
       point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom
-    if (isOverStack) {
+    if (!isOverStack) return
+    if (isWheel) {
       commit(addStop(editableStops, hex))
+      return
     }
+    const index = editableStops.length ? verticalInsertionIndex(point.y, computeStackMidpoints(el)) : 0
+    const withNew = [...editableStops.slice(0, index), { id: crypto.randomUUID(), hex }, ...editableStops.slice(index)]
+    commit(withNew)
   }
 
   function handleTapAdd(hex: string) {
@@ -115,6 +142,7 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
             onReorder={(next) => commit(next)}
             onRemove={handleRemove}
             containerRef={blockContainerRef}
+            insertionIndex={insertionIndex}
           />
         )}
       </div>
@@ -124,6 +152,7 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
         onTapAdd={handleTapAdd}
         onTapRemove={handleTapRemove}
         onDragAdd={handleDragAddFromTray}
+        onDragMove={handleTrayDragMove}
       />
     </div>
   )
