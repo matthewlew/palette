@@ -64,12 +64,15 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
     })
   }
 
+  function isPointOverElement(point: { x: number; y: number }, el: HTMLElement): boolean {
+    const rect = el.getBoundingClientRect()
+    return point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom
+  }
+
   function handleTrayDragMove(point: { x: number; y: number }) {
     const el = blockContainerRef.current
     if (!el || isWheel) return
-    const rect = el.getBoundingClientRect()
-    const isOver = point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom
-    if (!isOver) {
+    if (!isPointOverElement(point, el)) {
       setInsertionIndex(null)
       return
     }
@@ -80,10 +83,7 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
     const el = blockContainerRef.current
     setInsertionIndex(null)
     if (!el) return
-    const rect = el.getBoundingClientRect()
-    const isOverStack =
-      point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom
-    if (!isOverStack) return
+    if (!isPointOverElement(point, el)) return
     if (isWheel) {
       commit(addStop(editableStops, hex))
       return
