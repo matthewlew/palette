@@ -28,4 +28,25 @@ describe('TurrellSquare', () => {
     expect(layers[0].style.backgroundColor).toBe('rgb(0, 0, 255)')
     expect(layers[2].style.backgroundColor).toBe('rgb(255, 0, 0)')
   })
+
+  it('renders layers with monotonically decreasing, square (width === height) sizes from outermost to innermost', () => {
+    const fourStops: GradientStop[] = [
+      { hex: '#ff0000', position: 0 },
+      { hex: '#00ff00', position: 33 },
+      { hex: '#0000ff', position: 66 },
+      { hex: '#ffff00', position: 100 },
+    ]
+    render(<TurrellSquare stops={fourStops} />)
+    const layers = screen.getAllByTestId('turrell-layer')
+    const sizes = layers.map((l) => {
+      const width = parseFloat(l.style.width)
+      const height = parseFloat(l.style.height)
+      expect(width).toBe(height)
+      return width
+    })
+    for (let i = 1; i < sizes.length; i++) {
+      expect(sizes[i]).toBeLessThan(sizes[i - 1])
+    }
+    expect(sizes[0]).toBe(100)
+  })
 })
