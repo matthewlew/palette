@@ -109,3 +109,9 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+::view-transition-old(palette-card),
+::view-transition-new(palette-card) {
+  animation-duration: 300ms;
+  animation-timing-function: ease-out;
+}

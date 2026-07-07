@@ -3,6 +3,7 @@
   flex-direction: column;
   height: 100vh;
   position: relative;
+  view-transition-name: palette-card;
 }
 
 .backButton {
