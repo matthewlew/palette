@@ -55,5 +55,35 @@ export const DEFAULT_COLOR_SET: ColorSet = {
     { name: 'Onyx', value: { l: 0.15, c: 0.005, h: 0 } },
     { name: 'Iron', value: { l: 0.32, c: 0.015, h: 220 } },
     { name: 'Midnight', value: { l: 0.2, c: 0.05, h: 270 } },
+    // Yellows
+    { name: 'Ochre', value: { l: 0.62, c: 0.11, h: 85 } },
+    { name: 'Mustard', value: { l: 0.68, c: 0.13, h: 95 } },
+    { name: 'Marigold', value: { l: 0.75, c: 0.15, h: 88 } },
+    { name: 'Butter', value: { l: 0.88, c: 0.08, h: 95 } },
+    { name: 'Straw', value: { l: 0.82, c: 0.09, h: 100 } },
+    { name: 'Honey', value: { l: 0.7, c: 0.12, h: 78 } },
+    // Oranges
+    { name: 'Apricot', value: { l: 0.78, c: 0.1, h: 60 } },
+    { name: 'Amber', value: { l: 0.68, c: 0.14, h: 65 } },
+    { name: 'Persimmon', value: { l: 0.6, c: 0.16, h: 45 } },
+    { name: 'Tangerine', value: { l: 0.7, c: 0.17, h: 55 } },
+    // Pinks
+    { name: 'Dusty Rose', value: { l: 0.68, c: 0.07, h: 10 } },
+    { name: 'Blush', value: { l: 0.82, c: 0.05, h: 15 } },
+    { name: 'Raspberry', value: { l: 0.5, c: 0.14, h: 5 } },
+    { name: 'Fuchsia', value: { l: 0.6, c: 0.18, h: 345 } },
+    // Purples
+    { name: 'Mauve', value: { l: 0.65, c: 0.06, h: 320 } },
+    { name: 'Plum', value: { l: 0.4, c: 0.1, h: 330 } },
+    { name: 'Violet', value: { l: 0.5, c: 0.15, h: 295 } },
+    { name: 'Lilac', value: { l: 0.78, c: 0.07, h: 300 } },
+    // Teals
+    { name: 'Teal', value: { l: 0.55, c: 0.09, h: 190 } },
+    { name: 'Lagoon', value: { l: 0.65, c: 0.1, h: 200 } },
+    { name: 'Verdigris', value: { l: 0.6, c: 0.07, h: 175 } },
+    { name: 'Glacier', value: { l: 0.85, c: 0.04, h: 210 } },
+    // Bright accents
+    { name: 'Poppy', value: { l: 0.55, c: 0.19, h: 25 } },
+    { name: 'Grass', value: { l: 0.6, c: 0.15, h: 135 } },
   ],
 }
