@@ -290,6 +290,44 @@ describe('Feed', () => {
     nowSpy.mockRestore()
   })
 
+  it('a fast swipe (300px in 100ms) advances the index by at least 8 total once momentum settles', () => {
+    let now = 0
+    const nowSpy = vi.spyOn(performance, 'now').mockImplementation(() => now)
+    const rafCallbacks: FrameRequestCallback[] = []
+    const rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+      rafCallbacks.push(cb)
+      return rafCallbacks.length
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {})
+
+    const generateSpy = vi.spyOn(paletteLib, 'generateGradientStops')
+
+    render(<Feed />)
+    const container = screen.getByTestId('feed-container')
+
+    fireEvent.touchStart(container, { touches: [{ clientY: 500 }] })
+    now = 50
+    fireEvent.touchMove(container, { touches: [{ clientY: 350 }] })
+    now = 100
+    fireEvent.touchMove(container, { touches: [{ clientY: 200 }] })
+    fireEvent.touchEnd(container)
+
+    let frameTime = 100
+    let iterations = 0
+    while (rafCallbacks.length > 0 && iterations < 500) {
+      const cb = rafCallbacks.shift()!
+      frameTime += 16.67
+      now = frameTime
+      cb(frameTime)
+      iterations++
+    }
+
+    expect(generateSpy.mock.calls.length).toBeGreaterThanOrEqual(7) // 8 total steps - 1 initial mount
+
+    nowSpy.mockRestore()
+    rafSpy.mockRestore()
+  })
+
   it('calls withViewTransition when entering edit mode via single tap', async () => {
     vi.useFakeTimers()
     const viewTransitionModule = await import('../lib/viewTransition')

@@ -6,6 +6,7 @@ import type { GradientType } from '../lib/gradient'
 import type { Gradient } from '../store/types'
 import type { ColorSet } from '../lib/colorSets'
 import { withViewTransition } from '../lib/viewTransition'
+import { decayVelocity, shouldStartMomentum } from '../lib/momentum'
 import { Hint } from './Hint'
 import { useHint } from '../hooks/useHint'
 import styles from './Feed.module.css'
@@ -54,6 +55,7 @@ export function Feed() {
   const lastTouchYRef = useRef<number | null>(null)
   const velocityRef = useRef(0)
   const lastMoveTimeRef = useRef<number | null>(null)
+  const momentumFrameIdRef = useRef<number | null>(null)
 
   // The gradient "shape" (geometry type) is locked once per Feed mount so
   // that scrubbing through the rolodex only varies colors/stops, never the
@@ -162,7 +164,30 @@ export function Feed() {
     const el = containerRef.current
     if (!el) return
 
+    function cancelMomentum() {
+      if (momentumFrameIdRef.current !== null) {
+        cancelAnimationFrame(momentumFrameIdRef.current)
+        momentumFrameIdRef.current = null
+      }
+    }
+
+    function runMomentumFrame(lastFrameTime: number) {
+      const now = performance.now()
+      const frameDt = now - lastFrameTime
+      accumulatedDeltaRef.current += velocityRef.current * frameDt
+      consumeAccumulatedDelta()
+      velocityRef.current = decayVelocity(velocityRef.current, frameDt)
+
+      const bottomedOut = indexRef.current <= 0 && velocityRef.current < 0
+      if (Math.abs(velocityRef.current) < 0.05 || bottomedOut) {
+        momentumFrameIdRef.current = null
+        return
+      }
+      momentumFrameIdRef.current = requestAnimationFrame(() => runMomentumFrame(now))
+    }
+
     function handleWheel(e: WheelEvent) {
+      cancelMomentum()
       scrollHintDismissRef.current()
       e.preventDefault()
       accumulatedDeltaRef.current += e.deltaY
@@ -170,6 +195,7 @@ export function Feed() {
     }
 
     function handleTouchStart(e: TouchEvent) {
+      cancelMomentum()
       lastTouchYRef.current = e.touches[0]?.clientY ?? null
       lastMoveTimeRef.current = performance.now()
       velocityRef.current = 0
@@ -201,6 +227,10 @@ export function Feed() {
 
     function handleTouchEnd() {
       lastTouchYRef.current = null
+      if (shouldStartMomentum(velocityRef.current)) {
+        const startTime = performance.now()
+        momentumFrameIdRef.current = requestAnimationFrame(() => runMomentumFrame(startTime))
+      }
     }
 
     el.addEventListener('wheel', handleWheel, { passive: false })
@@ -209,6 +239,7 @@ export function Feed() {
     el.addEventListener('touchend', handleTouchEnd, { passive: false })
 
     return () => {
+      cancelMomentum()
       el.removeEventListener('wheel', handleWheel)
       el.removeEventListener('touchstart', handleTouchStart)
       el.removeEventListener('touchmove', handleTouchMove)
