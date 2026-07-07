@@ -1,7 +1,7 @@
 import { useAppStore } from './store/useAppStore'
 import { Feed } from './components/Feed'
 import { Drawer } from './components/Drawer'
-import { EditModeStub } from './components/EditModeStub'
+import { EditMode } from './components/EditMode'
 
 export function App() {
   const mode = useAppStore((s) => s.mode)
@@ -11,7 +11,7 @@ export function App() {
   const exitEditMode = useAppStore((s) => s.exitEditMode)
 
   if (mode === 'edit' && current) {
-    return <EditModeStub gradient={current} onExit={exitEditMode} />
+    return <EditMode gradient={current} onExit={exitEditMode} />
   }
 
   return (

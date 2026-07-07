@@ -99,3 +99,41 @@ export function oklchToHex(oklch: Oklch): string {
   const toHex = (v: number) => Math.round(Math.min(255, Math.max(0, v))).toString(16).padStart(2, '0')
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`
 }
+
+export function hexToSrgb(hex: string): Srgb {
+  const clean = hex.replace('#', '')
+  return {
+    r: parseInt(clean.slice(0, 2), 16),
+    g: parseInt(clean.slice(2, 4), 16),
+    b: parseInt(clean.slice(4, 6), 16),
+  }
+}
+
+export function hexToOklch(hex: string): Oklch {
+  return srgbToOklch(hexToSrgb(hex))
+}
+
+export function isLightColor(hex: string): boolean {
+  return hexToOklch(hex).l > 0.6
+}
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t
+}
+
+function lerpHue(a: number, b: number, t: number): number {
+  let diff = b - a
+  if (diff > 180) diff -= 360
+  if (diff < -180) diff += 360
+  return (a + diff * t + 360) % 360
+}
+
+export function blendOklchHex(hexA: string, hexB: string, t = 0.5): string {
+  const a = hexToOklch(hexA)
+  const b = hexToOklch(hexB)
+  return oklchToHex({
+    l: lerp(a.l, b.l, t),
+    c: lerp(a.c, b.c, t),
+    h: lerpHue(a.h, b.h, t),
+  })
+}

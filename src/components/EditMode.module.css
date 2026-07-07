@@ -1,0 +1,23 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.preview {
+  flex: 0 0 40%;
+}
+
+.blockArea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.exitButton {
+  padding: 12px;
+  border: none;
+  background: #eee;
+  cursor: pointer;
+}
