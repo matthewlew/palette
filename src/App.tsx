@@ -2,6 +2,7 @@ import { useAppStore } from './store/useAppStore'
 import { Feed } from './components/Feed'
 import { Drawer } from './components/Drawer'
 import { EditMode } from './components/EditMode'
+import { withViewTransition } from './lib/viewTransition'
 
 export function App() {
   const mode = useAppStore((s) => s.mode)
@@ -11,7 +12,7 @@ export function App() {
   const exitEditMode = useAppStore((s) => s.exitEditMode)
 
   if (mode === 'edit' && current) {
-    return <EditMode gradient={current} onExit={exitEditMode} />
+    return <EditMode gradient={current} onExit={() => withViewTransition(exitEditMode)} />
   }
 
   return (

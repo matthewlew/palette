@@ -268,4 +268,22 @@ describe('Feed', () => {
     // gesture start), so the gradient should NOT have changed.
     expect(useAppStore.getState().current).toEqual(first)
   })
+
+  it('calls withViewTransition when entering edit mode via single tap', async () => {
+    vi.useFakeTimers()
+    const viewTransitionModule = await import('../lib/viewTransition')
+    const spy = vi.spyOn(viewTransitionModule, 'withViewTransition').mockImplementation((update) => update())
+
+    render(<Feed />)
+    const page = screen.getByTestId('gradient-page')
+
+    fireEvent.pointerUp(page)
+    vi.advanceTimersByTime(350)
+
+    expect(spy).toHaveBeenCalledTimes(1)
+    expect(useAppStore.getState().mode).toBe('edit')
+
+    spy.mockRestore()
+    vi.useRealTimers()
+  })
 })

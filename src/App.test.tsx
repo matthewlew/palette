@@ -37,4 +37,27 @@ describe('App', () => {
 
     expect(screen.getAllByTestId('drawer-thumbnail')).toHaveLength(1)
   })
+
+  it('calls withViewTransition when exiting edit mode', async () => {
+    const viewTransitionModule = await import('./lib/viewTransition')
+    const spy = vi.spyOn(viewTransitionModule, 'withViewTransition').mockImplementation((update) => update())
+
+    useAppStore.getState().setCurrentGradient({
+      id: 'g1',
+      type: 'linear',
+      stops: [
+        { hex: '#ff0000', position: 0 },
+        { hex: '#0000ff', position: 100 },
+      ],
+    })
+    useAppStore.getState().enterEditMode()
+
+    render(<App />)
+    fireEvent.click(screen.getByLabelText('Back'))
+
+    expect(spy).toHaveBeenCalledTimes(1)
+    expect(useAppStore.getState().mode).toBe('explore')
+
+    spy.mockRestore()
+  })
 })

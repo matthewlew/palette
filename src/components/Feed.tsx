@@ -5,6 +5,7 @@ import { GradientPage } from './GradientPage'
 import type { GradientType } from '../lib/gradient'
 import type { Gradient } from '../store/types'
 import type { ColorSet } from '../lib/colorSets'
+import { withViewTransition } from '../lib/viewTransition'
 import styles from './Feed.module.css'
 
 const GEOMETRY_TYPES: GradientType[] = ['linear', 'radial', 'angular', 'square']
@@ -197,7 +198,7 @@ export function Feed() {
 
   return (
     <div data-testid="feed-container" ref={containerRef} className={styles.container}>
-      <GradientPage gradient={displayed} onSave={saveGradient} onEdit={enterEditMode} />
+      <GradientPage gradient={displayed} onSave={saveGradient} onEdit={() => withViewTransition(enterEditMode)} />
     </div>
   )
 }
