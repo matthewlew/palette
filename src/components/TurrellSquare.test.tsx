@@ -48,5 +48,13 @@ describe('TurrellSquare', () => {
       expect(sizes[i]).toBeLessThan(sizes[i - 1])
     }
     expect(sizes[0]).toBe(100)
+    expect(sizes[sizes.length - 1]).toBe(20)
+  })
+
+  it('handles a single stop without dividing by zero, rendering it at full size', () => {
+    render(<TurrellSquare stops={[{ hex: '#ff0000', position: 0 }]} />)
+    const layer = screen.getByTestId('turrell-layer')
+    expect(parseFloat(layer.style.width)).toBe(100)
+    expect(parseFloat(layer.style.height)).toBe(100)
   })
 })
