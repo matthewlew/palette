@@ -1,5 +1,5 @@
 import { oklchToHex, type Oklch } from './oklch'
-import { SEED_PALETTES } from './seedPalettes'
+import type { ColorSet } from './colorSets'
 import type { GradientStop } from './gradient'
 
 function pickRandom<T>(arr: T[]): T {
@@ -14,25 +14,17 @@ function jitter(color: Oklch): Oklch {
   }
 }
 
-export interface GeneratedGradientStops {
-  seedName: string
-  stops: GradientStop[]
-}
-
-export function generateGradientStops(): GeneratedGradientStops {
-  const seed = pickRandom(SEED_PALETTES)
+export function generateGradientStops(colorSet: ColorSet): GradientStop[] {
   const stopCount = 3 + Math.floor(Math.random() * 4) // 3-6
 
   const colors: Oklch[] = []
   for (let i = 0; i < stopCount; i++) {
-    const base = seed.colors[i % seed.colors.length]
+    const base = pickRandom(colorSet.colors).value
     colors.push(jitter(base))
   }
 
-  const stops = colors.map((color, i) => ({
+  return colors.map((color, i) => ({
     hex: oklchToHex(color),
     position: Math.round((i / (stopCount - 1)) * 100),
   }))
-
-  return { seedName: seed.name, stops }
 }

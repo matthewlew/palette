@@ -24,3 +24,9 @@ export function removeStopAt(stops: EditableStop[], id: string): EditableStop[] 
 export function addStop(stops: EditableStop[], hex: string): EditableStop[] {
   return [...stops, { id: crypto.randomUUID(), hex }]
 }
+
+export function removeLastByHex(stops: EditableStop[], hex: string): EditableStop[] {
+  const lastIndex = stops.map((s) => s.hex).lastIndexOf(hex)
+  if (lastIndex === -1) return stops
+  return [...stops.slice(0, lastIndex), ...stops.slice(lastIndex + 1)]
+}

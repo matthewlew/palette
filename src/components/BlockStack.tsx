@@ -9,10 +9,18 @@ interface BlockStackProps {
   onReorder: (stops: EditableStop[]) => void
   onRemove: (id: string) => void
   containerRef?: RefObject<HTMLDivElement>
+  insertionIndex?: number | null
 }
 
-export function BlockStack({ stops, onReorder, onRemove, containerRef }: BlockStackProps) {
+export function BlockStack({ stops, onReorder, onRemove, containerRef, insertionIndex = null }: BlockStackProps) {
   const { draggingIndex, handlePointerDown, handlePointerMove, handlePointerUp } = useDragReorder(stops, onReorder)
+
+  const items: Array<{ kind: 'block'; stop: EditableStop; index: number } | { kind: 'gap' }> = []
+  stops.forEach((stop, index) => {
+    if (insertionIndex === index) items.push({ kind: 'gap' })
+    items.push({ kind: 'block', stop, index })
+  })
+  if (insertionIndex === stops.length) items.push({ kind: 'gap' })
 
   return (
     <div
@@ -23,7 +31,11 @@ export function BlockStack({ stops, onReorder, onRemove, containerRef }: BlockSt
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
     >
-      {stops.map((stop, index) => {
+      {items.map((item, i) => {
+        if (item.kind === 'gap') {
+          return <div key={`gap-${i}`} data-testid="insertion-gap" className={styles.gap} />
+        }
+        const { stop, index } = item
         const light = isLightColor(stop.hex)
         return (
           <div

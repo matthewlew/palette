@@ -41,3 +41,21 @@ describe('BlockStack', () => {
     expect(onRemove).toHaveBeenCalledWith('b')
   })
 })
+
+describe('BlockStack insertion gap', () => {
+  it('renders a gap element at the given insertionIndex', () => {
+    render(<BlockStack stops={stops} onReorder={vi.fn()} onRemove={vi.fn()} insertionIndex={1} />)
+    const gap = screen.getByTestId('insertion-gap')
+    const blocks = screen.getAllByTestId('stack-block')
+    // The gap should appear between the first and second block in DOM order.
+    const children = Array.from(gap.parentElement!.children)
+    expect(children.indexOf(gap)).toBe(1)
+    expect(children.indexOf(blocks[0])).toBe(0)
+    expect(children.indexOf(blocks[1])).toBe(2)
+  })
+
+  it('renders no gap when insertionIndex is null', () => {
+    render(<BlockStack stops={stops} onReorder={vi.fn()} onRemove={vi.fn()} insertionIndex={null} />)
+    expect(screen.queryByTestId('insertion-gap')).not.toBeInTheDocument()
+  })
+})

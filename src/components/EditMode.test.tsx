@@ -12,7 +12,6 @@ const gradient: Gradient = {
     { hex: '#00ff00', position: 50 },
     { hex: '#0000ff', position: 100 },
   ],
-  seedName: 'bklyn-clay',
   reversed: false,
 }
 
@@ -26,12 +25,12 @@ afterEach(() => {
 })
 
 describe('EditMode', () => {
-  it('renders the preview, geometry tabs, block stack, and swatch carousel', () => {
+  it('renders the preview, geometry tabs, block stack, and swatch tray', () => {
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
     expect(screen.getByTestId('edit-mode-preview')).toBeInTheDocument()
     expect(screen.getByText('Linear')).toBeInTheDocument()
     expect(screen.getAllByTestId('stack-block')).toHaveLength(3)
-    expect(screen.getAllByTestId('swatch').length).toBeGreaterThan(0)
+    expect(screen.getAllByTestId('swatch').length).toBe(36)
   })
 
   it('renders BlockWheel instead of BlockStack for angular/square types', () => {
@@ -49,13 +48,6 @@ describe('EditMode', () => {
   })
 
   it('tapping the already-active tab toggles reversed on the store', () => {
-    // EditMode reads `gradient.reversed` from its `gradient` prop, not from a
-    // live store subscription — in the real App, App re-renders EditMode with
-    // a fresh `current` from the store on every change (App.tsx subscribes to
-    // `current` via useAppStore and passes it straight through as the prop).
-    // This test simulates that same parent behavior explicitly via `rerender`,
-    // so each click sees the gradient's up-to-date `reversed` value, exactly
-    // as it would in the real app.
     const { rerender } = render(<EditMode gradient={gradient} onExit={vi.fn()} />)
     fireEvent.click(screen.getByText('Linear'))
     expect(useAppStore.getState().current!.reversed).toBe(true)
@@ -73,10 +65,58 @@ describe('EditMode', () => {
     expect(updated.stops.map((s) => s.position)).toEqual([0, 100])
   })
 
-  it('calls onExit when the exit button is tapped', () => {
+  it('has no Done button; has a back chevron that calls onExit', () => {
     const onExit = vi.fn()
     render(<EditMode gradient={gradient} onExit={onExit} />)
-    fireEvent.click(screen.getByTestId('edit-mode-exit'))
+    expect(screen.queryByText('Done')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText('Back'))
     expect(onExit).toHaveBeenCalledTimes(1)
+  })
+
+  it('single-tapping the preview exits after the double-tap window elapses', () => {
+    vi.useFakeTimers()
+    const onExit = vi.fn()
+    render(<EditMode gradient={gradient} onExit={onExit} />)
+    fireEvent.pointerUp(screen.getByTestId('edit-mode-preview'))
+    vi.advanceTimersByTime(350)
+    expect(onExit).toHaveBeenCalledTimes(1)
+    vi.useRealTimers()
+  })
+
+  it('double-tapping the preview saves (likes) the gradient, shows the heart, and does not exit', () => {
+    vi.useFakeTimers()
+    const onExit = vi.fn()
+    render(<EditMode gradient={gradient} onExit={onExit} />)
+    const preview = screen.getByTestId('edit-mode-preview')
+    fireEvent.pointerUp(preview)
+    fireEvent.pointerUp(preview)
+    expect(onExit).not.toHaveBeenCalled()
+    expect(useAppStore.getState().saved).toHaveLength(1)
+    expect(screen.getByTestId('heart-flash')).toBeInTheDocument()
+    vi.useRealTimers()
+  })
+
+  it('tapping an unselected swatch appends a new stop', () => {
+    vi.useFakeTimers()
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    const swatch = screen.getAllByTestId('swatch')[5]
+    fireEvent.pointerDown(swatch)
+    fireEvent.pointerUp(document)
+    expect(useAppStore.getState().current!.stops).toHaveLength(4)
+    vi.useRealTimers()
+  })
+
+  it('drag-adding a swatch inserts at the computed index, not just appended', () => {
+    vi.useFakeTimers()
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    const swatch = screen.getAllByTestId('swatch')[10]
+    fireEvent.pointerDown(swatch, { clientX: 0, clientY: 0 })
+    vi.advanceTimersByTime(150)
+    // jsdom returns all-zero getBoundingClientRect by default, so every block
+    // midpoint is 0 and the pointer at y=0 resolves to insertion index 0.
+    fireEvent.pointerUp(document, { clientX: 0, clientY: 0 })
+    const updated = useAppStore.getState().current!
+    expect(updated.stops).toHaveLength(4)
+    vi.useRealTimers()
   })
 })

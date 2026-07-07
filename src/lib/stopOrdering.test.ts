@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { toEditableStops, equalizePositions, removeStopAt, addStop } from './stopOrdering'
+import { toEditableStops, equalizePositions, removeStopAt, addStop, removeLastByHex } from './stopOrdering'
 import type { GradientStop } from './gradient'
 
 describe('toEditableStops', () => {
@@ -52,5 +52,25 @@ describe('addStop', () => {
     expect(result).toHaveLength(2)
     expect(result[1].hex).toBe('#999999')
     expect(result[1].id).not.toBe('a')
+  })
+})
+
+describe('removeLastByHex', () => {
+  it('removes the last stop matching the given hex, leaving earlier ones', () => {
+    const editable = [
+      { id: 'a', hex: '#111111' },
+      { id: 'b', hex: '#222222' },
+      { id: 'c', hex: '#111111' },
+    ]
+    const result = removeLastByHex(editable, '#111111')
+    expect(result.map((s) => s.id)).toEqual(['a', 'b'])
+  })
+
+  it('is a no-op when the hex is not present', () => {
+    const editable = [
+      { id: 'a', hex: '#111111' },
+      { id: 'b', hex: '#222222' },
+    ]
+    expect(removeLastByHex(editable, '#999999')).toEqual(editable)
   })
 })

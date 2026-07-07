@@ -4,6 +4,7 @@ import { generateGradientStops } from '../lib/palette'
 import { GradientPage } from './GradientPage'
 import type { GradientType } from '../lib/gradient'
 import type { Gradient } from '../store/types'
+import type { ColorSet } from '../lib/colorSets'
 import styles from './Feed.module.css'
 
 const GEOMETRY_TYPES: GradientType[] = ['linear', 'radial', 'angular', 'square']
@@ -12,13 +13,12 @@ function pickRandomType(): GradientType {
   return GEOMETRY_TYPES[Math.floor(Math.random() * GEOMETRY_TYPES.length)]
 }
 
-function makeGradient(type: GradientType): Gradient {
-  const { seedName, stops } = generateGradientStops()
+function makeGradient(type: GradientType, colorSet: ColorSet): Gradient {
+  const stops = generateGradientStops(colorSet)
   return {
     id: crypto.randomUUID(),
     type,
     stops,
-    seedName,
     reversed: false,
   }
 }
@@ -33,6 +33,7 @@ const STEP_PX = 80
 
 export function Feed() {
   const current = useAppStore((s) => s.current)
+  const activeColorSet = useAppStore((s) => s.activeColorSet)
   const setCurrentGradient = useAppStore((s) => s.setCurrentGradient)
   const saveGradient = useAppStore((s) => s.saveGradient)
   const enterEditMode = useAppStore((s) => s.enterEditMode)
@@ -70,7 +71,7 @@ export function Feed() {
       lockedTypeRef.current = current ? current.type : pickRandomType()
     }
     if (historyRef.current.length === 0) {
-      const initial = current ?? makeGradient(lockedTypeRef.current)
+      const initial = current ?? makeGradient(lockedTypeRef.current, activeColorSet)
       historyRef.current = [initial]
       indexRef.current = 0
       setDisplayed(initial)
@@ -113,7 +114,7 @@ export function Feed() {
     if (newIndex >= history.length) {
       // Forward past the end of history: generate a brand-new gradient,
       // keeping the same locked shape for this Feed session.
-      const fresh = makeGradient(lockedTypeRef.current!)
+      const fresh = makeGradient(lockedTypeRef.current!, activeColorSet)
       history.push(fresh)
     }
 

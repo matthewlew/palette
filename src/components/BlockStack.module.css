@@ -31,3 +31,13 @@
   cursor: pointer;
   color: inherit;
 }
+
+.block,
+.gap {
+  transition: flex-basis 150ms ease, opacity 150ms ease;
+}
+
+.gap {
+  flex: 0.6;
+  min-height: 0;
+}

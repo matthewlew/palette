@@ -9,9 +9,10 @@ interface BlockWheelProps {
   onReorder: (stops: EditableStop[]) => void
   onRemove: (id: string) => void
   containerRef?: RefObject<HTMLDivElement>
+  insertionIndex?: number | null
 }
 
-export function BlockWheel({ stops, onReorder, onRemove, containerRef }: BlockWheelProps) {
+export function BlockWheel({ stops, onReorder, onRemove, containerRef, insertionIndex = null }: BlockWheelProps) {
   const { draggingIndex, handlePointerDown, handlePointerMove, handlePointerUp } = useDragReorder(stops, onReorder)
   const wedgeDegrees = Math.round(360 / stops.length)
 
@@ -27,12 +28,13 @@ export function BlockWheel({ stops, onReorder, onRemove, containerRef }: BlockWh
       <div className={styles.wedgeList}>
         {stops.map((stop, index) => {
           const light = isLightColor(stop.hex)
+          const highlighted = insertionIndex === index
           return (
             <div
               key={stop.id}
               data-testid="wheel-wedge"
               data-wedge-degrees={wedgeDegrees}
-              className={styles.wedgeRow}
+              className={highlighted ? `${styles.wedgeRow} ${styles.boundaryHighlight}` : styles.wedgeRow}
               style={{
                 backgroundColor: stop.hex,
                 color: light ? '#000' : '#fff',
