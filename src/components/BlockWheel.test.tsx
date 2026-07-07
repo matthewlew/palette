@@ -4,10 +4,10 @@ import { BlockWheel } from './BlockWheel'
 import type { EditableStop } from '../lib/stopOrdering'
 
 const stops: EditableStop[] = [
-  { id: 'a', hex: '#ff0000' },
-  { id: 'b', hex: '#00ff00' },
-  { id: 'c', hex: '#0000ff' },
-  { id: 'd', hex: '#ffff00' },
+  { id: 'a', hex: '#ff0000', position: 0 },
+  { id: 'b', hex: '#00ff00', position: 33 },
+  { id: 'c', hex: '#0000ff', position: 67 },
+  { id: 'd', hex: '#ffff00', position: 100 },
 ]
 
 describe('BlockWheel', () => {

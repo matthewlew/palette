@@ -9,8 +9,8 @@ const firstHex = oklchToHex(DEFAULT_COLOR_SET.colors[0].value)
 const secondHex = oklchToHex(DEFAULT_COLOR_SET.colors[1].value)
 
 const stops: EditableStop[] = [
-  { id: 'a', hex: firstHex },
-  { id: 'b', hex: '#123456' },
+  { id: 'a', hex: firstHex, position: 0 },
+  { id: 'b', hex: '#123456', position: 100 },
 ]
 
 describe('SwatchTray', () => {

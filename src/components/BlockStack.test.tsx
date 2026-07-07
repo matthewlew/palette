@@ -4,9 +4,9 @@ import { BlockStack } from './BlockStack'
 import type { EditableStop } from '../lib/stopOrdering'
 
 const stops: EditableStop[] = [
-  { id: 'a', hex: '#ffffff' },
-  { id: 'b', hex: '#000000' },
-  { id: 'c', hex: '#3388cc' },
+  { id: 'a', hex: '#ffffff', position: 0 },
+  { id: 'b', hex: '#000000', position: 50 },
+  { id: 'c', hex: '#3388cc', position: 100 },
 ]
 
 describe('BlockStack', () => {

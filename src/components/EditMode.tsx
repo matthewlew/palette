@@ -11,7 +11,6 @@ import {
   toGradientStops,
   type EditableStop,
 } from '../lib/stopOrdering'
-import { verticalInsertionIndex } from '../lib/insertionIndex'
 import { sortByOklch, type SortKey } from '../lib/sortColors'
 import { useDoubleTap } from '../hooks/useDoubleTap'
 import { useHeartFlash } from '../hooks/useHeartFlash'
@@ -75,13 +74,6 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
     commit(editableStops, { reversed: !gradient.reversed })
   }
 
-  function computeStackMidpoints(el: HTMLDivElement): number[] {
-    return Array.from(el.querySelectorAll<HTMLElement>('[data-testid="stack-block"]')).map((b) => {
-      const r = b.getBoundingClientRect()
-      return r.top + r.height / 2
-    })
-  }
-
   function isPointOverElement(point: { x: number; y: number }, el: HTMLElement): boolean {
     const rect = el.getBoundingClientRect()
     return point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom
@@ -91,13 +83,7 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
     const el = blockContainerRef.current
     if (!el) return
     if (!isPointOverElement(point, el)) return
-    if (isWheel) {
-      commit(addStop(editableStops, hex))
-      return
-    }
-    const index = editableStops.length ? verticalInsertionIndex(point.y, computeStackMidpoints(el)) : 0
-    const withNew = [...editableStops.slice(0, index), { id: crypto.randomUUID(), hex }, ...editableStops.slice(index)]
-    commit(withNew)
+    commit(addStop(editableStops, hex))
   }
 
   function handleTapAdd(hex: string) {

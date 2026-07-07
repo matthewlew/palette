@@ -158,14 +158,12 @@ describe('EditMode', () => {
     expect(updated.stops.map((s) => s.position)).toEqual([0, 50, 100])
   })
 
-  it('drag-adding a swatch inserts at the computed index, not just appended', () => {
+  it('drag-adding a swatch onto the flow track (non-wheel type) inserts using the largest-gap heuristic', () => {
     vi.useFakeTimers()
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
     const swatch = screen.getAllByTestId('swatch')[10]
     fireEvent.pointerDown(swatch, { clientX: 0, clientY: 0 })
     vi.advanceTimersByTime(150)
-    // jsdom returns all-zero getBoundingClientRect by default, so every block
-    // midpoint is 0 and the pointer at y=0 resolves to insertion index 0.
     fireEvent.pointerUp(document, { clientX: 0, clientY: 0 })
     const updated = useAppStore.getState().current!
     expect(updated.stops).toHaveLength(4)
