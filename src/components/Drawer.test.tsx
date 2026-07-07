@@ -25,4 +25,23 @@ describe('Drawer', () => {
     fireEvent.click(screen.getAllByTestId('drawer-thumbnail')[1])
     expect(onSelect).toHaveBeenCalledWith(gradients[1])
   })
+
+  it('reorders displayed thumbnails by hue when "Hue" is selected, without mutating input order', () => {
+    const onSelect = vi.fn()
+    const original = [...gradients]
+    render(<Drawer saved={gradients} onSelect={onSelect} />)
+
+    fireEvent.change(screen.getByLabelText('Sort saved palettes'), { target: { value: 'hue' } })
+
+    const thumbnails = screen.getAllByTestId('drawer-thumbnail')
+    expect(thumbnails).toHaveLength(2)
+    // Input prop array itself must remain untouched (view-only sort).
+    expect(gradients).toEqual(original)
+  })
+
+  it('defaults to Newest (original saved order)', () => {
+    render(<Drawer saved={gradients} onSelect={vi.fn()} />)
+    const select = screen.getByLabelText('Sort saved palettes') as HTMLSelectElement
+    expect(select.value).toBe('newest')
+  })
 })
