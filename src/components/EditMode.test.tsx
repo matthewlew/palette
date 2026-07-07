@@ -42,6 +42,22 @@ describe('EditMode', () => {
     expect(screen.queryAllByTestId('stack-block')).toHaveLength(0)
   })
 
+  it('renders FlowEditor (not BlockWheel) for angular gradients', () => {
+    const angular: Gradient = {
+      id: 'g-angular',
+      type: 'angular',
+      stops: [
+        { hex: '#ff0000', position: 0 },
+        { hex: '#00ff00', position: 50 },
+        { hex: '#0000ff', position: 100 },
+      ],
+      reversed: false,
+    }
+    render(<EditMode gradient={angular} onExit={vi.fn()} />)
+    expect(screen.getAllByTestId('flow-handle')).toHaveLength(3)
+    expect(screen.queryByTestId('wheel-container')).not.toBeInTheDocument()
+  })
+
   it('switching tabs updates the store current gradient type without changing stop colors', () => {
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
     fireEvent.click(screen.getByText('Radial'))

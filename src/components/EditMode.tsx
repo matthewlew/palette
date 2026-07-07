@@ -25,7 +25,7 @@ import { TurrellSquare } from './TurrellSquare'
 import type { Gradient } from '../store/types'
 import styles from './EditMode.module.css'
 
-const WHEEL_TYPES: GradientType[] = ['angular', 'square']
+const WHEEL_TYPES: GradientType[] = ['square']
 
 interface EditModeProps {
   gradient: Gradient
