@@ -1,0 +1,14 @@
+.hint {
+  position: fixed;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 13px;
+  border-radius: 999px;
+  padding: 8px 16px;
+  transition: opacity 200ms ease;
+  z-index: 10;
+  white-space: nowrap;
+}
