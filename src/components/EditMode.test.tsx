@@ -140,6 +140,44 @@ describe('EditMode', () => {
     vi.useRealTimers()
   })
 
+  it('renders a single sort FAB that applies the current sort and cycles L -> H -> C', () => {
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+
+    // No more three-button row:
+    expect(screen.queryByLabelText('Sort by hue')).not.toBeInTheDocument()
+
+    const fab = screen.getByTestId('sort-fab')
+    expect(fab.getAttribute('aria-label')).toBe('Sort by lightness')
+    expect(fab.textContent).toContain('L')
+
+    fireEvent.click(fab)
+    expect(fab.getAttribute('aria-label')).toBe('Sort by hue')
+    expect(fab.textContent).toContain('H')
+
+    fireEvent.click(fab)
+    expect(fab.getAttribute('aria-label')).toBe('Sort by chroma')
+
+    fireEvent.click(fab)
+    expect(fab.getAttribute('aria-label')).toBe('Sort by lightness')
+  })
+
+  it('tapping the sort FAB sorts stops by the labeled key', () => {
+    const darkFirst: Gradient = {
+      id: 'g-sort',
+      type: 'linear',
+      stops: [
+        { hex: '#00ff00', position: 0 }, // light, l~0.87
+        { hex: '#0000ff', position: 50 }, // dark, l~0.45
+        { hex: '#ff0000', position: 100 }, // mid, l~0.63
+      ],
+      reversed: false,
+    }
+    render(<EditMode gradient={darkFirst} onExit={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('sort-fab')) // applies lightness
+    const updated = useAppStore.getState().current!
+    expect(updated.stops.map((s) => s.hex)).toEqual(['#0000ff', '#ff0000', '#00ff00'])
+  })
+
   it('tapping "Sort by lightness" reorders stops darkest to lightest', () => {
     const darkFirst: Gradient = {
       id: 'g2',
@@ -152,7 +190,7 @@ describe('EditMode', () => {
       reversed: false,
     }
     render(<EditMode gradient={darkFirst} onExit={vi.fn()} />)
-    fireEvent.click(screen.getByLabelText('Sort by lightness'))
+    fireEvent.click(screen.getByTestId('sort-fab'))
     const updated = useAppStore.getState().current!
     expect(updated.stops.map((s) => s.hex)).toEqual(['#0000ff', '#ff0000', '#00ff00'])
   })
@@ -169,7 +207,7 @@ describe('EditMode', () => {
       reversed: false,
     }
     render(<EditMode gradient={unequalPositions} onExit={vi.fn()} />)
-    fireEvent.click(screen.getByLabelText('Sort by lightness'))
+    fireEvent.click(screen.getByTestId('sort-fab'))
     const updated = useAppStore.getState().current!
     expect(updated.stops.map((s) => s.position)).toEqual([0, 50, 100])
   })
@@ -186,7 +224,7 @@ describe('EditMode', () => {
       reversed: false,
     }
     render(<EditMode gradient={unequalPositions} onExit={vi.fn()} />)
-    fireEvent.click(screen.getByLabelText('Sort by lightness'))
+    fireEvent.click(screen.getByTestId('sort-fab'))
     const handles = screen.getAllByRole('slider')
     expect(handles.map((h) => h.getAttribute('aria-valuenow'))).toEqual(['0', '50', '100'])
   })

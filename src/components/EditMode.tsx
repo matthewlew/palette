@@ -26,6 +26,8 @@ import type { Gradient } from '../store/types'
 import styles from './EditMode.module.css'
 
 const WHEEL_TYPES: GradientType[] = ['square']
+const SORT_KEYS: SortKey[] = ['lightness', 'hue', 'chroma']
+const SORT_LABELS: Record<SortKey, string> = { lightness: 'L', hue: 'H', chroma: 'C' }
 
 interface EditModeProps {
   gradient: Gradient
@@ -37,6 +39,7 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   const saveGradient = useAppStore((s) => s.saveGradient)
   const activeColorSet = useAppStore((s) => s.activeColorSet)
   const [editableStops, setEditableStops] = useState<EditableStop[]>(() => toEditableStops(gradient.stops))
+  const [sortKeyIndex, setSortKeyIndex] = useState(0)
   const blockContainerRef = useRef<HTMLDivElement>(null) as RefObject<HTMLDivElement>
   const { visible: heartVisible, flash } = useHeartFlash()
   const editHint = useHint('edit')
@@ -96,8 +99,10 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
     commit(removeLastByHex(editableStops, hex))
   }
 
-  function handleSort(key: SortKey) {
+  function handleSortCycle() {
+    const key = SORT_KEYS[sortKeyIndex]
     commit(sortByOklch(editableStops, (s) => s.hex, key))
+    setSortKeyIndex((sortKeyIndex + 1) % SORT_KEYS.length)
   }
 
   function handleTapStop(_id: string) {
@@ -141,18 +146,16 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
         <HeartFlash visible={heartVisible} />
       </div>
       <GeometryTabs type={gradient.type} onSelectType={handleSelectType} onToggleReversed={handleToggleReversed} />
-      <div className={styles.sortRow}>
-        <button type="button" aria-label="Sort by lightness" className={styles.sortButton} onClick={() => handleSort('lightness')}>
-          L
-        </button>
-        <button type="button" aria-label="Sort by hue" className={styles.sortButton} onClick={() => handleSort('hue')}>
-          H
-        </button>
-        <button type="button" aria-label="Sort by chroma" className={styles.sortButton} onClick={() => handleSort('chroma')}>
-          C
-        </button>
-      </div>
       <div className={styles.blockArea}>
+        <button
+          type="button"
+          data-testid="sort-fab"
+          aria-label={`Sort by ${SORT_KEYS[sortKeyIndex]}`}
+          className={styles.sortFab}
+          onClick={handleSortCycle}
+        >
+          ⇅ {SORT_LABELS[SORT_KEYS[sortKeyIndex]]}
+        </button>
         {isWheel ? (
           <BlockWheel
             stops={editableStops}
