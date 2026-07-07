@@ -50,4 +50,45 @@ describe('GradientPage', () => {
     const page = screen.getByTestId('gradient-page')
     expect(page.style.touchAction).toBe('manipulation')
   })
+
+  it('does not call onEdit when pointerup lands more than 10px from pointerdown (scroll, not tap)', () => {
+    vi.useFakeTimers()
+    const onEdit = vi.fn()
+    render(<GradientPage gradient={gradient} onSave={vi.fn()} onEdit={onEdit} />)
+    const page = screen.getByTestId('gradient-page')
+
+    fireEvent.pointerDown(page, { clientX: 100, clientY: 100 })
+    fireEvent.pointerUp(page, { clientX: 100, clientY: 300 })
+    vi.advanceTimersByTime(350)
+
+    expect(onEdit).not.toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
+  it('still calls onEdit for a single tap with movement under 10px', () => {
+    vi.useFakeTimers()
+    const onEdit = vi.fn()
+    render(<GradientPage gradient={gradient} onSave={vi.fn()} onEdit={onEdit} />)
+    const page = screen.getByTestId('gradient-page')
+
+    fireEvent.pointerDown(page, { clientX: 100, clientY: 100 })
+    fireEvent.pointerUp(page, { clientX: 103, clientY: 102 })
+    vi.advanceTimersByTime(350)
+
+    expect(onEdit).toHaveBeenCalledTimes(1)
+    vi.useRealTimers()
+  })
+
+  it('still calls onSave on a double-tap with no movement', () => {
+    const onSave = vi.fn()
+    render(<GradientPage gradient={gradient} onSave={onSave} onEdit={vi.fn()} />)
+    const page = screen.getByTestId('gradient-page')
+
+    fireEvent.pointerDown(page, { clientX: 50, clientY: 50 })
+    fireEvent.pointerUp(page, { clientX: 50, clientY: 50 })
+    fireEvent.pointerDown(page, { clientX: 50, clientY: 50 })
+    fireEvent.pointerUp(page, { clientX: 50, clientY: 50 })
+
+    expect(onSave).toHaveBeenCalledWith(gradient)
+  })
 })
