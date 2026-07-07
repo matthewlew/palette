@@ -30,7 +30,7 @@ describe('EditMode', () => {
     expect(screen.getByTestId('edit-mode-preview')).toBeInTheDocument()
     expect(screen.getByText('Linear')).toBeInTheDocument()
     expect(screen.getAllByTestId('stack-block')).toHaveLength(3)
-    expect(screen.getAllByTestId('swatch').length).toBe(36)
+    expect(screen.getAllByTestId('swatch').length).toBe(60)
   })
 
   it('renders BlockWheel instead of BlockStack for angular/square types', () => {
