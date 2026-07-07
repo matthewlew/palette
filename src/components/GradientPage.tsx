@@ -2,6 +2,7 @@ import { buildGradientCss } from '../lib/gradient'
 import { useDoubleTap } from '../hooks/useDoubleTap'
 import { useHeartFlash } from '../hooks/useHeartFlash'
 import { HeartFlash } from './HeartFlash'
+import { TurrellSquare } from './TurrellSquare'
 import type { Gradient } from '../store/types'
 import styles from './GradientPage.module.css'
 
@@ -26,11 +27,12 @@ export function GradientPage({ gradient, onSave, onEdit }: GradientPageProps) {
       data-testid="gradient-page"
       className={styles.page}
       style={{
-        backgroundImage: buildGradientCss(gradient.type, gradient.stops, gradient.reversed),
+        backgroundImage: gradient.type === 'square' ? undefined : buildGradientCss(gradient.type, gradient.stops, gradient.reversed),
         touchAction: 'manipulation',
       }}
       onPointerUp={onPointerUp}
     >
+      {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} />}
       <HeartFlash visible={visible} />
     </div>
   )
