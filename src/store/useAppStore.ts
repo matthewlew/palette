@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Gradient, ViewMode } from './types'
+import { DEFAULT_COLOR_SET, type ColorSet } from '../lib/colorSets'
 
 function gradientSignature(gradient: Gradient): string {
   const sortedStops = [...gradient.stops].sort((a, b) => a.position - b.position)
@@ -11,10 +12,12 @@ interface AppState {
   mode: ViewMode
   current: Gradient | null
   saved: Gradient[]
+  activeColorSet: ColorSet
   setCurrentGradient: (gradient: Gradient) => void
   saveGradient: (gradient: Gradient) => void
   enterEditMode: () => void
   exitEditMode: () => void
+  setActiveColorSet: (colorSet: ColorSet) => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -23,6 +26,7 @@ export const useAppStore = create<AppState>()(
       mode: 'explore',
       current: null,
       saved: [],
+      activeColorSet: DEFAULT_COLOR_SET,
       setCurrentGradient: (gradient) => set({ current: gradient }),
       saveGradient: (gradient) => {
         const signature = gradientSignature(gradient)
@@ -32,6 +36,7 @@ export const useAppStore = create<AppState>()(
       },
       enterEditMode: () => set({ mode: 'edit' }),
       exitEditMode: () => set({ mode: 'explore' }),
+      setActiveColorSet: (colorSet) => set({ activeColorSet: colorSet }),
     }),
     {
       name: 'palette-saved-gradients',

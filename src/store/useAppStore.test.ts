@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useAppStore } from './useAppStore'
 import type { Gradient } from './types'
+import { DEFAULT_COLOR_SET } from '../lib/colorSets'
+import type { ColorSet } from '../lib/colorSets'
 
 const sampleGradient: Gradient = {
   id: 'g1',
@@ -69,5 +71,17 @@ describe('useAppStore', () => {
     useAppStore.getState().enterEditMode()
     useAppStore.getState().exitEditMode()
     expect(useAppStore.getState().mode).toBe('explore')
+  })
+})
+
+describe('useAppStore activeColorSet', () => {
+  it('defaults to DEFAULT_COLOR_SET', () => {
+    expect(useAppStore.getState().activeColorSet).toBe(DEFAULT_COLOR_SET)
+  })
+
+  it('setActiveColorSet replaces the active set', () => {
+    const custom: ColorSet = { name: 'custom', colors: [{ name: 'Foo', value: { l: 0.5, c: 0.1, h: 10 } }] }
+    useAppStore.getState().setActiveColorSet(custom)
+    expect(useAppStore.getState().activeColorSet).toBe(custom)
   })
 })
