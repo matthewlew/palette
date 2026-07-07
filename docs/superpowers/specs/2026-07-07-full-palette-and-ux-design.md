@@ -3,7 +3,7 @@
 Date: 2026-07-07
 Status: Approved for planning
 
-This spec covers five independent features. Each has its own section with exact files to touch, exact behavior, and acceptance criteria. Implement them in the order listed. Do not change anything not listed. All new logic must have unit tests (Vitest, same patterns as existing `*.test.ts` / `*.test.tsx` files).
+This spec covers seven features. Each has its own section with exact files to touch, exact behavior, and acceptance criteria. Implement them in the order listed. Do not change anything not listed. All new logic must have unit tests (Vitest, same patterns as existing `*.test.ts` / `*.test.tsx` files).
 
 Existing key files:
 - Color model: `src/lib/oklch.ts` (has `Oklch {l,c,h}`, `hexToOklch`, `oklchToHex`)
@@ -174,6 +174,80 @@ export function useHint(key: string): { visible: boolean; dismiss: () => void }
 **Change:** In `src/index.css`, replace those three declarations on `#root` with `width: 100%;` (keep `max-width: 100%`, remove `border-inline`, keep everything else). No component changes. This is temporary until a real desktop layout exists.
 
 **Acceptance criteria:** At 1440px viewport width the app fills the full width with no side borders (preview screenshot); mobile (≤768px) unchanged.
+
+---
+
+## Feature 6: Fix scroll-triggers-tap + momentum scrubbing (iOS feel)
+
+Two related problems in the feed:
+
+### 6a. Scrolling must not trigger tap-to-edit
+
+**Problem:** `src/components/GradientPage.tsx` calls `useDoubleTap(handleDoubleTap, onEdit)` from `onPointerUp` with no movement check. On iPhone Safari, lifting the finger at the end of a scroll fires `pointerup`, which registers as a single tap and opens edit mode.
+
+**Change:** In `GradientPage.tsx`, add movement tracking:
+1. Add `onPointerDown` handler on the same div: store `{x: e.clientX, y: e.clientY}` in a ref (`pointerStartRef`).
+2. In the existing `onPointerUp` handler, before calling the `useDoubleTap` handler: compute distance from `pointerStartRef`. If distance > 10px (Euclidean), return early — it was a scroll/drag, not a tap. Otherwise call the existing handler.
+3. Do not modify `useDoubleTap` itself.
+
+**Acceptance criteria (test in `GradientPage.test.tsx`):**
+- pointerdown at (100,100) → pointerup at (100,300) → `onEdit` is NOT called (even after the double-tap timeout).
+- pointerdown at (100,100) → pointerup at (103,102) → single-tap behavior works as before (onEdit called after timeout).
+- Double-tap with no movement still calls `onSave`.
+
+### 6b. Momentum scrubbing — Apple Photos scrubber feel
+
+**Problem:** In `src/components/Feed.tsx`, `preventDefault()` on touchmove kills native inertia, so only literal finger travel counts, at a fixed `STEP_PX = 80`. A fast flick produces ~3 palettes; users expect 12+ from a hard flick.
+
+**Change:** In `Feed.tsx`:
+1. Lower `STEP_PX` from `80` to `60`.
+2. Track velocity during touchmove: keep `velocityRef = useRef(0)`. On each touchmove, compute `instantV = delta / (now - lastMoveTime)` (px/ms, use `performance.now()`; guard divide-by-zero with `dt < 1 → skip`), and smooth: `velocityRef.current = 0.8 * instantV + 0.2 * velocityRef.current`. Store `lastMoveTimeRef` alongside `lastTouchYRef`.
+3. On `touchend`, if `Math.abs(velocityRef.current) > 0.3` (px/ms), start a momentum animation with `requestAnimationFrame`:
+   - Each frame: `accumulatedDeltaRef.current += velocityRef.current * frameDt`; `velocityRef.current *= Math.pow(0.95, frameDt / 16.67)` (exponential decay normalized to 60fps); call `consumeAccumulatedDelta()`.
+   - Stop when `Math.abs(velocityRef.current) < 0.05` or index hits 0 going backward.
+   - Store the rAF id in a ref; cancel any running momentum on the next `touchstart` or `wheel`, and in the effect cleanup.
+4. Haptics: `vibrateStep()` already fires per step via `goTo`. Keep it. (Note: iOS Safari ignores `navigator.vibrate`; this is best-effort, no further work.)
+5. Keep wheel behavior unchanged (trackpads have native inertia already).
+
+**Acceptance criteria:**
+- Extract the momentum math into a pure helper `src/lib/momentum.ts`: `decayVelocity(v: number, frameDtMs: number): number` and `shouldStartMomentum(v: number): boolean`, unit-tested (decay halves roughly every ~230ms; 0.29 → no momentum; 0.31 → momentum).
+- Feed test (jsdom, fake timers + mocked rAF): a simulated fast swipe (300px in 100ms) advances the index by ≥8 total after momentum settles; a slow drag (60px in 500ms) advances exactly 1 and starts no momentum.
+- Manual iPhone check: fast flick spins through ~10+ palettes decelerating smoothly; scroll never opens edit mode; single tap still opens edit.
+
+---
+
+## Feature 7: Flow-mode edit view (gradient with draggable stop handles)
+
+**Problem:** Edit mode currently shows discrete color blocks and equalizes stop positions (`equalizePositions` in `src/lib/stopOrdering.ts`). Wanted: the edit view is one continuous gradient with draggable handles on it — each handle IS a stop; dragging a handle changes that stop's actual `position`.
+
+**Change:**
+
+1. **Data:** extend `EditableStop` in `src/lib/stopOrdering.ts` to `{ id: string; hex: string; position: number }` (0–100). `toEditableStops` copies the real position from `GradientStop`. Add:
+   ```ts
+   export function moveStop(stops: EditableStop[], id: string, position: number): EditableStop[]
+   // clamps position to [0,100], updates that stop, returns stops re-sorted by position (stable)
+   export function toGradientStops(stops: EditableStop[]): GradientStop[]
+   // maps {hex, position} straight through, sorted by position
+   ```
+   `equalizePositions` remains only as the fallback when ADDING a stop from the swatch tray: new stop is inserted at the midpoint of the largest positional gap (use existing `insertionIndex.ts` if it fits, otherwise compute largest gap directly). Update all `equalizePositions` call sites accordingly.
+
+2. **New component** `src/components/FlowEditor.tsx` + `FlowEditor.module.css`, replacing the color-block stack (`BlockStack`) inside `EditMode.tsx`:
+   - Renders the live gradient full-size (reuse `buildGradientCss` with the current editable stops — linear vertical for editing regardless of geometry type; geometry preview stays wherever it currently is).
+   - One handle per stop, absolutely positioned along the gradient axis at `top: {position}%`. Handle visual: 28px circle filled with the stop's hex, 2px solid white border, `box-shadow: 0 1px 4px rgba(0,0,0,0.4)`, centered on a thin horizontal guide line.
+   - Drag: pointer events with `setPointerCapture`. `position = clamp(((pointerY - rectTop) / rectHeight) * 100, 0, 100)`, call `moveStop` on every move (live gradient update).
+   - Tap (movement < 6px between down/up) on a handle: opens the existing color-change UI for that stop (whatever BlockStack tap currently does — reuse the same callback).
+   - Existing remove/add flows (swatch tray, etc.) keep working against the new `EditableStop` shape.
+   - Accessibility: each handle is a `role="slider"` with `aria-valuemin=0 aria-valuemax=100 aria-valuenow={position}` and `aria-label="Stop {hex}"`; ArrowUp/ArrowDown move by 1 (Shift: 10).
+
+3. **Sorting interplay (Feature 3):** the edit-mode L/H/C sort buttons now reassign positions: after sorting by the chosen key, distribute positions evenly (`equalizePositions` on the sorted order). Update Feature 3's edit-mode wording accordingly.
+
+4. **Saving/exit:** on exit, `toGradientStops` produces the stops written back to the store — positions are preserved exactly (no equalize on exit). Check `EditMode.tsx` exit path and remove any equalize-on-exit behavior.
+
+**Acceptance criteria:**
+- `stopOrdering.test.ts`: `moveStop` clamps, reorders, is stable; `toGradientStops` round-trips positions; add-stop inserts in largest gap.
+- `FlowEditor.test.tsx`: renders one slider per stop at correct `aria-valuenow`; pointer drag updates position; keyboard arrows adjust by 1/10; tap (no move) triggers the color-change callback; drag does not.
+- Existing EditMode tests updated, all passing.
+- Manual check: dragging a handle visibly shifts the gradient in real time; exiting preserves custom positions in the feed.
 
 ---
 
