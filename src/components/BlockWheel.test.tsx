@@ -43,3 +43,17 @@ describe('BlockWheel', () => {
     expect(onRemove).toHaveBeenCalledWith('c')
   })
 })
+
+describe('BlockWheel insertion highlight', () => {
+  it('applies a highlighted boundary class at the given insertionIndex', () => {
+    render(<BlockWheel stops={stops} onReorder={vi.fn()} onRemove={vi.fn()} insertionIndex={1} />)
+    const wedges = screen.getAllByTestId('wheel-wedge')
+    expect(wedges[1].className).toContain('boundaryHighlight')
+  })
+
+  it('applies no highlight when insertionIndex is null', () => {
+    render(<BlockWheel stops={stops} onReorder={vi.fn()} onRemove={vi.fn()} insertionIndex={null} />)
+    const wedges = screen.getAllByTestId('wheel-wedge')
+    for (const w of wedges) expect(w.className).not.toContain('boundaryHighlight')
+  })
+})
