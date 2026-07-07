@@ -8,6 +8,7 @@ const STEP_PX = 80
 
 beforeEach(() => {
   useAppStore.setState(useAppStore.getInitialState())
+  localStorage.clear()
 })
 
 afterEach(() => {
@@ -285,5 +286,27 @@ describe('Feed', () => {
 
     spy.mockRestore()
     vi.useRealTimers()
+  })
+
+  it('shows the scroll hint on mount and dismisses it on the first wheel gesture', () => {
+    render(<Feed />)
+    expect(screen.getByRole('status').textContent).toBe('Scroll to explore palettes ↓')
+
+    const container = screen.getByTestId('feed-container')
+    fireEvent.wheel(container, { deltaY: STEP_PX })
+
+    expect(localStorage.getItem('palette-hint-scroll')).toBe('1')
+  })
+
+  it('does not show the scroll hint again once already dismissed', () => {
+    localStorage.setItem('palette-hint-scroll', '1')
+    render(<Feed />)
+    expect(screen.queryByText('Scroll to explore palettes ↓')).not.toBeInTheDocument()
+  })
+
+  it('shows the like hint only after the scroll hint has been dismissed', () => {
+    localStorage.setItem('palette-hint-scroll', '1')
+    render(<Feed />)
+    expect(screen.getByText('Double-tap to like')).toBeInTheDocument()
   })
 })

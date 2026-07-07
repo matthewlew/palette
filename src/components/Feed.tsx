@@ -6,6 +6,8 @@ import type { GradientType } from '../lib/gradient'
 import type { Gradient } from '../store/types'
 import type { ColorSet } from '../lib/colorSets'
 import { withViewTransition } from '../lib/viewTransition'
+import { Hint } from './Hint'
+import { useHint } from '../hooks/useHint'
 import styles from './Feed.module.css'
 
 const GEOMETRY_TYPES: GradientType[] = ['linear', 'radial', 'angular', 'square']
@@ -38,6 +40,8 @@ export function Feed() {
   const setCurrentGradient = useAppStore((s) => s.setCurrentGradient)
   const saveGradient = useAppStore((s) => s.saveGradient)
   const enterEditMode = useAppStore((s) => s.enterEditMode)
+  const scrollHint = useHint('scroll')
+  const likeHint = useHint('like')
   const containerRef = useRef<HTMLDivElement>(null)
 
   // History of gradients generated/visited this session, and the index of
@@ -57,6 +61,11 @@ export function Feed() {
   // gradient already exists in the store at mount, its type is reused;
   // otherwise a random type is picked.
   const lockedTypeRef = useRef<GradientType | null>(null)
+
+  // Avoids stale closures inside the DOM-listener effect below, whose
+  // dependency array is intentionally minimal (it doesn't re-run per render).
+  const scrollHintDismissRef = useRef(scrollHint.dismiss)
+  scrollHintDismissRef.current = scrollHint.dismiss
 
   // The single piece of React state: whatever gradient is currently shown.
   // Re-renders are triggered explicitly via setDisplayed, never implicitly.
@@ -152,6 +161,7 @@ export function Feed() {
     if (!el) return
 
     function handleWheel(e: WheelEvent) {
+      scrollHintDismissRef.current()
       e.preventDefault()
       accumulatedDeltaRef.current += e.deltaY
       consumeAccumulatedDelta()
@@ -162,6 +172,7 @@ export function Feed() {
     }
 
     function handleTouchMove(e: TouchEvent) {
+      scrollHintDismissRef.current()
       e.preventDefault()
       const touchY = e.touches[0]?.clientY
       if (touchY == null || lastTouchYRef.current == null) {
@@ -198,7 +209,16 @@ export function Feed() {
 
   return (
     <div data-testid="feed-container" ref={containerRef} className={styles.container}>
-      <GradientPage gradient={displayed} onSave={saveGradient} onEdit={() => withViewTransition(enterEditMode)} />
+      <GradientPage
+        gradient={displayed}
+        onSave={(g) => {
+          likeHint.dismiss()
+          saveGradient(g)
+        }}
+        onEdit={() => withViewTransition(enterEditMode)}
+      />
+      {scrollHint.visible && <Hint text="Scroll to explore palettes ↓" visible={scrollHint.visible} />}
+      {!scrollHint.visible && likeHint.visible && <Hint text="Double-tap to like" visible={likeHint.visible} />}
     </div>
   )
 }
