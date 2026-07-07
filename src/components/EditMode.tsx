@@ -6,7 +6,9 @@ import { verticalInsertionIndex } from '../lib/insertionIndex'
 import { sortByOklch, type SortKey } from '../lib/sortColors'
 import { useDoubleTap } from '../hooks/useDoubleTap'
 import { useHeartFlash } from '../hooks/useHeartFlash'
+import { useHint } from '../hooks/useHint'
 import { HeartFlash } from './HeartFlash'
+import { Hint } from './Hint'
 import { GeometryTabs } from './GeometryTabs'
 import { BlockStack } from './BlockStack'
 import { BlockWheel } from './BlockWheel'
@@ -30,11 +32,18 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   const [insertionIndex, setInsertionIndex] = useState<number | null>(null)
   const blockContainerRef = useRef<HTMLDivElement>(null) as RefObject<HTMLDivElement>
   const { visible: heartVisible, flash } = useHeartFlash()
+  const editHint = useHint('edit')
 
   useEffect(() => {
     setEditableStops(toEditableStops(gradient.stops))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gradient.id])
+
+  useEffect(() => {
+    const timer = setTimeout(() => editHint.dismiss(), 4000)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function commit(nextStops: EditableStop[], overrides?: Partial<Pick<Gradient, 'type' | 'reversed'>>) {
     setEditableStops(nextStops)
@@ -117,7 +126,7 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   const isWheel = WHEEL_TYPES.includes(gradient.type)
 
   return (
-    <div data-testid="edit-mode" className={styles.container}>
+    <div data-testid="edit-mode" className={styles.container} onPointerDown={() => editHint.dismiss()}>
       <button type="button" data-testid="edit-mode-back" aria-label="Back" className={styles.backButton} onClick={onExit}>
         ‹
       </button>
@@ -170,6 +179,7 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
         onDragAdd={handleDragAddFromTray}
         onDragMove={handleTrayDragMove}
       />
+      {editHint.visible && <Hint text="Tap a swatch to edit" visible={editHint.visible} />}
     </div>
   )
 }

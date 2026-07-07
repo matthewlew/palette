@@ -16,6 +16,7 @@ const gradient: Gradient = {
 }
 
 beforeEach(() => {
+  localStorage.clear()
   useAppStore.setState(useAppStore.getInitialState())
   useAppStore.getState().setCurrentGradient(gradient)
 })
@@ -134,6 +135,26 @@ describe('EditMode', () => {
     fireEvent.pointerUp(document, { clientX: 0, clientY: 0 })
     const updated = useAppStore.getState().current!
     expect(updated.stops).toHaveLength(4)
+    vi.useRealTimers()
+  })
+
+  it('shows the edit hint on mount and dismisses it on pointerdown anywhere in edit mode', () => {
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    expect(screen.getByText('Tap a swatch to edit')).toBeInTheDocument()
+
+    fireEvent.pointerDown(screen.getByTestId('edit-mode'))
+
+    expect(localStorage.getItem('palette-hint-edit')).toBe('1')
+  })
+
+  it('auto-dismisses the edit hint after 4 seconds', () => {
+    vi.useFakeTimers()
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    expect(screen.getByText('Tap a swatch to edit')).toBeInTheDocument()
+
+    vi.advanceTimersByTime(4000)
+
+    expect(localStorage.getItem('palette-hint-edit')).toBe('1')
     vi.useRealTimers()
   })
 })
