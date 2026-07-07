@@ -106,6 +106,23 @@ describe('EditMode', () => {
     vi.useRealTimers()
   })
 
+  it('tapping "Sort by lightness" reorders stops darkest to lightest', () => {
+    const darkFirst: Gradient = {
+      id: 'g2',
+      type: 'linear',
+      stops: [
+        { hex: '#0000ff', position: 0 }, // dark, l~0.45
+        { hex: '#00ff00', position: 50 }, // light, l~0.87
+        { hex: '#ff0000', position: 100 }, // mid, l~0.63
+      ],
+      reversed: false,
+    }
+    render(<EditMode gradient={darkFirst} onExit={vi.fn()} />)
+    fireEvent.click(screen.getByLabelText('Sort by lightness'))
+    const updated = useAppStore.getState().current!
+    expect(updated.stops.map((s) => s.hex)).toEqual(['#0000ff', '#ff0000', '#00ff00'])
+  })
+
   it('drag-adding a swatch inserts at the computed index, not just appended', () => {
     vi.useFakeTimers()
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)

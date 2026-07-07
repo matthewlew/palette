@@ -3,6 +3,7 @@ import { useAppStore } from '../store/useAppStore'
 import { buildGradientCss, type GradientType } from '../lib/gradient'
 import { toEditableStops, equalizePositions, removeStopAt, addStop, removeLastByHex, type EditableStop } from '../lib/stopOrdering'
 import { verticalInsertionIndex } from '../lib/insertionIndex'
+import { sortByOklch, type SortKey } from '../lib/sortColors'
 import { useDoubleTap } from '../hooks/useDoubleTap'
 import { useHeartFlash } from '../hooks/useHeartFlash'
 import { HeartFlash } from './HeartFlash'
@@ -102,6 +103,10 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
     commit(removeLastByHex(editableStops, hex))
   }
 
+  function handleSort(key: SortKey) {
+    commit(sortByOklch(editableStops, (s) => s.hex, key))
+  }
+
   function handleLike() {
     saveGradient(gradient)
     flash()
@@ -128,6 +133,17 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
         <HeartFlash visible={heartVisible} />
       </div>
       <GeometryTabs type={gradient.type} onSelectType={handleSelectType} onToggleReversed={handleToggleReversed} />
+      <div className={styles.sortRow}>
+        <button type="button" aria-label="Sort by lightness" className={styles.sortButton} onClick={() => handleSort('lightness')}>
+          L
+        </button>
+        <button type="button" aria-label="Sort by hue" className={styles.sortButton} onClick={() => handleSort('hue')}>
+          H
+        </button>
+        <button type="button" aria-label="Sort by chroma" className={styles.sortButton} onClick={() => handleSort('chroma')}>
+          C
+        </button>
+      </div>
       <div className={styles.blockArea}>
         {isWheel ? (
           <BlockWheel
