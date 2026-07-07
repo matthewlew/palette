@@ -16,7 +16,7 @@ const stops: EditableStop[] = [
 describe('SwatchTray', () => {
   it('renders one swatch per color in the active color set', () => {
     render(<SwatchTray colorSet={DEFAULT_COLOR_SET} stops={stops} onTapAdd={vi.fn()} onTapRemove={vi.fn()} onDragAdd={vi.fn()} />)
-    expect(screen.getAllByTestId('swatch')).toHaveLength(36)
+    expect(screen.getAllByTestId('swatch')).toHaveLength(60)
   })
 
   it('shows a checkmark only for hexes present in stops', () => {
