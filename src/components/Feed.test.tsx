@@ -367,4 +367,15 @@ describe('Feed', () => {
     render(<Feed />)
     expect(screen.getByText('Double-tap to like')).toBeInTheDocument()
   })
+
+  it('shows the scroll ticker while scrubbing and it tracks the feed index', () => {
+    render(<Feed />)
+    const container = screen.getByTestId('feed-container')
+
+    expect(screen.getByTestId('scroll-ticker').style.opacity).toBe('0')
+
+    fireEvent.wheel(container, { deltaY: STEP_PX })
+    expect(screen.getByTestId('scroll-ticker').style.opacity).toBe('1')
+    expect(screen.getByTestId('ticker-tick-active')).toBeInTheDocument()
+  })
 })

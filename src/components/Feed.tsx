@@ -9,6 +9,7 @@ import { withViewTransition } from '../lib/viewTransition'
 import { decayVelocity, shouldStartMomentum } from '../lib/momentum'
 import { Hint } from './Hint'
 import { useHint } from '../hooks/useHint'
+import { ScrollTicker } from './ScrollTicker'
 import styles from './Feed.module.css'
 
 const GEOMETRY_TYPES: GradientType[] = ['linear', 'radial', 'angular', 'square']
@@ -74,6 +75,7 @@ export function Feed() {
   // The single piece of React state: whatever gradient is currently shown.
   // Re-renders are triggered explicitly via setDisplayed, never implicitly.
   const [displayed, setDisplayed] = useState<Gradient | null>(null)
+  const [tickerIndex, setTickerIndex] = useState(0)
 
   // Initialize history with a first gradient on mount, if the store doesn't
   // already have one. This is the only place that writes to the store AND
@@ -133,6 +135,7 @@ export function Feed() {
     }
 
     indexRef.current = newIndex
+    setTickerIndex(newIndex)
     const next = history[newIndex]
     setDisplayed(next)
     setCurrentGradient(next)
@@ -260,6 +263,7 @@ export function Feed() {
         }}
         onEdit={() => withViewTransition(enterEditMode)}
       />
+      <ScrollTicker index={tickerIndex} />
       {scrollHint.visible && <Hint text="Scroll to explore palettes ↓" visible={scrollHint.visible} />}
       {!scrollHint.visible && likeHint.visible && <Hint text="Double-tap to like" visible={likeHint.visible} />}
     </div>
