@@ -289,4 +289,11 @@ describe('EditMode', () => {
     const movedStop = updated.stops.find((s) => s.hex === '#00ff00')!
     expect(movedStop.position).toBe(100)
   })
+
+  it('wraps geometry tabs, controller, and swatch tray in a bottom sheet container', () => {
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    const sheet = screen.getByTestId('edit-sheet')
+    expect(sheet).toContainElement(screen.getByTestId('flow-editor'))
+    expect(sheet).toContainElement(screen.getByTestId('sort-fab'))
+  })
 })

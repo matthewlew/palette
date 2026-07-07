@@ -145,35 +145,37 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
         {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} />}
         <HeartFlash visible={heartVisible} />
       </div>
-      <GeometryTabs type={gradient.type} onSelectType={handleSelectType} onToggleReversed={handleToggleReversed} />
-      <div className={styles.blockArea}>
-        <button
-          type="button"
-          data-testid="sort-fab"
-          aria-label={`Sort by ${SORT_KEYS[sortKeyIndex]}`}
-          className={styles.sortFab}
-          onClick={handleSortCycle}
-        >
-          ⇅ {SORT_LABELS[SORT_KEYS[sortKeyIndex]]}
-        </button>
-        {isWheel ? (
-          <BlockWheel
-            stops={editableStops}
-            onReorder={(next) => commit(next)}
-            onRemove={handleRemove}
-            containerRef={blockContainerRef}
-          />
-        ) : (
-          <FlowEditor stops={editableStops} onMove={handleMoveStop} onTapStop={handleTapStop} containerRef={blockContainerRef} />
-        )}
+      <div data-testid="edit-sheet" className={styles.sheet}>
+        <GeometryTabs type={gradient.type} onSelectType={handleSelectType} onToggleReversed={handleToggleReversed} />
+        <div className={styles.blockArea}>
+          <button
+            type="button"
+            data-testid="sort-fab"
+            aria-label={`Sort by ${SORT_KEYS[sortKeyIndex]}`}
+            className={styles.sortFab}
+            onClick={handleSortCycle}
+          >
+            ⇅ {SORT_LABELS[SORT_KEYS[sortKeyIndex]]}
+          </button>
+          {isWheel ? (
+            <BlockWheel
+              stops={editableStops}
+              onReorder={(next) => commit(next)}
+              onRemove={handleRemove}
+              containerRef={blockContainerRef}
+            />
+          ) : (
+            <FlowEditor stops={editableStops} onMove={handleMoveStop} onTapStop={handleTapStop} containerRef={blockContainerRef} />
+          )}
+        </div>
+        <SwatchTray
+          colorSet={activeColorSet}
+          stops={editableStops}
+          onTapAdd={handleTapAdd}
+          onTapRemove={handleTapRemove}
+          onDragAdd={handleDragAddFromTray}
+        />
       </div>
-      <SwatchTray
-        colorSet={activeColorSet}
-        stops={editableStops}
-        onTapAdd={handleTapAdd}
-        onTapRemove={handleTapRemove}
-        onDragAdd={handleDragAddFromTray}
-      />
       {editHint.visible && <Hint text="Tap a swatch to edit" visible={editHint.visible} />}
     </div>
   )
