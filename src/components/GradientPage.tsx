@@ -1,7 +1,10 @@
 import { useRef } from 'react'
 import { buildGradientCss } from '../lib/gradient'
+import { useAppStore } from '../store/useAppStore'
 import { TurrellSquare } from './TurrellSquare'
 import { LikeButton } from './LikeButton'
+import { GrainButton } from './GrainButton'
+import { NoiseOverlay } from './NoiseOverlay'
 import type { Gradient } from '../store/types'
 import styles from './GradientPage.module.css'
 
@@ -18,6 +21,8 @@ interface GradientPageProps {
 
 export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisible = true }: GradientPageProps) {
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null)
+  const noiseEnabled = useAppStore((s) => s.noiseEnabled)
+  const toggleNoise = useAppStore((s) => s.toggleNoise)
 
   function handlePointerDown(e: React.PointerEvent) {
     pointerStartRef.current = { x: e.clientX, y: e.clientY }
@@ -55,6 +60,8 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
       onPointerUp={handlePointerUp}
     >
       {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} />}
+      <NoiseOverlay visible={noiseEnabled} />
+      <GrainButton enabled={noiseEnabled} onToggle={toggleNoise} hidden={!chromeVisible} />
       <LikeButton liked={liked} onToggle={onToggleLike} hidden={!chromeVisible} />
     </div>
   )

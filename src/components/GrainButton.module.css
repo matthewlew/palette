@@ -1,0 +1,26 @@
+.grainButton {
+  position: absolute;
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  right: 16px;
+  z-index: 3;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 150ms ease-out, opacity 400ms ease;
+}
+
+.grainButton:active {
+  transform: scale(0.9);
+}
+
+.hidden {
+  opacity: 0;
+  pointer-events: none;
+}

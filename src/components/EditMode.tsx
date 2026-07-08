@@ -15,6 +15,8 @@ import { sortByOklch, type SortKey } from '../lib/sortColors'
 import { useHint } from '../hooks/useHint'
 import { Hint } from './Hint'
 import { LikeButton } from './LikeButton'
+import { GrainButton } from './GrainButton'
+import { NoiseOverlay } from './NoiseOverlay'
 import { GeometryTabs } from './GeometryTabs'
 import { FlowEditor } from './FlowEditor'
 import { SwatchTray } from './SwatchTray'
@@ -35,6 +37,8 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   const activeColorSet = useAppStore((s) => s.activeColorSet)
   const isGradientSaved = useAppStore((s) => s.isGradientSaved(gradient))
   const toggleSaveGradient = useAppStore((s) => s.toggleSaveGradient)
+  const noiseEnabled = useAppStore((s) => s.noiseEnabled)
+  const toggleNoise = useAppStore((s) => s.toggleNoise)
   const [editableStops, setEditableStops] = useState<EditableStop[]>(() => toEditableStops(gradient.stops))
   const [sortKeyIndex, setSortKeyIndex] = useState(0)
   const blockContainerRef = useRef<HTMLDivElement>(null) as RefObject<HTMLDivElement>
@@ -212,6 +216,8 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
         onPointerUp={handlePreviewPointerUp}
       >
         {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} />}
+        <NoiseOverlay visible={noiseEnabled} />
+        <GrainButton enabled={noiseEnabled} onToggle={toggleNoise} />
         <LikeButton liked={isGradientSaved} onToggle={() => toggleSaveGradient(gradient)} />
         <button
           type="button"
