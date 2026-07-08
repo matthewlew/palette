@@ -8,17 +8,21 @@ interface TurrellSquareProps {
 }
 
 export function TurrellSquare({ stops, reversed = false, blurPx }: TurrellSquareProps) {
-  const ordered = reversed ? [...stops].reverse() : stops
+  // Layer depth (outermost -> innermost) always follows stop position order
+  // (stops arrive pre-sorted by position); reversed only swaps which color
+  // fills which depth, it never reorders the depths/sizes themselves.
+  const hexes = reversed ? [...stops].map((s) => s.hex).reverse() : stops.map((s) => s.hex)
 
   return (
     <div data-testid="turrell-square" className={styles.container}>
-      {ordered.map((stop, i) => {
-        // Outermost layer (i === 0) is largest (100%); each subsequent layer
-        // shrinks toward the center, with the innermost layer (last stop)
-        // reaching a 20%-of-container floor, producing the nested-squares
-        // Turrell look.
-        const scalePercent =
-          ordered.length <= 1 ? 100 : 100 - (i / (ordered.length - 1)) * 80
+      {stops.map((stop, i) => {
+        // Outermost layer (position 0) is largest (100%); each subsequent
+        // layer shrinks toward the center in proportion to the stop's actual
+        // position (not just its index), so dragging a flow-editor handle
+        // changes the nesting depth, not only the color. The innermost stop
+        // (position 100) reaches a 20%-of-container floor, producing the
+        // nested-squares Turrell look.
+        const scalePercent = stops.length <= 1 ? 100 : 100 - (stop.position / 100) * 80
         // The blur filter samples transparency past a layer's edge, so the
         // outermost layer must extend beyond the container (by 4x the blur
         // radius) for the blurred edge to land outside the overflow clip
@@ -31,7 +35,7 @@ export function TurrellSquare({ stops, reversed = false, blurPx }: TurrellSquare
             data-testid="turrell-layer"
             className={styles.layer}
             style={{
-              backgroundColor: stop.hex,
+              backgroundColor: hexes[i],
               width: size,
               height: size,
               filter: blurPx != null ? `blur(${blurPx}px)` : undefined,

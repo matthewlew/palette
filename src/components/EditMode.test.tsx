@@ -66,6 +66,53 @@ describe('EditMode', () => {
     expect(updated.stops.map((s) => s.hex)).toEqual(['#ff0000', '#00ff00', '#0000ff'])
   })
 
+  it('switching geometry type preserves custom (non-equalized) stop positions', () => {
+    const custom: Gradient = {
+      id: 'g-custom',
+      type: 'linear',
+      stops: [
+        { hex: '#ff0000', position: 5 },
+        { hex: '#00ff00', position: 40 },
+        { hex: '#0000ff', position: 95 },
+      ],
+      reversed: false,
+    }
+    useAppStore.getState().setCurrentGradient(custom)
+    render(<EditMode gradient={custom} onExit={vi.fn()} />)
+    fireEvent.click(screen.getByText('Radial'))
+    const updated = useAppStore.getState().current!
+    expect(updated.type).toBe('radial')
+    expect(updated.stops.map((s) => s.position)).toEqual([5, 40, 95])
+  })
+
+  it('toggling reversed preserves custom (non-equalized) stop positions', () => {
+    const custom: Gradient = {
+      id: 'g-custom',
+      type: 'linear',
+      stops: [
+        { hex: '#ff0000', position: 5 },
+        { hex: '#00ff00', position: 40 },
+        { hex: '#0000ff', position: 95 },
+      ],
+      reversed: false,
+    }
+    useAppStore.getState().setCurrentGradient(custom)
+    render(<EditMode gradient={custom} onExit={vi.fn()} />)
+    fireEvent.click(screen.getByText('Linear'))
+    const updated = useAppStore.getState().current!
+    expect(updated.reversed).toBe(true)
+    expect(updated.stops.map((s) => s.position)).toEqual([5, 40, 95])
+  })
+
+  it('tapping the repeat and hard filter chips toggles them on the store, preserving positions', () => {
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('filter-repeat'))
+    expect(useAppStore.getState().current!.repeatEnabled).toBe(true)
+    fireEvent.click(screen.getByTestId('filter-hard'))
+    expect(useAppStore.getState().current!.hardStops).toBe(true)
+    expect(useAppStore.getState().current!.stops.map((s) => s.position)).toEqual([0, 50, 100])
+  })
+
   it('tapping the already-active tab toggles reversed on the store', () => {
     const { rerender } = render(<EditMode gradient={gradient} onExit={vi.fn()} />)
     fireEvent.click(screen.getByText('Linear'))
@@ -326,6 +373,23 @@ describe('EditMode', () => {
     fireEvent.touchEnd(sheet)
 
     expect(onExit).toHaveBeenCalledTimes(1)
+  })
+
+  it('skips the drag-to-dismiss gesture at tablet/desktop widths (matchMedia min-width: 768px matches)', () => {
+    const onExit = vi.fn()
+    const matchMedia = vi.fn().mockReturnValue({ matches: true })
+    vi.stubGlobal('matchMedia', matchMedia)
+    render(<EditMode gradient={gradient} onExit={onExit} />)
+    const sheet = screen.getByTestId('edit-sheet')
+    Object.defineProperty(sheet, 'offsetHeight', { configurable: true, value: 200 })
+
+    fireEvent.touchStart(sheet, { touches: [{ clientY: 100 }] })
+    fireEvent.touchMove(sheet, { touches: [{ clientY: 200 }] })
+    fireEvent.touchEnd(sheet)
+
+    expect(onExit).not.toHaveBeenCalled()
+    expect(matchMedia).toHaveBeenCalledWith('(min-width: 768px)')
+    vi.unstubAllGlobals()
   })
 
   it('does not exit for a small sheet drag, and restores the sheet height', () => {

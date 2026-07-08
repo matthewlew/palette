@@ -90,7 +90,48 @@ describe('buildGradientCss mirror type', () => {
   })
 })
 
-describe('buildGradientCss repeat type', () => {
+describe('buildGradientCss repeat filter', () => {
+  it('cycles the stop sequence twice within 0-100 when filters.repeat is true', () => {
+    const css = buildGradientCss('linear', stops, false, { repeat: true })
+    const matches = css.match(/#[0-9a-f]{6} \d+%/g)!
+    expect(matches).toHaveLength(6)
+    expect(matches[0]).toBe('#ff0000 0%')
+    expect(matches[2]).toBe('#0000ff 50%')
+    expect(matches[5]).toBe('#0000ff 100%')
+  })
+
+  it('has no effect when filters.repeat is false/omitted', () => {
+    expect(buildGradientCss('linear', stops, false, { repeat: false })).toBe(buildGradientCss('linear', stops))
+  })
+
+  it('is a no-op for square (already solid blocks) and mirror (builds its own sequence)', () => {
+    expect(buildGradientCss('square', stops, false, { repeat: true })).toBe(buildGradientCss('square', stops))
+    expect(buildGradientCss('mirror', stops, false, { repeat: true })).toBe(buildGradientCss('mirror', stops))
+  })
+})
+
+describe('buildGradientCss hard filter', () => {
+  it('renders each color as a band with a hard cut at the midpoint to its neighbor', () => {
+    const css = buildGradientCss('linear', stops, false, { hard: true })
+    const matches = css.match(/#[0-9a-f]{6} \d+%/g)!
+    // 3 stops -> 3 bands = 6 position markers (start/end pairs).
+    expect(matches).toHaveLength(6)
+    expect(matches[0]).toBe('#ff0000 0%')
+    expect(matches[1]).toBe('#ff0000 25%')
+    expect(matches[2]).toBe('#00ff00 25%')
+    expect(matches[3]).toBe('#00ff00 75%')
+    expect(matches[4]).toBe('#0000ff 75%')
+    expect(matches[5]).toBe('#0000ff 100%')
+  })
+
+  it('combines with repeat: hardened bands, then cycled twice', () => {
+    const css = buildGradientCss('linear', stops, false, { hard: true, repeat: true })
+    const matches = css.match(/#[0-9a-f]{6} \d+%/g)!
+    expect(matches).toHaveLength(12)
+  })
+})
+
+describe('buildGradientCss repeat type (legacy dedicated type)', () => {
   it('builds a linear-gradient that repeats the stop sequence exactly twice', () => {
     const css = buildGradientCss('repeat', stops)
     expect(css).toContain('linear-gradient(180deg,')

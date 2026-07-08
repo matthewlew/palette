@@ -21,3 +21,16 @@
   color: #fff;
   border-color: #000;
 }
+
+.tab:disabled,
+.tabActive:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.divider {
+  flex: 0 0 auto;
+  width: 1px;
+  margin: 4px 2px;
+  background: rgba(0, 0, 0, 0.15);
+}

@@ -126,17 +126,38 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
     })
   }
 
+  // Switching geometry type or toggling reversed must not disturb the stop
+  // positions the user has already dragged into place — only handle removal/
+  // addition/sorting re-equalizes, since those change stop count or order.
+  function commitPreservingPositions(
+    overrides: Partial<Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops'>>
+  ) {
+    setCurrentGradient({
+      ...gradient,
+      ...overrides,
+      stops: toGradientStops(editableStops),
+    })
+  }
+
   function handleRemove(id: string) {
     if (editableStops.length <= 2) return
     commit(removeStopAt(editableStops, id))
   }
 
   function handleSelectType(type: GradientType) {
-    commit(editableStops, { type })
+    commitPreservingPositions({ type })
   }
 
   function handleToggleReversed() {
-    commit(editableStops, { reversed: !gradient.reversed })
+    commitPreservingPositions({ reversed: !gradient.reversed })
+  }
+
+  function handleToggleRepeat() {
+    commitPreservingPositions({ repeatEnabled: !gradient.repeatEnabled })
+  }
+
+  function handleToggleHardStops() {
+    commitPreservingPositions({ hardStops: !gradient.hardStops })
   }
 
   function isPointOverElement(point: { x: number; y: number }, el: HTMLElement): boolean {
@@ -215,7 +236,13 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
         data-testid="edit-mode-preview"
         className={styles.preview}
         style={{
-          backgroundImage: gradient.type === 'square' ? undefined : buildGradientCss(gradient.type, gradient.stops, gradient.reversed),
+          backgroundImage:
+            gradient.type === 'square'
+              ? undefined
+              : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
+                  repeat: gradient.repeatEnabled,
+                  hard: gradient.hardStops,
+                }),
         }}
         onPointerDown={handlePreviewPointerDown}
         onPointerUp={handlePreviewPointerUp}
@@ -244,7 +271,15 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
           className={styles.sheetHandle}
           onClick={onExit}
         />
-        <GeometryTabs type={gradient.type} onSelectType={handleSelectType} onToggleReversed={handleToggleReversed} />
+        <GeometryTabs
+          type={gradient.type}
+          onSelectType={handleSelectType}
+          onToggleReversed={handleToggleReversed}
+          repeatEnabled={gradient.repeatEnabled}
+          onToggleRepeat={handleToggleRepeat}
+          hardStops={gradient.hardStops}
+          onToggleHardStops={handleToggleHardStops}
+        />
         <div className={styles.blockArea}>
           <FlowEditor
             stops={editableStops}

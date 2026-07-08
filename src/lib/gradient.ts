@@ -73,9 +73,58 @@ function buildRepeatGradient(stops: GradientStop[]): string {
   return `linear-gradient(180deg, ${stopsToCss(positionedStops(sequence))})`
 }
 
-export function buildGradientCss(type: GradientType, stops: GradientStop[], reversed = false): string {
+/** Compresses the stop sequence into the first half of the 0-100 range and
+ * duplicates it into the second half, so the whole gradient cycles through
+ * its stops twice with a smooth hand-off between cycles — a "2x repeat"
+ * filter, applicable on top of any geometry type. */
+function repeatedStops(stops: GradientStop[]): GradientStop[] {
+  const first = stops.map((s) => ({ hex: s.hex, position: Math.round(s.position / 2) }))
+  const second = stops.map((s) => ({ hex: s.hex, position: Math.round(50 + s.position / 2) }))
+  return [...first, ...second]
+}
+
+/** Converts smooth blend points into hard color bands: each stop fills out
+ * to the midpoint between it and its neighbors, so colors cut instead of
+ * interpolating. Implemented via CSS's double-stop trick (same color at two
+ * adjacent positions). */
+function hardenStops(stops: GradientStop[]): GradientStop[] {
+  if (stops.length < 2) return stops
+  const result: GradientStop[] = []
+  for (let i = 0; i < stops.length; i++) {
+    const cur = stops[i]
+    const start = i === 0 ? 0 : Math.round((stops[i - 1].position + cur.position) / 2)
+    const end = i === stops.length - 1 ? 100 : Math.round((cur.position + stops[i + 1].position) / 2)
+    result.push({ hex: cur.hex, position: start })
+    result.push({ hex: cur.hex, position: end })
+  }
+  return result
+}
+
+export interface GradientFilters {
+  /** Cycles the stop sequence twice across the gradient, like the old
+   * dedicated "repeat" type but layered on top of any geometry. */
+  repeat?: boolean
+  /** Renders solid color bands with hard cuts instead of smooth blends. */
+  hard?: boolean
+}
+
+export function buildGradientCss(
+  type: GradientType,
+  stops: GradientStop[],
+  reversed = false,
+  filters: GradientFilters = {}
+): string {
   assertStops(stops)
-  const orderedStops = applyReversed(stops, reversed)
+  let orderedStops = applyReversed(stops, reversed)
+
+  // Turrell squares are already solid, non-interpolated blocks, and mirror/
+  // legacy-repeat build their own position sequence from raw hex order —
+  // the repeat/hard filters only make sense for types that render a genuine
+  // continuous blend from `orderedStops` as given.
+  if (type !== 'square' && type !== 'mirror' && type !== 'repeat') {
+    if (filters.hard) orderedStops = hardenStops(orderedStops)
+    if (filters.repeat) orderedStops = repeatedStops(orderedStops)
+  }
 
   switch (type) {
     case 'linear':
