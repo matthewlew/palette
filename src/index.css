@@ -142,5 +142,5 @@ code {
 }
 
 ::view-transition-old(edit-sheet) {
-  animation: sheet-slide-down 300ms ease-in;
+  animation: sheet-slide-down 300ms ease-out;
 }
