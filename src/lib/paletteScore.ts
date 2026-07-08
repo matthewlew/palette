@@ -24,8 +24,8 @@ export function lightnessRange(colors: Oklch[]): number {
   return clamp01(range / 0.8)
 }
 
-function circularHueDistance(a: number, h_b: number): number {
-  const diff = Math.abs(a - h_b)
+function circularHueDistance(a: number, b: number): number {
+  const diff = Math.abs(a - b)
   return Math.min(diff, 360 - diff)
 }
 
