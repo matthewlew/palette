@@ -124,16 +124,16 @@ export const DEFAULT_SCORE_WEIGHTS: ScoreWeights = {
 
 export function scorePalette(colors: Oklch[], weights: ScoreWeights = DEFAULT_SCORE_WEIGHTS): number {
   if (colors.length < 2) return 0
-  const f1 = saturationSpread(colors)
-  const f2 = lightnessRange(colors)
-  const f4 = minPairwiseDistance(colors)
-  const f5 = hueHarmony(colors.map((c) => c.h))
-  const f7 = achromaticPenalty(colors)
+  const saturation = saturationSpread(colors)
+  const lightness = lightnessRange(colors)
+  const distance = minPairwiseDistance(colors)
+  const harmony = hueHarmony(colors.map((c) => c.h))
+  const achromatic = achromaticPenalty(colors)
   const weighted =
-    f1 * weights.saturationSpread +
-    f2 * weights.lightnessRange +
-    f4 * weights.minPairwiseDistance +
-    f5 * weights.hueHarmony +
-    f7 * weights.achromaticPenalty
+    saturation * weights.saturationSpread +
+    lightness * weights.lightnessRange +
+    distance * weights.minPairwiseDistance +
+    harmony * weights.hueHarmony +
+    achromatic * weights.achromaticPenalty
   return weighted * 100
 }
