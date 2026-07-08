@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { generateGradientStops } from './palette'
 import { DEFAULT_COLOR_SET } from './colorSets'
+import { scorePalette } from './paletteScore'
+import { hexToOklch } from './oklch'
 
 describe('generateGradientStops', () => {
   it('produces between 3 and 6 stops', () => {
@@ -35,5 +37,52 @@ describe('generateGradientStops', () => {
     for (const stop of stops) {
       expect(stop.hex).toMatch(/^#[0-9a-f]{6}$/)
     }
+  })
+})
+
+describe('generateGradientStops aesthetic bias', () => {
+  it('produces a materially higher average score than unweighted random+jitter', () => {
+    // Baseline: plain random pick + jitter, no candidate scoring —
+    // reimplements the pre-scoring behavior inline so this test doesn't
+    // depend on internals of palette.ts.
+    function pickRandom<T>(arr: T[]): T {
+      return arr[Math.floor(Math.random() * arr.length)]
+    }
+    function jitter(color: { l: number; c: number; h: number }) {
+      return {
+        l: Math.min(1, Math.max(0, color.l + (Math.random() - 0.5) * 0.1)),
+        c: Math.max(0, color.c + (Math.random() - 0.5) * 0.04),
+        h: (color.h + (Math.random() - 0.5) * 20 + 360) % 360,
+      }
+    }
+    function baselineScore(): number {
+      const stopCount = 3 + Math.floor(Math.random() * 4)
+      const colors = []
+      for (let i = 0; i < stopCount; i++) {
+        colors.push(jitter(pickRandom(DEFAULT_COLOR_SET.colors).value))
+      }
+      return scorePalette(colors)
+    }
+
+    const iterations = 2000
+    let baselineTotal = 0
+    let generatedTotal = 0
+    for (let i = 0; i < iterations; i++) {
+      baselineTotal += baselineScore()
+      const stops = generateGradientStops(DEFAULT_COLOR_SET)
+      const colors = stops.map((s) => hexToOklch(s.hex))
+      generatedTotal += scorePalette(colors)
+    }
+    const baselineAvg = baselineTotal / iterations
+    const generatedAvg = generatedTotal / iterations
+    // Empirically observed generatedAvg - baselineAvg ranging from ~2.25 to
+    // ~3.64 across 30 runs of 2000 iterations each (CANDIDATE_COUNT=8,
+    // score ** 2 weighting). At 2000 iterations (10x the prior 200), the
+    // standard error of the measured average shrinks by ~sqrt(10), tightly
+    // clustering the delta around its true mean and eliminating the
+    // left-tail crossings-to-negative seen at 200 iterations. A margin of
+    // +1.2 sits well below the smallest observed delta (~2.25), leaving
+    // ~1.0 of buffer for tail variance beyond the sampled runs.
+    expect(generatedAvg).toBeGreaterThan(baselineAvg + 1.2)
   })
 })
