@@ -6,19 +6,26 @@
 }
 
 .backButton {
+  composes: glass-surface from global;
   position: absolute;
   top: calc(12px + env(safe-area-inset-top));
   left: 12px;
   z-index: 1;
-  width: 32px;
-  height: 32px;
-  border: none;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.4);
   color: #fff;
-  font-size: 20px;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   cursor: pointer;
+}
+
+/* Optically center the chevron: nudge left so its visual mass sits centered. */
+.backButton svg {
+  display: block;
+  margin-left: -2px;
 }
 
 .preview {
@@ -52,21 +59,52 @@
   cursor: pointer;
 }
 
+/* On tablet/desktop the controls move to a side panel so the gradient keeps
+   the full viewport height. */
+@media (min-width: 768px) {
+  .container {
+    flex-direction: row;
+  }
+
+  .preview {
+    /* Without this, wide sheet content can flex the preview down to 0. */
+    min-width: 0;
+  }
+
+  .sheet {
+    flex: 0 0 340px;
+    /* min-width:auto would let wide children (flow editor, tray) blow the
+       panel past its 340px basis and squeeze the preview out entirely. */
+    min-width: 0;
+    max-width: 340px;
+    order: 2;
+    height: 100%;
+    box-sizing: border-box;
+    border-radius: 16px 0 0 16px;
+    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.12);
+    justify-content: flex-start;
+    gap: 16px;
+    padding-top: 24px;
+  }
+
+  .sheetHandle {
+    display: none;
+  }
+}
+
 .sortFab {
+  composes: glass-surface from global;
   position: absolute;
   bottom: 16px;
   left: 16px;
   z-index: 3;
   height: 36px;
   padding: 0 16px;
-  border: none;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.55);
   color: #fff;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
 .blockArea {

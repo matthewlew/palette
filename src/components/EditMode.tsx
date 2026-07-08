@@ -62,6 +62,9 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   useEffect(() => {
     const el = sheetRef.current
     if (!el) return
+    // The drag-to-dismiss gesture only makes sense for the bottom-sheet
+    // layout; at tablet/desktop widths the sheet is a fixed side panel.
+    if (typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 768px)').matches) return
     let startY = 0
     let baseHeight = 0
     let dragY = 0
@@ -123,17 +126,38 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
     })
   }
 
+  // Switching geometry type or toggling reversed must not disturb the stop
+  // positions the user has already dragged into place — only handle removal/
+  // addition/sorting re-equalizes, since those change stop count or order.
+  function commitPreservingPositions(
+    overrides: Partial<Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops'>>
+  ) {
+    setCurrentGradient({
+      ...gradient,
+      ...overrides,
+      stops: toGradientStops(editableStops),
+    })
+  }
+
   function handleRemove(id: string) {
     if (editableStops.length <= 2) return
     commit(removeStopAt(editableStops, id))
   }
 
   function handleSelectType(type: GradientType) {
-    commit(editableStops, { type })
+    commitPreservingPositions({ type })
   }
 
   function handleToggleReversed() {
-    commit(editableStops, { reversed: !gradient.reversed })
+    commitPreservingPositions({ reversed: !gradient.reversed })
+  }
+
+  function handleToggleRepeat() {
+    commitPreservingPositions({ repeatEnabled: !gradient.repeatEnabled })
+  }
+
+  function handleToggleHardStops() {
+    commitPreservingPositions({ hardStops: !gradient.hardStops })
   }
 
   function isPointOverElement(point: { x: number; y: number }, el: HTMLElement): boolean {
@@ -204,13 +228,21 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   return (
     <div data-testid="edit-mode" className={styles.container} onPointerDown={() => editHint.dismiss()}>
       <button type="button" data-testid="edit-mode-back" aria-label="Back" className={styles.backButton} onClick={onExit}>
-        ‹
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M15 5l-7 7 7 7" />
+        </svg>
       </button>
       <div
         data-testid="edit-mode-preview"
         className={styles.preview}
         style={{
-          backgroundImage: gradient.type === 'square' ? undefined : buildGradientCss(gradient.type, gradient.stops, gradient.reversed),
+          backgroundImage:
+            gradient.type === 'square'
+              ? undefined
+              : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
+                  repeat: gradient.repeatEnabled,
+                  hard: gradient.hardStops,
+                }),
         }}
         onPointerDown={handlePreviewPointerDown}
         onPointerUp={handlePreviewPointerUp}
@@ -239,7 +271,15 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
           className={styles.sheetHandle}
           onClick={onExit}
         />
-        <GeometryTabs type={gradient.type} onSelectType={handleSelectType} onToggleReversed={handleToggleReversed} />
+        <GeometryTabs
+          type={gradient.type}
+          onSelectType={handleSelectType}
+          onToggleReversed={handleToggleReversed}
+          repeatEnabled={gradient.repeatEnabled}
+          onToggleRepeat={handleToggleRepeat}
+          hardStops={gradient.hardStops}
+          onToggleHardStops={handleToggleHardStops}
+        />
         <div className={styles.blockArea}>
           <FlowEditor
             stops={editableStops}

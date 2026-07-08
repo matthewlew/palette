@@ -22,7 +22,12 @@ export function Drawer({ saved, onSelect, hidden = false }: DrawerProps) {
           className={styles.thumbnail}
           style={{
             backgroundImage:
-              gradient.type === 'square' ? undefined : buildGradientCss(gradient.type, gradient.stops, gradient.reversed),
+              gradient.type === 'square'
+                ? undefined
+                : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
+                    repeat: gradient.repeatEnabled,
+                    hard: gradient.hardStops,
+                  }),
           }}
           onClick={() => onSelect(gradient)}
         >

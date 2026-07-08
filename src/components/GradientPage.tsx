@@ -53,7 +53,13 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
       data-testid="gradient-page"
       className={styles.page}
       style={{
-        backgroundImage: gradient.type === 'square' ? undefined : buildGradientCss(gradient.type, gradient.stops, gradient.reversed),
+        backgroundImage:
+          gradient.type === 'square'
+            ? undefined
+            : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
+                repeat: gradient.repeatEnabled,
+                hard: gradient.hardStops,
+              }),
         touchAction: 'manipulation',
       }}
       onPointerDown={handlePointerDown}

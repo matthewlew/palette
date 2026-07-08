@@ -3,6 +3,7 @@ import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { Feed, resetFeedSession } from './Feed'
 import { useAppStore } from '../store/useAppStore'
 import * as paletteLib from '../lib/palette'
+import * as haptics from '../lib/haptics'
 
 const STEP_PX = 60
 
@@ -210,6 +211,16 @@ describe('Feed', () => {
     useAppStore.getState().setCurrentGradient(externalGradient)
 
     expect(vibrateMock).not.toHaveBeenCalled()
+  })
+
+  it('primes the iOS haptic actuator on touchstart, before the first tick', () => {
+    const primeSpy = vi.spyOn(haptics, 'primeHaptics')
+    render(<Feed />)
+    const container = screen.getByTestId('feed-container')
+
+    fireEvent.touchStart(container, { touches: [{ clientY: 400 }] })
+
+    expect(primeSpy).toHaveBeenCalledTimes(1)
   })
 
   it('crosses the step threshold via accumulated touchmove drag (dragging up = forward)', () => {

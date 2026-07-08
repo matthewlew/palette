@@ -7,7 +7,7 @@ import type { Gradient } from '../store/types'
 import type { ColorSet } from '../lib/colorSets'
 import { withViewTransition } from '../lib/viewTransition'
 import { decayVelocity, shouldStartMomentum } from '../lib/momentum'
-import { tickHaptic } from '../lib/haptics'
+import { tickHaptic, primeHaptics } from '../lib/haptics'
 import { Hint } from './Hint'
 import { useHint } from '../hooks/useHint'
 import { ScrollTicker } from './ScrollTicker'
@@ -228,6 +228,9 @@ export function Feed({ chromeVisible = true }: FeedProps) {
 
     function handleTouchStart(e: TouchEvent) {
       cancelMomentum()
+      // Build the iOS haptic actuator while we still hold user activation,
+      // so the first tick of this scroll gesture can actually buzz.
+      primeHaptics()
       lastTouchYRef.current = e.touches[0]?.clientY ?? null
       lastMoveTimeRef.current = performance.now()
       velocityRef.current = 0
