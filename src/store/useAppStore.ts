@@ -15,6 +15,9 @@ interface AppState {
   activeColorSet: ColorSet
   setCurrentGradient: (gradient: Gradient) => void
   saveGradient: (gradient: Gradient) => void
+  isGradientSaved: (gradient: Gradient) => boolean
+  removeSavedGradient: (gradient: Gradient) => void
+  toggleSaveGradient: (gradient: Gradient) => void
   enterEditMode: () => void
   exitEditMode: () => void
   setActiveColorSet: (colorSet: ColorSet) => void
@@ -33,6 +36,21 @@ export const useAppStore = create<AppState>()(
         const alreadySaved = get().saved.some((g) => gradientSignature(g) === signature)
         if (alreadySaved) return
         set({ saved: [...get().saved, gradient] })
+      },
+      isGradientSaved: (gradient) => {
+        const signature = gradientSignature(gradient)
+        return get().saved.some((g) => gradientSignature(g) === signature)
+      },
+      removeSavedGradient: (gradient) => {
+        const signature = gradientSignature(gradient)
+        set({ saved: get().saved.filter((g) => gradientSignature(g) !== signature) })
+      },
+      toggleSaveGradient: (gradient) => {
+        if (get().isGradientSaved(gradient)) {
+          get().removeSavedGradient(gradient)
+        } else {
+          get().saveGradient(gradient)
+        }
       },
       enterEditMode: () => set({ mode: 'edit' }),
       exitEditMode: () => set({ mode: 'explore' }),

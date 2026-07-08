@@ -72,6 +72,24 @@ describe('useAppStore', () => {
     useAppStore.getState().exitEditMode()
     expect(useAppStore.getState().mode).toBe('explore')
   })
+
+  it('isGradientSaved reflects whether a gradient (by signature) is in saved', () => {
+    expect(useAppStore.getState().isGradientSaved(sampleGradient)).toBe(false)
+    useAppStore.getState().saveGradient(sampleGradient)
+    expect(useAppStore.getState().isGradientSaved(sampleGradient)).toBe(true)
+  })
+
+  it('toggleSaveGradient saves an unsaved gradient', () => {
+    useAppStore.getState().toggleSaveGradient(sampleGradient)
+    expect(useAppStore.getState().saved).toHaveLength(1)
+    expect(useAppStore.getState().isGradientSaved(sampleGradient)).toBe(true)
+  })
+
+  it('toggleSaveGradient removes an already-saved gradient (matched by signature, ignoring id)', () => {
+    useAppStore.getState().saveGradient(sampleGradient)
+    useAppStore.getState().toggleSaveGradient({ ...sampleGradient, id: 'different-id' })
+    expect(useAppStore.getState().saved).toHaveLength(0)
+  })
 })
 
 describe('useAppStore activeColorSet', () => {
