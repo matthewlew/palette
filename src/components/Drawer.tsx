@@ -55,25 +55,37 @@ export function Drawer({ saved, onSelect, onImport, hidden = false }: DrawerProp
         </div>
       )}
       {saved.map((gradient) => (
-        <button
-          key={gradient.id}
-          type="button"
-          data-testid="drawer-thumbnail"
-          aria-label={`Saved ${gradient.type} gradient`}
-          className={styles.thumbnail}
-          style={{
-            backgroundImage:
-              gradient.type === 'square'
-                ? undefined
-                : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
-                    repeat: gradient.repeatEnabled,
-                    hard: gradient.hardStops,
-                  }),
-          }}
-          onClick={() => onSelect(gradient)}
-        >
-          {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} blurPx={4} />}
-        </button>
+        <div key={gradient.id} className={styles.thumbnailWrap}>
+          <button
+            type="button"
+            data-testid="drawer-thumbnail"
+            aria-label={`Saved ${gradient.type} gradient`}
+            className={styles.thumbnail}
+            style={{
+              backgroundImage:
+                gradient.type === 'square'
+                  ? undefined
+                  : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
+                      repeat: gradient.repeatEnabled,
+                      hard: gradient.hardStops,
+                    }),
+            }}
+            onClick={() => onSelect(gradient)}
+          >
+            {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} blurPx={4} />}
+          </button>
+          <button
+            type="button"
+            className={styles.shareThumb}
+            aria-label="Share this gradient"
+            onClick={(e) => {
+              e.stopPropagation()
+              shareFeedback.copy(shareLink([gradient], 'gradient'))
+            }}
+          >
+            {shareFeedback.copied ? '✓' : '⤴'}
+          </button>
+        </div>
       ))}
     </div>
   )

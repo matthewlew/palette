@@ -87,3 +87,19 @@ describe('Drawer board-level actions', () => {
     expect(screen.queryByRole('button', { name: /share board/i })).not.toBeInTheDocument()
   })
 })
+
+describe('Drawer per-gradient actions', () => {
+  it('copies a single-gradient share link from a thumbnail action', async () => {
+    render(<Drawer saved={board} onSelect={() => {}} onImport={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: /share this gradient/i }))
+    const copiedText = (navigator.clipboard.writeText as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    expect(copiedText).toContain('#d=')
+  })
+
+  it('does not trigger onSelect when the share action is clicked', async () => {
+    const onSelect = vi.fn()
+    render(<Drawer saved={board} onSelect={onSelect} onImport={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: /share this gradient/i }))
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+})
