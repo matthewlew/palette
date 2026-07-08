@@ -56,3 +56,49 @@ export function minPairwiseDistance(colors: Oklch[]): number {
   }
   return clamp01(min / 0.1)
 }
+
+function hueDelta(a: number, b: number): number {
+  return Math.min(Math.abs(a - b), 360 - Math.abs(a - b))
+}
+
+function circularSpan(hues: number[]): number {
+  if (hues.length <= 1) return 0
+  const sorted = [...hues].sort((a, b) => a - b)
+  let maxGap = 0
+  for (let i = 0; i < sorted.length; i++) {
+    const next = sorted[(i + 1) % sorted.length] + (i + 1 === sorted.length ? 360 : 0)
+    maxGap = Math.max(maxGap, next - sorted[i])
+  }
+  return 360 - maxGap
+}
+
+// Best-of analogous/complementary/triadic hue fit, 0-1. Ported from
+// Bklyn Clay's harmonyScore (scoring.js) — this user's calibration
+// demoted this factor's weight relative to Bklyn Clay's own presets,
+// but the underlying formula tested well for what it measures.
+export function hueHarmony(hues: number[]): number {
+  if (hues.length < 2) return 0
+  let best = 0
+  const span = circularSpan(hues)
+  best = Math.max(best, span < 60 ? 1 - (span / 60) * 0.2 : Math.max(0, 1 - (span - 60) / 150))
+  for (const h of hues) {
+    const comp = (h + 180) % 360
+    const devs = hues.map((hh) => Math.min(hueDelta(hh, h), hueDelta(hh, comp)) / 90)
+    best = Math.max(best, 1 - devs.reduce((a, b) => a + b, 0) / devs.length)
+  }
+  for (const h of hues) {
+    const h2 = (h + 120) % 360
+    const h3 = (h + 240) % 360
+    const devs = hues.map((hh) => Math.min(hueDelta(hh, h), hueDelta(hh, h2), hueDelta(hh, h3)) / 60)
+    best = Math.max(best, 1 - devs.reduce((a, b) => a + b, 0) / devs.length)
+  }
+  return clamp01(best)
+}
+
+// Penalizes palettes with more than one near-gray (low chroma) color.
+// A single muted color reads as intentional; two or more reads as muddy.
+export function achromaticPenalty(colors: Oklch[]): number {
+  const achromaticCount = colors.filter((c) => c.c < 0.02).length
+  if (achromaticCount <= 1) return 1
+  return Math.max(0.3, 1 - (achromaticCount - 1) * 0.35)
+}

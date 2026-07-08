@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { saturationSpread, lightnessRange, minPairwiseDistance } from './paletteScore'
+import { saturationSpread, lightnessRange, minPairwiseDistance, hueHarmony, achromaticPenalty } from './paletteScore'
 import type { Oklch } from './oklch'
 
 describe('saturationSpread', () => {
@@ -111,5 +111,71 @@ describe('minPairwiseDistance', () => {
       { l: 0.1, c: 0.3, h: 200 }, // far from both
     ]
     expect(minPairwiseDistance(oneCloseePair)).toBeLessThan(0.1)
+  })
+})
+
+describe('hueHarmony', () => {
+  it('returns 0 for fewer than 2 hues', () => {
+    expect(hueHarmony([30])).toBe(0)
+  })
+
+  it('scores a tight analogous cluster highly', () => {
+    expect(hueHarmony([30, 40, 45, 50])).toBeGreaterThan(0.8)
+  })
+
+  it('scores a clean complementary pair highly', () => {
+    expect(hueHarmony([30, 210])).toBeGreaterThan(0.8)
+  })
+
+  it('scores a clean triadic triplet highly', () => {
+    expect(hueHarmony([0, 120, 240])).toBeGreaterThan(0.8)
+  })
+
+  it('scores hues evenly scattered around the circle lower than a clean fit', () => {
+    const scattered = hueHarmony([10, 95, 180, 265])
+    const analogous = hueHarmony([30, 40, 45, 50])
+    expect(scattered).toBeLessThan(analogous)
+  })
+})
+
+describe('achromaticPenalty', () => {
+  it('returns 1 for a fully saturated palette', () => {
+    const colors: Oklch[] = [
+      { l: 0.5, c: 0.15, h: 30 },
+      { l: 0.5, c: 0.15, h: 120 },
+    ]
+    expect(achromaticPenalty(colors)).toBe(1)
+  })
+
+  it('returns 1 with exactly one near-gray color', () => {
+    const colors: Oklch[] = [
+      { l: 0.5, c: 0.15, h: 30 },
+      { l: 0.7, c: 0.01, h: 220 },
+    ]
+    expect(achromaticPenalty(colors)).toBe(1)
+  })
+
+  it('penalizes two or more near-gray colors', () => {
+    const colors: Oklch[] = [
+      { l: 0.7, c: 0.01, h: 220 },
+      { l: 0.8, c: 0.008, h: 210 },
+      { l: 0.5, c: 0.15, h: 30 },
+    ]
+    expect(achromaticPenalty(colors)).toBeLessThan(1)
+  })
+
+  it('penalizes an all-muddy palette more than a mostly-muddy one', () => {
+    const allMuddy: Oklch[] = [
+      { l: 0.7, c: 0.01, h: 220 },
+      { l: 0.8, c: 0.008, h: 210 },
+      { l: 0.55, c: 0.015, h: 230 },
+      { l: 0.75, c: 0.01, h: 205 },
+    ]
+    const mostlyMuddy: Oklch[] = [
+      { l: 0.7, c: 0.01, h: 220 },
+      { l: 0.8, c: 0.008, h: 210 },
+      { l: 0.5, c: 0.15, h: 30 },
+    ]
+    expect(achromaticPenalty(allMuddy)).toBeLessThan(achromaticPenalty(mostlyMuddy))
   })
 })
