@@ -60,6 +60,50 @@ describe('SwatchTray', () => {
     vi.useRealTimers()
   })
 
+  it('cancels a pending tap/drag when the pointer moves mostly-horizontally past the threshold before the hold elapses', () => {
+    vi.useFakeTimers()
+    const onTapAdd = vi.fn()
+    const onDragAdd = vi.fn()
+    render(<SwatchTray colorSet={DEFAULT_COLOR_SET} stops={stops} onTapAdd={onTapAdd} onTapRemove={vi.fn()} onDragAdd={onDragAdd} />)
+    const swatch = screen.getByLabelText(`${DEFAULT_COLOR_SET.colors[1].name}`)
+    fireEvent.pointerDown(swatch, { clientX: 0, clientY: 0 })
+    // Mostly-horizontal move past the 8px threshold, before the 150ms hold elapses.
+    fireEvent.pointerMove(window, { clientX: 20, clientY: 2 })
+    vi.advanceTimersByTime(150)
+    fireEvent.pointerUp(window, { clientX: 20, clientY: 2 })
+    expect(onTapAdd).not.toHaveBeenCalled()
+    expect(onDragAdd).not.toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
+  it('does not cancel a pending tap when the move is mostly-vertical (still allows the hold to start a drag)', () => {
+    vi.useFakeTimers()
+    const onDragAdd = vi.fn()
+    render(<SwatchTray colorSet={DEFAULT_COLOR_SET} stops={stops} onTapAdd={vi.fn()} onTapRemove={vi.fn()} onDragAdd={onDragAdd} />)
+    const swatch = screen.getByLabelText(`${DEFAULT_COLOR_SET.colors[1].name}`)
+    fireEvent.pointerDown(swatch, { clientX: 0, clientY: 0 })
+    fireEvent.pointerMove(window, { clientX: 2, clientY: 20 })
+    vi.advanceTimersByTime(150)
+    fireEvent.pointerUp(window, { clientX: 2, clientY: 20 })
+    expect(onDragAdd).toHaveBeenCalledWith(secondHex, { x: 2, y: 20 })
+    vi.useRealTimers()
+  })
+
+  it('abandons a pending tap/drag on pointercancel (native pan-x takeover)', () => {
+    vi.useFakeTimers()
+    const onTapAdd = vi.fn()
+    const onDragAdd = vi.fn()
+    render(<SwatchTray colorSet={DEFAULT_COLOR_SET} stops={stops} onTapAdd={onTapAdd} onTapRemove={vi.fn()} onDragAdd={onDragAdd} />)
+    const swatch = screen.getByLabelText(`${DEFAULT_COLOR_SET.colors[1].name}`)
+    fireEvent.pointerDown(swatch, { clientX: 0, clientY: 0 })
+    vi.advanceTimersByTime(150)
+    fireEvent.pointerCancel(window)
+    fireEvent.pointerUp(window, { clientX: 0, clientY: 0 })
+    expect(onTapAdd).not.toHaveBeenCalled()
+    expect(onDragAdd).not.toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
   it('shows a swatch as selected when a stop is a jittered near-match, not just an exact hex match', () => {
     // Jitter the second color's OKLCH slightly (within swatchMatch's tolerance)
     // so the stop's hex does NOT exactly equal the swatch's own hex.

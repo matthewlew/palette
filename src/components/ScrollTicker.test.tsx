@@ -37,6 +37,19 @@ describe('ScrollTicker', () => {
     expect(active).toBeInTheDocument()
   })
 
+  it('gives the active tick full opacity and fades ticks toward the ends of the window', () => {
+    render(<ScrollTicker index={10} />)
+    const active = screen.getByTestId('ticker-tick-active')
+    expect(active.style.opacity).toBe('1')
+
+    const ticks = screen.getAllByTestId('ticker-tick')
+    // Window is index-10..index+10 (WINDOW=10). Tick right next to active
+    // (distance 1) should fade less than one at the edge (distance 10).
+    const opacities = ticks.map((t) => parseFloat(t.style.opacity))
+    expect(Math.min(...opacities)).toBeCloseTo(0, 5) // edge tick, distance 10 -> fade 0
+    expect(Math.max(...opacities)).toBeCloseTo(0.9, 5) // nearest tick, distance 1 -> fade 0.9
+  })
+
   it('is aria-hidden (purely decorative)', () => {
     render(<ScrollTicker index={3} />)
     expect(screen.getByTestId('scroll-ticker').getAttribute('aria-hidden')).toBe('true')
