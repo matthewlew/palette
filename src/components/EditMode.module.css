@@ -1,13 +1,13 @@
 .container {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100dvh;
   position: relative;
 }
 
 .backButton {
   position: absolute;
-  top: 12px;
+  top: calc(12px + env(safe-area-inset-top));
   left: 12px;
   z-index: 1;
   width: 32px;

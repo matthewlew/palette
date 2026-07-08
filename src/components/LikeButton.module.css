@@ -1,6 +1,6 @@
 .likeButton {
   position: absolute;
-  bottom: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
   right: 16px;
   z-index: 3;
   width: 44px;
