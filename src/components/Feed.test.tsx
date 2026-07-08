@@ -329,7 +329,6 @@ describe('Feed', () => {
   })
 
   it('calls withViewTransition when entering edit mode via single tap', async () => {
-    vi.useFakeTimers()
     const viewTransitionModule = await import('../lib/viewTransition')
     const spy = vi.spyOn(viewTransitionModule, 'withViewTransition').mockImplementation((update) => update())
 
@@ -337,13 +336,24 @@ describe('Feed', () => {
     const page = screen.getByTestId('gradient-page')
 
     fireEvent.pointerUp(page)
-    vi.advanceTimersByTime(350)
 
     expect(spy).toHaveBeenCalledTimes(1)
     expect(useAppStore.getState().mode).toBe('edit')
 
     spy.mockRestore()
-    vi.useRealTimers()
+  })
+
+  it('toggles the saved state of the current gradient via a click on the LikeButton', () => {
+    render(<Feed />)
+    const current = useAppStore.getState().current!
+
+    expect(useAppStore.getState().isGradientSaved(current)).toBe(false)
+
+    fireEvent.click(screen.getByTestId('like-button'))
+    expect(useAppStore.getState().isGradientSaved(current)).toBe(true)
+
+    fireEvent.click(screen.getByTestId('like-button'))
+    expect(useAppStore.getState().isGradientSaved(current)).toBe(false)
   })
 
   it('shows the scroll hint on mount and dismisses it on the first wheel gesture', () => {
@@ -365,7 +375,7 @@ describe('Feed', () => {
   it('shows the like hint only after the scroll hint has been dismissed', () => {
     localStorage.setItem('palette-hint-scroll', '1')
     render(<Feed />)
-    expect(screen.getByText('Double-tap to like')).toBeInTheDocument()
+    expect(screen.getByText('Tap ♥ to save')).toBeInTheDocument()
   })
 
   it('shows the scroll ticker while scrubbing and it tracks the feed index', () => {

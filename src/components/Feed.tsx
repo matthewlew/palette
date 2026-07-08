@@ -40,7 +40,8 @@ export function Feed() {
   const current = useAppStore((s) => s.current)
   const activeColorSet = useAppStore((s) => s.activeColorSet)
   const setCurrentGradient = useAppStore((s) => s.setCurrentGradient)
-  const saveGradient = useAppStore((s) => s.saveGradient)
+  const isGradientSaved = useAppStore((s) => s.isGradientSaved)
+  const toggleSaveGradient = useAppStore((s) => s.toggleSaveGradient)
   const enterEditMode = useAppStore((s) => s.enterEditMode)
   const scrollHint = useHint('scroll')
   const likeHint = useHint('like')
@@ -257,15 +258,16 @@ export function Feed() {
     <div data-testid="feed-container" ref={containerRef} className={styles.container}>
       <GradientPage
         gradient={displayed}
-        onSave={(g) => {
+        liked={isGradientSaved(displayed)}
+        onToggleLike={() => {
           likeHint.dismiss()
-          saveGradient(g)
+          toggleSaveGradient(displayed)
         }}
         onEdit={() => withViewTransition(enterEditMode)}
       />
       <ScrollTicker index={tickerIndex} />
       {scrollHint.visible && <Hint text="Scroll to explore palettes ↓" visible={scrollHint.visible} />}
-      {!scrollHint.visible && likeHint.visible && <Hint text="Double-tap to like" visible={likeHint.visible} />}
+      {!scrollHint.visible && likeHint.visible && <Hint text="Tap ♥ to save" visible={likeHint.visible} />}
     </div>
   )
 }
