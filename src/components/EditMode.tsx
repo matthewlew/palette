@@ -64,7 +64,7 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
     if (!el) return
     // The drag-to-dismiss gesture only makes sense for the bottom-sheet
     // layout; at tablet/desktop widths the sheet is a fixed side panel.
-    if (window.matchMedia('(min-width: 768px)').matches) return
+    if (typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 768px)').matches) return
     let startY = 0
     let baseHeight = 0
     let dragY = 0
