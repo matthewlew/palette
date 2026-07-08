@@ -107,6 +107,29 @@ describe('useAppStore', () => {
     useAppStore.getState().toggleSaveGradient({ ...sampleGradient, id: 'different-id' })
     expect(useAppStore.getState().saved).toHaveLength(0)
   })
+
+  it('starts with no pending import', () => {
+    expect(useAppStore.getState().pendingImport).toBeNull()
+  })
+
+  it('setPendingImport stores gradients awaiting confirmation', () => {
+    useAppStore.getState().setPendingImport([sampleGradient])
+    expect(useAppStore.getState().pendingImport).toEqual([sampleGradient])
+  })
+
+  it('confirmImport saves every pending gradient and clears the pending state', () => {
+    useAppStore.getState().setPendingImport([sampleGradient])
+    useAppStore.getState().confirmImport()
+    expect(useAppStore.getState().saved).toHaveLength(1)
+    expect(useAppStore.getState().pendingImport).toBeNull()
+  })
+
+  it('dismissImport clears pending state without saving', () => {
+    useAppStore.getState().setPendingImport([sampleGradient])
+    useAppStore.getState().dismissImport()
+    expect(useAppStore.getState().saved).toHaveLength(0)
+    expect(useAppStore.getState().pendingImport).toBeNull()
+  })
 })
 
 describe('useAppStore activeColorSet', () => {

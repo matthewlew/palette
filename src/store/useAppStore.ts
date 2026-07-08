@@ -15,6 +15,7 @@ interface AppState {
   saved: Gradient[]
   activeColorSet: ColorSet
   noiseEnabled: boolean
+  pendingImport: Gradient[] | null
   toggleNoise: () => void
   setCurrentGradient: (gradient: Gradient) => void
   saveGradient: (gradient: Gradient) => void
@@ -24,6 +25,9 @@ interface AppState {
   enterEditMode: () => void
   exitEditMode: () => void
   setActiveColorSet: (colorSet: ColorSet) => void
+  setPendingImport: (gradients: Gradient[]) => void
+  confirmImport: () => void
+  dismissImport: () => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -34,6 +38,7 @@ export const useAppStore = create<AppState>()(
       saved: [],
       activeColorSet: DEFAULT_COLOR_SET,
       noiseEnabled: false,
+      pendingImport: null,
       toggleNoise: () => set({ noiseEnabled: !get().noiseEnabled }),
       setCurrentGradient: (gradient) => set({ current: gradient }),
       saveGradient: (gradient) => {
@@ -65,6 +70,14 @@ export const useAppStore = create<AppState>()(
       enterEditMode: () => set({ mode: 'edit' }),
       exitEditMode: () => set({ mode: 'explore' }),
       setActiveColorSet: (colorSet) => set({ activeColorSet: colorSet }),
+      setPendingImport: (gradients) => set({ pendingImport: gradients }),
+      confirmImport: () => {
+        const pending = get().pendingImport
+        if (!pending) return
+        pending.forEach((g) => get().saveGradient(g))
+        set({ pendingImport: null })
+      },
+      dismissImport: () => set({ pendingImport: null }),
     }),
     {
       name: 'palette-saved-gradients',
