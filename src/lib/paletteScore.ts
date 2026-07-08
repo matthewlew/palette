@@ -57,10 +57,6 @@ export function minPairwiseDistance(colors: Oklch[]): number {
   return clamp01(min / 0.1)
 }
 
-function hueDelta(a: number, b: number): number {
-  return Math.min(Math.abs(a - b), 360 - Math.abs(a - b))
-}
-
 function circularSpan(hues: number[]): number {
   if (hues.length <= 1) return 0
   const sorted = [...hues].sort((a, b) => a - b)
@@ -83,13 +79,13 @@ export function hueHarmony(hues: number[]): number {
   best = Math.max(best, span < 60 ? 1 - (span / 60) * 0.2 : Math.max(0, 1 - (span - 60) / 150))
   for (const h of hues) {
     const comp = (h + 180) % 360
-    const devs = hues.map((hh) => Math.min(hueDelta(hh, h), hueDelta(hh, comp)) / 90)
+    const devs = hues.map((hh) => Math.min(circularHueDistance(hh, h), circularHueDistance(hh, comp)) / 90)
     best = Math.max(best, 1 - devs.reduce((a, b) => a + b, 0) / devs.length)
   }
   for (const h of hues) {
     const h2 = (h + 120) % 360
     const h3 = (h + 240) % 360
-    const devs = hues.map((hh) => Math.min(hueDelta(hh, h), hueDelta(hh, h2), hueDelta(hh, h3)) / 60)
+    const devs = hues.map((hh) => Math.min(circularHueDistance(hh, h), circularHueDistance(hh, h2), circularHueDistance(hh, h3)) / 60)
     best = Math.max(best, 1 - devs.reduce((a, b) => a + b, 0) / devs.length)
   }
   return clamp01(best)
