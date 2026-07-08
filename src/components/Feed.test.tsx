@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
-import { Feed } from './Feed'
+import { Feed, resetFeedSession } from './Feed'
 import { useAppStore } from '../store/useAppStore'
 import * as paletteLib from '../lib/palette'
 
 const STEP_PX = 60
 
 beforeEach(() => {
+  resetFeedSession()
   useAppStore.setState(useAppStore.getInitialState())
   localStorage.clear()
 })
@@ -376,6 +377,22 @@ describe('Feed', () => {
     localStorage.setItem('palette-hint-scroll', '1')
     render(<Feed />)
     expect(screen.getByText('Tap ♥ to save')).toBeInTheDocument()
+  })
+
+  it('preserves scroll position across an unmount/remount (e.g. entering and exiting edit mode)', () => {
+    const { unmount } = render(<Feed />)
+    const container = screen.getByTestId('feed-container')
+
+    fireEvent.wheel(container, { deltaY: STEP_PX * 3 })
+    const gradientAfterScrolling = useAppStore.getState().current
+
+    unmount()
+    // Note: intentionally NOT calling resetFeedSession() here — this
+    // simulates App.tsx swapping Feed out for EditMode and back, which
+    // does not reset the module-level session.
+    render(<Feed />)
+
+    expect(useAppStore.getState().current).toEqual(gradientAfterScrolling)
   })
 
   it('shows the scroll ticker while scrubbing and it tracks the feed index', () => {

@@ -2,8 +2,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { App } from './App'
 import { useAppStore } from './store/useAppStore'
+import { resetFeedSession } from './components/Feed'
 
 beforeEach(() => {
+  resetFeedSession()
   localStorage.clear()
   useAppStore.setState(useAppStore.getInitialState())
 })
