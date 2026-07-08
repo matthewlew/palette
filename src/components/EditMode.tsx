@@ -148,6 +148,13 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
         </button>
       </div>
       <div data-testid="edit-sheet" className={styles.sheet}>
+        <button
+          type="button"
+          data-testid="sheet-handle"
+          aria-label="Collapse controls"
+          className={styles.sheetHandle}
+          onClick={onExit}
+        />
         <GeometryTabs type={gradient.type} onSelectType={handleSelectType} onToggleReversed={handleToggleReversed} />
         <div className={styles.blockArea}>
           {isWheel ? (

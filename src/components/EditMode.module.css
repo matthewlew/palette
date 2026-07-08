@@ -41,6 +41,17 @@
   view-transition-name: edit-sheet;
 }
 
+.sheetHandle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  border: none;
+  background: rgba(128, 128, 128, 0.4);
+  margin: 0 auto 8px;
+  padding: 0;
+  cursor: pointer;
+}
+
 .sortFab {
   position: absolute;
   bottom: 16px;

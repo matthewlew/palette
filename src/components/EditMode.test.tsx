@@ -285,4 +285,13 @@ describe('EditMode', () => {
     const sheet = screen.getByTestId('edit-sheet')
     expect(sheet).toContainElement(screen.getByTestId('flow-editor'))
   })
+
+  it('renders a grabber handle at the top of the sheet that exits edit mode when tapped', () => {
+    const onExit = vi.fn()
+    render(<EditMode gradient={gradient} onExit={onExit} />)
+    const handle = screen.getByTestId('sheet-handle')
+    expect(screen.getByTestId('edit-sheet')).toContainElement(handle)
+    fireEvent.click(handle)
+    expect(onExit).toHaveBeenCalledTimes(1)
+  })
 })
