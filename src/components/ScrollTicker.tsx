@@ -42,9 +42,7 @@ export function ScrollTicker({ index }: ScrollTickerProps) {
             data-testid={isActive ? 'ticker-tick-active' : 'ticker-tick'}
             className={isActive ? styles.tickActive : isMajor ? styles.tickMajor : styles.tick}
             style={{ transform: `translateY(${(t - index) * TICK_SPACING_PX}px)` }}
-          >
-            {isMajor && <span className={styles.tickLabel}>{t + 1}</span>}
-          </div>
+          />
         )
       })}
     </div>

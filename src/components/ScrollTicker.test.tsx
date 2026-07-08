@@ -41,4 +41,10 @@ describe('ScrollTicker', () => {
     render(<ScrollTicker index={3} />)
     expect(screen.getByTestId('scroll-ticker').getAttribute('aria-hidden')).toBe('true')
   })
+
+  it('does not render any numeric tick labels', () => {
+    render(<ScrollTicker index={12} />)
+    expect(screen.queryByText('13')).not.toBeInTheDocument()
+    expect(screen.queryByText('11')).not.toBeInTheDocument()
+  })
 })
