@@ -7,6 +7,7 @@ import type { Gradient } from '../store/types'
 import type { ColorSet } from '../lib/colorSets'
 import { withViewTransition } from '../lib/viewTransition'
 import { decayVelocity, shouldStartMomentum } from '../lib/momentum'
+import { tickHaptic } from '../lib/haptics'
 import { Hint } from './Hint'
 import { useHint } from '../hooks/useHint'
 import { ScrollTicker } from './ScrollTicker'
@@ -28,11 +29,6 @@ function makeGradient(type: GradientType, colorSet: ColorSet): Gradient {
   }
 }
 
-function vibrateStep() {
-  if ('vibrate' in navigator) {
-    navigator.vibrate(10)
-  }
-}
 
 const STEP_PX = 60
 
@@ -158,7 +154,7 @@ export function Feed() {
     const next = history[newIndex]
     setDisplayed(next)
     setCurrentGradient(next)
-    vibrateStep()
+    tickHaptic()
   }
 
   function consumeAccumulatedDelta() {
