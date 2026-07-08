@@ -112,6 +112,13 @@ export function Feed({ chromeVisible = true }: FeedProps) {
     } else {
       // Remounting after returning from edit mode: restore the previously
       // displayed gradient and scroll position without regenerating anything.
+      // Edit mode commits keep the gradient id but produce a new object, so
+      // adopt the store's version (and its possibly-changed shape) whenever
+      // it isn't the exact object already in the history slot.
+      if (current && feedSession.history[feedSession.index] !== current) {
+        feedSession.history[feedSession.index] = current
+        feedSession.lockedType = current.type
+      }
       setDisplayed(feedSession.history[feedSession.index])
       setTickerIndex(feedSession.index)
     }
@@ -129,7 +136,9 @@ export function Feed({ chromeVisible = true }: FeedProps) {
     const history = feedSession.history
     const index = feedSession.index
     const atIndex = history[index]
-    if (atIndex && atIndex.id !== current.id) {
+    // Reference comparison, not id: edit-mode commits keep the id while
+    // changing stops/type, and those edits must not be dropped.
+    if (atIndex && atIndex !== current) {
       history[index] = current
       setDisplayed(current)
     }
