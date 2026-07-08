@@ -26,6 +26,12 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
   function handlePointerUp(e: React.PointerEvent) {
     const start = pointerStartRef.current
     pointerStartRef.current = null
+    // Taps on buttons (like, grain) must never double as "enter edit mode" —
+    // child stopPropagation alone is unreliable across iOS pointer/touch
+    // event synthesis, so guard by target here too.
+    if ((e.target as HTMLElement).closest('button')) {
+      return
+    }
     if (start) {
       const dx = e.clientX - start.x
       const dy = e.clientY - start.y

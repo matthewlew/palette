@@ -38,6 +38,7 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   const [editableStops, setEditableStops] = useState<EditableStop[]>(() => toEditableStops(gradient.stops))
   const [sortKeyIndex, setSortKeyIndex] = useState(0)
   const blockContainerRef = useRef<HTMLDivElement>(null) as RefObject<HTMLDivElement>
+  const previewPointerStartRef = useRef<{ x: number; y: number } | null>(null)
   const editHint = useHint('edit')
 
   useEffect(() => {
@@ -107,6 +108,29 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
     // this intentionally does nothing until that flow is built.
   }
 
+  // Exit-on-tap for the preview, with two guards: taps on child buttons
+  // (like, sort, grain) never exit — target check, since stopPropagation is
+  // unreliable across iOS pointer/touch synthesis — and pointer sequences
+  // that moved more than a tap threshold (scrolls/drags) never exit either.
+  const PREVIEW_TAP_THRESHOLD_PX = 10
+
+  function handlePreviewPointerDown(e: React.PointerEvent) {
+    previewPointerStartRef.current = { x: e.clientX, y: e.clientY }
+    editHint.dismiss()
+  }
+
+  function handlePreviewPointerUp(e: React.PointerEvent) {
+    const start = previewPointerStartRef.current
+    previewPointerStartRef.current = null
+    if ((e.target as HTMLElement).closest('button')) return
+    if (start) {
+      const dx = e.clientX - start.x
+      const dy = e.clientY - start.y
+      if (Math.sqrt(dx * dx + dy * dy) > PREVIEW_TAP_THRESHOLD_PX) return
+    }
+    onExit()
+  }
+
   function handleMoveStop(id: string, position: number) {
     const nextStops = moveStop(editableStops, id, position)
     setEditableStops(nextStops)
@@ -127,7 +151,8 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
         style={{
           backgroundImage: gradient.type === 'square' ? undefined : buildGradientCss(gradient.type, gradient.stops, gradient.reversed),
         }}
-        onPointerUp={onExit}
+        onPointerDown={handlePreviewPointerDown}
+        onPointerUp={handlePreviewPointerUp}
       >
         {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} />}
         <LikeButton liked={isGradientSaved} onToggle={() => toggleSaveGradient(gradient)} />
