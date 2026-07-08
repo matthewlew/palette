@@ -25,6 +25,7 @@
   flex: 1;
   min-height: 0;
   position: relative;
+  overflow: hidden;
   touch-action: manipulation;
   view-transition-name: palette-card;
 }
