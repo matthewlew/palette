@@ -8,22 +8,34 @@
   overflow-x: auto;
   padding: 8px;
   padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  /* Leave the bottom-right corner clear so thumbnails never slide under the
+     like/grain buttons. */
+  padding-right: 76px;
   transition: opacity 400ms ease;
+  /* The bar spans the full width but must never swallow taps aimed at the
+     like/grain buttons behind it — only the thumbnails themselves are
+     interactive. */
+  pointer-events: none;
 }
 
 .hidden {
   opacity: 0;
-  pointer-events: none;
 }
 
 .thumbnail {
   flex: 0 0 auto;
   width: 48px;
   height: 48px;
-  border-radius: 8px;
-  border: none;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
   cursor: pointer;
   position: relative;
   overflow: hidden;
   padding: 0;
+  pointer-events: auto;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.hidden .thumbnail {
+  pointer-events: none;
 }

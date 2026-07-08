@@ -62,6 +62,9 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   useEffect(() => {
     const el = sheetRef.current
     if (!el) return
+    // The drag-to-dismiss gesture only makes sense for the bottom-sheet
+    // layout; at tablet/desktop widths the sheet is a fixed side panel.
+    if (window.matchMedia('(min-width: 768px)').matches) return
     let startY = 0
     let baseHeight = 0
     let dragY = 0
@@ -204,7 +207,9 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   return (
     <div data-testid="edit-mode" className={styles.container} onPointerDown={() => editHint.dismiss()}>
       <button type="button" data-testid="edit-mode-back" aria-label="Back" className={styles.backButton} onClick={onExit}>
-        ‹
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M15 5l-7 7 7 7" />
+        </svg>
       </button>
       <div
         data-testid="edit-mode-preview"

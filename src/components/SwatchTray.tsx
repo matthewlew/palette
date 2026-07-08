@@ -25,6 +25,7 @@ export function SwatchTray({ colorSet, stops, onTapAdd, onTapRemove, onDragAdd, 
   // whether the hold elapsed — lets pointerup tell a tap from a drag.
   const pendingHexRef = useRef<string | null>(null)
   const startTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const startPointRef = useRef<{ x: number; y: number } | null>(null)
   const [draggingHex, setDraggingHex] = useState<string | null>(null)
   const stopsRef = useRef(stops)
   stopsRef.current = stops
@@ -37,9 +38,37 @@ export function SwatchTray({ colorSet, stops, onTapAdd, onTapRemove, onDragAdd, 
 
   useEffect(() => {
     function handleWindowPointerMove(e: PointerEvent) {
+      // A mostly-horizontal move before the hold elapses is the user
+      // scrolling the tray, not tapping or dragging a swatch — cancel both
+      // so the scroll doesn't accidentally select a color.
+      if (!draggingHexRef.current && pendingHexRef.current && startPointRef.current) {
+        const dx = e.clientX - startPointRef.current.x
+        const dy = e.clientY - startPointRef.current.y
+        if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) {
+          if (startTimeoutRef.current) {
+            clearTimeout(startTimeoutRef.current)
+            startTimeoutRef.current = null
+          }
+          pendingHexRef.current = null
+          startPointRef.current = null
+        }
+      }
       if (draggingHexRef.current && onDragMove) {
         onDragMove({ x: e.clientX, y: e.clientY })
       }
+    }
+
+    function handleWindowPointerCancel() {
+      // Native horizontal pan took over (touch-action: pan-x) — abandon any
+      // pending tap or drag.
+      if (startTimeoutRef.current) {
+        clearTimeout(startTimeoutRef.current)
+        startTimeoutRef.current = null
+      }
+      draggingHexRef.current = null
+      pendingHexRef.current = null
+      startPointRef.current = null
+      setDraggingHex(null)
     }
 
     function handleWindowPointerUp(e: PointerEvent) {
@@ -51,6 +80,7 @@ export function SwatchTray({ colorSet, stops, onTapAdd, onTapRemove, onDragAdd, 
       const tapHex = pendingHexRef.current
       draggingHexRef.current = null
       pendingHexRef.current = null
+      startPointRef.current = null
       setDraggingHex(null)
 
       if (dragHex) {
@@ -69,14 +99,17 @@ export function SwatchTray({ colorSet, stops, onTapAdd, onTapRemove, onDragAdd, 
 
     window.addEventListener('pointermove', handleWindowPointerMove)
     window.addEventListener('pointerup', handleWindowPointerUp)
+    window.addEventListener('pointercancel', handleWindowPointerCancel)
     return () => {
       window.removeEventListener('pointermove', handleWindowPointerMove)
       window.removeEventListener('pointerup', handleWindowPointerUp)
+      window.removeEventListener('pointercancel', handleWindowPointerCancel)
     }
   }, [onDragAdd, onDragMove, onTapAdd, onTapRemove])
 
-  function handlePointerDown(hex: string) {
+  function handlePointerDown(hex: string, e: React.PointerEvent) {
     pendingHexRef.current = hex
+    startPointRef.current = { x: e.clientX, y: e.clientY }
     startTimeoutRef.current = setTimeout(() => {
       draggingHexRef.current = hex
       setDraggingHex(hex)
@@ -101,7 +134,7 @@ export function SwatchTray({ colorSet, stops, onTapAdd, onTapRemove, onDragAdd, 
             aria-label={color.name}
             className={selected ? styles.swatchSelected : styles.swatch}
             style={{ opacity: draggingHex === hex ? 0.6 : 1 }}
-            onPointerDown={() => handlePointerDown(hex)}
+            onPointerDown={(e) => handlePointerDown(hex, e)}
           >
             <span className={styles.swatchColor} style={{ backgroundColor: hex }}>
               {selected && (

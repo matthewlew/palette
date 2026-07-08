@@ -41,12 +41,16 @@ export function ScrollTicker({ index }: ScrollTickerProps) {
         {tickIndices.map((t) => {
           const isActive = t === index
           const isMajor = t % 5 === 0
+          // Ticks fade toward the ends of the window so new marks ease in
+          // instead of popping into existence at full strength.
+          const distance = Math.abs(t - index)
+          const fade = Math.max(0, 1 - distance / WINDOW)
           return (
             <div
               key={t}
               data-testid={isActive ? 'ticker-tick-active' : 'ticker-tick'}
               className={isActive ? styles.tickActive : isMajor ? styles.tickMajor : styles.tick}
-              style={{ top: `${t * TICK_SPACING_PX}px` }}
+              style={{ top: `${t * TICK_SPACING_PX}px`, opacity: isActive ? 1 : fade }}
             />
           )
         })}
