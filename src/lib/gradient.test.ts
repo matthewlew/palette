@@ -129,6 +129,16 @@ describe('buildGradientCss hard filter', () => {
     const matches = css.match(/#[0-9a-f]{6} \d+%/g)!
     expect(matches).toHaveLength(12)
   })
+
+  it('does not throw at the minimum valid stop count (2 stops)', () => {
+    const twoStops: GradientStop[] = [
+      { hex: '#ff0000', position: 0 },
+      { hex: '#0000ff', position: 100 },
+    ]
+    const css = buildGradientCss('linear', twoStops, false, { hard: true })
+    const matches = css.match(/#[0-9a-f]{6} \d+%/g)!
+    expect(matches).toEqual(['#ff0000 0%', '#ff0000 50%', '#0000ff 50%', '#0000ff 100%'])
+  })
 })
 
 describe('buildGradientCss repeat type (legacy dedicated type)', () => {

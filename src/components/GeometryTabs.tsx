@@ -22,7 +22,9 @@ const TABS: { type: GradientType; label: string }[] = [
 // These types render their own hard-coded position sequence (mirror/legacy
 // repeat) or are already solid, non-blended blocks (square/Turrell) — the
 // repeat/hard filter chips are meaningless for them, so disable rather than
-// silently no-op.
+// silently no-op. 'repeat' is unreachable from the TABS list above (it's no
+// longer user-selectable, replaced by the Repeat x2 chip) but can still
+// arrive here on a gradient loaded from a pre-filter-chip save.
 const FILTERS_UNSUPPORTED: GradientType[] = ['square', 'mirror', 'repeat']
 
 export function GeometryTabs({
