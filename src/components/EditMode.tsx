@@ -21,6 +21,11 @@ import { GeometryTabs } from './GeometryTabs'
 import { FlowEditor } from './FlowEditor'
 import { SwatchTray } from './SwatchTray'
 import { TurrellSquare } from './TurrellSquare'
+import { ScrollTicker } from './ScrollTicker'
+import { feedSession, makeGradient } from './Feed'
+import { generateGradientStops } from '../lib/palette'
+import { decayVelocity, shouldStartMomentum } from '../lib/momentum'
+import { tickHaptic, primeHaptics } from '../lib/haptics'
 import type { Gradient } from '../store/types'
 import styles from './EditMode.module.css'
 
@@ -44,12 +49,23 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   const blockContainerRef = useRef<HTMLDivElement>(null) as RefObject<HTMLDivElement>
   const previewPointerStartRef = useRef<{ x: number; y: number } | null>(null)
   const sheetRef = useRef<HTMLDivElement>(null)
+  const previewRef = useRef<HTMLDivElement>(null)
   const onExitRef = useRef(onExit)
   onExitRef.current = onExit
   const editHint = useHint('edit')
 
+  // Scroll, drag, and keyboard navigation state for editing
+  const [tickerIndex, setTickerIndex] = useState(() => feedSession.index)
+  const accumulatedDeltaRef = useRef(0)
+  const lastTouchYRef = useRef<number | null>(null)
+  const lastPointerYRef = useRef<number | null>(null)
+  const velocityRef = useRef(0)
+  const lastMoveTimeRef = useRef<number | null>(null)
+  const momentumFrameIdRef = useRef<number | null>(null)
+
   useEffect(() => {
     setEditableStops(toEditableStops(gradient.stops))
+    setTickerIndex(feedSession.index)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gradient.id])
 
@@ -113,6 +129,203 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   useEffect(() => {
     const timer = setTimeout(() => editHint.dismiss(), 4000)
     return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const STEP_PX = 60
+
+  function goTo(newIndex: number) {
+    const history = feedSession.history
+    if (newIndex < 0) return
+
+    if (newIndex >= history.length) {
+      const fresh = makeGradient(feedSession.lockedType ?? gradient.type, activeColorSet)
+      history.push(fresh)
+    }
+
+    feedSession.index = newIndex
+    setTickerIndex(newIndex)
+    setCurrentGradient(history[newIndex])
+    tickHaptic()
+  }
+
+  function consumeAccumulatedDelta() {
+    while (accumulatedDeltaRef.current >= STEP_PX) {
+      accumulatedDeltaRef.current -= STEP_PX
+      goTo(feedSession.index + 1)
+    }
+    while (accumulatedDeltaRef.current <= -STEP_PX) {
+      if (feedSession.index <= 0) {
+        accumulatedDeltaRef.current = 0
+        break
+      }
+      accumulatedDeltaRef.current += STEP_PX
+      goTo(feedSession.index - 1)
+    }
+  }
+
+  useEffect(() => {
+    const el = previewRef.current
+    if (!el) return
+
+    function cancelMomentum() {
+      if (momentumFrameIdRef.current !== null) {
+        cancelAnimationFrame(momentumFrameIdRef.current)
+        momentumFrameIdRef.current = null
+      }
+    }
+
+    function runMomentumFrame(lastFrameTime: number) {
+      const now = performance.now()
+      const frameDt = now - lastFrameTime
+      accumulatedDeltaRef.current += velocityRef.current * frameDt
+      consumeAccumulatedDelta()
+      velocityRef.current = decayVelocity(velocityRef.current, frameDt)
+
+      const bottomedOut = feedSession.index <= 0 && velocityRef.current < 0
+      if (Math.abs(velocityRef.current) < 0.05 || bottomedOut) {
+        momentumFrameIdRef.current = null
+        return
+      }
+      momentumFrameIdRef.current = requestAnimationFrame(() => runMomentumFrame(now))
+    }
+
+    function handleWheel(e: WheelEvent) {
+      cancelMomentum()
+      e.preventDefault()
+      
+      let dy = e.deltaY
+      if (e.deltaMode === 1) {
+        // DOM_DELTA_LINE
+        dy *= 20
+      } else if (e.deltaMode === 2) {
+        // DOM_DELTA_PAGE
+        dy *= 800
+      }
+      
+      accumulatedDeltaRef.current += dy
+      consumeAccumulatedDelta()
+    }
+
+    function handleTouchStart(e: TouchEvent) {
+      cancelMomentum()
+      primeHaptics()
+      lastTouchYRef.current = e.touches[0]?.clientY ?? null
+      lastMoveTimeRef.current = performance.now()
+      velocityRef.current = 0
+    }
+
+    function handleTouchMove(e: TouchEvent) {
+      e.preventDefault()
+      const touchY = e.touches[0]?.clientY
+      const now = performance.now()
+      if (touchY == null || lastTouchYRef.current == null) {
+        lastTouchYRef.current = touchY ?? null
+        lastMoveTimeRef.current = now
+        return
+      }
+      const delta = lastTouchYRef.current - touchY
+      const dt = lastMoveTimeRef.current == null ? 0 : now - lastMoveTimeRef.current
+      if (dt >= 1) {
+        const instantV = delta / dt
+        velocityRef.current = 0.8 * instantV + 0.2 * velocityRef.current
+        lastMoveTimeRef.current = now
+      }
+      lastTouchYRef.current = touchY
+      accumulatedDeltaRef.current += delta
+      consumeAccumulatedDelta()
+    }
+
+    function handleTouchEnd() {
+      lastTouchYRef.current = null
+      if (shouldStartMomentum(velocityRef.current)) {
+        const startTime = performance.now()
+        momentumFrameIdRef.current = requestAnimationFrame(() => runMomentumFrame(startTime))
+      }
+    }
+
+    function handleMouseDown(e: MouseEvent) {
+      const target = e.target as HTMLElement
+      if (target.closest('button')) {
+        return
+      }
+      cancelMomentum()
+      lastPointerYRef.current = e.clientY
+      lastMoveTimeRef.current = performance.now()
+      velocityRef.current = 0
+
+      window.addEventListener('mousemove', handleMouseMove)
+      window.addEventListener('mouseup', handleMouseUp)
+    }
+
+    // eslint-disable-next-line no-inner-declarations
+    function handleMouseMove(e: MouseEvent) {
+      if (lastPointerYRef.current === null) return
+
+      const delta = lastPointerYRef.current - e.clientY
+      const now = performance.now()
+      const dt = lastMoveTimeRef.current == null ? 0 : now - lastMoveTimeRef.current
+      if (dt >= 1) {
+        const instantV = delta / dt
+        velocityRef.current = 0.8 * instantV + 0.2 * velocityRef.current
+        lastMoveTimeRef.current = now
+      }
+      lastPointerYRef.current = e.clientY
+      accumulatedDeltaRef.current += delta
+      consumeAccumulatedDelta()
+    }
+
+    // eslint-disable-next-line no-inner-declarations
+    function handleMouseUp() {
+      lastPointerYRef.current = null
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+
+      if (shouldStartMomentum(velocityRef.current)) {
+        const startTime = performance.now()
+        momentumFrameIdRef.current = requestAnimationFrame(() => runMomentumFrame(startTime))
+      }
+    }
+
+    function handleKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement
+      if (
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'TEXTAREA' ||
+        target?.isContentEditable
+      ) {
+        return
+      }
+
+      if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
+        e.preventDefault()
+        goTo(feedSession.index + 1)
+      } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+        e.preventDefault()
+        if (feedSession.index > 0) {
+          goTo(feedSession.index - 1)
+        }
+      }
+    }
+
+    el.addEventListener('wheel', handleWheel, { passive: false })
+    el.addEventListener('touchstart', handleTouchStart, { passive: false })
+    el.addEventListener('touchmove', handleTouchMove, { passive: false })
+    el.addEventListener('touchend', handleTouchEnd, { passive: false })
+    el.addEventListener('mousedown', handleMouseDown)
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      cancelMomentum()
+      el.removeEventListener('wheel', handleWheel)
+      el.removeEventListener('touchstart', handleTouchStart)
+      el.removeEventListener('touchmove', handleTouchMove)
+      el.removeEventListener('touchend', handleTouchEnd)
+      el.removeEventListener('mousedown', handleMouseDown)
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -234,6 +447,7 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
       </button>
       <div
         data-testid="edit-mode-preview"
+        ref={previewRef}
         className={styles.preview}
         style={{
           backgroundImage:
@@ -247,6 +461,7 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
         onPointerDown={handlePreviewPointerDown}
         onPointerUp={handlePreviewPointerUp}
       >
+        <ScrollTicker index={tickerIndex} />
         {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} />}
         <NoiseOverlay visible={noiseEnabled} />
         <GrainButton enabled={noiseEnabled} onToggle={toggleNoise} />

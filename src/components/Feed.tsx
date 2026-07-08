@@ -19,7 +19,7 @@ function pickRandomType(): GradientType {
   return GEOMETRY_TYPES[Math.floor(Math.random() * GEOMETRY_TYPES.length)]
 }
 
-function makeGradient(type: GradientType, colorSet: ColorSet): Gradient {
+export function makeGradient(type: GradientType, colorSet: ColorSet): Gradient {
   const stops = generateGradientStops(colorSet)
   return {
     id: crypto.randomUUID(),
@@ -37,7 +37,7 @@ const STEP_PX = 60
 // level state persists across component remounts within the same page load
 // since ES modules are singletons — this is standard practice for exactly
 // this kind of "survive unmount" requirement.
-const feedSession: { history: Gradient[]; index: number; lockedType: GradientType | null } = {
+export const feedSession: { history: Gradient[]; index: number; lockedType: GradientType | null } = {
   history: [],
   index: 0,
   lockedType: null,
