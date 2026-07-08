@@ -66,8 +66,9 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   useEffect(() => {
     setEditableStops(toEditableStops(gradient.stops))
     setTickerIndex(feedSession.index)
+    feedSession.lockedType = gradient.type
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gradient.id])
+  }, [gradient.id, gradient.type])
 
   // Dragging the sheet downward shrinks its real height so the flexed
   // preview grows live (a true move/resize, not a dissolve); releasing past

@@ -143,6 +143,7 @@ export function Feed({ chromeVisible = true }: FeedProps) {
       history[index] = current
       setDisplayed(current)
     }
+    feedSession.lockedType = current.type
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current])
 
