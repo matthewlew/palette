@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { oklchToHex } from '../lib/oklch'
+import { selectedSwatchHexes } from '../lib/swatchMatch'
 import type { ColorSet } from '../lib/colorSets'
 import type { EditableStop } from '../lib/stopOrdering'
 import styles from './SwatchTray.module.css'
@@ -82,11 +83,16 @@ export function SwatchTray({ colorSet, stops, onTapAdd, onTapRemove, onDragAdd, 
     }, DRAG_START_DELAY_MS)
   }
 
+  const selectedHexes = useMemo(
+    () => selectedSwatchHexes(stops.map((s) => s.hex), colorSet),
+    [stops, colorSet]
+  )
+
   return (
     <div className={styles.tray}>
       {colorSet.colors.map((color) => {
         const hex = oklchToHex(color.value)
-        const selected = stops.some((s) => s.hex === hex)
+        const selected = selectedHexes.has(hex)
         return (
           <button
             key={color.name}

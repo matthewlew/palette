@@ -10,7 +10,7 @@ const secondHex = oklchToHex(DEFAULT_COLOR_SET.colors[1].value)
 
 const stops: EditableStop[] = [
   { id: 'a', hex: firstHex, position: 0 },
-  { id: 'b', hex: '#123456', position: 100 },
+  { id: 'b', hex: '#ffffff', position: 100 },
 ]
 
 describe('SwatchTray', () => {
@@ -58,5 +58,31 @@ describe('SwatchTray', () => {
     expect(onDragAdd).toHaveBeenCalledWith(secondHex, { x: 10, y: 20 })
     expect(onTapAdd).not.toHaveBeenCalled()
     vi.useRealTimers()
+  })
+
+  it('shows a swatch as selected when a stop is a jittered near-match, not just an exact hex match', () => {
+    // Jitter the second color's OKLCH slightly (within swatchMatch's tolerance)
+    // so the stop's hex does NOT exactly equal the swatch's own hex.
+    const secondColor = DEFAULT_COLOR_SET.colors[1].value
+    const jitteredHex = oklchToHex({
+      l: secondColor.l + 0.03,
+      c: Math.max(0, secondColor.c - 0.01),
+      h: secondColor.h + 6,
+    })
+    expect(jitteredHex).not.toBe(secondHex)
+
+    const jitteredStops: EditableStop[] = [{ id: 'a', hex: jitteredHex, position: 0 }]
+    render(
+      <SwatchTray
+        colorSet={DEFAULT_COLOR_SET}
+        stops={jitteredStops}
+        onTapAdd={vi.fn()}
+        onTapRemove={vi.fn()}
+        onDragAdd={vi.fn()}
+      />
+    )
+    const swatch = screen.getByLabelText(`${DEFAULT_COLOR_SET.colors[1].name}`)
+    expect(swatch.className).toContain('swatchSelected')
+    expect(screen.getAllByTestId('swatch-checkmark')).toHaveLength(1)
   })
 })
