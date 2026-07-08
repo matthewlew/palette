@@ -12,7 +12,11 @@ interface ScrollTickerProps {
 
 /** Decorative timeline on the right edge of the feed: tick marks scroll past
  * a fixed center marker as the user scrubs, making feed position obvious.
- * Appears while scrolling, fades out after 1s idle. */
+ * Appears while scrolling, fades out after 1s idle.
+ *
+ * Ticks live at fixed offsets inside a single translated strip so that only
+ * one element animates per step — animating each tick individually restarts
+ * 21 transitions per step, which reads as jank on mobile. */
 export function ScrollTicker({ index }: ScrollTickerProps) {
   const [visible, setVisible] = useState(false)
   const isFirstRender = useRef(true)
@@ -33,18 +37,20 @@ export function ScrollTicker({ index }: ScrollTickerProps) {
 
   return (
     <div data-testid="scroll-ticker" aria-hidden="true" className={styles.ticker} style={{ opacity: visible ? 1 : 0 }}>
-      {tickIndices.map((t) => {
-        const isActive = t === index
-        const isMajor = t % 5 === 0
-        return (
-          <div
-            key={t}
-            data-testid={isActive ? 'ticker-tick-active' : 'ticker-tick'}
-            className={isActive ? styles.tickActive : isMajor ? styles.tickMajor : styles.tick}
-            style={{ transform: `translateY(${(t - index) * TICK_SPACING_PX}px)` }}
-          />
-        )
-      })}
+      <div className={styles.strip} style={{ transform: `translateY(${-index * TICK_SPACING_PX}px)` }}>
+        {tickIndices.map((t) => {
+          const isActive = t === index
+          const isMajor = t % 5 === 0
+          return (
+            <div
+              key={t}
+              data-testid={isActive ? 'ticker-tick-active' : 'ticker-tick'}
+              className={isActive ? styles.tickActive : isMajor ? styles.tickMajor : styles.tick}
+              style={{ top: `${t * TICK_SPACING_PX}px` }}
+            />
+          )
+        })}
+      </div>
     </div>
   )
 }
