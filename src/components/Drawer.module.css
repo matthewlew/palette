@@ -39,3 +39,46 @@
 .hidden .thumbnail {
   pointer-events: none;
 }
+
+.boardActions {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  pointer-events: auto;
+}
+
+.boardActions button {
+  font-size: 11px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.thumbnailWrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.shareThumb {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 10px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto;
+}

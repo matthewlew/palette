@@ -3,6 +3,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react'
 import { App } from './App'
 import { useAppStore } from './store/useAppStore'
 import { resetFeedSession } from './components/Feed'
+import { encodeToFragment } from './lib/gradientCodec'
 
 beforeEach(() => {
   resetFeedSession()
@@ -59,5 +60,30 @@ describe('App', () => {
     expect(useAppStore.getState().mode).toBe('explore')
 
     spy.mockRestore()
+  })
+})
+
+describe('App import flow', () => {
+  it('shows the import banner when the URL hash contains a valid share payload on load', () => {
+    const payload = {
+      kind: 'gradient' as const,
+      gradients: [
+        {
+          type: 'linear' as const,
+          stops: [
+            { hex: '#ff0000', position: 0 },
+            { hex: '#0000ff', position: 100 },
+          ],
+          name: 'Test',
+        },
+      ],
+    }
+    const fragment = encodeToFragment(payload)
+    window.location.hash = `#${fragment}`
+
+    render(<App />)
+    expect(screen.getByTestId('import-banner')).toBeInTheDocument()
+
+    window.location.hash = ''
   })
 })

@@ -36,9 +36,10 @@ describe('useAppStore', () => {
   it('saves a gradient to the drawer', () => {
     useAppStore.getState().saveGradient(sampleGradient)
     expect(useAppStore.getState().saved).toHaveLength(1)
-    // Saved entries get a fresh id (see duplicate-key regression test below);
-    // everything else is preserved verbatim.
-    const { id: _id, ...savedRest } = useAppStore.getState().saved[0]
+    // Saved entries get a fresh id (see duplicate-key regression test below)
+    // and a generated name (see naming tests below); everything else is
+    // preserved verbatim.
+    const { id: _id, name: _name, ...savedRest } = useAppStore.getState().saved[0]
     const { id: _sampleId, ...sampleRest } = sampleGradient
     expect(savedRest).toEqual(sampleRest)
   })
@@ -47,6 +48,18 @@ describe('useAppStore', () => {
     useAppStore.getState().saveGradient(sampleGradient)
     useAppStore.getState().saveGradient({ ...sampleGradient, id: 'g1-dup' })
     expect(useAppStore.getState().saved).toHaveLength(1)
+  })
+
+  it('assigns a deterministic name when saving a gradient without one', () => {
+    useAppStore.getState().saveGradient(sampleGradient)
+    const saved = useAppStore.getState().saved[0]
+    expect(saved.name).toBeTruthy()
+    expect(typeof saved.name).toBe('string')
+  })
+
+  it('preserves an existing name instead of regenerating it', () => {
+    useAppStore.getState().saveGradient({ ...sampleGradient, name: 'Custom Name' })
+    expect(useAppStore.getState().saved[0].name).toBe('Custom Name')
   })
 
   it('dedupes gradients whose stops are the same but in a different order', () => {
@@ -93,6 +106,29 @@ describe('useAppStore', () => {
     useAppStore.getState().saveGradient(sampleGradient)
     useAppStore.getState().toggleSaveGradient({ ...sampleGradient, id: 'different-id' })
     expect(useAppStore.getState().saved).toHaveLength(0)
+  })
+
+  it('starts with no pending import', () => {
+    expect(useAppStore.getState().pendingImport).toBeNull()
+  })
+
+  it('setPendingImport stores gradients awaiting confirmation', () => {
+    useAppStore.getState().setPendingImport([sampleGradient])
+    expect(useAppStore.getState().pendingImport).toEqual([sampleGradient])
+  })
+
+  it('confirmImport saves every pending gradient and clears the pending state', () => {
+    useAppStore.getState().setPendingImport([sampleGradient])
+    useAppStore.getState().confirmImport()
+    expect(useAppStore.getState().saved).toHaveLength(1)
+    expect(useAppStore.getState().pendingImport).toBeNull()
+  })
+
+  it('dismissImport clears pending state without saving', () => {
+    useAppStore.getState().setPendingImport([sampleGradient])
+    useAppStore.getState().dismissImport()
+    expect(useAppStore.getState().saved).toHaveLength(0)
+    expect(useAppStore.getState().pendingImport).toBeNull()
   })
 })
 

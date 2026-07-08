@@ -2,6 +2,10 @@ import type { GradientStop, GradientType } from '../lib/gradient'
 
 export interface Gradient {
   id: string
+  /** Deterministic, human-facing name derived from this gradient's colors
+   * (see src/lib/naming.ts). Present on saved/shared gradients; absent on
+   * freshly generated feed gradients until saved. */
+  name?: string
   type: GradientType
   stops: GradientStop[]
   // Whether the stop order is flipped for CSS rendering. Optional/defaults
