@@ -314,4 +314,31 @@ describe('EditMode', () => {
     fireEvent.pointerUp(preview, { clientX: 100, clientY: 300 })
     expect(onExit).not.toHaveBeenCalled()
   })
+
+  it('exits when the sheet is dragged down past 30% of its height', () => {
+    const onExit = vi.fn()
+    render(<EditMode gradient={gradient} onExit={onExit} />)
+    const sheet = screen.getByTestId('edit-sheet')
+    Object.defineProperty(sheet, 'offsetHeight', { configurable: true, value: 200 })
+
+    fireEvent.touchStart(sheet, { touches: [{ clientY: 100 }] })
+    fireEvent.touchMove(sheet, { touches: [{ clientY: 200 }] })
+    fireEvent.touchEnd(sheet)
+
+    expect(onExit).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not exit for a small sheet drag, and restores the sheet height', () => {
+    const onExit = vi.fn()
+    render(<EditMode gradient={gradient} onExit={onExit} />)
+    const sheet = screen.getByTestId('edit-sheet')
+    Object.defineProperty(sheet, 'offsetHeight', { configurable: true, value: 200 })
+
+    fireEvent.touchStart(sheet, { touches: [{ clientY: 100 }] })
+    fireEvent.touchMove(sheet, { touches: [{ clientY: 130 }] })
+    fireEvent.touchEnd(sheet)
+
+    expect(onExit).not.toHaveBeenCalled()
+    expect(sheet.style.height).toBe('')
+  })
 })

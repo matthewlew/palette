@@ -39,12 +39,69 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   const [sortKeyIndex, setSortKeyIndex] = useState(0)
   const blockContainerRef = useRef<HTMLDivElement>(null) as RefObject<HTMLDivElement>
   const previewPointerStartRef = useRef<{ x: number; y: number } | null>(null)
+  const sheetRef = useRef<HTMLDivElement>(null)
+  const onExitRef = useRef(onExit)
+  onExitRef.current = onExit
   const editHint = useHint('edit')
 
   useEffect(() => {
     setEditableStops(toEditableStops(gradient.stops))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gradient.id])
+
+  // Dragging the sheet downward shrinks its real height so the flexed
+  // preview grows live (a true move/resize, not a dissolve); releasing past
+  // 30% of the sheet's height exits edit mode. Bound as non-passive DOM
+  // listeners so preventDefault() reliably stops the page itself scrolling.
+  // Drags that start on the flow-editor stop handles are exempt — those own
+  // their own vertical (drag-to-delete) gesture.
+  useEffect(() => {
+    const el = sheetRef.current
+    if (!el) return
+    let startY = 0
+    let baseHeight = 0
+    let dragY = 0
+    let dragging = false
+
+    function handleTouchStart(e: TouchEvent) {
+      if ((e.target as HTMLElement).closest('[data-testid="flow-handle"]')) return
+      startY = e.touches[0]?.clientY ?? 0
+      baseHeight = el!.offsetHeight
+      dragY = 0
+      dragging = true
+    }
+
+    function handleTouchMove(e: TouchEvent) {
+      if (!dragging) return
+      const y = e.touches[0]?.clientY
+      if (y == null) return
+      dragY = Math.max(0, y - startY)
+      if (dragY > 0) {
+        e.preventDefault()
+        el!.style.height = `${Math.max(0, baseHeight - dragY)}px`
+        el!.style.overflow = 'hidden'
+      }
+    }
+
+    function handleTouchEnd() {
+      if (!dragging) return
+      dragging = false
+      el!.style.height = ''
+      el!.style.overflow = ''
+      if (dragY > baseHeight * 0.3) {
+        onExitRef.current()
+      }
+    }
+
+    el.addEventListener('touchstart', handleTouchStart, { passive: true })
+    el.addEventListener('touchmove', handleTouchMove, { passive: false })
+    el.addEventListener('touchend', handleTouchEnd)
+    return () => {
+      el.removeEventListener('touchstart', handleTouchStart)
+      el.removeEventListener('touchmove', handleTouchMove)
+      el.removeEventListener('touchend', handleTouchEnd)
+    }
+  }, [])
 
   useEffect(() => {
     const timer = setTimeout(() => editHint.dismiss(), 4000)
@@ -168,7 +225,7 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
           Sort by: {SORT_LABELS[SORT_KEYS[sortKeyIndex]]}
         </button>
       </div>
-      <div data-testid="edit-sheet" className={styles.sheet}>
+      <div data-testid="edit-sheet" ref={sheetRef} className={styles.sheet}>
         <button
           type="button"
           data-testid="sheet-handle"
