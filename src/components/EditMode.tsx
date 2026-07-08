@@ -12,11 +12,9 @@ import {
   type EditableStop,
 } from '../lib/stopOrdering'
 import { sortByOklch, type SortKey } from '../lib/sortColors'
-import { useDoubleTap } from '../hooks/useDoubleTap'
-import { useHeartFlash } from '../hooks/useHeartFlash'
 import { useHint } from '../hooks/useHint'
-import { HeartFlash } from './HeartFlash'
 import { Hint } from './Hint'
+import { LikeButton } from './LikeButton'
 import { GeometryTabs } from './GeometryTabs'
 import { FlowEditor } from './FlowEditor'
 import { BlockWheel } from './BlockWheel'
@@ -36,12 +34,12 @@ interface EditModeProps {
 
 export function EditMode({ gradient, onExit }: EditModeProps) {
   const setCurrentGradient = useAppStore((s) => s.setCurrentGradient)
-  const saveGradient = useAppStore((s) => s.saveGradient)
   const activeColorSet = useAppStore((s) => s.activeColorSet)
+  const isGradientSaved = useAppStore((s) => s.isGradientSaved(gradient))
+  const toggleSaveGradient = useAppStore((s) => s.toggleSaveGradient)
   const [editableStops, setEditableStops] = useState<EditableStop[]>(() => toEditableStops(gradient.stops))
   const [sortKeyIndex, setSortKeyIndex] = useState(0)
   const blockContainerRef = useRef<HTMLDivElement>(null) as RefObject<HTMLDivElement>
-  const { visible: heartVisible, flash } = useHeartFlash()
   const editHint = useHint('edit')
 
   useEffect(() => {
@@ -120,13 +118,6 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
     })
   }
 
-  function handleLike() {
-    saveGradient(gradient)
-    flash()
-  }
-
-  const { onPointerUp: onPreviewPointerUp } = useDoubleTap(handleLike, onExit)
-
   const isWheel = WHEEL_TYPES.includes(gradient.type)
 
   return (
@@ -140,10 +131,10 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
         style={{
           backgroundImage: gradient.type === 'square' ? undefined : buildGradientCss(gradient.type, gradient.stops, gradient.reversed),
         }}
-        onPointerUp={onPreviewPointerUp}
+        onPointerUp={onExit}
       >
         {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} />}
-        <HeartFlash visible={heartVisible} />
+        <LikeButton liked={isGradientSaved} onToggle={() => toggleSaveGradient(gradient)} />
       </div>
       <div data-testid="edit-sheet" className={styles.sheet}>
         <GeometryTabs type={gradient.type} onSelectType={handleSelectType} onToggleReversed={handleToggleReversed} />

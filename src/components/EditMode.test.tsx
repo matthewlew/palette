@@ -107,27 +107,20 @@ describe('EditMode', () => {
     expect(onExit).toHaveBeenCalledTimes(1)
   })
 
-  it('single-tapping the preview exits after the double-tap window elapses', () => {
-    vi.useFakeTimers()
+  it('tapping the preview exits immediately, with no debounce wait', () => {
     const onExit = vi.fn()
     render(<EditMode gradient={gradient} onExit={onExit} />)
     fireEvent.pointerUp(screen.getByTestId('edit-mode-preview'))
-    vi.advanceTimersByTime(350)
     expect(onExit).toHaveBeenCalledTimes(1)
-    vi.useRealTimers()
   })
 
-  it('double-tapping the preview saves (likes) the gradient, shows the heart, and does not exit', () => {
-    vi.useFakeTimers()
-    const onExit = vi.fn()
-    render(<EditMode gradient={gradient} onExit={onExit} />)
-    const preview = screen.getByTestId('edit-mode-preview')
-    fireEvent.pointerUp(preview)
-    fireEvent.pointerUp(preview)
-    expect(onExit).not.toHaveBeenCalled()
+  it('renders a LikeButton in the preview that toggles the saved state', () => {
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    const likeButton = screen.getByTestId('like-button')
+    expect(likeButton.getAttribute('aria-pressed')).toBe('false')
+
+    fireEvent.click(likeButton)
     expect(useAppStore.getState().saved).toHaveLength(1)
-    expect(screen.getByTestId('heart-flash')).toBeInTheDocument()
-    vi.useRealTimers()
   })
 
   it('tapping an unselected swatch appends a new stop', () => {
