@@ -36,7 +36,11 @@ describe('useAppStore', () => {
   it('saves a gradient to the drawer', () => {
     useAppStore.getState().saveGradient(sampleGradient)
     expect(useAppStore.getState().saved).toHaveLength(1)
-    expect(useAppStore.getState().saved[0]).toEqual(sampleGradient)
+    // Saved entries get a fresh id (see duplicate-key regression test below);
+    // everything else is preserved verbatim.
+    const { id: _id, ...savedRest } = useAppStore.getState().saved[0]
+    const { id: _sampleId, ...sampleRest } = sampleGradient
+    expect(savedRest).toEqual(sampleRest)
   })
 
   it('dedupes saving the same gradient signature twice', () => {
@@ -101,5 +105,23 @@ describe('useAppStore activeColorSet', () => {
     const custom: ColorSet = { name: 'custom', colors: [{ name: 'Foo', value: { l: 0.5, c: 0.1, h: 10 } }] }
     useAppStore.getState().setActiveColorSet(custom)
     expect(useAppStore.getState().activeColorSet).toBe(custom)
+  })
+
+  it('assigns saved gradients a fresh id so edit-then-save-again cannot duplicate keys', () => {
+    const gradient = {
+      id: 'shared-id',
+      type: 'linear' as const,
+      stops: [
+        { hex: '#ff0000', position: 0 },
+        { hex: '#0000ff', position: 100 },
+      ],
+    }
+    useAppStore.getState().saveGradient(gradient)
+    const edited = { ...gradient, stops: [{ hex: '#00ff00', position: 0 }, { hex: '#0000ff', position: 100 }] }
+    useAppStore.getState().saveGradient(edited)
+
+    const ids = useAppStore.getState().saved.map((g) => g.id)
+    expect(ids).toHaveLength(2)
+    expect(new Set(ids).size).toBe(2)
   })
 })

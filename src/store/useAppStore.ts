@@ -39,7 +39,11 @@ export const useAppStore = create<AppState>()(
         const signature = gradientSignature(gradient)
         const alreadySaved = get().saved.some((g) => gradientSignature(g) === signature)
         if (alreadySaved) return
-        set({ saved: [...get().saved, gradient] })
+        // Store a copy with a fresh id: edit-mode commits reuse the gradient
+        // id across signature changes, so saving before and after an edit
+        // would otherwise put two entries with the same id (= duplicate React
+        // keys) into the drawer.
+        set({ saved: [...get().saved, { ...gradient, id: crypto.randomUUID() }] })
       },
       isGradientSaved: (gradient) => {
         const signature = gradientSignature(gradient)
