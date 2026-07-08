@@ -71,6 +71,7 @@ export function Feed({ chromeVisible = true }: FeedProps) {
   // edit-mode round trip.
   const accumulatedDeltaRef = useRef(0)
   const lastTouchYRef = useRef<number | null>(null)
+  const lastPointerYRef = useRef<number | null>(null)
   const velocityRef = useRef(0)
   const lastMoveTimeRef = useRef<number | null>(null)
   const momentumFrameIdRef = useRef<number | null>(null)
@@ -188,10 +189,10 @@ export function Feed({ chromeVisible = true }: FeedProps) {
     }
   }
 
-  // Attach wheel/touch listeners manually as non-passive so preventDefault()
+  // Attach wheel/touch/mouse/keyboard listeners manually so preventDefault()
   // reliably suppresses native scrolling. React's synthetic onWheel/onTouchMove
   // handlers are not guaranteed to be non-passive across versions/browsers,
-  // so we bind directly to the DOM node instead.
+  // so we bind directly to the DOM/window nodes instead.
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
@@ -222,7 +223,17 @@ export function Feed({ chromeVisible = true }: FeedProps) {
       cancelMomentum()
       scrollHintDismissRef.current()
       e.preventDefault()
-      accumulatedDeltaRef.current += e.deltaY
+      
+      let dy = e.deltaY
+      if (e.deltaMode === 1) {
+        // DOM_DELTA_LINE
+        dy *= 20
+      } else if (e.deltaMode === 2) {
+        // DOM_DELTA_PAGE
+        dy *= 800
+      }
+      
+      accumulatedDeltaRef.current += dy
       consumeAccumulatedDelta()
     }
 
@@ -268,10 +279,77 @@ export function Feed({ chromeVisible = true }: FeedProps) {
       }
     }
 
+    function handleMouseDown(e: MouseEvent) {
+      const target = e.target as HTMLElement
+      if (target.closest('button') || target.closest('[data-testid="saved-drawer"]')) {
+        return
+      }
+      cancelMomentum()
+      lastPointerYRef.current = e.clientY
+      lastMoveTimeRef.current = performance.now()
+      velocityRef.current = 0
+
+      window.addEventListener('mousemove', handleMouseMove)
+      window.addEventListener('mouseup', handleMouseUp)
+    }
+
+    // eslint-disable-next-line no-inner-declarations
+    function handleMouseMove(e: MouseEvent) {
+      if (lastPointerYRef.current === null) return
+      scrollHintDismissRef.current()
+
+      const delta = lastPointerYRef.current - e.clientY
+      const now = performance.now()
+      const dt = lastMoveTimeRef.current == null ? 0 : now - lastMoveTimeRef.current
+      if (dt >= 1) {
+        const instantV = delta / dt
+        velocityRef.current = 0.8 * instantV + 0.2 * velocityRef.current
+        lastMoveTimeRef.current = now
+      }
+      lastPointerYRef.current = e.clientY
+      accumulatedDeltaRef.current += delta
+      consumeAccumulatedDelta()
+    }
+
+    // eslint-disable-next-line no-inner-declarations
+    function handleMouseUp() {
+      lastPointerYRef.current = null
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+
+      if (shouldStartMomentum(velocityRef.current)) {
+        const startTime = performance.now()
+        momentumFrameIdRef.current = requestAnimationFrame(() => runMomentumFrame(startTime))
+      }
+    }
+
+    function handleKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement
+      if (
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'TEXTAREA' ||
+        target?.isContentEditable
+      ) {
+        return
+      }
+
+      if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
+        e.preventDefault()
+        goTo(feedSession.index + 1)
+      } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+        e.preventDefault()
+        if (feedSession.index > 0) {
+          goTo(feedSession.index - 1)
+        }
+      }
+    }
+
     el.addEventListener('wheel', handleWheel, { passive: false })
     el.addEventListener('touchstart', handleTouchStart, { passive: false })
     el.addEventListener('touchmove', handleTouchMove, { passive: false })
     el.addEventListener('touchend', handleTouchEnd, { passive: false })
+    el.addEventListener('mousedown', handleMouseDown)
+    window.addEventListener('keydown', handleKeyDown)
 
     return () => {
       cancelMomentum()
@@ -279,6 +357,10 @@ export function Feed({ chromeVisible = true }: FeedProps) {
       el.removeEventListener('touchstart', handleTouchStart)
       el.removeEventListener('touchmove', handleTouchMove)
       el.removeEventListener('touchend', handleTouchEnd)
+      el.removeEventListener('mousedown', handleMouseDown)
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+      window.removeEventListener('keydown', handleKeyDown)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displayed !== null])

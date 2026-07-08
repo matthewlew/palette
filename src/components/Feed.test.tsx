@@ -435,4 +435,49 @@ describe('Feed', () => {
     }
     expect(useAppStore.getState().current).toBe(edited)
   })
+
+  it('navigates forward and backward via keyboard arrow keys, Space, and PageUp/PageDown', () => {
+    render(<Feed />)
+    const first = useAppStore.getState().current
+    
+    // Press ArrowDown
+    fireEvent.keyDown(window, { key: 'ArrowDown' })
+    const second = useAppStore.getState().current
+    expect(second).not.toEqual(first)
+
+    // Press Space
+    fireEvent.keyDown(window, { key: ' ' })
+    const third = useAppStore.getState().current
+    expect(third).not.toEqual(second)
+
+    // Press PageUp
+    fireEvent.keyDown(window, { key: 'PageUp' })
+    expect(useAppStore.getState().current).toEqual(second)
+
+    // Press ArrowUp
+    fireEvent.keyDown(window, { key: 'ArrowUp' })
+    expect(useAppStore.getState().current).toEqual(first)
+  })
+
+  it('scrubs forward and backward via mouse click-and-drag events', () => {
+    render(<Feed />)
+    const first = useAppStore.getState().current
+    const container = screen.getByTestId('feed-container')
+
+    // Drag up (move pointerY to smaller value)
+    fireEvent.mouseDown(container, { clientY: 400 })
+    fireEvent.mouseMove(window, { clientY: 400 - STEP_PX })
+    fireEvent.mouseUp(window)
+
+    const second = useAppStore.getState().current
+    expect(second).not.toEqual(first)
+
+    // Drag down (move pointerY to larger value)
+    fireEvent.mouseDown(container, { clientY: 200 })
+    fireEvent.mouseMove(window, { clientY: 200 + STEP_PX })
+    fireEvent.mouseUp(window)
+
+    expect(useAppStore.getState().current).toEqual(first)
+  })
 })
+
