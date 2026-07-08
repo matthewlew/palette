@@ -36,9 +36,10 @@ describe('useAppStore', () => {
   it('saves a gradient to the drawer', () => {
     useAppStore.getState().saveGradient(sampleGradient)
     expect(useAppStore.getState().saved).toHaveLength(1)
-    // Saved entries get a fresh id (see duplicate-key regression test below);
-    // everything else is preserved verbatim.
-    const { id: _id, ...savedRest } = useAppStore.getState().saved[0]
+    // Saved entries get a fresh id (see duplicate-key regression test below)
+    // and a generated name (see naming tests below); everything else is
+    // preserved verbatim.
+    const { id: _id, name: _name, ...savedRest } = useAppStore.getState().saved[0]
     const { id: _sampleId, ...sampleRest } = sampleGradient
     expect(savedRest).toEqual(sampleRest)
   })
@@ -47,6 +48,18 @@ describe('useAppStore', () => {
     useAppStore.getState().saveGradient(sampleGradient)
     useAppStore.getState().saveGradient({ ...sampleGradient, id: 'g1-dup' })
     expect(useAppStore.getState().saved).toHaveLength(1)
+  })
+
+  it('assigns a deterministic name when saving a gradient without one', () => {
+    useAppStore.getState().saveGradient(sampleGradient)
+    const saved = useAppStore.getState().saved[0]
+    expect(saved.name).toBeTruthy()
+    expect(typeof saved.name).toBe('string')
+  })
+
+  it('preserves an existing name instead of regenerating it', () => {
+    useAppStore.getState().saveGradient({ ...sampleGradient, name: 'Custom Name' })
+    expect(useAppStore.getState().saved[0].name).toBe('Custom Name')
   })
 
   it('dedupes gradients whose stops are the same but in a different order', () => {

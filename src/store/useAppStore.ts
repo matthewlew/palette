@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Gradient, ViewMode } from './types'
 import { DEFAULT_COLOR_SET, type ColorSet } from '../lib/colorSets'
+import { namePalette } from '../lib/naming'
 
 function gradientSignature(gradient: Gradient): string {
   const sortedStops = [...gradient.stops].sort((a, b) => a.position - b.position)
@@ -39,11 +40,12 @@ export const useAppStore = create<AppState>()(
         const signature = gradientSignature(gradient)
         const alreadySaved = get().saved.some((g) => gradientSignature(g) === signature)
         if (alreadySaved) return
+        const name = gradient.name ?? namePalette(gradient.stops.map((s) => s.hex))
         // Store a copy with a fresh id: edit-mode commits reuse the gradient
         // id across signature changes, so saving before and after an edit
         // would otherwise put two entries with the same id (= duplicate React
         // keys) into the drawer.
-        set({ saved: [...get().saved, { ...gradient, id: crypto.randomUUID() }] })
+        set({ saved: [...get().saved, { ...gradient, id: crypto.randomUUID(), name }] })
       },
       isGradientSaved: (gradient) => {
         const signature = gradientSignature(gradient)
