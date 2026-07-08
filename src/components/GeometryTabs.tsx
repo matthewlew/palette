@@ -11,7 +11,7 @@ const TABS: { type: GradientType; label: string }[] = [
   { type: 'linear', label: 'Linear' },
   { type: 'radial', label: 'Radial' },
   { type: 'angular', label: 'Angular' },
-  { type: 'square', label: 'Square' },
+  { type: 'square', label: 'Turrell' },
   { type: 'mirror', label: 'Mirror' },
   { type: 'repeat', label: 'Repeat' },
 ]

@@ -1,9 +1,7 @@
 import { useRef } from 'react'
 import { buildGradientCss } from '../lib/gradient'
-import { useDoubleTap } from '../hooks/useDoubleTap'
-import { useHeartFlash } from '../hooks/useHeartFlash'
-import { HeartFlash } from './HeartFlash'
 import { TurrellSquare } from './TurrellSquare'
+import { LikeButton } from './LikeButton'
 import type { Gradient } from '../store/types'
 import styles from './GradientPage.module.css'
 
@@ -11,20 +9,13 @@ const TAP_MOVEMENT_THRESHOLD_PX = 10
 
 interface GradientPageProps {
   gradient: Gradient
-  onSave: (gradient: Gradient) => void
+  liked: boolean
+  onToggleLike: () => void
   onEdit: () => void
 }
 
-export function GradientPage({ gradient, onSave, onEdit }: GradientPageProps) {
-  const { visible, flash } = useHeartFlash()
+export function GradientPage({ gradient, liked, onToggleLike, onEdit }: GradientPageProps) {
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null)
-
-  function handleDoubleTap() {
-    onSave(gradient)
-    flash()
-  }
-
-  const { onPointerUp: onDoubleTapPointerUp } = useDoubleTap(handleDoubleTap, onEdit)
 
   function handlePointerDown(e: React.PointerEvent) {
     pointerStartRef.current = { x: e.clientX, y: e.clientY }
@@ -41,7 +32,7 @@ export function GradientPage({ gradient, onSave, onEdit }: GradientPageProps) {
         return
       }
     }
-    onDoubleTapPointerUp()
+    onEdit()
   }
 
   return (
@@ -56,7 +47,7 @@ export function GradientPage({ gradient, onSave, onEdit }: GradientPageProps) {
       onPointerUp={handlePointerUp}
     >
       {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} />}
-      <HeartFlash visible={visible} />
+      <LikeButton liked={liked} onToggle={onToggleLike} />
     </div>
   )
 }

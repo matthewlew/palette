@@ -36,10 +36,26 @@ describe('EditMode', () => {
     expect(screen.getAllByTestId('swatch').length).toBe(60)
   })
 
-  it('renders BlockWheel instead of BlockStack for angular/square types', () => {
+  it('renders FlowEditor (not BlockWheel) for square/Turrell gradients', () => {
     render(<EditMode gradient={{ ...gradient, type: 'square' }} onExit={vi.fn()} />)
-    expect(screen.getAllByTestId('wheel-wedge')).toHaveLength(3)
-    expect(screen.queryAllByTestId('stack-block')).toHaveLength(0)
+    expect(screen.getAllByTestId('flow-handle')).toHaveLength(3)
+    expect(screen.queryByTestId('wheel-container')).not.toBeInTheDocument()
+  })
+
+  it('renders FlowEditor (not BlockWheel) for angular gradients', () => {
+    const angular: Gradient = {
+      id: 'g-angular',
+      type: 'angular',
+      stops: [
+        { hex: '#ff0000', position: 0 },
+        { hex: '#00ff00', position: 50 },
+        { hex: '#0000ff', position: 100 },
+      ],
+      reversed: false,
+    }
+    render(<EditMode gradient={angular} onExit={vi.fn()} />)
+    expect(screen.getAllByTestId('flow-handle')).toHaveLength(3)
+    expect(screen.queryByTestId('wheel-container')).not.toBeInTheDocument()
   })
 
   it('switching tabs updates the store current gradient type without changing stop colors', () => {
@@ -91,27 +107,20 @@ describe('EditMode', () => {
     expect(onExit).toHaveBeenCalledTimes(1)
   })
 
-  it('single-tapping the preview exits after the double-tap window elapses', () => {
-    vi.useFakeTimers()
+  it('tapping the preview exits immediately, with no debounce wait', () => {
     const onExit = vi.fn()
     render(<EditMode gradient={gradient} onExit={onExit} />)
     fireEvent.pointerUp(screen.getByTestId('edit-mode-preview'))
-    vi.advanceTimersByTime(350)
     expect(onExit).toHaveBeenCalledTimes(1)
-    vi.useRealTimers()
   })
 
-  it('double-tapping the preview saves (likes) the gradient, shows the heart, and does not exit', () => {
-    vi.useFakeTimers()
-    const onExit = vi.fn()
-    render(<EditMode gradient={gradient} onExit={onExit} />)
-    const preview = screen.getByTestId('edit-mode-preview')
-    fireEvent.pointerUp(preview)
-    fireEvent.pointerUp(preview)
-    expect(onExit).not.toHaveBeenCalled()
+  it('renders a LikeButton in the preview that toggles the saved state', () => {
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    const likeButton = screen.getByTestId('like-button')
+    expect(likeButton.getAttribute('aria-pressed')).toBe('false')
+
+    fireEvent.click(likeButton)
     expect(useAppStore.getState().saved).toHaveLength(1)
-    expect(screen.getByTestId('heart-flash')).toBeInTheDocument()
-    vi.useRealTimers()
   })
 
   it('tapping an unselected swatch appends a new stop', () => {
@@ -122,6 +131,41 @@ describe('EditMode', () => {
     fireEvent.pointerUp(document)
     expect(useAppStore.getState().current!.stops).toHaveLength(4)
     vi.useRealTimers()
+  })
+
+  it('renders a sort control at the bottom of the preview with an explicit label, cycling Lightness -> Chroma -> Hue', () => {
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+
+    const preview = screen.getByTestId('edit-mode-preview')
+    const fab = screen.getByTestId('sort-fab')
+    expect(preview).toContainElement(fab)
+    expect(fab.textContent).toBe('Sort by: Lightness')
+
+    fireEvent.click(fab)
+    expect(fab.textContent).toBe('Sort by: Chroma')
+
+    fireEvent.click(fab)
+    expect(fab.textContent).toBe('Sort by: Hue')
+
+    fireEvent.click(fab)
+    expect(fab.textContent).toBe('Sort by: Lightness')
+  })
+
+  it('tapping the sort FAB sorts stops by the labeled key', () => {
+    const darkFirst: Gradient = {
+      id: 'g-sort',
+      type: 'linear',
+      stops: [
+        { hex: '#00ff00', position: 0 }, // light, l~0.87
+        { hex: '#0000ff', position: 50 }, // dark, l~0.45
+        { hex: '#ff0000', position: 100 }, // mid, l~0.63
+      ],
+      reversed: false,
+    }
+    render(<EditMode gradient={darkFirst} onExit={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('sort-fab')) // applies lightness
+    const updated = useAppStore.getState().current!
+    expect(updated.stops.map((s) => s.hex)).toEqual(['#0000ff', '#ff0000', '#00ff00'])
   })
 
   it('tapping "Sort by lightness" reorders stops darkest to lightest', () => {
@@ -136,7 +180,7 @@ describe('EditMode', () => {
       reversed: false,
     }
     render(<EditMode gradient={darkFirst} onExit={vi.fn()} />)
-    fireEvent.click(screen.getByLabelText('Sort by lightness'))
+    fireEvent.click(screen.getByTestId('sort-fab'))
     const updated = useAppStore.getState().current!
     expect(updated.stops.map((s) => s.hex)).toEqual(['#0000ff', '#ff0000', '#00ff00'])
   })
@@ -153,7 +197,7 @@ describe('EditMode', () => {
       reversed: false,
     }
     render(<EditMode gradient={unequalPositions} onExit={vi.fn()} />)
-    fireEvent.click(screen.getByLabelText('Sort by lightness'))
+    fireEvent.click(screen.getByTestId('sort-fab'))
     const updated = useAppStore.getState().current!
     expect(updated.stops.map((s) => s.position)).toEqual([0, 50, 100])
   })
@@ -170,7 +214,7 @@ describe('EditMode', () => {
       reversed: false,
     }
     render(<EditMode gradient={unequalPositions} onExit={vi.fn()} />)
-    fireEvent.click(screen.getByLabelText('Sort by lightness'))
+    fireEvent.click(screen.getByTestId('sort-fab'))
     const handles = screen.getAllByRole('slider')
     expect(handles.map((h) => h.getAttribute('aria-valuenow'))).toEqual(['0', '50', '100'])
   })
@@ -234,5 +278,20 @@ describe('EditMode', () => {
     const updated = useAppStore.getState().current!
     const movedStop = updated.stops.find((s) => s.hex === '#00ff00')!
     expect(movedStop.position).toBe(100)
+  })
+
+  it('wraps geometry tabs, controller, and swatch tray in a bottom sheet container', () => {
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    const sheet = screen.getByTestId('edit-sheet')
+    expect(sheet).toContainElement(screen.getByTestId('flow-editor'))
+  })
+
+  it('renders a grabber handle at the top of the sheet that exits edit mode when tapped', () => {
+    const onExit = vi.fn()
+    render(<EditMode gradient={gradient} onExit={onExit} />)
+    const handle = screen.getByTestId('sheet-handle')
+    expect(screen.getByTestId('edit-sheet')).toContainElement(handle)
+    fireEvent.click(handle)
+    expect(onExit).toHaveBeenCalledTimes(1)
   })
 })

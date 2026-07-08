@@ -1,13 +1,16 @@
 .track {
   position: relative;
-  flex: 1;
-  width: 100%;
-  min-height: 0;
+  width: calc(100% - 32px);
+  margin: 0 auto;
+  height: 48px;
+  padding: 0 14px;
+  border-radius: 12px;
+  box-sizing: border-box;
 }
 
 .handle {
   position: absolute;
-  left: 50%;
+  top: 50%;
   width: 28px;
   height: 28px;
   border-radius: 50%;
@@ -16,4 +19,5 @@
   transform: translate(-50%, -50%);
   cursor: grab;
   touch-action: none;
+  transition: opacity 150ms ease-out, transform 150ms ease-out;
 }

@@ -12,20 +12,18 @@ import {
   type EditableStop,
 } from '../lib/stopOrdering'
 import { sortByOklch, type SortKey } from '../lib/sortColors'
-import { useDoubleTap } from '../hooks/useDoubleTap'
-import { useHeartFlash } from '../hooks/useHeartFlash'
 import { useHint } from '../hooks/useHint'
-import { HeartFlash } from './HeartFlash'
 import { Hint } from './Hint'
+import { LikeButton } from './LikeButton'
 import { GeometryTabs } from './GeometryTabs'
 import { FlowEditor } from './FlowEditor'
-import { BlockWheel } from './BlockWheel'
 import { SwatchTray } from './SwatchTray'
 import { TurrellSquare } from './TurrellSquare'
 import type { Gradient } from '../store/types'
 import styles from './EditMode.module.css'
 
-const WHEEL_TYPES: GradientType[] = ['angular', 'square']
+const SORT_KEYS: SortKey[] = ['lightness', 'chroma', 'hue']
+const SORT_LABELS: Record<SortKey, string> = { lightness: 'Lightness', chroma: 'Chroma', hue: 'Hue' }
 
 interface EditModeProps {
   gradient: Gradient
@@ -34,11 +32,12 @@ interface EditModeProps {
 
 export function EditMode({ gradient, onExit }: EditModeProps) {
   const setCurrentGradient = useAppStore((s) => s.setCurrentGradient)
-  const saveGradient = useAppStore((s) => s.saveGradient)
   const activeColorSet = useAppStore((s) => s.activeColorSet)
+  const isGradientSaved = useAppStore((s) => s.isGradientSaved(gradient))
+  const toggleSaveGradient = useAppStore((s) => s.toggleSaveGradient)
   const [editableStops, setEditableStops] = useState<EditableStop[]>(() => toEditableStops(gradient.stops))
+  const [sortKeyIndex, setSortKeyIndex] = useState(0)
   const blockContainerRef = useRef<HTMLDivElement>(null) as RefObject<HTMLDivElement>
-  const { visible: heartVisible, flash } = useHeartFlash()
   const editHint = useHint('edit')
 
   useEffect(() => {
@@ -96,8 +95,10 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
     commit(removeLastByHex(editableStops, hex))
   }
 
-  function handleSort(key: SortKey) {
+  function handleSortCycle() {
+    const key = SORT_KEYS[sortKeyIndex]
     commit(sortByOklch(editableStops, (s) => s.hex, key))
+    setSortKeyIndex((sortKeyIndex + 1) % SORT_KEYS.length)
   }
 
   function handleTapStop(_id: string) {
@@ -115,15 +116,6 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
     })
   }
 
-  function handleLike() {
-    saveGradient(gradient)
-    flash()
-  }
-
-  const { onPointerUp: onPreviewPointerUp } = useDoubleTap(handleLike, onExit)
-
-  const isWheel = WHEEL_TYPES.includes(gradient.type)
-
   return (
     <div data-testid="edit-mode" className={styles.container} onPointerDown={() => editHint.dismiss()}>
       <button type="button" data-testid="edit-mode-back" aria-label="Back" className={styles.backButton} onClick={onExit}>
@@ -135,42 +127,48 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
         style={{
           backgroundImage: gradient.type === 'square' ? undefined : buildGradientCss(gradient.type, gradient.stops, gradient.reversed),
         }}
-        onPointerUp={onPreviewPointerUp}
+        onPointerUp={onExit}
       >
         {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} />}
-        <HeartFlash visible={heartVisible} />
+        <LikeButton liked={isGradientSaved} onToggle={() => toggleSaveGradient(gradient)} />
+        <button
+          type="button"
+          data-testid="sort-fab"
+          aria-label={`Sort by ${SORT_KEYS[sortKeyIndex]}`}
+          className={styles.sortFab}
+          onClick={handleSortCycle}
+          onPointerDown={(e) => e.stopPropagation()}
+          onPointerUp={(e) => e.stopPropagation()}
+        >
+          Sort by: {SORT_LABELS[SORT_KEYS[sortKeyIndex]]}
+        </button>
       </div>
-      <GeometryTabs type={gradient.type} onSelectType={handleSelectType} onToggleReversed={handleToggleReversed} />
-      <div className={styles.sortRow}>
-        <button type="button" aria-label="Sort by lightness" className={styles.sortButton} onClick={() => handleSort('lightness')}>
-          L
-        </button>
-        <button type="button" aria-label="Sort by hue" className={styles.sortButton} onClick={() => handleSort('hue')}>
-          H
-        </button>
-        <button type="button" aria-label="Sort by chroma" className={styles.sortButton} onClick={() => handleSort('chroma')}>
-          C
-        </button>
-      </div>
-      <div className={styles.blockArea}>
-        {isWheel ? (
-          <BlockWheel
+      <div data-testid="edit-sheet" className={styles.sheet}>
+        <button
+          type="button"
+          data-testid="sheet-handle"
+          aria-label="Collapse controls"
+          className={styles.sheetHandle}
+          onClick={onExit}
+        />
+        <GeometryTabs type={gradient.type} onSelectType={handleSelectType} onToggleReversed={handleToggleReversed} />
+        <div className={styles.blockArea}>
+          <FlowEditor
             stops={editableStops}
-            onReorder={(next) => commit(next)}
-            onRemove={handleRemove}
+            onMove={handleMoveStop}
+            onTapStop={handleTapStop}
+            onRemoveStop={handleRemove}
             containerRef={blockContainerRef}
           />
-        ) : (
-          <FlowEditor stops={editableStops} onMove={handleMoveStop} onTapStop={handleTapStop} containerRef={blockContainerRef} />
-        )}
+        </div>
+        <SwatchTray
+          colorSet={activeColorSet}
+          stops={editableStops}
+          onTapAdd={handleTapAdd}
+          onTapRemove={handleTapRemove}
+          onDragAdd={handleDragAddFromTray}
+        />
       </div>
-      <SwatchTray
-        colorSet={activeColorSet}
-        stops={editableStops}
-        onTapAdd={handleTapAdd}
-        onTapRemove={handleTapRemove}
-        onDragAdd={handleDragAddFromTray}
-      />
       {editHint.visible && <Hint text="Tap a swatch to edit" visible={editHint.visible} />}
     </div>
   )

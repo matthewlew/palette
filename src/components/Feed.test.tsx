@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
-import { Feed } from './Feed'
+import { Feed, resetFeedSession } from './Feed'
 import { useAppStore } from '../store/useAppStore'
 import * as paletteLib from '../lib/palette'
 
 const STEP_PX = 60
 
 beforeEach(() => {
+  resetFeedSession()
   useAppStore.setState(useAppStore.getInitialState())
   localStorage.clear()
 })
@@ -329,7 +330,6 @@ describe('Feed', () => {
   })
 
   it('calls withViewTransition when entering edit mode via single tap', async () => {
-    vi.useFakeTimers()
     const viewTransitionModule = await import('../lib/viewTransition')
     const spy = vi.spyOn(viewTransitionModule, 'withViewTransition').mockImplementation((update) => update())
 
@@ -337,13 +337,24 @@ describe('Feed', () => {
     const page = screen.getByTestId('gradient-page')
 
     fireEvent.pointerUp(page)
-    vi.advanceTimersByTime(350)
 
     expect(spy).toHaveBeenCalledTimes(1)
     expect(useAppStore.getState().mode).toBe('edit')
 
     spy.mockRestore()
-    vi.useRealTimers()
+  })
+
+  it('toggles the saved state of the current gradient via a click on the LikeButton', () => {
+    render(<Feed />)
+    const current = useAppStore.getState().current!
+
+    expect(useAppStore.getState().isGradientSaved(current)).toBe(false)
+
+    fireEvent.click(screen.getByTestId('like-button'))
+    expect(useAppStore.getState().isGradientSaved(current)).toBe(true)
+
+    fireEvent.click(screen.getByTestId('like-button'))
+    expect(useAppStore.getState().isGradientSaved(current)).toBe(false)
   })
 
   it('shows the scroll hint on mount and dismisses it on the first wheel gesture', () => {
@@ -365,6 +376,33 @@ describe('Feed', () => {
   it('shows the like hint only after the scroll hint has been dismissed', () => {
     localStorage.setItem('palette-hint-scroll', '1')
     render(<Feed />)
-    expect(screen.getByText('Double-tap to like')).toBeInTheDocument()
+    expect(screen.getByText('Tap ♥ to save')).toBeInTheDocument()
+  })
+
+  it('preserves scroll position across an unmount/remount (e.g. entering and exiting edit mode)', () => {
+    const { unmount } = render(<Feed />)
+    const container = screen.getByTestId('feed-container')
+
+    fireEvent.wheel(container, { deltaY: STEP_PX * 3 })
+    const gradientAfterScrolling = useAppStore.getState().current
+
+    unmount()
+    // Note: intentionally NOT calling resetFeedSession() here — this
+    // simulates App.tsx swapping Feed out for EditMode and back, which
+    // does not reset the module-level session.
+    render(<Feed />)
+
+    expect(useAppStore.getState().current).toEqual(gradientAfterScrolling)
+  })
+
+  it('shows the scroll ticker while scrubbing and it tracks the feed index', () => {
+    render(<Feed />)
+    const container = screen.getByTestId('feed-container')
+
+    expect(screen.getByTestId('scroll-ticker').style.opacity).toBe('0')
+
+    fireEvent.wheel(container, { deltaY: STEP_PX })
+    expect(screen.getByTestId('scroll-ticker').style.opacity).toBe('1')
+    expect(screen.getByTestId('ticker-tick-active')).toBeInTheDocument()
   })
 })

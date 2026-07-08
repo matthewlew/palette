@@ -3,7 +3,6 @@
   flex-direction: column;
   height: 100vh;
   position: relative;
-  view-transition-name: palette-card;
 }
 
 .backButton {
@@ -23,33 +22,58 @@
 }
 
 .preview {
-  flex: 0 0 40%;
+  flex: 1;
+  min-height: 0;
   position: relative;
+  overflow: hidden;
   touch-action: manipulation;
+  view-transition-name: palette-card;
 }
 
-.sortRow {
+.sheet {
   display: flex;
-  gap: 8px;
-  justify-content: center;
-  padding: 8px 0;
+  flex-direction: column;
+  flex: 0 0 auto;
+  padding-top: 12px;
+  background: var(--bg, #fff);
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.12);
+  view-transition-name: edit-sheet;
 }
 
-.sortButton {
-  width: 32px;
-  height: 32px;
+.sheetHandle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
   border: none;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.08);
-  color: var(--text-h);
-  font-size: 14px;
-  font-weight: 600;
+  background: rgba(128, 128, 128, 0.4);
+  margin: 0 auto 8px;
+  padding: 0;
   cursor: pointer;
 }
 
+.sortFab {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  z-index: 3;
+  height: 36px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
 .blockArea {
-  flex: 1;
+  position: relative;
+  flex: 0 0 72px;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   min-height: 0;
 }

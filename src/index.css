@@ -114,3 +114,33 @@ code {
   animation-duration: 300ms;
   animation-timing-function: ease-out;
 }
+
+::view-transition-group(palette-card) {
+  animation-duration: 300ms;
+  animation-timing-function: ease-out;
+}
+
+::view-transition-group(edit-sheet) {
+  animation-duration: 300ms;
+  animation-timing-function: ease-out;
+}
+
+@keyframes sheet-slide-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes sheet-slide-down {
+  to {
+    transform: translateY(100%);
+  }
+}
+
+::view-transition-new(edit-sheet) {
+  animation: sheet-slide-up 300ms ease-out;
+}
+
+::view-transition-old(edit-sheet) {
+  animation: sheet-slide-down 300ms ease-out;
+}

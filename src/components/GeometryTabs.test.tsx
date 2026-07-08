@@ -5,7 +5,7 @@ import { GeometryTabs } from './GeometryTabs'
 describe('GeometryTabs', () => {
   it('renders all 6 geometry tabs', () => {
     render(<GeometryTabs type="linear" onSelectType={vi.fn()} onToggleReversed={vi.fn()} />)
-    for (const label of ['Linear', 'Radial', 'Angular', 'Square', 'Mirror', 'Repeat']) {
+    for (const label of ['Linear', 'Radial', 'Angular', 'Turrell', 'Mirror', 'Repeat']) {
       expect(screen.getByText(label)).toBeInTheDocument()
     }
   })
@@ -26,5 +26,11 @@ describe('GeometryTabs', () => {
     fireEvent.click(screen.getByText('Linear'))
     expect(onToggleReversed).toHaveBeenCalledTimes(1)
     expect(onSelectType).not.toHaveBeenCalled()
+  })
+
+  it('labels the square-type tab as "Turrell"', () => {
+    render(<GeometryTabs type="square" onSelectType={vi.fn()} onToggleReversed={vi.fn()} />)
+    expect(screen.getByText('Turrell')).toBeInTheDocument()
+    expect(screen.queryByText('Square')).not.toBeInTheDocument()
   })
 })

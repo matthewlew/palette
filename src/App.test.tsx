@@ -2,8 +2,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { App } from './App'
 import { useAppStore } from './store/useAppStore'
+import { resetFeedSession } from './components/Feed'
 
 beforeEach(() => {
+  resetFeedSession()
   localStorage.clear()
   useAppStore.setState(useAppStore.getInitialState())
 })
@@ -28,12 +30,10 @@ describe('App', () => {
     vi.useRealTimers()
   })
 
-  it('renders the drawer with a saved gradient after double-tap', () => {
+  it('renders the drawer with a saved gradient after tapping the like button', () => {
     render(<App />)
-    const [page] = screen.getAllByTestId('gradient-page')
 
-    fireEvent.pointerUp(page)
-    fireEvent.pointerUp(page)
+    fireEvent.click(screen.getByTestId('like-button'))
 
     expect(screen.getAllByTestId('drawer-thumbnail')).toHaveLength(1)
   })
