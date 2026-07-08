@@ -19,4 +19,5 @@
   transform: translate(-50%, -50%);
   cursor: grab;
   touch-action: none;
+  transition: opacity 150ms ease-out, transform 150ms ease-out;
 }

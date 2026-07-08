@@ -105,4 +105,42 @@ describe('FlowEditor', () => {
     expect(track.className).toContain('track')
     expect(handle.className).toContain('handle')
   })
+
+  it('dragging a handle more than 56px vertically away and releasing calls onRemoveStop, not onMove/onTapStop', () => {
+    const onMove = vi.fn()
+    const onTapStop = vi.fn()
+    const onRemoveStop = vi.fn()
+    render(<FlowEditor stops={stops} onMove={onMove} onTapStop={onTapStop} onRemoveStop={onRemoveStop} />)
+    const handle = screen.getByLabelText('Stop #00ff00')
+
+    fireEvent.pointerDown(handle, { clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(handle, { clientX: 100, clientY: 170 }) // 70px away, past threshold
+    fireEvent.pointerUp(handle, { clientX: 100, clientY: 170 })
+
+    expect(onRemoveStop).toHaveBeenCalledWith('b')
+    expect(onTapStop).not.toHaveBeenCalled()
+  })
+
+  it('dragging a handle less than 56px vertically away does not remove it on release', () => {
+    const onMove = vi.fn()
+    const onRemoveStop = vi.fn()
+    render(<FlowEditor stops={stops} onMove={onMove} onTapStop={vi.fn()} onRemoveStop={onRemoveStop} />)
+    const handle = screen.getByLabelText('Stop #00ff00')
+
+    fireEvent.pointerDown(handle, { clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(handle, { clientX: 100, clientY: 130 }) // 30px away, under threshold
+    fireEvent.pointerUp(handle, { clientX: 100, clientY: 130 })
+
+    expect(onRemoveStop).not.toHaveBeenCalled()
+  })
+
+  it('dims the handle once the drag exceeds the delete threshold', () => {
+    render(<FlowEditor stops={stops} onMove={vi.fn()} onTapStop={vi.fn()} onRemoveStop={vi.fn()} />)
+    const handle = screen.getByLabelText('Stop #00ff00')
+
+    fireEvent.pointerDown(handle, { clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(handle, { clientX: 100, clientY: 170 })
+
+    expect(handle.style.opacity).toBe('0.35')
+  })
 })

@@ -17,13 +17,11 @@ import { Hint } from './Hint'
 import { LikeButton } from './LikeButton'
 import { GeometryTabs } from './GeometryTabs'
 import { FlowEditor } from './FlowEditor'
-import { BlockWheel } from './BlockWheel'
 import { SwatchTray } from './SwatchTray'
 import { TurrellSquare } from './TurrellSquare'
 import type { Gradient } from '../store/types'
 import styles from './EditMode.module.css'
 
-const WHEEL_TYPES: GradientType[] = ['square']
 const SORT_KEYS: SortKey[] = ['lightness', 'chroma', 'hue']
 const SORT_LABELS: Record<SortKey, string> = { lightness: 'Lightness', chroma: 'Chroma', hue: 'Hue' }
 
@@ -118,8 +116,6 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
     })
   }
 
-  const isWheel = WHEEL_TYPES.includes(gradient.type)
-
   return (
     <div data-testid="edit-mode" className={styles.container} onPointerDown={() => editHint.dismiss()}>
       <button type="button" data-testid="edit-mode-back" aria-label="Back" className={styles.backButton} onClick={onExit}>
@@ -157,16 +153,13 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
         />
         <GeometryTabs type={gradient.type} onSelectType={handleSelectType} onToggleReversed={handleToggleReversed} />
         <div className={styles.blockArea}>
-          {isWheel ? (
-            <BlockWheel
-              stops={editableStops}
-              onReorder={(next) => commit(next)}
-              onRemove={handleRemove}
-              containerRef={blockContainerRef}
-            />
-          ) : (
-            <FlowEditor stops={editableStops} onMove={handleMoveStop} onTapStop={handleTapStop} containerRef={blockContainerRef} />
-          )}
+          <FlowEditor
+            stops={editableStops}
+            onMove={handleMoveStop}
+            onTapStop={handleTapStop}
+            onRemoveStop={handleRemove}
+            containerRef={blockContainerRef}
+          />
         </div>
         <SwatchTray
           colorSet={activeColorSet}

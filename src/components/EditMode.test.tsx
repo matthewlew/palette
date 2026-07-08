@@ -36,10 +36,10 @@ describe('EditMode', () => {
     expect(screen.getAllByTestId('swatch').length).toBe(60)
   })
 
-  it('renders BlockWheel instead of BlockStack for angular/square types', () => {
+  it('renders FlowEditor (not BlockWheel) for square/Turrell gradients', () => {
     render(<EditMode gradient={{ ...gradient, type: 'square' }} onExit={vi.fn()} />)
-    expect(screen.getAllByTestId('wheel-wedge')).toHaveLength(3)
-    expect(screen.queryAllByTestId('stack-block')).toHaveLength(0)
+    expect(screen.getAllByTestId('flow-handle')).toHaveLength(3)
+    expect(screen.queryByTestId('wheel-container')).not.toBeInTheDocument()
   })
 
   it('renders FlowEditor (not BlockWheel) for angular gradients', () => {
