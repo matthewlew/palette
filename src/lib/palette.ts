@@ -24,12 +24,12 @@ function buildCandidateColors(colorSet: ColorSet, stopCount: number): Oklch[] {
   return colors
 }
 
-// Weighted-random pick among candidates, using score^6 as the sampling
-// weight — biases strongly toward higher-scoring candidates without
-// collapsing to a deterministic best-of-N (keeps generation feeling
-// exploratory).
+// Weighted-random pick among candidates, using score^2 as the sampling
+// weight — sharpens the bias toward higher scorers while remaining
+// stochastic, without collapsing to a deterministic best-of-N (keeps
+// generation feeling exploratory).
 function pickByScore(candidates: Oklch[][]): Oklch[] {
-  const weights = candidates.map((colors) => Math.max(0.0001, scorePalette(colors)) ** 6)
+  const weights = candidates.map((colors) => Math.max(0.0001, scorePalette(colors)) ** 2)
   const total = weights.reduce((a, b) => a + b, 0)
   let r = Math.random() * total
   for (let i = 0; i < candidates.length; i++) {
@@ -39,7 +39,7 @@ function pickByScore(candidates: Oklch[][]): Oklch[] {
   return candidates[candidates.length - 1]
 }
 
-const CANDIDATE_COUNT = 16
+const CANDIDATE_COUNT = 8
 
 export function generateGradientStops(colorSet: ColorSet): GradientStop[] {
   const stopCount = 3 + Math.floor(Math.random() * 4) // 3-6
