@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import { buildGradientCss, type GradientStop } from './gradient'
-import { hexToOklch } from './oklch'
 
 const stops: GradientStop[] = [
   { hex: '#ff0000', position: 0 },
