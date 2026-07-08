@@ -98,3 +98,42 @@ export function achromaticPenalty(colors: Oklch[]): number {
   if (achromaticCount <= 1) return 1
   return Math.max(0.3, 1 - (achromaticCount - 1) * 0.35)
 }
+
+export interface ScoreWeights {
+  lightnessRange: number
+  minPairwiseDistance: number
+  achromaticPenalty: number
+  saturationSpread: number
+  hueHarmony: number
+}
+
+// Weights derived from a two-round blind ranking calibration (see
+// docs/superpowers/specs/2026-07-08-aesthetic-gradient-scoring-design.md):
+// lightness range dominated preference, min pairwise distance and the
+// achromatic penalty were consistently confirmed, saturation spread read
+// as a mild positive, and hue harmony was demoted relative to Bklyn
+// Clay's own weighting because raw hue dispersion outranked
+// analogous/triadic formula fits in testing.
+export const DEFAULT_SCORE_WEIGHTS: ScoreWeights = {
+  lightnessRange: 0.35,
+  minPairwiseDistance: 0.3,
+  achromaticPenalty: 0.15,
+  saturationSpread: 0.12,
+  hueHarmony: 0.08,
+}
+
+export function scorePalette(colors: Oklch[], weights: ScoreWeights = DEFAULT_SCORE_WEIGHTS): number {
+  if (colors.length < 2) return 0
+  const f1 = saturationSpread(colors)
+  const f2 = lightnessRange(colors)
+  const f4 = minPairwiseDistance(colors)
+  const f5 = hueHarmony(colors.map((c) => c.h))
+  const f7 = achromaticPenalty(colors)
+  const weighted =
+    f1 * weights.saturationSpread +
+    f2 * weights.lightnessRange +
+    f4 * weights.minPairwiseDistance +
+    f5 * weights.hueHarmony +
+    f7 * weights.achromaticPenalty
+  return weighted * 100
+}

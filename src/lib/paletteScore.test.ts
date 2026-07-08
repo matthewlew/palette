@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { saturationSpread, lightnessRange, minPairwiseDistance, hueHarmony, achromaticPenalty } from './paletteScore'
+import {
+  saturationSpread,
+  lightnessRange,
+  minPairwiseDistance,
+  hueHarmony,
+  achromaticPenalty,
+  scorePalette,
+  DEFAULT_SCORE_WEIGHTS,
+} from './paletteScore'
 import type { Oklch } from './oklch'
 
 describe('saturationSpread', () => {
@@ -179,3 +187,68 @@ describe('achromaticPenalty', () => {
     expect(achromaticPenalty(allMuddy)).toBeLessThan(achromaticPenalty(mostlyMuddy))
   })
 })
+
+describe('scorePalette', () => {
+  it('returns 0 for fewer than 2 colors', () => {
+    expect(scorePalette([{ l: 0.5, c: 0.1, h: 0 }])).toBe(0)
+    expect(scorePalette([])).toBe(0)
+  })
+
+  it('returns a value between 0 and 100', () => {
+    const colors: Oklch[] = [
+      { l: 0.42, c: 0.09, h: 35 },
+      { l: 0.68, c: 0.13, h: 95 },
+      { l: 0.15, c: 0.005, h: 0 },
+    ]
+    const score = scorePalette(colors)
+    expect(score).toBeGreaterThanOrEqual(0)
+    expect(score).toBeLessThanOrEqual(100)
+  })
+
+  it('scores a well-spread, distinct-hue palette higher than a muddy near-duplicate one', () => {
+    const good: Oklch[] = [
+      { l: 0.15, c: 0.005, h: 0 }, // Onyx
+      { l: 0.6, c: 0.18, h: 345 }, // Fuchsia
+      { l: 0.65, c: 0.04, h: 120 }, // Sage
+      { l: 0.88, c: 0.08, h: 95 }, // Butter
+    ]
+    const bad: Oklch[] = [
+      { l: 0.7, c: 0.01, h: 220 }, // Ash
+      { l: 0.8, c: 0.008, h: 210 }, // Fog
+      { l: 0.6, c: 0.012, h: 225 }, // Concrete
+      { l: 0.75, c: 0.01, h: 205 }, // Dove
+    ]
+    expect(scorePalette(good)).toBeGreaterThan(scorePalette(bad))
+  })
+
+  it('DEFAULT_SCORE_WEIGHTS sums to 1', () => {
+    const sum = Object.values(DEFAULT_SCORE_WEIGHTS).reduce((a, b) => a + b, 0)
+    expect(sum).toBeCloseTo(1, 5)
+  })
+
+  it('accepts custom weights', () => {
+    const colors: Oklch[] = [
+      { l: 0.42, c: 0.09, h: 35 },
+      { l: 0.68, c: 0.13, h: 95 },
+    ]
+    const allLightness = scorePalette(colors, {
+      lightnessRange: 1,
+      minPairwiseDistance: 0,
+      achromaticPenalty: 0,
+      saturationSpread: 0,
+      hueHarmony: 0,
+    })
+    expect(allLightness).toBeCloseTo(lightnessRangeScoreForColors(colors) * 100, 5)
+  })
+})
+
+// Mirrors the normalization used by the lightnessRange factor itself
+// (range / 0.8, clamped to [0, 1]) — scorePalette delegates to that
+// factor rather than a raw, unnormalized range, so the expectation here
+// must match it or this test would be asserting against behavior that
+// doesn't exist anywhere else in the module.
+function lightnessRangeScoreForColors(colors: Oklch[]): number {
+  const lums = colors.map((c) => c.l)
+  const range = Math.max(...lums) - Math.min(...lums)
+  return Math.min(1, Math.max(0, range / 0.8))
+}
