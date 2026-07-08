@@ -64,7 +64,7 @@ describe('generateGradientStops aesthetic bias', () => {
       return scorePalette(colors)
     }
 
-    const iterations = 200
+    const iterations = 2000
     let baselineTotal = 0
     let generatedTotal = 0
     for (let i = 0; i < iterations; i++) {
@@ -75,14 +75,14 @@ describe('generateGradientStops aesthetic bias', () => {
     }
     const baselineAvg = baselineTotal / iterations
     const generatedAvg = generatedTotal / iterations
-    // Empirically observed generatedAvg exceeds baselineAvg by roughly
-    // 1.4-4.3 (typically ~2.5-3.5) across many 200-iteration runs at
-    // CANDIDATE_COUNT=8, exponent 2 (the plan's original, more stochastic
-    // values). The plan's original +5 margin was a pre-calibration guess;
-    // the real scoring weights (locked in during Tasks 1-4) produce a
-    // smaller but consistent, reliably-positive lift. +1 keeps headroom
-    // below the smallest deltas observed across 20+ runs while still
-    // proving a real, non-trivial effect over the unweighted baseline.
-    expect(generatedAvg).toBeGreaterThan(baselineAvg + 1)
+    // Empirically observed generatedAvg - baselineAvg ranging from ~2.25 to
+    // ~3.64 across 30 runs of 2000 iterations each (CANDIDATE_COUNT=8,
+    // score ** 2 weighting). At 2000 iterations (10x the prior 200), the
+    // standard error of the measured average shrinks by ~sqrt(10), tightly
+    // clustering the delta around its true mean and eliminating the
+    // left-tail crossings-to-negative seen at 200 iterations. A margin of
+    // +1.2 sits well below the smallest observed delta (~2.25), leaving
+    // ~1.0 of buffer for tail variance beyond the sampled runs.
+    expect(generatedAvg).toBeGreaterThan(baselineAvg + 1.2)
   })
 })
