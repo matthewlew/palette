@@ -15,6 +15,8 @@ import { sortByOklch, type SortKey } from '../lib/sortColors'
 import { useHint } from '../hooks/useHint'
 import { Hint } from './Hint'
 import { LikeButton } from './LikeButton'
+import { GrainButton } from './GrainButton'
+import { NoiseOverlay } from './NoiseOverlay'
 import { GeometryTabs } from './GeometryTabs'
 import { FlowEditor } from './FlowEditor'
 import { SwatchTray } from './SwatchTray'
@@ -35,15 +37,75 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   const activeColorSet = useAppStore((s) => s.activeColorSet)
   const isGradientSaved = useAppStore((s) => s.isGradientSaved(gradient))
   const toggleSaveGradient = useAppStore((s) => s.toggleSaveGradient)
+  const noiseEnabled = useAppStore((s) => s.noiseEnabled)
+  const toggleNoise = useAppStore((s) => s.toggleNoise)
   const [editableStops, setEditableStops] = useState<EditableStop[]>(() => toEditableStops(gradient.stops))
   const [sortKeyIndex, setSortKeyIndex] = useState(0)
   const blockContainerRef = useRef<HTMLDivElement>(null) as RefObject<HTMLDivElement>
+  const previewPointerStartRef = useRef<{ x: number; y: number } | null>(null)
+  const sheetRef = useRef<HTMLDivElement>(null)
+  const onExitRef = useRef(onExit)
+  onExitRef.current = onExit
   const editHint = useHint('edit')
 
   useEffect(() => {
     setEditableStops(toEditableStops(gradient.stops))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gradient.id])
+
+  // Dragging the sheet downward shrinks its real height so the flexed
+  // preview grows live (a true move/resize, not a dissolve); releasing past
+  // 30% of the sheet's height exits edit mode. Bound as non-passive DOM
+  // listeners so preventDefault() reliably stops the page itself scrolling.
+  // Drags that start on the flow-editor stop handles are exempt — those own
+  // their own vertical (drag-to-delete) gesture.
+  useEffect(() => {
+    const el = sheetRef.current
+    if (!el) return
+    let startY = 0
+    let baseHeight = 0
+    let dragY = 0
+    let dragging = false
+
+    function handleTouchStart(e: TouchEvent) {
+      if ((e.target as HTMLElement).closest('[data-testid="flow-handle"]')) return
+      startY = e.touches[0]?.clientY ?? 0
+      baseHeight = el!.offsetHeight
+      dragY = 0
+      dragging = true
+    }
+
+    function handleTouchMove(e: TouchEvent) {
+      if (!dragging) return
+      const y = e.touches[0]?.clientY
+      if (y == null) return
+      dragY = Math.max(0, y - startY)
+      if (dragY > 0) {
+        e.preventDefault()
+        el!.style.height = `${Math.max(0, baseHeight - dragY)}px`
+        el!.style.overflow = 'hidden'
+      }
+    }
+
+    function handleTouchEnd() {
+      if (!dragging) return
+      dragging = false
+      el!.style.height = ''
+      el!.style.overflow = ''
+      if (dragY > baseHeight * 0.3) {
+        onExitRef.current()
+      }
+    }
+
+    el.addEventListener('touchstart', handleTouchStart, { passive: true })
+    el.addEventListener('touchmove', handleTouchMove, { passive: false })
+    el.addEventListener('touchend', handleTouchEnd)
+    return () => {
+      el.removeEventListener('touchstart', handleTouchStart)
+      el.removeEventListener('touchmove', handleTouchMove)
+      el.removeEventListener('touchend', handleTouchEnd)
+    }
+  }, [])
 
   useEffect(() => {
     const timer = setTimeout(() => editHint.dismiss(), 4000)
@@ -107,6 +169,29 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
     // this intentionally does nothing until that flow is built.
   }
 
+  // Exit-on-tap for the preview, with two guards: taps on child buttons
+  // (like, sort, grain) never exit — target check, since stopPropagation is
+  // unreliable across iOS pointer/touch synthesis — and pointer sequences
+  // that moved more than a tap threshold (scrolls/drags) never exit either.
+  const PREVIEW_TAP_THRESHOLD_PX = 10
+
+  function handlePreviewPointerDown(e: React.PointerEvent) {
+    previewPointerStartRef.current = { x: e.clientX, y: e.clientY }
+    editHint.dismiss()
+  }
+
+  function handlePreviewPointerUp(e: React.PointerEvent) {
+    const start = previewPointerStartRef.current
+    previewPointerStartRef.current = null
+    if ((e.target as HTMLElement).closest('button')) return
+    if (start) {
+      const dx = e.clientX - start.x
+      const dy = e.clientY - start.y
+      if (Math.sqrt(dx * dx + dy * dy) > PREVIEW_TAP_THRESHOLD_PX) return
+    }
+    onExit()
+  }
+
   function handleMoveStop(id: string, position: number) {
     const nextStops = moveStop(editableStops, id, position)
     setEditableStops(nextStops)
@@ -127,9 +212,12 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
         style={{
           backgroundImage: gradient.type === 'square' ? undefined : buildGradientCss(gradient.type, gradient.stops, gradient.reversed),
         }}
-        onPointerUp={onExit}
+        onPointerDown={handlePreviewPointerDown}
+        onPointerUp={handlePreviewPointerUp}
       >
         {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} />}
+        <NoiseOverlay visible={noiseEnabled} />
+        <GrainButton enabled={noiseEnabled} onToggle={toggleNoise} />
         <LikeButton liked={isGradientSaved} onToggle={() => toggleSaveGradient(gradient)} />
         <button
           type="button"
@@ -143,7 +231,7 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
           Sort by: {SORT_LABELS[SORT_KEYS[sortKeyIndex]]}
         </button>
       </div>
-      <div data-testid="edit-sheet" className={styles.sheet}>
+      <div data-testid="edit-sheet" ref={sheetRef} className={styles.sheet}>
         <button
           type="button"
           data-testid="sheet-handle"

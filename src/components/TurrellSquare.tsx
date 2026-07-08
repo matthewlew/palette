@@ -19,6 +19,12 @@ export function TurrellSquare({ stops, reversed = false, blurPx }: TurrellSquare
         // Turrell look.
         const scalePercent =
           ordered.length <= 1 ? 100 : 100 - (i / (ordered.length - 1)) * 80
+        // The blur filter samples transparency past a layer's edge, so the
+        // outermost layer must extend beyond the container (by 4x the blur
+        // radius) for the blurred edge to land outside the overflow clip
+        // instead of showing a halo of the page background.
+        const bleedPx = (blurPx ?? 24) * 4
+        const size = i === 0 ? `calc(100% + ${bleedPx}px)` : `${scalePercent}%`
         return (
           <div
             key={i}
@@ -26,8 +32,8 @@ export function TurrellSquare({ stops, reversed = false, blurPx }: TurrellSquare
             className={styles.layer}
             style={{
               backgroundColor: stop.hex,
-              width: `${scalePercent}%`,
-              height: `${scalePercent}%`,
+              width: size,
+              height: size,
               filter: blurPx != null ? `blur(${blurPx}px)` : undefined,
             }}
           />

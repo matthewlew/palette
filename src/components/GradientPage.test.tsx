@@ -59,4 +59,13 @@ describe('GradientPage', () => {
     fireEvent.click(likeButton)
     expect(onToggleLike).toHaveBeenCalledTimes(1)
   })
+
+  it('does not call onEdit when the tap lands on the like button', () => {
+    const onEdit = vi.fn()
+    render(<GradientPage gradient={gradient} liked={false} onToggleLike={vi.fn()} onEdit={onEdit} />)
+    const likeButton = screen.getByTestId('like-button')
+    fireEvent.pointerDown(likeButton, { clientX: 10, clientY: 10 })
+    fireEvent.pointerUp(likeButton, { clientX: 10, clientY: 10 })
+    expect(onEdit).not.toHaveBeenCalled()
+  })
 })

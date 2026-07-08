@@ -405,4 +405,23 @@ describe('Feed', () => {
     expect(screen.getByTestId('scroll-ticker').style.opacity).toBe('1')
     expect(screen.getByTestId('ticker-tick-active')).toBeInTheDocument()
   })
+
+  it('adopts an edit-mode-modified gradient (same id, new shape) on remount', () => {
+    const { unmount } = render(<Feed />)
+    const original = useAppStore.getState().current!
+    unmount()
+
+    // Simulate an edit-mode commit: same id, different type/stops object.
+    const editedType = original.type === 'square' ? ('linear' as const) : ('square' as const)
+    const edited = { ...original, type: editedType, stops: [...original.stops] }
+    useAppStore.getState().setCurrentGradient(edited)
+
+    render(<Feed />)
+    if (editedType === 'square') {
+      expect(screen.getByTestId('turrell-square')).toBeInTheDocument()
+    } else {
+      expect(screen.queryByTestId('turrell-square')).not.toBeInTheDocument()
+    }
+    expect(useAppStore.getState().current).toBe(edited)
+  })
 })

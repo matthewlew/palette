@@ -13,6 +13,8 @@ interface AppState {
   current: Gradient | null
   saved: Gradient[]
   activeColorSet: ColorSet
+  noiseEnabled: boolean
+  toggleNoise: () => void
   setCurrentGradient: (gradient: Gradient) => void
   saveGradient: (gradient: Gradient) => void
   isGradientSaved: (gradient: Gradient) => boolean
@@ -30,12 +32,18 @@ export const useAppStore = create<AppState>()(
       current: null,
       saved: [],
       activeColorSet: DEFAULT_COLOR_SET,
+      noiseEnabled: false,
+      toggleNoise: () => set({ noiseEnabled: !get().noiseEnabled }),
       setCurrentGradient: (gradient) => set({ current: gradient }),
       saveGradient: (gradient) => {
         const signature = gradientSignature(gradient)
         const alreadySaved = get().saved.some((g) => gradientSignature(g) === signature)
         if (alreadySaved) return
-        set({ saved: [...get().saved, gradient] })
+        // Store a copy with a fresh id: edit-mode commits reuse the gradient
+        // id across signature changes, so saving before and after an edit
+        // would otherwise put two entries with the same id (= duplicate React
+        // keys) into the drawer.
+        set({ saved: [...get().saved, { ...gradient, id: crypto.randomUUID() }] })
       },
       isGradientSaved: (gradient) => {
         const signature = gradientSignature(gradient)
@@ -58,7 +66,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'palette-saved-gradients',
-      partialize: (state) => ({ saved: state.saved }),
+      partialize: (state) => ({ saved: state.saved, noiseEnabled: state.noiseEnabled }),
     }
   )
 )

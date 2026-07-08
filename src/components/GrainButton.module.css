@@ -1,6 +1,6 @@
-.likeButton {
+.grainButton {
   position: absolute;
-  bottom: calc(16px + env(safe-area-inset-bottom));
+  bottom: calc(72px + env(safe-area-inset-bottom));
   right: 16px;
   z-index: 3;
   width: 44px;
@@ -13,15 +13,11 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 150ms ease-out;
-}
-
-.likeButton:active {
-  transform: scale(0.9);
-}
-
-.likeButton {
   transition: transform 150ms ease-out, opacity 400ms ease;
+}
+
+.grainButton:active {
+  transform: scale(0.9);
 }
 
 .hidden {

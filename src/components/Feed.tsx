@@ -7,6 +7,7 @@ import type { Gradient } from '../store/types'
 import type { ColorSet } from '../lib/colorSets'
 import { withViewTransition } from '../lib/viewTransition'
 import { decayVelocity, shouldStartMomentum } from '../lib/momentum'
+import { tickHaptic } from '../lib/haptics'
 import { Hint } from './Hint'
 import { useHint } from '../hooks/useHint'
 import { ScrollTicker } from './ScrollTicker'
@@ -28,11 +29,6 @@ function makeGradient(type: GradientType, colorSet: ColorSet): Gradient {
   }
 }
 
-function vibrateStep() {
-  if ('vibrate' in navigator) {
-    navigator.vibrate(10)
-  }
-}
 
 const STEP_PX = 60
 
@@ -53,7 +49,12 @@ export function resetFeedSession() {
   feedSession.lockedType = null
 }
 
-export function Feed() {
+interface FeedProps {
+  /** When false, chrome (the like button) fades out for uninterrupted viewing. */
+  chromeVisible?: boolean
+}
+
+export function Feed({ chromeVisible = true }: FeedProps) {
   const current = useAppStore((s) => s.current)
   const activeColorSet = useAppStore((s) => s.activeColorSet)
   const setCurrentGradient = useAppStore((s) => s.setCurrentGradient)
@@ -111,6 +112,13 @@ export function Feed() {
     } else {
       // Remounting after returning from edit mode: restore the previously
       // displayed gradient and scroll position without regenerating anything.
+      // Edit mode commits keep the gradient id but produce a new object, so
+      // adopt the store's version (and its possibly-changed shape) whenever
+      // it isn't the exact object already in the history slot.
+      if (current && feedSession.history[feedSession.index] !== current) {
+        feedSession.history[feedSession.index] = current
+        feedSession.lockedType = current.type
+      }
       setDisplayed(feedSession.history[feedSession.index])
       setTickerIndex(feedSession.index)
     }
@@ -128,7 +136,9 @@ export function Feed() {
     const history = feedSession.history
     const index = feedSession.index
     const atIndex = history[index]
-    if (atIndex && atIndex.id !== current.id) {
+    // Reference comparison, not id: edit-mode commits keep the id while
+    // changing stops/type, and those edits must not be dropped.
+    if (atIndex && atIndex !== current) {
       history[index] = current
       setDisplayed(current)
     }
@@ -158,7 +168,7 @@ export function Feed() {
     const next = history[newIndex]
     setDisplayed(next)
     setCurrentGradient(next)
-    vibrateStep()
+    tickHaptic()
   }
 
   function consumeAccumulatedDelta() {
@@ -276,6 +286,7 @@ export function Feed() {
     <div data-testid="feed-container" ref={containerRef} className={styles.container}>
       <GradientPage
         gradient={displayed}
+        chromeVisible={chromeVisible}
         liked={isGradientSaved(displayed)}
         onToggleLike={() => {
           likeHint.dismiss()

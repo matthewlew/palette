@@ -61,6 +61,12 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  height: 100%;
+  overscroll-behavior: none;
+}
+
 body {
   margin: 0;
 }
@@ -109,10 +115,17 @@ code {
   background: var(--code-bg);
 }
 
-::view-transition-old(palette-card),
+/* The palette card must morph (move/resize), not cross-fade: hide the old
+   snapshot entirely and let the new live view fill the animating group. */
+::view-transition-old(palette-card) {
+  display: none;
+}
+
 ::view-transition-new(palette-card) {
-  animation-duration: 300ms;
-  animation-timing-function: ease-out;
+  animation: none;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 ::view-transition-group(palette-card) {

@@ -38,7 +38,11 @@ describe('TurrellSquare', () => {
     ]
     render(<TurrellSquare stops={fourStops} />)
     const layers = screen.getAllByTestId('turrell-layer')
-    const sizes = layers.map((l) => {
+    // Outermost layer oversizes past the container so its blur can't bleed
+    // a background halo at the edges; the rest shrink monotonically.
+    expect(layers[0].style.width).toBe('calc(100% + 96px)')
+    expect(layers[0].style.height).toBe('calc(100% + 96px)')
+    const sizes = layers.slice(1).map((l) => {
       const width = parseFloat(l.style.width)
       const height = parseFloat(l.style.height)
       expect(width).toBe(height)
@@ -47,15 +51,14 @@ describe('TurrellSquare', () => {
     for (let i = 1; i < sizes.length; i++) {
       expect(sizes[i]).toBeLessThan(sizes[i - 1])
     }
-    expect(sizes[0]).toBe(100)
     expect(sizes[sizes.length - 1]).toBe(20)
   })
 
-  it('handles a single stop without dividing by zero, rendering it at full size', () => {
+  it('handles a single stop without dividing by zero, rendering it beyond full size', () => {
     render(<TurrellSquare stops={[{ hex: '#ff0000', position: 0 }]} />)
     const layer = screen.getByTestId('turrell-layer')
-    expect(parseFloat(layer.style.width)).toBe(100)
-    expect(parseFloat(layer.style.height)).toBe(100)
+    expect(layer.style.width).toBe('calc(100% + 96px)')
+    expect(layer.style.height).toBe('calc(100% + 96px)')
   })
 
   it('applies a custom blur radius when blurPx is provided', () => {
