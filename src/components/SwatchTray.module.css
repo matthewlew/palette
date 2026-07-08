@@ -55,3 +55,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+@media (min-width: 768px) {
+  .tray {
+    grid-auto-flow: row;
+    grid-template-rows: none;
+    grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+    overflow-x: visible;
+    padding: 16px 20px;
+  }
+}
