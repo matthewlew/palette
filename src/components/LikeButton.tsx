@@ -3,19 +3,21 @@ import styles from './LikeButton.module.css'
 interface LikeButtonProps {
   liked: boolean
   onToggle: () => void
+  /** Fades the button out (and disables pointer events) while the user is idle. */
+  hidden?: boolean
 }
 
 /** Persistent hollow/filled heart toggle, pinned to the bottom-right corner
  * of whatever positioned ancestor renders it (GradientPage's page div,
  * EditMode's preview div). Replaces the old double-tap-to-like gesture. */
-export function LikeButton({ liked, onToggle }: LikeButtonProps) {
+export function LikeButton({ liked, onToggle, hidden = false }: LikeButtonProps) {
   return (
     <button
       type="button"
       data-testid="like-button"
       aria-label={liked ? 'Unlike this gradient' : 'Like this gradient'}
       aria-pressed={liked}
-      className={styles.likeButton}
+      className={hidden ? `${styles.likeButton} ${styles.hidden}` : styles.likeButton}
       onPointerDown={(e) => e.stopPropagation()}
       onPointerUp={(e) => e.stopPropagation()}
       onClick={(e) => {

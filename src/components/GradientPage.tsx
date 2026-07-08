@@ -12,9 +12,11 @@ interface GradientPageProps {
   liked: boolean
   onToggleLike: () => void
   onEdit: () => void
+  /** When false, the like button fades out for uninterrupted viewing. */
+  chromeVisible?: boolean
 }
 
-export function GradientPage({ gradient, liked, onToggleLike, onEdit }: GradientPageProps) {
+export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisible = true }: GradientPageProps) {
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null)
 
   function handlePointerDown(e: React.PointerEvent) {
@@ -47,7 +49,7 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit }: Gradient
       onPointerUp={handlePointerUp}
     >
       {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} />}
-      <LikeButton liked={liked} onToggle={onToggleLike} />
+      <LikeButton liked={liked} onToggle={onToggleLike} hidden={!chromeVisible} />
     </div>
   )
 }

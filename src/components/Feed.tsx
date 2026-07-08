@@ -49,7 +49,12 @@ export function resetFeedSession() {
   feedSession.lockedType = null
 }
 
-export function Feed() {
+interface FeedProps {
+  /** When false, chrome (the like button) fades out for uninterrupted viewing. */
+  chromeVisible?: boolean
+}
+
+export function Feed({ chromeVisible = true }: FeedProps) {
   const current = useAppStore((s) => s.current)
   const activeColorSet = useAppStore((s) => s.activeColorSet)
   const setCurrentGradient = useAppStore((s) => s.setCurrentGradient)
@@ -272,6 +277,7 @@ export function Feed() {
     <div data-testid="feed-container" ref={containerRef} className={styles.container}>
       <GradientPage
         gradient={displayed}
+        chromeVisible={chromeVisible}
         liked={isGradientSaved(displayed)}
         onToggleLike={() => {
           likeHint.dismiss()

@@ -6,11 +6,13 @@ import styles from './Drawer.module.css'
 interface DrawerProps {
   saved: Gradient[]
   onSelect: (gradient: Gradient) => void
+  /** Fades the drawer out (and disables pointer events) while the user is idle. */
+  hidden?: boolean
 }
 
-export function Drawer({ saved, onSelect }: DrawerProps) {
+export function Drawer({ saved, onSelect, hidden = false }: DrawerProps) {
   return (
-    <div className={styles.drawer}>
+    <div data-testid="saved-drawer" className={hidden ? `${styles.drawer} ${styles.hidden}` : styles.drawer}>
       {saved.map((gradient) => (
         <button
           key={gradient.id}
