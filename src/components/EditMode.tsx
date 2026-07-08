@@ -24,8 +24,8 @@ import type { Gradient } from '../store/types'
 import styles from './EditMode.module.css'
 
 const WHEEL_TYPES: GradientType[] = ['square']
-const SORT_KEYS: SortKey[] = ['lightness', 'hue', 'chroma']
-const SORT_LABELS: Record<SortKey, string> = { lightness: 'L', hue: 'H', chroma: 'C' }
+const SORT_KEYS: SortKey[] = ['lightness', 'chroma', 'hue']
+const SORT_LABELS: Record<SortKey, string> = { lightness: 'Lightness', chroma: 'Chroma', hue: 'Hue' }
 
 interface EditModeProps {
   gradient: Gradient
@@ -135,19 +135,21 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
       >
         {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} />}
         <LikeButton liked={isGradientSaved} onToggle={() => toggleSaveGradient(gradient)} />
+        <button
+          type="button"
+          data-testid="sort-fab"
+          aria-label={`Sort by ${SORT_KEYS[sortKeyIndex]}`}
+          className={styles.sortFab}
+          onClick={handleSortCycle}
+          onPointerDown={(e) => e.stopPropagation()}
+          onPointerUp={(e) => e.stopPropagation()}
+        >
+          Sort by: {SORT_LABELS[SORT_KEYS[sortKeyIndex]]}
+        </button>
       </div>
       <div data-testid="edit-sheet" className={styles.sheet}>
         <GeometryTabs type={gradient.type} onSelectType={handleSelectType} onToggleReversed={handleToggleReversed} />
         <div className={styles.blockArea}>
-          <button
-            type="button"
-            data-testid="sort-fab"
-            aria-label={`Sort by ${SORT_KEYS[sortKeyIndex]}`}
-            className={styles.sortFab}
-            onClick={handleSortCycle}
-          >
-            ⇅ {SORT_LABELS[SORT_KEYS[sortKeyIndex]]}
-          </button>
           {isWheel ? (
             <BlockWheel
               stops={editableStops}

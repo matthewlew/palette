@@ -133,25 +133,22 @@ describe('EditMode', () => {
     vi.useRealTimers()
   })
 
-  it('renders a single sort FAB that applies the current sort and cycles L -> H -> C', () => {
+  it('renders a sort control at the bottom of the preview with an explicit label, cycling Lightness -> Chroma -> Hue', () => {
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
 
-    // No more three-button row:
-    expect(screen.queryByLabelText('Sort by hue')).not.toBeInTheDocument()
-
+    const preview = screen.getByTestId('edit-mode-preview')
     const fab = screen.getByTestId('sort-fab')
-    expect(fab.getAttribute('aria-label')).toBe('Sort by lightness')
-    expect(fab.textContent).toContain('L')
+    expect(preview).toContainElement(fab)
+    expect(fab.textContent).toBe('Sort by: Lightness')
 
     fireEvent.click(fab)
-    expect(fab.getAttribute('aria-label')).toBe('Sort by hue')
-    expect(fab.textContent).toContain('H')
+    expect(fab.textContent).toBe('Sort by: Chroma')
 
     fireEvent.click(fab)
-    expect(fab.getAttribute('aria-label')).toBe('Sort by chroma')
+    expect(fab.textContent).toBe('Sort by: Hue')
 
     fireEvent.click(fab)
-    expect(fab.getAttribute('aria-label')).toBe('Sort by lightness')
+    expect(fab.textContent).toBe('Sort by: Lightness')
   })
 
   it('tapping the sort FAB sorts stops by the labeled key', () => {
@@ -287,6 +284,5 @@ describe('EditMode', () => {
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
     const sheet = screen.getByTestId('edit-sheet')
     expect(sheet).toContainElement(screen.getByTestId('flow-editor'))
-    expect(sheet).toContainElement(screen.getByTestId('sort-fab'))
   })
 })
