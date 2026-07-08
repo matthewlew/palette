@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { buildGradientCss, type GradientStop } from './gradient'
-import { blendOklchHex, hexToOklch } from './oklch'
+import { hexToOklch } from './oklch'
 
 const stops: GradientStop[] = [
   { hex: '#ff0000', position: 0 },
@@ -92,26 +92,22 @@ describe('buildGradientCss mirror type', () => {
 })
 
 describe('buildGradientCss repeat type', () => {
-  it('builds a linear-gradient that repeats the stop sequence twice with a blended seam', () => {
+  it('builds a linear-gradient that repeats the stop sequence exactly twice', () => {
     const css = buildGradientCss('repeat', stops)
     expect(css).toContain('linear-gradient(180deg,')
-    // 3 stops repeated with one inserted seam stop = 7 total stops.
+    // 3 stops repeated twice, no synthetic seam stop = 6 total stops.
     const matches = css.match(/#[0-9a-f]{6} \d+%/g)!
-    expect(matches).toHaveLength(7)
-    // The sequence is [A,B,C,seam,A,B,C], so the very first and very last
-    // stops are both the original last color's repeat-cycle bookends: the
-    // first stop is A (#ff0000) and the last stop is C (#0000ff) — the
-    // second full pass through the same 3 colors.
+    expect(matches).toHaveLength(6)
     expect(matches[0]).toBe('#ff0000 0%')
-    expect(matches[6]).toBe('#0000ff 100%')
+    expect(matches[5]).toBe('#0000ff 100%')
   })
 
-  it('inserts a seam color that is an OKLCH blend of the last and first colors', () => {
+  it('contains only colors from the input palette (no invented seam hue)', () => {
     const css = buildGradientCss('repeat', stops)
     const matches = css.match(/#[0-9a-f]{6}/g)!
-    const seamHex = matches[3] // index 3 of 7 stops is the middle/seam stop
-    const expectedSeam = blendOklchHex('#0000ff', '#ff0000', 0.5)
-    // Compare lightness rather than exact hex, since rounding can differ by 1.
-    expect(Math.abs(hexToOklch(seamHex).l - hexToOklch(expectedSeam).l)).toBeLessThan(0.02)
+    const palette = new Set(stops.map((s) => s.hex))
+    for (const hex of matches) {
+      expect(palette.has(hex), `${hex} should be an input color`).toBe(true)
+    }
   })
 })

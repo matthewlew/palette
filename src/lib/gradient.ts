@@ -1,4 +1,4 @@
-import { blendOklchHex } from './oklch'
+
 
 export type GradientType = 'linear' | 'radial' | 'angular' | 'square' | 'mirror' | 'repeat'
 
@@ -65,9 +65,11 @@ function buildMirrorGradient(stops: GradientStop[]): string {
 }
 
 function buildRepeatGradient(stops: GradientStop[]): string {
+  // No synthetic midpoint at the seam: an OKLCH-blended seam color can land
+  // on a hue that exists nowhere in the palette. Letting CSS interpolate the
+  // last color straight into the first keeps the blend between real stops.
   const hexes = stops.map((s) => s.hex)
-  const seam = blendOklchHex(hexes[hexes.length - 1], hexes[0], 0.5)
-  const sequence = [...hexes, seam, ...hexes]
+  const sequence = [...hexes, ...hexes]
   return `linear-gradient(180deg, ${stopsToCss(positionedStops(sequence))})`
 }
 
