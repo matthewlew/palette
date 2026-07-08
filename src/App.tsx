@@ -4,6 +4,7 @@ import { Feed } from './components/Feed'
 import { Drawer } from './components/Drawer'
 import { EditMode } from './components/EditMode'
 import { ImportBanner } from './components/ImportBanner'
+import { BoardShare } from './components/BoardShare'
 import { decodeFromFragment, fromImportJson } from './lib/gradientCodec'
 import { withViewTransition } from './lib/viewTransition'
 import { useIdleFade } from './hooks/useIdleFade'
@@ -54,6 +55,7 @@ export function App() {
       {pendingImport && (
         <ImportBanner count={pendingImport.length} onConfirm={handleConfirmImport} onDismiss={handleDismissImport} />
       )}
+      <BoardShare saved={saved} onImport={handleImportJson} chromeVisible={chromeVisible} />
       <Feed chromeVisible={chromeVisible} />
       <Drawer
         hidden={!chromeVisible}
@@ -61,7 +63,6 @@ export function App() {
         onSelect={(gradient) => {
           setCurrentGradient(gradient)
         }}
-        onImport={handleImportJson}
       />
     </>
   )

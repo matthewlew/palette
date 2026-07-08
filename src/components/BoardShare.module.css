@@ -1,0 +1,87 @@
+.container {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 3;
+  transition: opacity 400ms ease;
+}
+
+.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.triggerButton {
+  composes: glass-surface from global;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  transition: transform 150ms ease-out;
+}
+
+.triggerButton:active {
+  transform: scale(0.9);
+}
+
+.dropdown {
+  composes: glass-surface from global;
+  position: absolute;
+  top: 52px;
+  right: 0;
+  min-width: 160px;
+  border-radius: 12px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 4;
+  animation: fadeIn 150ms ease-out;
+}
+
+.menuItem {
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 8px 12px;
+  text-align: left;
+  transition: background-color 150ms ease;
+  width: 100%;
+}
+
+.menuItem:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+.menuItem:active:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.menuItem:disabled {
+  color: rgba(255, 255, 255, 0.4);
+  cursor: not-allowed;
+}
+
+.menuItemText {
+  white-space: nowrap;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
