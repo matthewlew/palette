@@ -121,8 +121,19 @@ export function SwatchTray({ colorSet, stops, onTapAdd, onTapRemove, onDragAdd, 
     [stops, colorSet]
   )
 
+  const trayRef = useRef<HTMLDivElement>(null)
+
+  function handleWheel(e: React.WheelEvent) {
+    const el = trayRef.current
+    if (!el) return
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      el.scrollLeft += e.deltaY
+      e.preventDefault()
+    }
+  }
+
   return (
-    <div className={styles.tray}>
+    <div ref={trayRef} className={styles.tray} onWheel={handleWheel}>
       {colorSet.colors.map((color) => {
         const hex = oklchToHex(color.value)
         const selected = selectedHexes.has(hex)

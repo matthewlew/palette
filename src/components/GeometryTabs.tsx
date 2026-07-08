@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import type { GradientType } from '../lib/gradient'
 import styles from './GeometryTabs.module.css'
 
@@ -36,6 +37,17 @@ export function GeometryTabs({
   hardStops = false,
   onToggleHardStops,
 }: GeometryTabsProps) {
+  const tabsRef = useRef<HTMLDivElement>(null)
+
+  function handleWheel(e: React.WheelEvent) {
+    const el = tabsRef.current
+    if (!el) return
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      el.scrollLeft += e.deltaY
+      e.preventDefault()
+    }
+  }
+
   function handleTap(tabType: GradientType) {
     if (tabType === type) {
       onToggleReversed()
@@ -47,7 +59,7 @@ export function GeometryTabs({
   const filtersDisabled = FILTERS_UNSUPPORTED.includes(type)
 
   return (
-    <div className={styles.tabs}>
+    <div ref={tabsRef} className={styles.tabs} onWheel={handleWheel}>
       {TABS.map((tab) => (
         <button
           key={tab.type}
