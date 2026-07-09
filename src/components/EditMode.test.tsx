@@ -180,22 +180,46 @@ describe('EditMode', () => {
     vi.useRealTimers()
   })
 
-  it('renders a sort control at the bottom of the preview with an explicit label, cycling Lightness -> Chroma -> Hue', () => {
+  it('renders an order control showing the ACTIVE order, cycling Original -> Lightness -> Chroma -> Hue -> Original', () => {
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
 
     const preview = screen.getByTestId('edit-mode-preview')
     const fab = screen.getByTestId('sort-fab')
     expect(preview).toContainElement(fab)
-    expect(fab.textContent).toBe('Sort by: Lightness')
+    expect(fab.textContent).toBe('Order: Original')
 
     fireEvent.click(fab)
-    expect(fab.textContent).toBe('Sort by: Chroma')
+    expect(fab.textContent).toBe('Order: Lightness')
 
     fireEvent.click(fab)
-    expect(fab.textContent).toBe('Sort by: Hue')
+    expect(fab.textContent).toBe('Order: Chroma')
 
     fireEvent.click(fab)
-    expect(fab.textContent).toBe('Sort by: Lightness')
+    expect(fab.textContent).toBe('Order: Hue')
+
+    fireEvent.click(fab)
+    expect(fab.textContent).toBe('Order: Original')
+  })
+
+  it('cycling back to Original restores the pre-sort stop order', () => {
+    const darkFirst: Gradient = {
+      id: 'g-restore',
+      type: 'linear',
+      stops: [
+        { hex: '#00ff00', position: 0 },
+        { hex: '#0000ff', position: 50 },
+        { hex: '#ff0000', position: 100 },
+      ],
+      reversed: false,
+    }
+    render(<EditMode gradient={darkFirst} onExit={vi.fn()} />)
+    const fab = screen.getByTestId('sort-fab')
+    fireEvent.click(fab) // lightness
+    fireEvent.click(fab) // chroma
+    fireEvent.click(fab) // hue
+    fireEvent.click(fab) // original
+    const updated = useAppStore.getState().current!
+    expect(updated.stops.map((s) => s.hex)).toEqual(['#00ff00', '#0000ff', '#ff0000'])
   })
 
   it('tapping the sort FAB sorts stops by the labeled key', () => {

@@ -21,6 +21,7 @@ interface AppState {
   saveGradient: (gradient: Gradient) => void
   isGradientSaved: (gradient: Gradient) => boolean
   removeSavedGradient: (gradient: Gradient) => void
+  renameSavedGradient: (id: string, name: string) => void
   toggleSaveGradient: (gradient: Gradient) => void
   enterEditMode: () => void
   exitEditMode: () => void
@@ -59,6 +60,11 @@ export const useAppStore = create<AppState>()(
       removeSavedGradient: (gradient) => {
         const signature = gradientSignature(gradient)
         set({ saved: get().saved.filter((g) => gradientSignature(g) !== signature) })
+      },
+      renameSavedGradient: (id, name) => {
+        const trimmed = name.trim()
+        if (!trimmed) return
+        set({ saved: get().saved.map((g) => (g.id === id ? { ...g, name: trimmed } : g)) })
       },
       toggleSaveGradient: (gradient) => {
         if (get().isGradientSaved(gradient)) {

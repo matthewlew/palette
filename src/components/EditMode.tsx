@@ -23,14 +23,21 @@ import { SwatchTray } from './SwatchTray'
 import { TurrellSquare } from './TurrellSquare'
 import { ScrollTicker } from './ScrollTicker'
 import { feedSession, makeGradient } from './Feed'
-import { generateGradientStops } from '../lib/palette'
 import { decayVelocity, shouldStartMomentum } from '../lib/momentum'
 import { tickHaptic, primeHaptics } from '../lib/haptics'
 import type { Gradient } from '../store/types'
 import styles from './EditMode.module.css'
 
-const SORT_KEYS: SortKey[] = ['lightness', 'chroma', 'hue']
-const SORT_LABELS: Record<SortKey, string> = { lightness: 'Lightness', chroma: 'Chroma', hue: 'Hue' }
+// 'original' restores the order the stops had before any sorting (the saved
+// palette order, or whatever the user last arranged by hand).
+type OrderKey = SortKey | 'original'
+const ORDER_CYCLE: OrderKey[] = ['original', 'lightness', 'chroma', 'hue']
+const ORDER_LABELS: Record<OrderKey, string> = {
+  original: 'Original',
+  lightness: 'Lightness',
+  chroma: 'Chroma',
+  hue: 'Hue',
+}
 
 interface EditModeProps {
   gradient: Gradient
@@ -45,7 +52,10 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   const noiseEnabled = useAppStore((s) => s.noiseEnabled)
   const toggleNoise = useAppStore((s) => s.toggleNoise)
   const [editableStops, setEditableStops] = useState<EditableStop[]>(() => toEditableStops(gradient.stops))
-  const [sortKeyIndex, setSortKeyIndex] = useState(0)
+  const [activeOrder, setActiveOrder] = useState<OrderKey>('original')
+  // Stop ids in the user's own order — the baseline "Original" restores to.
+  // Refreshed by every hand edit (add/remove), never by a sort.
+  const unsortedOrderRef = useRef<string[]>([])
   const blockContainerRef = useRef<HTMLDivElement>(null) as RefObject<HTMLDivElement>
   const previewPointerStartRef = useRef<{ x: number; y: number } | null>(null)
   const sheetRef = useRef<HTMLDivElement>(null)
@@ -64,7 +74,10 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   const momentumFrameIdRef = useRef<number | null>(null)
 
   useEffect(() => {
-    setEditableStops(toEditableStops(gradient.stops))
+    const stops = toEditableStops(gradient.stops)
+    setEditableStops(stops)
+    unsortedOrderRef.current = stops.map((s) => s.id)
+    setActiveOrder('original')
     setTickerIndex(feedSession.index)
     feedSession.lockedType = gradient.type
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -330,9 +343,17 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  function commit(nextStops: EditableStop[], overrides?: Partial<Pick<Gradient, 'type' | 'reversed'>>) {
+  function commit(
+    nextStops: EditableStop[],
+    overrides?: Partial<Pick<Gradient, 'type' | 'reversed'>>,
+    opts?: { fromSort?: boolean }
+  ) {
     const equalized = equalizePositions(nextStops)
     setEditableStops(nextStops.map((stop, i) => ({ ...stop, position: equalized[i].position })))
+    if (!opts?.fromSort) {
+      unsortedOrderRef.current = nextStops.map((s) => s.id)
+      setActiveOrder('original')
+    }
     setCurrentGradient({
       ...gradient,
       ...overrides,
@@ -396,9 +417,17 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   }
 
   function handleSortCycle() {
-    const key = SORT_KEYS[sortKeyIndex]
-    commit(sortByOklch(editableStops, (s) => s.hex, key))
-    setSortKeyIndex((sortKeyIndex + 1) % SORT_KEYS.length)
+    const next = ORDER_CYCLE[(ORDER_CYCLE.indexOf(activeOrder) + 1) % ORDER_CYCLE.length]
+    if (next === 'original') {
+      const orderIndex = new Map(unsortedOrderRef.current.map((id, i) => [id, i]))
+      const restored = [...editableStops].sort(
+        (a, b) => (orderIndex.get(a.id) ?? Infinity) - (orderIndex.get(b.id) ?? Infinity)
+      )
+      commit(restored, undefined, { fromSort: true })
+    } else {
+      commit(sortByOklch(editableStops, (s) => s.hex, next), undefined, { fromSort: true })
+    }
+    setActiveOrder(next)
   }
 
   function handleTapStop(_id: string) {
@@ -470,13 +499,13 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
         <button
           type="button"
           data-testid="sort-fab"
-          aria-label={`Sort by ${SORT_KEYS[sortKeyIndex]}`}
+          aria-label={`Stop order: ${activeOrder}. Tap to change`}
           className={styles.sortFab}
           onClick={handleSortCycle}
           onPointerDown={(e) => e.stopPropagation()}
           onPointerUp={(e) => e.stopPropagation()}
         >
-          Sort by: {SORT_LABELS[SORT_KEYS[sortKeyIndex]]}
+          Order: {ORDER_LABELS[activeOrder]}
         </button>
       </div>
       <div data-testid="edit-sheet" ref={sheetRef} className={styles.sheet}>

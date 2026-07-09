@@ -4,80 +4,73 @@ import { Drawer } from './Drawer'
 import type { Gradient } from '../store/types'
 
 const gradients: Gradient[] = [
-  { id: 'a', type: 'linear', stops: [{ hex: '#ff0000', position: 0 }, { hex: '#00ff00', position: 100 }] },
-  { id: 'b', type: 'radial', stops: [{ hex: '#0000ff', position: 0 }, { hex: '#ffff00', position: 100 }] },
+  { id: 'a', name: 'First', type: 'linear', stops: [{ hex: '#ff0000', position: 0 }, { hex: '#00ff00', position: 100 }] },
+  { id: 'b', name: 'Second', type: 'radial', stops: [{ hex: '#0000ff', position: 0 }, { hex: '#ffff00', position: 100 }] },
 ]
 
-describe('Drawer', () => {
-  it('renders one thumbnail per saved gradient', () => {
-    render(<Drawer saved={gradients} onSelect={vi.fn()} />)
-    expect(screen.getAllByTestId('drawer-thumbnail')).toHaveLength(2)
-  })
-
-  it('renders nothing but the container when there are no saved gradients', () => {
-    render(<Drawer saved={[]} onSelect={vi.fn()} />)
-    expect(screen.queryAllByTestId('drawer-thumbnail')).toHaveLength(0)
-  })
-
-  it('calls onSelect with the gradient when a thumbnail is tapped', () => {
-    const onSelect = vi.fn()
-    render(<Drawer saved={gradients} onSelect={onSelect} />)
-    fireEvent.click(screen.getAllByTestId('drawer-thumbnail')[1])
-    expect(onSelect).toHaveBeenCalledWith(gradients[1])
-  })
-
-  it('has no sort label or select — always shows saved order', () => {
-    render(<Drawer saved={gradients} onSelect={vi.fn()} />)
-    expect(screen.queryByText('Sort saved palettes')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Sort saved palettes')).not.toBeInTheDocument()
-    const thumbnails = screen.getAllByTestId('drawer-thumbnail')
-    expect(thumbnails.map((t) => t.getAttribute('aria-label'))).toEqual(['Saved linear gradient', 'Saved radial gradient'])
-  })
-
-  it('renders the TurrellSquare treatment (not a conic background) for saved square gradients', () => {
-    const squareGradient: Gradient = {
-      id: 'sq1',
-      type: 'square',
-      stops: [
-        { hex: '#ff0000', position: 0 },
-        { hex: '#0000ff', position: 100 },
-      ],
-    }
-    render(<Drawer saved={[squareGradient]} onSelect={vi.fn()} />)
-    const thumbnail = screen.getByTestId('drawer-thumbnail')
-    expect(screen.getByTestId('turrell-square')).toBeInTheDocument()
-    expect(thumbnail.style.backgroundImage).toBe('')
-  })
-})
-
-const board: Gradient[] = [
-  {
-    id: 'g1',
-    type: 'linear',
-    stops: [
-      { hex: '#ff0000', position: 0 },
-      { hex: '#0000ff', position: 100 },
-    ],
-    name: 'Test Gradient',
-  },
-]
+const manyGradients: Gradient[] = ['a', 'b', 'c', 'd', 'e'].map((id, i) => ({
+  id,
+  name: `Palette ${id}`,
+  type: 'linear',
+  stops: [
+    { hex: '#ff0000', position: 0 },
+    { hex: `#00${(i + 1).toString(16).padStart(2, '0')}ff`, position: 100 },
+  ],
+}))
 
 beforeEach(() => {
   Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } })
 })
 
-describe('Drawer per-gradient actions', () => {
-  it('copies a single-gradient share link from a thumbnail action', async () => {
-    render(<Drawer saved={board} onSelect={() => {}} />)
-    fireEvent.click(screen.getByRole('button', { name: /share this gradient/i }))
-    const copiedText = (navigator.clipboard.writeText as ReturnType<typeof vi.fn>).mock.calls[0][0]
-    expect(copiedText).toContain('#d=')
+describe('Drawer collapsed stack', () => {
+  it('renders nothing when there are no saved gradients', () => {
+    render(<Drawer saved={[]} onSelect={vi.fn()} />)
+    expect(screen.queryByTestId('saved-drawer')).not.toBeInTheDocument()
   })
 
-  it('does not trigger onSelect when the share action is clicked', async () => {
+  it('shows at most three stacked thumbnails, most recent on top', () => {
+    render(<Drawer saved={manyGradients} onSelect={vi.fn()} />)
+    const thumbs = screen.getAllByTestId('drawer-thumbnail')
+    expect(thumbs).toHaveLength(3)
+  })
+
+  it('shows an overflow badge counting the palettes beyond the stack', () => {
+    render(<Drawer saved={manyGradients} onSelect={vi.fn()} />)
+    expect(screen.getByTestId('saved-overflow').textContent).toBe('+2')
+  })
+
+  it('shows no overflow badge when three or fewer are saved', () => {
+    render(<Drawer saved={gradients} onSelect={vi.fn()} />)
+    expect(screen.queryByTestId('saved-overflow')).not.toBeInTheDocument()
+  })
+
+  it('labels the stack with the total saved count', () => {
+    render(<Drawer saved={manyGradients} onSelect={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Browse 5 saved palettes' })).toBeInTheDocument()
+  })
+})
+
+describe('Drawer browse expansion', () => {
+  it('opens the saved browser when the stack is tapped', () => {
+    render(<Drawer saved={gradients} onSelect={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('saved-stack'))
+    expect(screen.getByTestId('saved-browser')).toBeInTheDocument()
+    expect(screen.getAllByTestId('saved-card')).toHaveLength(2)
+  })
+
+  it('selecting a palette in the browser calls onSelect and closes the browser', () => {
     const onSelect = vi.fn()
-    render(<Drawer saved={board} onSelect={onSelect} />)
-    fireEvent.click(screen.getByRole('button', { name: /share this gradient/i }))
-    expect(onSelect).not.toHaveBeenCalled()
+    render(<Drawer saved={gradients} onSelect={onSelect} />)
+    fireEvent.click(screen.getByTestId('saved-stack'))
+    fireEvent.click(screen.getByRole('button', { name: 'Open Second' }))
+    expect(onSelect).toHaveBeenCalledWith(gradients[1])
+    expect(screen.queryByTestId('saved-browser')).not.toBeInTheDocument()
+  })
+
+  it('closes the browser via the close button', () => {
+    render(<Drawer saved={gradients} onSelect={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('saved-stack'))
+    fireEvent.click(screen.getByRole('button', { name: 'Close saved palettes' }))
+    expect(screen.queryByTestId('saved-browser')).not.toBeInTheDocument()
   })
 })
