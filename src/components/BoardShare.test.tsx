@@ -115,4 +115,15 @@ describe('BoardShare Component', () => {
     fireEvent.mouseDown(screen.getByTestId('outside'))
     expect(screen.queryByTestId('share-dropdown')).not.toBeInTheDocument()
   })
+
+  it('opens the export presets modal when "Export Image..." is clicked', () => {
+    render(<BoardShare saved={board} current={board[0]} onImport={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /share options/i }))
+    
+    const exportButton = screen.getByRole('button', { name: /export image/i })
+    expect(exportButton).toBeInTheDocument()
+    
+    fireEvent.click(exportButton)
+    expect(screen.getByTestId('export-modal')).toBeInTheDocument()
+  })
 })

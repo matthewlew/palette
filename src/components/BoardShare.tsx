@@ -4,6 +4,7 @@ import { toCuratedEntryJson } from '../lib/curated'
 import { useCopyFeedback } from '../hooks/useCopyFeedback'
 import type { GlassTone } from '../lib/glassTone'
 import type { Gradient } from '../store/types'
+import { ExportModal } from './ExportModal'
 import styles from './BoardShare.module.css'
 
 interface BoardShareProps {
@@ -25,6 +26,7 @@ export function BoardShare({ saved, current = null, onImport, chromeVisible = tr
   const [isOpen, setIsOpen] = useState(false)
   const [jsonModal, setJsonModal] = useState<'export' | 'import' | null>(null)
   const [importDraft, setImportDraft] = useState('')
+  const [exportOpen, setExportOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const shareFeedback = useCopyFeedback()
   const jsonFeedback = useCopyFeedback()
@@ -156,6 +158,18 @@ export function BoardShare({ saved, current = null, onImport, chromeVisible = tr
           <button
             type="button"
             className={styles.menuItem}
+            onClick={() => {
+              setIsOpen(false)
+              setExportOpen(true)
+            }}
+            disabled={!current}
+          >
+            <span className={styles.menuItemText}>Export Image…</span>
+            <span className={styles.menuItemHint}>Save wallpaper or story size</span>
+          </button>
+          <button
+            type="button"
+            className={styles.menuItem}
             onClick={() => current && curatedFeedback.copy(toCuratedEntryJson(current))}
             disabled={!current}
           >
@@ -215,6 +229,9 @@ export function BoardShare({ saved, current = null, onImport, chromeVisible = tr
             </div>
           </div>
         </>
+      )}
+      {exportOpen && current && (
+        <ExportModal gradient={current} onClose={() => setExportOpen(false)} />
       )}
     </div>
   )

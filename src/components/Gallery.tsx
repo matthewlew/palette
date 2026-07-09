@@ -11,6 +11,7 @@ import { useAppStore } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
 import { TurrellSquare } from './TurrellSquare'
 import { FlutedOverlay } from './FlutedOverlay'
+import { ExportModal } from './ExportModal'
 import styles from './Gallery.module.css'
 
 type Segment = 'yours' | 'inspiration'
@@ -89,6 +90,7 @@ function Viewer({ item, onClose, onRiff }: ViewerProps) {
   const removeSavedGradientById = useAppStore((s) => s.removeSavedGradientById)
   const shareFeedback = useCopyFeedback()
   const [renaming, setRenaming] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
   const [draft, setDraft] = useState(gradient.name ?? '')
   const touchStartYRef = useRef<number | null>(null)
 
@@ -166,6 +168,13 @@ function Viewer({ item, onClose, onRiff }: ViewerProps) {
           >
             {shareFeedback.copied ? '✓ Copied' : 'Share'}
           </button>
+          <button
+            type="button"
+            className={styles.viewerAction}
+            onClick={() => setExportOpen(true)}
+          >
+            Export
+          </button>
           {!item.curated && (
             <>
               <button
@@ -192,6 +201,9 @@ function Viewer({ item, onClose, onRiff }: ViewerProps) {
           )}
         </div>
       </div>
+      {exportOpen && (
+        <ExportModal gradient={gradient} onClose={() => setExportOpen(false)} />
+      )}
     </div>
   )
 }
