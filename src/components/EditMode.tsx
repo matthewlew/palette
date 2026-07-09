@@ -123,10 +123,14 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
     function handleTouchEnd() {
       if (!dragging) return
       dragging = false
-      el!.style.height = ''
-      el!.style.overflow = ''
       if (dragY > baseHeight * 0.3) {
+        // Keep the collapsed height while exiting — restoring it first made
+        // the sheet snap back to full size for a frame (a visible flash)
+        // before the exit transition slid it away.
         onExitRef.current()
+      } else {
+        el!.style.height = ''
+        el!.style.overflow = ''
       }
     }
 

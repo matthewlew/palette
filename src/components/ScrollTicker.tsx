@@ -40,17 +40,24 @@ export function ScrollTicker({ index }: ScrollTickerProps) {
       <div className={styles.strip} style={{ transform: `translateY(${-index * TICK_SPACING_PX}px)` }}>
         {tickIndices.map((t) => {
           const isActive = t === index
-          const isMajor = t % 5 === 0
-          // Ticks fade toward the ends of the window so new marks ease in
-          // instead of popping into existence at full strength.
+          // Digital-crown feel: every tick's size is a continuous function of
+          // its distance from the center marker, so marks swell as they
+          // approach and shrink as they leave — no class swap, no flash. The
+          // squared falloff keeps growth concentrated near the center.
           const distance = Math.abs(t - index)
-          const fade = Math.max(0, 1 - distance / WINDOW)
+          const proximity = Math.max(0, 1 - distance / WINDOW)
+          const scaleX = 0.4 + 0.6 * proximity * proximity
+          const scaleY = 1 + proximity * proximity
           return (
             <div
               key={t}
               data-testid={isActive ? 'ticker-tick-active' : 'ticker-tick'}
-              className={isActive ? styles.tickActive : isMajor ? styles.tickMajor : styles.tick}
-              style={{ top: `${t * TICK_SPACING_PX}px`, opacity: isActive ? 1 : fade }}
+              className={styles.tick}
+              style={{
+                top: `${t * TICK_SPACING_PX}px`,
+                opacity: 0.25 + 0.75 * proximity,
+                transform: `scaleX(${scaleX}) scaleY(${scaleY})`,
+              }}
             />
           )
         })}

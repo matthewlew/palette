@@ -37,17 +37,21 @@ describe('ScrollTicker', () => {
     expect(active).toBeInTheDocument()
   })
 
-  it('gives the active tick full opacity and fades ticks toward the ends of the window', () => {
+  it('swells ticks continuously toward the center: size and opacity fall off with distance', () => {
     render(<ScrollTicker index={10} />)
     const active = screen.getByTestId('ticker-tick-active')
     expect(active.style.opacity).toBe('1')
+    expect(active.style.transform).toContain('scaleX(1)')
+    expect(active.style.transform).toContain('scaleY(2)')
 
     const ticks = screen.getAllByTestId('ticker-tick')
-    // Window is index-10..index+10 (WINDOW=10). Tick right next to active
-    // (distance 1) should fade less than one at the edge (distance 10).
+    // Window is index-10..index+10 (WINDOW=10). Ticks shrink and fade with
+    // distance but never vanish entirely (min opacity 0.25, min scaleX 0.4).
     const opacities = ticks.map((t) => parseFloat(t.style.opacity))
-    expect(Math.min(...opacities)).toBeCloseTo(0, 5) // edge tick, distance 10 -> fade 0
-    expect(Math.max(...opacities)).toBeCloseTo(0.9, 5) // nearest tick, distance 1 -> fade 0.9
+    expect(Math.min(...opacities)).toBeCloseTo(0.25, 5) // edge tick, distance 10
+    expect(Math.max(...opacities)).toBeGreaterThan(0.85) // nearest tick, distance 1
+    const edgeTick = ticks.find((t) => parseFloat(t.style.opacity) === Math.min(...opacities))!
+    expect(edgeTick.style.transform).toContain('scaleX(0.4)')
   })
 
   it('is aria-hidden (purely decorative)', () => {

@@ -170,3 +170,27 @@ code {
 ::view-transition-old(edit-sheet) {
   animation: sheet-slide-down 300ms ease-out;
 }
+
+/* At tablet/desktop widths the sheet is a right-side panel, so it enters and
+   leaves horizontally instead of rising from the bottom. */
+@media (min-width: 768px) {
+  @keyframes sheet-slide-in-right {
+    from {
+      transform: translateX(100%);
+    }
+  }
+
+  @keyframes sheet-slide-out-right {
+    to {
+      transform: translateX(100%);
+    }
+  }
+
+  ::view-transition-new(edit-sheet) {
+    animation: sheet-slide-in-right 300ms ease-out;
+  }
+
+  ::view-transition-old(edit-sheet) {
+    animation: sheet-slide-out-right 300ms ease-out;
+  }
+}
