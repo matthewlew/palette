@@ -62,6 +62,35 @@ describe('App', () => {
 
     spy.mockRestore()
   })
+
+  it('enters edit mode on a gradient when riffing from the gallery', () => {
+    useAppStore.setState({
+      saved: [
+        {
+          id: 'g1',
+          type: 'linear',
+          stops: [
+            { hex: '#ff0000', position: 0 },
+            { hex: '#0000ff', position: 100 },
+          ],
+          name: 'Saved Palette One',
+        },
+      ],
+      mode: 'gallery',
+    })
+
+    render(<App />)
+
+    // Open viewer
+    fireEvent.click(screen.getByRole('button', { name: /Saved Palette One/ }))
+
+    // Click Riff
+    fireEvent.click(screen.getByRole('button', { name: 'Riff' }))
+
+    // Verify we are in EditMode
+    expect(screen.getByTestId('edit-mode')).toBeInTheDocument()
+    expect(useAppStore.getState().mode).toBe('edit')
+  })
 })
 
 describe('App import flow', () => {

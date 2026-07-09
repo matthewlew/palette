@@ -55,7 +55,7 @@ export function App() {
     withViewTransition(() => {
       riffIntoFeed(gradient)
       setCurrentGradient(gradient)
-      setMode('create')
+      setMode('edit')
     })
   }
 

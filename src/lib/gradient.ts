@@ -50,7 +50,7 @@ function applyReversed(stops: GradientStop[], reversed: boolean): GradientStop[]
   return stops.map((s, i) => ({ hex: reversedHexes[i], position: s.position }))
 }
 
-function positionedStops(hexes: string[]): GradientStop[] {
+export function positionedStops(hexes: string[]): GradientStop[] {
   const count = hexes.length
   return hexes.map((hex, i) => ({
     hex,
@@ -82,7 +82,7 @@ function buildRepeatGradient(stops: GradientStop[]): string {
  * cycle 2) is the same width and blends smoothly — naively halving each
  * cycle's positions instead lands two different colors at exactly 50 and
  * produces a hard seam plus uneven steps. */
-function repeatedStops(stops: GradientStop[]): GradientStop[] {
+export function repeatedStops(stops: GradientStop[]): GradientStop[] {
   const hexes = stops.map((s) => s.hex)
   return positionedStops([...hexes, ...hexes])
 }
@@ -91,7 +91,7 @@ function repeatedStops(stops: GradientStop[]): GradientStop[] {
  * to the midpoint between it and its neighbors, so colors cut instead of
  * interpolating. Implemented via CSS's double-stop trick (same color at two
  * adjacent positions). */
-function hardenStops(stops: GradientStop[]): GradientStop[] {
+export function hardenStops(stops: GradientStop[]): GradientStop[] {
   if (stops.length < 2) return stops
   const result: GradientStop[] = []
   for (let i = 0; i < stops.length; i++) {
@@ -114,7 +114,7 @@ const SMOOTH_SUBDIVISIONS = 7
  * technique): original stops stay exactly where the user placed them, and
  * the inserted interior stops follow an ease-in-out curve blended in OKLCH,
  * removing the harsh linear-interpolation banding at every stop boundary. */
-function smoothenStops(stops: GradientStop[]): GradientStop[] {
+export function smoothenStops(stops: GradientStop[]): GradientStop[] {
   if (stops.length < 2) return stops
   const sorted = [...stops].sort((a, b) => a.position - b.position)
   const result: GradientStop[] = [{ ...sorted[0] }]
@@ -186,7 +186,7 @@ export function buildGradientCss(
 /** Interpolates the color a stop sequence renders at normalized offset t
  * (0-1). Duplicate positions (hardened stops) resolve to piecewise-constant
  * bands, matching CSS. */
-function sampleStops(stops: GradientStop[], t: number): string {
+export function sampleStops(stops: GradientStop[], t: number): string {
   const sorted = [...stops].sort((a, b) => a.position - b.position)
   const p = Math.min(100, Math.max(0, t * 100))
   if (p <= sorted[0].position) return sorted[0].hex

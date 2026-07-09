@@ -11,6 +11,7 @@ import { useAppStore } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
 import { TurrellSquare } from './TurrellSquare'
 import { FlutedOverlay } from './FlutedOverlay'
+import { ExportModal } from './ExportModal'
 import styles from './Gallery.module.css'
 
 type Segment = 'yours' | 'inspiration'
@@ -89,6 +90,7 @@ function Viewer({ item, onClose, onRiff }: ViewerProps) {
   const removeSavedGradientById = useAppStore((s) => s.removeSavedGradientById)
   const shareFeedback = useCopyFeedback()
   const [renaming, setRenaming] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
   const [draft, setDraft] = useState(gradient.name ?? '')
   const touchStartYRef = useRef<number | null>(null)
 
@@ -113,6 +115,7 @@ function Viewer({ item, onClose, onRiff }: ViewerProps) {
       aria-label={gradient.name ?? 'Gradient'}
       className={styles.viewer}
       style={{ backgroundImage: tileBackground(gradient) }}
+      onClick={onClose}
       onTouchStart={(e) => {
         touchStartYRef.current = e.touches[0]?.clientY ?? null
       }}
@@ -126,10 +129,10 @@ function Viewer({ item, onClose, onRiff }: ViewerProps) {
     >
       {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} />}
       <FlutedOverlay visible={!!gradient.flutedEnabled} />
-      <button type="button" className={styles.viewerClose} aria-label="Close" onClick={onClose}>
+      <button type="button" className={styles.viewerClose} aria-label="Close" onClick={(e) => { e.stopPropagation(); onClose(); }}>
         ✕
       </button>
-      <div className={styles.viewerPanel}>
+      <div className={styles.viewerPanel} onClick={(e) => e.stopPropagation()}>
         {renaming ? (
           <input
             className={styles.viewerRenameInput}
@@ -166,6 +169,13 @@ function Viewer({ item, onClose, onRiff }: ViewerProps) {
           >
             {shareFeedback.copied ? '✓ Copied' : 'Share'}
           </button>
+          <button
+            type="button"
+            className={styles.viewerAction}
+            onClick={() => setExportOpen(true)}
+          >
+            Export
+          </button>
           {!item.curated && (
             <>
               <button
@@ -192,6 +202,9 @@ function Viewer({ item, onClose, onRiff }: ViewerProps) {
           )}
         </div>
       </div>
+      {exportOpen && (
+        <ExportModal gradient={gradient} onClose={() => setExportOpen(false)} />
+      )}
     </div>
   )
 }
