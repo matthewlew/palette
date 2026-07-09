@@ -75,9 +75,10 @@ export function ExportModal({ gradient, onClose }: ExportModalProps) {
 
   return (
     <>
-      <div className={styles.backdrop} onClick={onClose} />
+      <div className={styles.backdrop} onClick={(e) => { e.stopPropagation(); onClose(); }} />
       <div
         className={`${styles.modal} glass-surface`}
+        onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label={`Export ${gradient.name ?? 'gradient'} image`}

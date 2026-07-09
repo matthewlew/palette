@@ -115,6 +115,7 @@ function Viewer({ item, onClose, onRiff }: ViewerProps) {
       aria-label={gradient.name ?? 'Gradient'}
       className={styles.viewer}
       style={{ backgroundImage: tileBackground(gradient) }}
+      onClick={onClose}
       onTouchStart={(e) => {
         touchStartYRef.current = e.touches[0]?.clientY ?? null
       }}
@@ -128,10 +129,10 @@ function Viewer({ item, onClose, onRiff }: ViewerProps) {
     >
       {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} />}
       <FlutedOverlay visible={!!gradient.flutedEnabled} />
-      <button type="button" className={styles.viewerClose} aria-label="Close" onClick={onClose}>
+      <button type="button" className={styles.viewerClose} aria-label="Close" onClick={(e) => { e.stopPropagation(); onClose(); }}>
         ✕
       </button>
-      <div className={styles.viewerPanel}>
+      <div className={styles.viewerPanel} onClick={(e) => e.stopPropagation()}>
         {renaming ? (
           <input
             className={styles.viewerRenameInput}
