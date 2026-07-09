@@ -47,8 +47,8 @@ describe('BoardShare Component', () => {
     fireEvent.click(trigger)
 
     expect(screen.getByRole('button', { name: /share board link/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /copy board json/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /import board json/i })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: /export json/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /import json/i })).not.toBeDisabled()
   })
 
   it('copies share link when "Share Board Link" is clicked', async () => {
@@ -61,27 +61,46 @@ describe('BoardShare Component', () => {
     )
   })
 
-  it('copies board JSON when "Copy Board JSON" is clicked', async () => {
+  it('explains link vs JSON with hint text on the menu items', () => {
     render(<BoardShare saved={board} onImport={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: /share options/i }))
-    fireEvent.click(screen.getByRole('button', { name: /copy board json/i }))
+    expect(screen.getByText(/rich preview link/i)).toBeInTheDocument()
+    expect(screen.getByText(/raw data for backup/i)).toBeInTheDocument()
+  })
 
+  it('opens a modal with the full board JSON in a large textarea and copies it', () => {
+    render(<BoardShare saved={board} onImport={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /share options/i }))
+    fireEvent.click(screen.getByRole('button', { name: /export json/i }))
+
+    const area = screen.getByLabelText('Board JSON') as HTMLTextAreaElement
+    expect(area.rows).toBeGreaterThanOrEqual(8)
+    expect(JSON.parse(area.value)).toMatchObject({ kind: 'board' })
+
+    fireEvent.click(screen.getByRole('button', { name: /copy json/i }))
     const copiedText = (navigator.clipboard.writeText as ReturnType<typeof vi.fn>).mock.calls[0][0]
     expect(JSON.parse(copiedText)).toMatchObject({ kind: 'board' })
   })
 
-  it('prompts and calls onImport when "Import Board JSON" is clicked', () => {
+  it('imports pasted JSON from the modal textarea', () => {
     const onImport = vi.fn()
-    const promptMock = vi.spyOn(window, 'prompt').mockReturnValue('{"kind":"board","gradients":[]}')
-    
     render(<BoardShare saved={[]} onImport={onImport} />)
     fireEvent.click(screen.getByRole('button', { name: /share options/i }))
-    fireEvent.click(screen.getByRole('button', { name: /import board json/i }))
+    fireEvent.click(screen.getByRole('button', { name: /import json/i }))
 
-    expect(promptMock).toHaveBeenCalled()
+    const area = screen.getByLabelText('Paste JSON here')
+    fireEvent.change(area, { target: { value: '{"kind":"board","gradients":[]}' } })
+    fireEvent.click(screen.getByRole('button', { name: /^import$/i }))
+
     expect(onImport).toHaveBeenCalledWith('{"kind":"board","gradients":[]}')
-    
-    promptMock.mockRestore()
+    expect(screen.queryByTestId('json-modal')).not.toBeInTheDocument()
+  })
+
+  it('disables the import confirm button while the textarea is empty', () => {
+    render(<BoardShare saved={[]} onImport={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /share options/i }))
+    fireEvent.click(screen.getByRole('button', { name: /import json/i }))
+    expect(screen.getByRole('button', { name: /^import$/i })).toBeDisabled()
   })
 
   it('closes dropdown when clicking outside', () => {

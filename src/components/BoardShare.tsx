@@ -17,6 +17,8 @@ function getShareLink(gradients: Gradient[]): string {
 
 export function BoardShare({ saved, onImport, chromeVisible = true }: BoardShareProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const [jsonModal, setJsonModal] = useState<'export' | 'import' | null>(null)
+  const [importDraft, setImportDraft] = useState('')
   const menuRef = useRef<HTMLDivElement>(null)
   const shareFeedback = useCopyFeedback()
   const jsonFeedback = useCopyFeedback()
@@ -77,16 +79,20 @@ export function BoardShare({ saved, onImport, chromeVisible = true }: BoardShare
 
   function handleImportClick() {
     setIsOpen(false)
-    const text = window.prompt('Paste gradient/board JSON to import:')
-    if (text) {
-      onImport(text)
-    }
+    setJsonModal('import')
+    setImportDraft('')
+  }
+
+  function handleViewJson() {
+    if (saved.length === 0) return
+    setIsOpen(false)
+    setJsonModal('export')
   }
 
   const hasSaved = saved.length > 0
 
   return (
-    <div ref={menuRef} className={`${styles.container} ${!chromeVisible ? styles.hidden : ''}`}>
+    <div ref={menuRef} className={`${styles.container} ${!chromeVisible && !jsonModal ? styles.hidden : ''}`}>
       <button
         type="button"
         className={styles.triggerButton}
@@ -121,25 +127,76 @@ export function BoardShare({ saved, onImport, chromeVisible = true }: BoardShare
             <span className={styles.menuItemText}>
               {shareFeedback.copied ? 'Link Copied!' : 'Share Board Link'}
             </span>
+            <span className={styles.menuItemHint}>Rich preview link anyone can open</span>
           </button>
           <button
             type="button"
             className={styles.menuItem}
-            onClick={handleCopyJson}
+            onClick={handleViewJson}
             disabled={!hasSaved}
           >
-            <span className={styles.menuItemText}>
-              {jsonFeedback.copied ? 'JSON Copied!' : 'Copy Board JSON'}
-            </span>
+            <span className={styles.menuItemText}>Export JSON…</span>
+            <span className={styles.menuItemHint}>Raw data for backup or tools</span>
           </button>
           <button
             type="button"
             className={styles.menuItem}
             onClick={handleImportClick}
           >
-            <span className={styles.menuItemText}>Import Board JSON</span>
+            <span className={styles.menuItemText}>Import JSON…</span>
+            <span className={styles.menuItemHint}>Paste a board or gradient export</span>
           </button>
         </div>
+      )}
+
+      {jsonModal && (
+        <>
+          <div className={styles.modalBackdrop} onClick={() => setJsonModal(null)} />
+          <div
+            className={styles.modal}
+            data-testid="json-modal"
+            role="dialog"
+            aria-label={jsonModal === 'export' ? 'Export board JSON' : 'Import board JSON'}
+          >
+            <h3 className={styles.modalTitle}>{jsonModal === 'export' ? 'Board JSON' : 'Import JSON'}</h3>
+            <textarea
+              className={styles.jsonArea}
+              aria-label={jsonModal === 'export' ? 'Board JSON' : 'Paste JSON here'}
+              rows={10}
+              readOnly={jsonModal === 'export'}
+              value={
+                jsonModal === 'export'
+                  ? toExportJson({ kind: 'board', gradients: saved.map(toSharePayloadGradient) })
+                  : importDraft
+              }
+              placeholder={jsonModal === 'import' ? 'Paste gradient or board JSON…' : undefined}
+              onChange={(e) => setImportDraft(e.target.value)}
+              onFocus={(e) => jsonModal === 'export' && e.currentTarget.select()}
+            />
+            <div className={styles.modalActions}>
+              <button type="button" className={styles.modalButton} onClick={() => setJsonModal(null)}>
+                Close
+              </button>
+              {jsonModal === 'export' ? (
+                <button type="button" className={styles.modalButtonPrimary} onClick={handleCopyJson}>
+                  {jsonFeedback.copied ? '✓ Copied' : 'Copy JSON'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className={styles.modalButtonPrimary}
+                  disabled={importDraft.trim().length === 0}
+                  onClick={() => {
+                    onImport(importDraft)
+                    setJsonModal(null)
+                  }}
+                >
+                  Import
+                </button>
+              )}
+            </div>
+          </div>
+        </>
       )}
     </div>
   )
