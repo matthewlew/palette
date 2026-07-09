@@ -22,9 +22,9 @@ beforeEach(() => {
 })
 
 describe('useAppStore', () => {
-  it('starts in explore mode with no saved gradients', () => {
+  it('starts in create mode with no saved gradients', () => {
     const state = useAppStore.getState()
-    expect(state.mode).toBe('explore')
+    expect(state.mode).toBe('create')
     expect(state.saved).toEqual([])
   })
 
@@ -84,10 +84,10 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().mode).toBe('edit')
   })
 
-  it('switches back to explore mode', () => {
+  it('switches back to create mode', () => {
     useAppStore.getState().enterEditMode()
     useAppStore.getState().exitEditMode()
-    expect(useAppStore.getState().mode).toBe('explore')
+    expect(useAppStore.getState().mode).toBe('create')
   })
 
   it('isGradientSaved reflects whether a gradient (by signature) is in saved', () => {

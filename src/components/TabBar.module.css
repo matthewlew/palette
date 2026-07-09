@@ -1,0 +1,40 @@
+.bar {
+  position: fixed;
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(20, 20, 24, 0.35);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition: opacity 0.4s ease;
+}
+
+.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tab,
+.tabOn {
+  min-height: 44px;
+  min-width: 92px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.65);
+  font-family: var(--heading);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.tabOn {
+  background: rgba(255, 255, 255, 0.92);
+  color: #111;
+  font-weight: 600;
+}

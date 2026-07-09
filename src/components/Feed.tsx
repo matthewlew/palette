@@ -49,6 +49,19 @@ export function resetFeedSession() {
   feedSession.lockedType = null
 }
 
+/** Riff: seed the Create rolodex with a gradient picked in the Gallery.
+ * Per the persistent-session decision, riffing APPENDS to the existing
+ * history (scroll-up still reaches everything from this page load) and the
+ * locked shape follows the riffed gradient's type. The caller is
+ * responsible for setCurrentGradient + switching mode to 'create'; on
+ * remount Feed's init effect restores history[index], which is exactly the
+ * appended gradient. */
+export function riffIntoFeed(gradient: Gradient) {
+  feedSession.history = [...feedSession.history, gradient]
+  feedSession.index = feedSession.history.length - 1
+  feedSession.lockedType = gradient.type
+}
+
 interface FeedProps {
   /** When false, chrome (the like button) fades out for uninterrupted viewing. */
   chromeVisible?: boolean
@@ -63,6 +76,10 @@ export function Feed({ chromeVisible = true }: FeedProps) {
   const enterEditMode = useAppStore((s) => s.enterEditMode)
   const scrollHint = useHint('scroll')
   const likeHint = useHint('like')
+  // Fires at the reward moment: the first pin teaches where pins live.
+  // Dismissed forever on the first Gallery visit (Gallery writes the key).
+  const galleryHint = useHint('gallery')
+  const hasSaved = useAppStore((s) => s.saved.length > 0)
   const containerRef = useRef<HTMLDivElement>(null)
 
   // History of gradients generated/visited this session, and the index of
@@ -383,6 +400,9 @@ export function Feed({ chromeVisible = true }: FeedProps) {
       <ScrollTicker index={tickerIndex} />
       {scrollHint.visible && <Hint text="Scroll to explore palettes ↓" visible={scrollHint.visible} />}
       {!scrollHint.visible && likeHint.visible && <Hint text="Tap ♥ to save" visible={likeHint.visible} />}
+      {!scrollHint.visible && !likeHint.visible && galleryHint.visible && hasSaved && (
+        <Hint text="Saved to your Gallery" visible />
+      )}
     </div>
   )
 }

@@ -36,7 +36,7 @@ export function toSharePayloadGradient(gradient: Gradient): SharePayloadGradient
   return out
 }
 
-function isSharePayloadGradient(value: unknown): value is SharePayloadGradient {
+export function isSharePayloadGradient(value: unknown): value is SharePayloadGradient {
   if (typeof value !== 'object' || value === null) return false
   const v = value as Record<string, unknown>
   return (

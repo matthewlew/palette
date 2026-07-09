@@ -12,7 +12,7 @@ beforeEach(() => {
 })
 
 describe('App', () => {
-  it('shows the Feed in explore mode', () => {
+  it('shows the Feed in create mode', () => {
     render(<App />)
     expect(screen.getByTestId('feed-container')).toBeInTheDocument()
   })
@@ -31,12 +31,13 @@ describe('App', () => {
     vi.useRealTimers()
   })
 
-  it('renders the drawer with a saved gradient after tapping the like button', () => {
+  it('renders the gallery with a saved gradient after tapping the like button and switching tabs', () => {
     render(<App />)
 
     fireEvent.click(screen.getByTestId('like-button'))
+    fireEvent.click(screen.getByText('Gallery'))
 
-    expect(screen.getAllByTestId('drawer-thumbnail')).toHaveLength(1)
+    expect(screen.getAllByTestId('gallery-tile')).toHaveLength(1)
   })
 
   it('calls withViewTransition when exiting edit mode', async () => {
@@ -57,7 +58,7 @@ describe('App', () => {
     fireEvent.click(screen.getByLabelText('Back'))
 
     expect(spy).toHaveBeenCalledTimes(1)
-    expect(useAppStore.getState().mode).toBe('explore')
+    expect(useAppStore.getState().mode).toBe('create')
 
     spy.mockRestore()
   })

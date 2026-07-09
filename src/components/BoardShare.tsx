@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { encodeToFragment, toExportJson, toSharePayloadGradient } from '../lib/gradientCodec'
+import { toCuratedEntryJson } from '../lib/curated'
 import { useCopyFeedback } from '../hooks/useCopyFeedback'
 import type { GlassTone } from '../lib/glassTone'
 import type { Gradient } from '../store/types'
@@ -7,6 +8,8 @@ import styles from './BoardShare.module.css'
 
 interface BoardShareProps {
   saved: Gradient[]
+  /** The gradient currently on screen — source for "Copy as curated entry". */
+  current?: Gradient | null
   onImport: (jsonText: string) => void
   chromeVisible?: boolean
   /** 'dark' flips the glass trigger for legibility over bright backdrops. */
@@ -18,13 +21,14 @@ function getShareLink(gradients: Gradient[]): string {
   return `${window.location.origin}${window.location.pathname}#${fragment}`
 }
 
-export function BoardShare({ saved, onImport, chromeVisible = true, tone = 'light' }: BoardShareProps) {
+export function BoardShare({ saved, current = null, onImport, chromeVisible = true, tone = 'light' }: BoardShareProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [jsonModal, setJsonModal] = useState<'export' | 'import' | null>(null)
   const [importDraft, setImportDraft] = useState('')
   const menuRef = useRef<HTMLDivElement>(null)
   const shareFeedback = useCopyFeedback()
   const jsonFeedback = useCopyFeedback()
+  const curatedFeedback = useCopyFeedback()
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -148,6 +152,17 @@ export function BoardShare({ saved, onImport, chromeVisible = true, tone = 'ligh
           >
             <span className={styles.menuItemText}>Import JSON…</span>
             <span className={styles.menuItemHint}>Paste a board or gradient export</span>
+          </button>
+          <button
+            type="button"
+            className={styles.menuItem}
+            onClick={() => current && curatedFeedback.copy(toCuratedEntryJson(current))}
+            disabled={!current}
+          >
+            <span className={styles.menuItemText}>
+              {curatedFeedback.copied ? '✓ Copied' : 'Copy as curated entry'}
+            </span>
+            <span className={styles.menuItemHint}>Ready to paste into curated.json</span>
           </button>
         </div>
       )}

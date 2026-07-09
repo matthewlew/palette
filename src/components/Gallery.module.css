@@ -1,0 +1,349 @@
+.container {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface, #101014);
+  overflow-y: auto;
+  padding: max(14px, env(safe-area-inset-top)) 16px calc(90px + env(safe-area-inset-bottom));
+}
+
+.segments {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  margin: 0 auto 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  width: min(320px, 100%);
+  flex-shrink: 0;
+}
+
+.segment,
+.segmentOn {
+  position: relative;
+  flex: 1;
+  min-height: 44px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  font-family: var(--heading);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.segmentOn {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-weight: 600;
+}
+
+.segmentDot {
+  position: absolute;
+  top: 9px;
+  right: 12px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0 14px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-shrink: 0;
+}
+
+.chip,
+.chipOn {
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.chipOn {
+  background: #fff;
+  border-color: #fff;
+  color: #111;
+  font-weight: 600;
+}
+
+.hueChip,
+.hueChipOn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.hueChipOn {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: #fff;
+  color: #fff;
+  font-weight: 600;
+}
+
+.hueDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.hueCount {
+  font-size: 11px;
+  opacity: 0.65;
+}
+
+.chipCount {
+  font-size: 11px;
+  opacity: 0.55;
+  margin-left: 2px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+@media (min-width: 600px) {
+  .grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+}
+
+@media (min-width: 1000px) {
+  .grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (min-width: 1400px) {
+  .grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+.tile {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  border: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  cursor: pointer;
+  padding: 0;
+  display: block;
+  background-color: #26262c;
+  text-align: left;
+}
+
+.placeholder {
+  aspect-ratio: 4 / 5;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.tileScrim {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 26px 12px 10px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.45) 100%);
+  pointer-events: none;
+}
+
+.tileName {
+  color: #fff;
+  font-family: var(--heading);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.badge {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+  flex-shrink: 0;
+}
+
+.tileCaption {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 11px;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 64px 24px;
+}
+
+.emptyText {
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 15px;
+  text-align: center;
+}
+
+.emptyAction {
+  min-height: 44px;
+  padding: 0 22px;
+  border-radius: 999px;
+  border: 0;
+  background: #fff;
+  color: #111;
+  font-family: var(--heading);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.toast {
+  align-self: center;
+  margin-bottom: 12px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.toastRetry {
+  border: 0;
+  background: none;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+
+.viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  view-transition-name: riff-gradient;
+}
+
+.viewerClose {
+  position: absolute;
+  top: max(16px, env(safe-area-inset-top));
+  right: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(10px);
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.viewerPanel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 40px 22px calc(28px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.5) 55%);
+}
+
+.viewerName {
+  color: #fff;
+  font-family: var(--heading);
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.viewerRenameInput {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 10px;
+  color: #fff;
+  font-family: var(--heading);
+  font-size: 20px;
+  padding: 6px 10px;
+}
+
+.viewerCaption {
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 0;
+  max-width: 60ch;
+}
+
+.viewerActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.viewerPrimary {
+  min-height: 44px;
+  padding: 0 26px;
+  border-radius: 999px;
+  border: 0;
+  background: #fff;
+  color: #111;
+  font-family: var(--heading);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.viewerAction {
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(10px);
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}

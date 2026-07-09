@@ -1,0 +1,262 @@
+[
+  {
+    "id": "curated-kiln-ember",
+    "note": "A classic warm blend reminiscent of wood-fired kilns. The transition from a deep terracotta to a warm sandy biscuit provides a soft, comforting ambient glow.",
+    "date": "2026-07-10",
+    "gradient": {
+      "type": "linear",
+      "stops": [
+        { "hex": "#c2543a", "position": 0 },
+        { "hex": "#e8c49a", "position": 100 }
+      ],
+      "name": "Kiln Ember"
+    }
+  },
+  {
+    "id": "curated-moss-garden",
+    "note": "An earthy, damp forest floor mood. Deep mossy green transitioning into light, airy celadon. Perfect for bringing a grounding organic presence to any design.",
+    "date": "2026-07-09",
+    "gradient": {
+      "type": "linear",
+      "stops": [
+        { "hex": "#38523f", "position": 0 },
+        { "hex": "#829c89", "position": 100 }
+      ],
+      "name": "Moss Garden"
+    }
+  },
+  {
+    "id": "curated-harbor-fog",
+    "note": "A cool, quiet harbor morning. The steel blue-gray of the ocean slowly dissolves into a thick, bright marine mist, bringing a sense of vast, quiet space.",
+    "date": "2026-07-08",
+    "gradient": {
+      "type": "linear",
+      "stops": [
+        { "hex": "#4d5e68", "position": 0 },
+        { "hex": "#ccd7db", "position": 100 }
+      ],
+      "name": "Harbor Fog"
+    }
+  },
+  {
+    "id": "curated-ochre-ridge",
+    "note": "Rich ochre yellow shifting to dry clay. The high-contrast warm shift mimics early morning sunlight striking a rocky desert canyon.",
+    "date": "2026-07-07",
+    "gradient": {
+      "type": "linear",
+      "stops": [
+        { "hex": "#523c28", "position": 0 },
+        { "hex": "#cfa15c", "position": 100 }
+      ],
+      "name": "Ochre Ridge"
+    }
+  },
+  {
+    "id": "curated-indigo-sky",
+    "note": "The depth of twilight. A dark, ink-like midnight center that blooms outwards into a rich, saturated indigo blue, capturing the transition from dusk to night.",
+    "date": "2026-07-06",
+    "gradient": {
+      "type": "radial",
+      "stops": [
+        { "hex": "#1c1f30", "position": 0 },
+        { "hex": "#45528a", "position": 100 }
+      ],
+      "name": "Indigo Sky"
+    }
+  },
+  {
+    "id": "curated-blush-adobe",
+    "note": "Gentle southwest light. Soft rose and warm biscuit-adobe colors blending seamlessly to create a tranquil, warm glow that feels incredibly soft.",
+    "date": "2026-07-05",
+    "gradient": {
+      "type": "linear",
+      "stops": [
+        { "hex": "#d9a79a", "position": 0 },
+        { "hex": "#e3c0ab", "position": 100 }
+      ],
+      "name": "Blush Adobe"
+    }
+  },
+  {
+    "id": "curated-plum-orchard",
+    "note": "A deep, saturated plum purple that softens into a dusty mauve-pink, suggesting late-summer harvest and dark fruit skins.",
+    "date": "2026-07-04",
+    "gradient": {
+      "type": "linear",
+      "stops": [
+        { "hex": "#3d233c", "position": 0 },
+        { "hex": "#a1789c", "position": 100 }
+      ],
+      "name": "Plum Orchard"
+    }
+  },
+  {
+    "id": "curated-celadon-frost",
+    "note": "A quiet, frozen ceramic glaze. Pale mint green blends into a frosty, light glacier blue, with a clean and glassy finish.",
+    "date": "2026-07-03",
+    "gradient": {
+      "type": "linear",
+      "stops": [
+        { "hex": "#7bb09c", "position": 0 },
+        { "hex": "#dbeef0", "position": 100 }
+      ],
+      "name": "Celadon Frost"
+    }
+  },
+  {
+    "id": "curated-speckled-sand",
+    "note": "A textured, warm neutral ramp reminiscent of unglazed stoneware. The sand and camel tones are extremely gentle.",
+    "date": "2026-07-02",
+    "gradient": {
+      "type": "linear",
+      "stops": [
+        { "hex": "#edd9cc", "position": 0 },
+        { "hex": "#cca793", "position": 100 }
+      ],
+      "name": "Speckled Sand"
+    }
+  },
+  {
+    "id": "curated-rust-horizon",
+    "note": "Heavy, earthy orange-red blending into a dark brown-sienna. It has a beautiful grounding quality like sun-baked desert sand.",
+    "date": "2026-07-01",
+    "gradient": {
+      "type": "linear",
+      "stops": [
+        { "hex": "#8f3521", "position": 0 },
+        { "hex": "#5e4d41", "position": 100 }
+      ],
+      "name": "Rust Horizon"
+    }
+  },
+  {
+    "id": "curated-verdigris-copper",
+    "note": "Oxidized copper tones. Deep teal greens that blend smoothly into a bright, dusty verdigris mint.",
+    "date": "2026-06-30",
+    "gradient": {
+      "type": "linear",
+      "stops": [
+        { "hex": "#294a47", "position": 0 },
+        { "hex": "#a7cfc6", "position": 100 }
+      ],
+      "name": "Verdigris Copper"
+    }
+  },
+  {
+    "id": "curated-lilac-fog",
+    "note": "A dusty, muted violet fog. The lavender hues are extremely soft and calm, perfect for relaxed backgrounds.",
+    "date": "2026-06-29",
+    "gradient": {
+      "type": "linear",
+      "stops": [
+        { "hex": "#c6b5cc", "position": 0 },
+        { "hex": "#8c8291", "position": 100 }
+      ],
+      "name": "Lilac Fog"
+    }
+  },
+  {
+    "id": "curated-apricot-glaze",
+    "note": "Sunny, warm apricot yellow melting into a sweet cream blush. An optimistic, bright mood that radiates outward.",
+    "date": "2026-06-28",
+    "gradient": {
+      "type": "radial",
+      "stops": [
+        { "hex": "#f0ab7f", "position": 0 },
+        { "hex": "#ffdcb5", "position": 100 }
+      ],
+      "name": "Apricot Glaze"
+    }
+  },
+  {
+    "id": "curated-fern-hollow",
+    "note": "Deep woodland shade. Saturated pine needle green climbing up into soft sage green, capturing quiet, shaded forest paths.",
+    "date": "2026-06-27",
+    "gradient": {
+      "type": "linear",
+      "stops": [
+        { "hex": "#283d2c", "position": 0 },
+        { "hex": "#97b095", "position": 100 }
+      ],
+      "name": "Fern Hollow"
+    }
+  },
+  {
+    "id": "curated-steel-water",
+    "note": "Cool steel blue reflecting overcast skies. The transition to powder blue is gentle and fluid, like flat lake water.",
+    "date": "2026-06-26",
+    "gradient": {
+      "type": "linear",
+      "stops": [
+        { "hex": "#3f5666", "position": 0 },
+        { "hex": "#96b3c2", "position": 100 }
+      ],
+      "name": "Steel Water"
+    }
+  },
+  {
+    "id": "curated-marigold-sun",
+    "note": "Warm marigold orange radiating into a soft buttery yellow. Brings the vibrant, direct energy of midsummer fields.",
+    "date": "2026-06-25",
+    "gradient": {
+      "type": "radial",
+      "stops": [
+        { "hex": "#bf893b", "position": 0 },
+        { "hex": "#fceeb8", "position": 100 }
+      ],
+      "name": "Marigold Sun"
+    }
+  },
+  {
+    "id": "curated-espresso-cream",
+    "note": "High contrast dark-and-light blend. Rich dark coffee brown meeting a warm milky froth, creating a strong graphic anchor.",
+    "date": "2026-06-24",
+    "gradient": {
+      "type": "linear",
+      "stops": [
+        { "hex": "#2b201a", "position": 0 },
+        { "hex": "#edd6ca", "position": 100 }
+      ],
+      "name": "Espresso Cream"
+    }
+  },
+  {
+    "id": "curated-sage-meadow",
+    "note": "Soft, silvery green meadow tones. An incredibly muted and peaceful blend that feels fresh yet quiet.",
+    "date": "2026-06-23",
+    "gradient": {
+      "type": "linear",
+      "stops": [
+        { "hex": "#526655", "position": 0 },
+        { "hex": "#bccfc0", "position": 100 }
+      ],
+      "name": "Sage Meadow"
+    }
+  },
+  {
+    "id": "curated-midnight-iris",
+    "note": "A deep, mysterious violet gradient. The near-black midnight tone gives way to a velvety, glowing royal purple.",
+    "date": "2026-06-22",
+    "gradient": {
+      "type": "linear",
+      "stops": [
+        { "hex": "#151224", "position": 0 },
+        { "hex": "#473063", "position": 100 }
+      ],
+      "name": "Midnight Iris"
+    }
+  },
+  {
+    "id": "curated-ceramic-smoke",
+    "note": "A neutral gray glaze gradient. The shift from slate to ash is quiet, minimal, and carries a clean architectural mood.",
+    "date": "2026-06-21",
+    "gradient": {
+      "type": "linear",
+      "stops": [
+        { "hex": "#5c6366", "position": 0 },
+        { "hex": "#b5bec2", "position": 100 }
+      ],
+      "name": "Ceramic Smoke"
+    }
+  }
+]

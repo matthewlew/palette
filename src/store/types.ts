@@ -22,4 +22,6 @@ export interface Gradient {
   flutedEnabled?: boolean
 }
 
-export type ViewMode = 'explore' | 'edit'
+// 'create' is the home surface (the rolodex feed); 'gallery' is the
+// Yours • Inspiration browsing surface; 'edit' is reachable only from create.
+export type ViewMode = 'create' | 'gallery' | 'edit'
