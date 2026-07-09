@@ -1,8 +1,10 @@
+/* Bottom-right corner, directly under the heart button, so opening the
+   saved panel (which slides in from the right) reads as coming from here. */
 .drawer {
   position: fixed;
   bottom: 0;
-  left: 0;
-  padding: 8px 8px calc(12px + env(safe-area-inset-bottom));
+  right: 0;
+  padding: 8px calc(16px + env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) 8px;
   transition: opacity 400ms ease;
   /* The container must never swallow taps aimed elsewhere — only the stack
      button itself is interactive. */
@@ -32,22 +34,39 @@
 
 .stackThumb {
   position: absolute;
-  left: 0;
+  right: 0;
   bottom: 0;
   width: 52px;
   height: 52px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.35);
   overflow: hidden;
-  transform-origin: bottom left;
+  transform-origin: bottom right;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   display: block;
+}
+
+/* Empty state: dashed placeholder with a hollow heart, hinting that saved
+   favorites will pile up here. */
+.emptyThumb {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  border: 1.5px dashed rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 .overflowBadge {
   position: absolute;
   top: -6px;
-  right: -2px;
+  left: -2px;
   z-index: 10;
   min-width: 20px;
   height: 20px;

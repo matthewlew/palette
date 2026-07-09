@@ -84,29 +84,81 @@ export interface PlaceThing {
   moods?: Mood[]
 }
 
+// Grouped loosely by register — places, times of day, weather, landscape,
+// botanicals, textures, and scents — in the spirit of Werner's Nomenclature
+// and paint-chip naming: concrete sensory nouns that carry a color without
+// describing one.
 export const PLACE_THINGS: PlaceThing[] = [
+  // Places
   { word: 'Amalfi', families: ['yellow', 'orange', 'blue'] },
   { word: 'Kyoto', families: ['pink', 'green'] },
   { word: 'Tangier', families: ['amber', 'orange'] },
   { word: 'Reykjavik', families: ['cyanBlue', 'blue', 'neutral'], moods: ['muted'] },
   { word: 'Marrakesh', families: ['red', 'orange', 'amber'] },
-  { word: 'Vespers' },
   { word: 'Apothecary', moods: ['muted', 'soft'] },
-  { word: 'Solstice' },
   { word: 'Verandah' },
-  { word: 'Grove', families: ['green', 'lime'] },
-  { word: 'Tidepool', families: ['teal', 'cyanBlue'] },
-  { word: 'Sunset', families: ['red', 'orange', 'pink'] },
-  { word: 'Sonnet' },
-  { word: 'Fable' },
   { word: 'Arcade' },
   { word: 'Atlas' },
   { word: 'Meridian' },
+  { word: 'Sonnet' },
+  { word: 'Fable' },
+  // Time of day
+  { word: 'Vespers', moods: ['muted', 'soft'] },
+  { word: 'Matins', moods: ['soft'] },
+  { word: 'Gloaming', families: ['violet', 'purple', 'blue', 'neutral'], moods: ['muted', 'soft'] },
+  { word: 'Daybreak', families: ['pink', 'orange', 'yellow'], moods: ['soft'] },
+  { word: 'Noonday', families: ['yellow', 'amber'], moods: ['vivid'] },
+  { word: 'Twilight', families: ['violet', 'blue', 'purple'] },
+  { word: 'Solstice' },
+  { word: 'Equinox' },
+  // Weather
+  { word: 'Mizzle', families: ['neutral', 'cyanBlue', 'green'], moods: ['muted'] },
+  { word: 'Haar', families: ['neutral', 'cyanBlue'], moods: ['muted'] },
+  { word: 'Zephyr', moods: ['soft'] },
+  { word: 'Sirocco', families: ['amber', 'orange', 'red'] },
+  { word: 'Squall', families: ['cyanBlue', 'blue', 'neutral'], moods: ['vivid'] },
+  { word: 'Monsoon', families: ['teal', 'green', 'blue'] },
+  { word: 'Thaw', moods: ['soft', 'muted'] },
+  { word: 'Nimbus', families: ['neutral', 'cyanBlue'] },
+  // Landscape
+  { word: 'Moor', families: ['green', 'purple', 'neutral'], moods: ['muted'] },
+  { word: 'Fjord', families: ['teal', 'cyanBlue', 'blue'] },
+  { word: 'Tarn', families: ['teal', 'blue', 'neutral'], moods: ['muted'] },
+  { word: 'Dune', families: ['amber', 'yellow', 'neutral'] },
+  { word: 'Heath', families: ['green', 'purple', 'lime'] },
+  { word: 'Estuary', families: ['teal', 'cyanBlue', 'neutral'] },
+  { word: 'Orchard', families: ['green', 'lime', 'red'] },
+  { word: 'Grove', families: ['green', 'lime'] },
+  { word: 'Tidepool', families: ['teal', 'cyanBlue'] },
+  { word: 'Sunset', families: ['red', 'orange', 'pink'] },
+  { word: 'Prairie', families: ['amber', 'yellow', 'lime'] },
+  { word: 'Bayou', families: ['green', 'teal'], moods: ['muted'] },
+  // Botanical
+  { word: 'Yarrow', families: ['yellow', 'lime'] },
+  { word: 'Sorrel', families: ['green', 'lime', 'red'] },
+  { word: 'Bracken', families: ['green', 'amber', 'orange'], moods: ['muted'] },
+  { word: 'Clover', families: ['green', 'lime', 'pink'] },
+  { word: 'Hollyhock', families: ['pink', 'purple', 'red'] },
+  { word: 'Alder', families: ['green', 'neutral'], moods: ['muted'] },
+  { word: 'Willow', families: ['green', 'lime', 'neutral'], moods: ['soft', 'muted'] },
+  // Texture
+  { word: 'Velvet', moods: ['vivid', 'soft'] },
+  { word: 'Linen', moods: ['muted', 'soft'] },
+  { word: 'Gossamer', moods: ['soft'] },
+  { word: 'Patina', families: ['teal', 'green', 'neutral'], moods: ['muted'] },
+  { word: 'Raku', families: ['neutral', 'amber'], moods: ['muted'] },
+  // Scent
+  { word: 'Petrichor', families: ['neutral', 'green', 'cyanBlue'], moods: ['muted'] },
+  { word: 'Vetiver', families: ['green', 'amber'], moods: ['muted'] },
+  { word: 'Bergamot', families: ['yellow', 'lime', 'green'] },
+  { word: 'Myrrh', families: ['amber', 'orange', 'neutral'] },
+  { word: 'Chai', families: ['amber', 'orange', 'neutral'], moods: ['soft', 'muted'] },
 ]
 
-// Modifiers keyed by mood.
+// Modifiers keyed by mood — experiential and textural adjectives (how a
+// palette feels, weathers, or catches light), not color words.
 export const MODIFIERS: Record<Mood, string[]> = {
-  muted: ['Quiet', 'Sleeping', 'Faded', 'Dusty', 'Hushed'],
-  soft: ['Wandering', 'Morning', 'Folded', 'Tender'],
-  vivid: ['Running', 'Electric', 'Feral', 'Loud'],
+  muted: ['Quiet', 'Sleeping', 'Faded', 'Dusty', 'Hushed', 'Weathered', 'Fogbound', 'Worn', 'Overcast', 'Sun-Faded'],
+  soft: ['Wandering', 'Morning', 'Folded', 'Tender', 'Gauzy', 'Milky', 'Honeyed', 'Half-Lit', 'Drowsy'],
+  vivid: ['Running', 'Electric', 'Feral', 'Loud', 'Molten', 'Sunstruck', 'Ripe', 'Burning'],
 }

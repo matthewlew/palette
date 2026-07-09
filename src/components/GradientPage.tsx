@@ -1,7 +1,11 @@
 import { useRef } from 'react'
 import { buildGradientCss } from '../lib/gradient'
 import { useAppStore } from '../store/useAppStore'
+import { namePalette } from '../lib/naming'
+import { glassToneAt } from '../lib/glassTone'
 import { TurrellSquare } from './TurrellSquare'
+import { PaletteTitle } from './PaletteTitle'
+import { FlutedOverlay } from './FlutedOverlay'
 import { LikeButton } from './LikeButton'
 import { GrainButton } from './GrainButton'
 import { NoiseOverlay } from './NoiseOverlay'
@@ -23,6 +27,13 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null)
   const noiseEnabled = useAppStore((s) => s.noiseEnabled)
   const toggleNoise = useAppStore((s) => s.toggleNoise)
+  const renameCurrentGradient = useAppStore((s) => s.renameCurrentGradient)
+
+  // Each glass element samples the gradient where it actually sits, so e.g.
+  // the title can stay light while the corner buttons flip dark. Coordinates
+  // are rough normalized anchors — tone only needs the right neighborhood.
+  const titleTone = glassToneAt(gradient, 0.5, 0.06)
+  const cornerTone = glassToneAt(gradient, 0.93, 0.85)
 
   function handlePointerDown(e: React.PointerEvent) {
     pointerStartRef.current = { x: e.clientX, y: e.clientY }
@@ -34,7 +45,9 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
     // Taps on buttons (like, grain) must never double as "enter edit mode" —
     // child stopPropagation alone is unreliable across iOS pointer/touch
     // event synthesis, so guard by target here too.
-    if ((e.target as HTMLElement).closest('button')) {
+    // The title's rename input isn't a <button>, so guard the whole title
+    // container as well.
+    if ((e.target as HTMLElement).closest('button, [data-testid="palette-title"]')) {
       return
     }
     if (start) {
@@ -59,6 +72,7 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
             : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
                 repeat: gradient.repeatEnabled,
                 hard: gradient.hardStops,
+                smooth: gradient.smoothEnabled,
               }),
         touchAction: 'manipulation',
       }}
@@ -66,9 +80,16 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
       onPointerUp={handlePointerUp}
     >
       {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} />}
+      <FlutedOverlay visible={!!gradient.flutedEnabled} />
       <NoiseOverlay visible={noiseEnabled} />
-      <GrainButton enabled={noiseEnabled} onToggle={toggleNoise} hidden={!chromeVisible} />
-      <LikeButton liked={liked} onToggle={onToggleLike} hidden={!chromeVisible} />
+      <PaletteTitle
+        name={gradient.name ?? namePalette(gradient.stops.map((s) => s.hex))}
+        onRename={renameCurrentGradient}
+        hidden={!chromeVisible}
+        tone={titleTone}
+      />
+      <GrainButton enabled={noiseEnabled} onToggle={toggleNoise} hidden={!chromeVisible} tone={cornerTone} />
+      <LikeButton liked={liked} onToggle={onToggleLike} hidden={!chromeVisible} tone={cornerTone} />
     </div>
   )
 }

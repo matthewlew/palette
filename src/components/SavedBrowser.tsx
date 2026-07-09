@@ -44,9 +44,20 @@ interface SavedBrowserProps {
   onClose: () => void
 }
 
+// Pinterest-style masonry needs varied card heights; the aspect is a stable
+// function of the gradient id so cards don't reshuffle between opens.
+const THUMB_ASPECTS = ['4 / 5', '1 / 1', '3 / 4', '4 / 3']
+
+function thumbAspect(id: string): string {
+  let sum = 0
+  for (let i = 0; i < id.length; i++) sum += id.charCodeAt(i)
+  return THUMB_ASPECTS[sum % THUMB_ASPECTS.length]
+}
+
 function SavedCard({ gradient, onSelect }: { gradient: Gradient; onSelect: (g: Gradient) => void }) {
   const renameSavedGradient = useAppStore((s) => s.renameSavedGradient)
-  const removeSavedGradient = useAppStore((s) => s.removeSavedGradient)
+  const removeSavedGradientById = useAppStore((s) => s.removeSavedGradientById)
+  const duplicateSavedGradient = useAppStore((s) => s.duplicateSavedGradient)
   const shareFeedback = useCopyFeedback()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(gradient.name ?? '')
@@ -63,12 +74,14 @@ function SavedCard({ gradient, onSelect }: { gradient: Gradient; onSelect: (g: G
         className={styles.cardThumb}
         aria-label={`Open ${gradient.name ?? 'saved gradient'}`}
         style={{
+          aspectRatio: thumbAspect(gradient.id),
           backgroundImage:
             gradient.type === 'square'
               ? undefined
               : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
                   repeat: gradient.repeatEnabled,
                   hard: gradient.hardStops,
+                  smooth: gradient.smoothEnabled,
                 }),
         }}
         onClick={() => onSelect(gradient)}
@@ -117,8 +130,16 @@ function SavedCard({ gradient, onSelect }: { gradient: Gradient; onSelect: (g: G
         <button
           type="button"
           className={styles.cardAction}
+          aria-label={`Duplicate ${gradient.name ?? 'saved gradient'}`}
+          onClick={() => duplicateSavedGradient(gradient.id)}
+        >
+          Duplicate
+        </button>
+        <button
+          type="button"
+          className={styles.cardAction}
           aria-label={`Delete ${gradient.name ?? 'saved gradient'}`}
-          onClick={() => removeSavedGradient(gradient)}
+          onClick={() => removeSavedGradientById(gradient.id)}
         >
           Delete
         </button>
@@ -154,9 +175,6 @@ export function SavedBrowser({ saved, onSelect, onClose }: SavedBrowserProps) {
               ))}
             </select>
           </label>
-          <button type="button" className={styles.close} aria-label="Close saved palettes" onClick={onClose}>
-            ✕
-          </button>
         </div>
         {sorted.length === 0 ? (
           <p className={styles.empty}>Nothing saved yet — tap the heart on a gradient you like.</p>
@@ -167,6 +185,17 @@ export function SavedBrowser({ saved, onSelect, onClose }: SavedBrowserProps) {
             ))}
           </div>
         )}
+        {/* Mirrors the stack trigger's bottom-right spot, so the gallery
+            closes from the same place it opened. */}
+        <button
+          type="button"
+          data-testid="saved-browser-close-fab"
+          className={styles.closeFab}
+          aria-label="Close saved palettes"
+          onClick={onClose}
+        >
+          ✕
+        </button>
       </div>
     </>
   )

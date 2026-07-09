@@ -21,7 +21,10 @@ interface AppState {
   saveGradient: (gradient: Gradient) => void
   isGradientSaved: (gradient: Gradient) => boolean
   removeSavedGradient: (gradient: Gradient) => void
+  removeSavedGradientById: (id: string) => void
+  duplicateSavedGradient: (id: string) => void
   renameSavedGradient: (id: string, name: string) => void
+  renameCurrentGradient: (name: string) => void
   toggleSaveGradient: (gradient: Gradient) => void
   enterEditMode: () => void
   exitEditMode: () => void
@@ -61,10 +64,36 @@ export const useAppStore = create<AppState>()(
         const signature = gradientSignature(gradient)
         set({ saved: get().saved.filter((g) => gradientSignature(g) !== signature) })
       },
+      // Id-based removal for the saved browser: duplicates share a signature,
+      // so signature-based removal (the heart toggle's semantics) would wipe
+      // every copy at once.
+      removeSavedGradientById: (id) => {
+        set({ saved: get().saved.filter((g) => g.id !== id) })
+      },
+      duplicateSavedGradient: (id) => {
+        const saved = get().saved
+        const index = saved.findIndex((g) => g.id === id)
+        if (index === -1) return
+        const original = saved[index]
+        const copy = { ...original, id: crypto.randomUUID(), name: `${original.name ?? 'Untitled'} Copy` }
+        set({ saved: [...saved.slice(0, index + 1), copy, ...saved.slice(index + 1)] })
+      },
       renameSavedGradient: (id, name) => {
         const trimmed = name.trim()
         if (!trimmed) return
         set({ saved: get().saved.map((g) => (g.id === id ? { ...g, name: trimmed } : g)) })
+      },
+      renameCurrentGradient: (name) => {
+        const current = get().current
+        const trimmed = name.trim()
+        if (!current || !trimmed) return
+        // Saved copies get fresh ids (see saveGradient), so the matching
+        // saved entry is found by signature, not id.
+        const signature = gradientSignature(current)
+        set({
+          current: { ...current, name: trimmed },
+          saved: get().saved.map((g) => (gradientSignature(g) === signature ? { ...g, name: trimmed } : g)),
+        })
       },
       toggleSaveGradient: (gradient) => {
         if (get().isGradientSaved(gradient)) {

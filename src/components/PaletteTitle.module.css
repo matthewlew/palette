@@ -1,0 +1,52 @@
+.title {
+  position: absolute;
+  top: calc(14px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  max-width: min(70vw, 340px);
+  transition: opacity 400ms ease;
+}
+
+.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pill {
+  composes: glass-surface from global;
+  /* Keeps the white label readable when the gradient behind is pale. */
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  height: 36px;
+  max-width: 100%;
+  padding: 0 16px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.input {
+  composes: glass-surface from global;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  height: 36px;
+  width: min(70vw, 280px);
+  padding: 0 16px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  text-align: center;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.input::selection {
+  background: rgba(255, 255, 255, 0.35);
+}

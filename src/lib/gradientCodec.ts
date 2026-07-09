@@ -8,6 +8,8 @@ export interface SharePayloadGradient {
   reversed?: boolean
   repeatEnabled?: boolean
   hardStops?: boolean
+  smoothEnabled?: boolean
+  flutedEnabled?: boolean
   name: string
 }
 
@@ -29,6 +31,8 @@ export function toSharePayloadGradient(gradient: Gradient): SharePayloadGradient
   if (gradient.reversed !== undefined) out.reversed = gradient.reversed
   if (gradient.repeatEnabled !== undefined) out.repeatEnabled = gradient.repeatEnabled
   if (gradient.hardStops !== undefined) out.hardStops = gradient.hardStops
+  if (gradient.smoothEnabled !== undefined) out.smoothEnabled = gradient.smoothEnabled
+  if (gradient.flutedEnabled !== undefined) out.flutedEnabled = gradient.flutedEnabled
   return out
 }
 

@@ -46,8 +46,12 @@ export function ScrollTicker({ index }: ScrollTickerProps) {
           // squared falloff keeps growth concentrated near the center.
           const distance = Math.abs(t - index)
           const proximity = Math.max(0, 1 - distance / WINDOW)
-          const scaleX = 0.4 + 0.6 * proximity * proximity
-          const scaleY = 1 + proximity * proximity
+          // Ticks keep one uniform thickness (a real crown's marks don't
+          // fatten); only width and opacity swell toward the center, with a
+          // cubic falloff plus a discrete boost on the selected tick so it
+          // reads as clearly "chosen", not just the peak of a subtle wave.
+          const falloff = proximity * proximity * proximity
+          const scaleX = isActive ? 1.7 : 0.35 + 0.55 * falloff
           return (
             <div
               key={t}
@@ -55,8 +59,8 @@ export function ScrollTicker({ index }: ScrollTickerProps) {
               className={styles.tick}
               style={{
                 top: `${t * TICK_SPACING_PX}px`,
-                opacity: 0.25 + 0.75 * proximity,
-                transform: `scaleX(${scaleX}) scaleY(${scaleY})`,
+                opacity: isActive ? 1 : 0.2 + 0.55 * falloff,
+                transform: `scaleX(${scaleX})`,
               }}
             />
           )

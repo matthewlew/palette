@@ -108,6 +108,29 @@
   cursor: pointer;
 }
 
+/* The favorites stack only appears in edit mode at desktop widths — on
+   mobile the bottom sheet owns that space. It shifts left of the side panel
+   so it hangs over the preview's bottom-right corner, mirroring explore
+   mode, and the heart/grain rise above it exactly like the feed. */
+.container :global([data-testid='saved-drawer']) {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .container :global([data-testid='saved-drawer']) {
+    display: block;
+    right: 340px;
+  }
+
+  .preview :global([data-testid='like-button']) {
+    bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+
+  .preview :global([data-testid='grain-button']) {
+    bottom: calc(140px + env(safe-area-inset-bottom));
+  }
+}
+
 .blockArea {
   position: relative;
   flex: 0 0 72px;

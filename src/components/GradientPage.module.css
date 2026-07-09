@@ -6,3 +6,14 @@
   overflow: hidden;
   view-transition-name: palette-card;
 }
+
+/* In the feed, the saved-palettes stack occupies the bottom-right corner, so
+   the heart (and the grain toggle above it) shift up to sit directly over
+   it. Edit mode has no stack and keeps the buttons' default positions. */
+.page :global([data-testid='like-button']) {
+  bottom: calc(84px + env(safe-area-inset-bottom));
+}
+
+.page :global([data-testid='grain-button']) {
+  bottom: calc(140px + env(safe-area-inset-bottom));
+}

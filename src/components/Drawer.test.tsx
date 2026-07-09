@@ -23,9 +23,11 @@ beforeEach(() => {
 })
 
 describe('Drawer collapsed stack', () => {
-  it('renders nothing when there are no saved gradients', () => {
+  it('shows a dashed empty-state placeholder when there are no saved gradients', () => {
     render(<Drawer saved={[]} onSelect={vi.fn()} />)
-    expect(screen.queryByTestId('saved-drawer')).not.toBeInTheDocument()
+    expect(screen.getByTestId('drawer-empty')).toBeInTheDocument()
+    expect(screen.queryByTestId('drawer-thumbnail')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Browse saved palettes (none yet)' })).toBeInTheDocument()
   })
 
   it('shows at most three stacked thumbnails, most recent on top', () => {

@@ -94,9 +94,13 @@ describe('buildGradientCss repeat filter', () => {
   it('cycles the stop sequence twice within 0-100 when filters.repeat is true', () => {
     const css = buildGradientCss('linear', stops, false, { repeat: true })
     const matches = css.match(/#[0-9a-f]{6} \d+%/g)!
+    // 3 stops doubled -> 6 evenly spaced stops (0/20/40/60/80/100), so the
+    // hand-off from the last color back to the first blends over the same
+    // step width as every other transition instead of cutting hard at 50.
     expect(matches).toHaveLength(6)
     expect(matches[0]).toBe('#ff0000 0%')
-    expect(matches[2]).toBe('#0000ff 50%')
+    expect(matches[2]).toBe('#0000ff 40%')
+    expect(matches[3]).toBe('#ff0000 60%')
     expect(matches[5]).toBe('#0000ff 100%')
   })
 
@@ -159,5 +163,38 @@ describe('buildGradientCss repeat type (legacy dedicated type)', () => {
     for (const hex of matches) {
       expect(palette.has(hex), `${hex} should be an input color`).toBe(true)
     }
+  })
+})
+
+describe('buildGradientCss smooth filter', () => {
+  it('inserts eased interior stops per segment, keeping the originals in place', () => {
+    const css = buildGradientCss('linear', stops, false, { smooth: true })
+    const matches = css.match(/#[0-9a-f]{6} [\d.]+%/g)!
+    // 3 originals + 7 interior stops per segment x 2 segments = 17.
+    expect(matches).toHaveLength(17)
+    expect(matches[0]).toBe('#ff0000 0%')
+    expect(matches[8]).toBe('#00ff00 50%')
+    expect(matches[16]).toBe('#0000ff 100%')
+  })
+
+  it('eases within each segment: the quarter point sits closer to the segment start color than linear', () => {
+    const twoStops = [
+      { hex: '#000000', position: 0 },
+      { hex: '#ffffff', position: 100 },
+    ]
+    const css = buildGradientCss('linear', twoStops, false, { smooth: true })
+    const matches = css.match(/#[0-9a-f]{6} [\d.]+%/g)!
+    // Interior stop at 25% (k=2 of 7): ease-in-out(0.25) ~ 0.156, so the
+    // blended gray must be darker than the linear midpoint gray at 25%.
+    const quarter = matches.find((m) => m.endsWith(' 25%'))!
+    const channel = parseInt(quarter.slice(1, 3), 16)
+    expect(channel).toBeLessThan(0.25 * 255)
+  })
+
+  it('is ignored when hard stops are on and for square type', () => {
+    expect(buildGradientCss('linear', stops, false, { smooth: true, hard: true })).toBe(
+      buildGradientCss('linear', stops, false, { hard: true })
+    )
+    expect(buildGradientCss('square', stops, false, { smooth: true })).toBe(buildGradientCss('square', stops))
   })
 })

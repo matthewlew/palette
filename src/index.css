@@ -56,11 +56,34 @@
 .glass-surface {
   border: 1px solid rgba(255, 255, 255, 0.3);
   background: rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  /* The brightness lift makes the glass read as a distinct surface even
+     over flat color regions, where a plain blur of a uniform backdrop is
+     invisible and the button looked identical regardless of background. */
+  backdrop-filter: blur(16px) saturate(180%) brightness(1.18);
+  -webkit-backdrop-filter: blur(16px) saturate(180%) brightness(1.18);
+  /* Own compositing layer: without it the backdrop-filter output can go
+     stale when the gradient behind the button swaps (background-image
+     changes cause no layout), leaving the previous gradient's tint. */
+  will-change: backdrop-filter;
   box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.15),
     inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+/* Dark counterpart applied on top of .glass-surface when the gradient
+   behind an element is bright and white-on-glass would wash out (see
+   lib/glassTone). Doubled class beats the single-class module rules that
+   set color/text-shadow, regardless of stylesheet order. */
+.glass-dark.glass-dark {
+  border-color: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.16);
+  backdrop-filter: blur(16px) saturate(160%) brightness(0.92);
+  -webkit-backdrop-filter: blur(16px) saturate(160%) brightness(0.92);
+  color: rgba(15, 15, 20, 0.88);
+  text-shadow: none;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 #root {
@@ -141,14 +164,18 @@ code {
   object-fit: cover;
 }
 
+/* The palette-card resize and the sheet slide must share one duration and
+   curve: with mismatched easing the main area visibly lags/leads the panel
+   during exit, which reads as jank even at full frame rate. The strong
+   deceleration curve matches the ticker/momentum feel elsewhere. */
 ::view-transition-group(palette-card) {
-  animation-duration: 300ms;
-  animation-timing-function: ease-out;
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 ::view-transition-group(edit-sheet) {
-  animation-duration: 300ms;
-  animation-timing-function: ease-out;
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes sheet-slide-up {
@@ -164,11 +191,11 @@ code {
 }
 
 ::view-transition-new(edit-sheet) {
-  animation: sheet-slide-up 300ms ease-out;
+  animation: sheet-slide-up 320ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 ::view-transition-old(edit-sheet) {
-  animation: sheet-slide-down 300ms ease-out;
+  animation: sheet-slide-down 320ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* At tablet/desktop widths the sheet is a right-side panel, so it enters and
@@ -187,10 +214,10 @@ code {
   }
 
   ::view-transition-new(edit-sheet) {
-    animation: sheet-slide-in-right 300ms ease-out;
+    animation: sheet-slide-in-right 320ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   ::view-transition-old(edit-sheet) {
-    animation: sheet-slide-out-right 300ms ease-out;
+    animation: sheet-slide-out-right 320ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 }

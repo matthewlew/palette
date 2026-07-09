@@ -143,6 +143,7 @@ export function SwatchTray({ colorSet, stops, onTapAdd, onTapRemove, onDragAdd, 
             type="button"
             data-testid="swatch"
             aria-label={color.name}
+            title={color.name}
             className={selected ? styles.swatchSelected : styles.swatch}
             style={{ opacity: draggingHex === hex ? 0.6 : 1 }}
             onPointerDown={(e) => handlePointerDown(hex, e)}

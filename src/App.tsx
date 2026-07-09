@@ -6,6 +6,7 @@ import { EditMode } from './components/EditMode'
 import { ImportBanner } from './components/ImportBanner'
 import { BoardShare } from './components/BoardShare'
 import { decodeFromFragment, fromImportJson } from './lib/gradientCodec'
+import { glassToneAt } from './lib/glassTone'
 import { withViewTransition } from './lib/viewTransition'
 import { useIdleFade } from './hooks/useIdleFade'
 import type { Gradient } from './store/types'
@@ -55,7 +56,12 @@ export function App() {
       {pendingImport && (
         <ImportBanner count={pendingImport.length} onConfirm={handleConfirmImport} onDismiss={handleDismissImport} />
       )}
-      <BoardShare saved={saved} onImport={handleImportJson} chromeVisible={chromeVisible} />
+      <BoardShare
+        saved={saved}
+        onImport={handleImportJson}
+        chromeVisible={chromeVisible}
+        tone={current ? glassToneAt(current, 0.94, 0.05) : 'light'}
+      />
       <Feed chromeVisible={chromeVisible} />
       <Drawer
         hidden={!chromeVisible}

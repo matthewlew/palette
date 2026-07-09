@@ -119,12 +119,15 @@ export function namePalette(hexes: string[]): string {
 
   const modifier = pickUnique(MODIFIERS[overallMood])
 
-  const twoWordTemplate = `${modifier} ${dominantNoun}`
-  const threeWordTemplates = [
-    `${modifier} ${place} ${dominantNoun}`,
-    `${accentNoun} ${place} ${dominantNoun}`,
-  ].filter((name) => wordCount(name) <= 3)
+  // Templates follow natural English adjective order — opinion/mood first,
+  // color next, concrete head noun last ("Dusty Cobalt Harbor") — so names
+  // read as coherent phrases instead of shuffled word piles like
+  // "Cobalt Solstice Slate".
+  const twoWordTemplates = [`${modifier} ${dominantNoun}`, `${accentNoun} ${place}`].filter(
+    (name) => wordCount(name) <= 3
+  )
+  const threeWordTemplates = [`${modifier} ${dominantNoun} ${place}`].filter((name) => wordCount(name) <= 3)
 
-  const candidates = threeWordTemplates.length > 0 ? [...threeWordTemplates, twoWordTemplate] : [twoWordTemplate]
+  const candidates = [...threeWordTemplates, ...twoWordTemplates]
   return pick(rng, candidates)
 }

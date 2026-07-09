@@ -18,6 +18,11 @@ import { LikeButton } from './LikeButton'
 import { GrainButton } from './GrainButton'
 import { NoiseOverlay } from './NoiseOverlay'
 import { GeometryTabs } from './GeometryTabs'
+import { PaletteTitle } from './PaletteTitle'
+import { FlutedOverlay } from './FlutedOverlay'
+import { Drawer } from './Drawer'
+import { namePalette } from '../lib/naming'
+import { glassToneAt } from '../lib/glassTone'
 import { FlowEditor } from './FlowEditor'
 import { SwatchTray } from './SwatchTray'
 import { TurrellSquare } from './TurrellSquare'
@@ -47,10 +52,12 @@ interface EditModeProps {
 export function EditMode({ gradient, onExit }: EditModeProps) {
   const setCurrentGradient = useAppStore((s) => s.setCurrentGradient)
   const activeColorSet = useAppStore((s) => s.activeColorSet)
+  const saved = useAppStore((s) => s.saved)
   const isGradientSaved = useAppStore((s) => s.isGradientSaved(gradient))
   const toggleSaveGradient = useAppStore((s) => s.toggleSaveGradient)
   const noiseEnabled = useAppStore((s) => s.noiseEnabled)
   const toggleNoise = useAppStore((s) => s.toggleNoise)
+  const renameCurrentGradient = useAppStore((s) => s.renameCurrentGradient)
   const [editableStops, setEditableStops] = useState<EditableStop[]>(() => toEditableStops(gradient.stops))
   const [activeOrder, setActiveOrder] = useState<OrderKey>('original')
   // Stop ids in the user's own order — the baseline "Original" restores to.
@@ -63,6 +70,13 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   const onExitRef = useRef(onExit)
   onExitRef.current = onExit
   const editHint = useHint('edit')
+
+  // Per-corner glass tones so each floating control flips dark only when the
+  // gradient underneath it is bright (see lib/glassTone).
+  const backTone = glassToneAt(gradient, 0.06, 0.06)
+  const titleTone = glassToneAt(gradient, 0.5, 0.06)
+  const cornerTone = glassToneAt(gradient, 0.93, 0.88)
+  const sortTone = glassToneAt(gradient, 0.12, 0.93)
 
   // Scroll, drag, and keyboard navigation state for editing
   const [tickerIndex, setTickerIndex] = useState(() => feedSession.index)
@@ -369,7 +383,9 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   // positions the user has already dragged into place — only handle removal/
   // addition/sorting re-equalizes, since those change stop count or order.
   function commitPreservingPositions(
-    overrides: Partial<Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops'>>
+    overrides: Partial<
+      Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops' | 'smoothEnabled' | 'flutedEnabled'>
+    >
   ) {
     setCurrentGradient({
       ...gradient,
@@ -397,6 +413,14 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
 
   function handleToggleHardStops() {
     commitPreservingPositions({ hardStops: !gradient.hardStops })
+  }
+
+  function handleToggleSmooth() {
+    commitPreservingPositions({ smoothEnabled: !gradient.smoothEnabled })
+  }
+
+  function handleToggleFluted() {
+    commitPreservingPositions({ flutedEnabled: !gradient.flutedEnabled })
   }
 
   function isPointOverElement(point: { x: number; y: number }, el: HTMLElement): boolean {
@@ -454,7 +478,7 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   function handlePreviewPointerUp(e: React.PointerEvent) {
     const start = previewPointerStartRef.current
     previewPointerStartRef.current = null
-    if ((e.target as HTMLElement).closest('button')) return
+    if ((e.target as HTMLElement).closest('button, [data-testid="palette-title"]')) return
     if (start) {
       const dx = e.clientX - start.x
       const dy = e.clientY - start.y
@@ -474,7 +498,13 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
 
   return (
     <div data-testid="edit-mode" className={styles.container} onPointerDown={() => editHint.dismiss()}>
-      <button type="button" data-testid="edit-mode-back" aria-label="Back" className={styles.backButton} onClick={onExit}>
+      <button
+        type="button"
+        data-testid="edit-mode-back"
+        aria-label="Back"
+        className={backTone === 'dark' ? `${styles.backButton} glass-dark` : styles.backButton}
+        onClick={onExit}
+      >
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M15 5l-7 7 7 7" />
         </svg>
@@ -490,6 +520,7 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
               : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
                   repeat: gradient.repeatEnabled,
                   hard: gradient.hardStops,
+                  smooth: gradient.smoothEnabled,
                 }),
         }}
         onPointerDown={handlePreviewPointerDown}
@@ -497,14 +528,20 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
       >
         <ScrollTicker index={tickerIndex} />
         {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} />}
+        <FlutedOverlay visible={!!gradient.flutedEnabled} />
         <NoiseOverlay visible={noiseEnabled} />
-        <GrainButton enabled={noiseEnabled} onToggle={toggleNoise} />
-        <LikeButton liked={isGradientSaved} onToggle={() => toggleSaveGradient(gradient)} />
+        <PaletteTitle
+          name={gradient.name ?? namePalette(gradient.stops.map((s) => s.hex))}
+          onRename={renameCurrentGradient}
+          tone={titleTone}
+        />
+        <GrainButton enabled={noiseEnabled} onToggle={toggleNoise} tone={cornerTone} />
+        <LikeButton liked={isGradientSaved} onToggle={() => toggleSaveGradient(gradient)} tone={cornerTone} />
         <button
           type="button"
           data-testid="sort-fab"
           aria-label={`Stop order: ${activeOrder}. Tap to change`}
-          className={styles.sortFab}
+          className={sortTone === 'dark' ? `${styles.sortFab} glass-dark` : styles.sortFab}
           onClick={handleSortCycle}
           onPointerDown={(e) => e.stopPropagation()}
           onPointerUp={(e) => e.stopPropagation()}
@@ -528,6 +565,10 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
           onToggleRepeat={handleToggleRepeat}
           hardStops={gradient.hardStops}
           onToggleHardStops={handleToggleHardStops}
+          smoothEnabled={gradient.smoothEnabled}
+          onToggleSmooth={handleToggleSmooth}
+          flutedEnabled={gradient.flutedEnabled}
+          onToggleFluted={handleToggleFluted}
         />
         <div className={styles.blockArea}>
           <FlowEditor
@@ -547,6 +588,11 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
         />
       </div>
       {editHint.visible && <Hint text="Tap a swatch to edit" visible={editHint.visible} />}
+      {/* Desktop keeps the favorites stack from explore mode (shifted left of
+          the side panel) so the corner stays seamless across modes and saved
+          palettes are one tap away while editing. Hidden on mobile, where the
+          bottom sheet owns that space (see .container drawer override). */}
+      <Drawer saved={saved} onSelect={(g) => setCurrentGradient(g)} />
     </div>
   )
 }

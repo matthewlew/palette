@@ -7,56 +7,31 @@
   z-index: 30;
 }
 
+/* Fullscreen gallery: the saved collection is the whole experience while
+   open, not a cramped side sheet. It still slides in from the right, keeping
+   the "comes from the bottom-right stack" spatial story. */
 .panel {
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  max-height: 72vh;
+  inset: 0;
   display: flex;
   flex-direction: column;
-  background: rgba(20, 20, 24, 0.92);
+  background: rgba(20, 20, 24, 0.94);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border-radius: 20px 20px 0 0;
-  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
   color: #fff;
   z-index: 31;
-  animation: rise 240ms cubic-bezier(0.32, 0.72, 0, 1);
+  animation: slide 260ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-@keyframes rise {
+@keyframes slide {
   from {
-    transform: translateY(24px);
+    transform: translateX(48px);
     opacity: 0;
   }
   to {
-    transform: translateY(0);
+    transform: translateX(0);
     opacity: 1;
-  }
-}
-
-/* Side panel on tablet/desktop, matching the edit sheet's breakpoint. */
-@media (min-width: 768px) {
-  .panel {
-    left: auto;
-    top: 0;
-    bottom: 0;
-    width: 380px;
-    max-height: none;
-    border-radius: 20px 0 0 20px;
-    animation: slide 240ms cubic-bezier(0.32, 0.72, 0, 1);
-  }
-
-  @keyframes slide {
-    from {
-      transform: translateX(40px);
-      opacity: 0;
-    }
-    to {
-      transform: translateX(0);
-      opacity: 1;
-    }
   }
 }
 
@@ -101,15 +76,28 @@
   font-size: 12px;
 }
 
-.close {
-  width: 28px;
-  height: 28px;
+/* Floating close in the bottom-right corner — the same spot as the stack
+   that opened the gallery. */
+.closeFab {
+  position: fixed;
+  right: calc(16px + env(safe-area-inset-right));
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
-  border: none;
-  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   color: #fff;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 16px;
+  z-index: 32;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.closeFab:hover {
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .empty {
@@ -118,19 +106,41 @@
   margin: 24px 8px;
 }
 
+/* Masonry via CSS columns: cards keep their natural (varied) heights and
+   pack pinterest-style. */
 .grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 14px;
+  columns: 2;
+  column-gap: 14px;
   overflow-y: auto;
   padding: 2px;
+  flex: 1;
   -webkit-overflow-scrolling: touch;
+}
+
+@media (min-width: 600px) {
+  .grid {
+    columns: 3;
+  }
+}
+
+@media (min-width: 1000px) {
+  .grid {
+    columns: 4;
+  }
+}
+
+@media (min-width: 1400px) {
+  .grid {
+    columns: 5;
+  }
 }
 
 .card {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  break-inside: avoid;
+  margin-bottom: 16px;
 }
 
 .cardThumb {

@@ -10,6 +10,10 @@ interface GeometryTabsProps {
   onToggleRepeat?: () => void
   hardStops?: boolean
   onToggleHardStops?: () => void
+  smoothEnabled?: boolean
+  onToggleSmooth?: () => void
+  flutedEnabled?: boolean
+  onToggleFluted?: () => void
 }
 
 const TABS: { type: GradientType; label: string }[] = [
@@ -36,6 +40,10 @@ export function GeometryTabs({
   onToggleRepeat,
   hardStops = false,
   onToggleHardStops,
+  smoothEnabled = false,
+  onToggleSmooth,
+  flutedEnabled = false,
+  onToggleFluted,
 }: GeometryTabsProps) {
   const tabsRef = useRef<HTMLDivElement>(null)
 
@@ -91,6 +99,29 @@ export function GeometryTabs({
         onClick={onToggleHardStops}
       >
         Hard
+      </button>
+      {/* Smooth eases every blend segment, so it's meaningless only for the
+          solid-block Turrell squares and mutually exclusive with Hard. */}
+      <button
+        type="button"
+        data-testid="filter-smooth"
+        aria-pressed={smoothEnabled}
+        disabled={type === 'square' || hardStops}
+        className={smoothEnabled ? styles.tabActive : styles.tab}
+        onClick={onToggleSmooth}
+      >
+        Smooth
+      </button>
+      {/* The fluted overlay sits on top of whatever renders below, so unlike
+          repeat/hard it applies to every geometry type, square included. */}
+      <button
+        type="button"
+        data-testid="filter-fluted"
+        aria-pressed={flutedEnabled}
+        className={flutedEnabled ? styles.tabActive : styles.tab}
+        onClick={onToggleFluted}
+      >
+        Fluted
       </button>
     </div>
   )

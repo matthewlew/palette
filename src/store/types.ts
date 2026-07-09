@@ -16,6 +16,10 @@ export interface Gradient {
   // bands instead of a smooth blend.
   repeatEnabled?: boolean
   hardStops?: boolean
+  smoothEnabled?: boolean
+  // Fluted-glass overlay: vertical reeded-glass ribs rendered over the
+  // gradient (see components/FlutedOverlay).
+  flutedEnabled?: boolean
 }
 
 export type ViewMode = 'explore' | 'edit'

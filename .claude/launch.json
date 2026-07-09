@@ -7,6 +7,13 @@
       "runtimeArgs": ["run", "dev"],
       "port": 5173,
       "autoPort": true
+    },
+    {
+      "name": "sharing-worktree",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd .worktrees/sharing && npm run dev -- --port 5299 --strictPort"],
+      "port": 5299,
+      "autoPort": false
     }
   ]
 }

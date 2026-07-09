@@ -9,6 +9,9 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
+  /* translateZ(0) promotes each blurred layer to its own compositing layer,
+     so the GPU re-rasterizes it on content change instead of reusing a stale
+     texture whose edges bleed random colors until a resize forces a repaint. */
+  transform: translate(-50%, -50%) translateZ(0);
   filter: blur(24px);
 }

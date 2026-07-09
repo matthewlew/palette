@@ -1,3 +1,4 @@
+import type { GlassTone } from '../lib/glassTone'
 import styles from './LikeButton.module.css'
 
 interface LikeButtonProps {
@@ -5,19 +6,24 @@ interface LikeButtonProps {
   onToggle: () => void
   /** Fades the button out (and disables pointer events) while the user is idle. */
   hidden?: boolean
+  /** 'dark' flips the glass surface for legibility over bright backdrops. */
+  tone?: GlassTone
 }
 
 /** Persistent hollow/filled heart toggle, pinned to the bottom-right corner
  * of whatever positioned ancestor renders it (GradientPage's page div,
  * EditMode's preview div). Replaces the old double-tap-to-like gesture. */
-export function LikeButton({ liked, onToggle, hidden = false }: LikeButtonProps) {
+export function LikeButton({ liked, onToggle, hidden = false, tone = 'light' }: LikeButtonProps) {
+  const className = [styles.likeButton, hidden && styles.hidden, tone === 'dark' && 'glass-dark']
+    .filter(Boolean)
+    .join(' ')
   return (
     <button
       type="button"
       data-testid="like-button"
       aria-label={liked ? 'Unlike this gradient' : 'Like this gradient'}
       aria-pressed={liked}
-      className={hidden ? `${styles.likeButton} ${styles.hidden}` : styles.likeButton}
+      className={className}
       onPointerDown={(e) => e.stopPropagation()}
       onPointerUp={(e) => e.stopPropagation()}
       onClick={(e) => {

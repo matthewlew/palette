@@ -64,4 +64,11 @@
     overflow-x: visible;
     padding: 16px 20px;
   }
+
+  /* On desktop the wrapped grid is dense and pointer users can hover: the
+     name moves into a native tooltip (title attr on the swatch button)
+     instead of a label under every chip. */
+  .label {
+    display: none;
+  }
 }

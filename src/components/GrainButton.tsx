@@ -1,3 +1,4 @@
+import type { GlassTone } from '../lib/glassTone'
 import styles from './GrainButton.module.css'
 
 interface GrainButtonProps {
@@ -5,17 +6,22 @@ interface GrainButtonProps {
   onToggle: () => void
   /** Fades the button out alongside the rest of the chrome. */
   hidden?: boolean
+  /** 'dark' flips the glass surface for legibility over bright backdrops. */
+  tone?: GlassTone
 }
 
 /** Round toggle for the mono noise overlay, stacked above the like button. */
-export function GrainButton({ enabled, onToggle, hidden = false }: GrainButtonProps) {
+export function GrainButton({ enabled, onToggle, hidden = false, tone = 'light' }: GrainButtonProps) {
+  const className = [styles.grainButton, hidden && styles.hidden, tone === 'dark' && 'glass-dark']
+    .filter(Boolean)
+    .join(' ')
   return (
     <button
       type="button"
       data-testid="grain-button"
       aria-label="Toggle grain"
       aria-pressed={enabled}
-      className={hidden ? `${styles.grainButton} ${styles.hidden}` : styles.grainButton}
+      className={className}
       onPointerDown={(e) => e.stopPropagation()}
       onPointerUp={(e) => e.stopPropagation()}
       onClick={(e) => {

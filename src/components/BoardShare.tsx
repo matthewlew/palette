@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { encodeToFragment, toExportJson, toSharePayloadGradient } from '../lib/gradientCodec'
 import { useCopyFeedback } from '../hooks/useCopyFeedback'
+import type { GlassTone } from '../lib/glassTone'
 import type { Gradient } from '../store/types'
 import styles from './BoardShare.module.css'
 
@@ -8,6 +9,8 @@ interface BoardShareProps {
   saved: Gradient[]
   onImport: (jsonText: string) => void
   chromeVisible?: boolean
+  /** 'dark' flips the glass trigger for legibility over bright backdrops. */
+  tone?: GlassTone
 }
 
 function getShareLink(gradients: Gradient[]): string {
@@ -15,7 +18,7 @@ function getShareLink(gradients: Gradient[]): string {
   return `${window.location.origin}${window.location.pathname}#${fragment}`
 }
 
-export function BoardShare({ saved, onImport, chromeVisible = true }: BoardShareProps) {
+export function BoardShare({ saved, onImport, chromeVisible = true, tone = 'light' }: BoardShareProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [jsonModal, setJsonModal] = useState<'export' | 'import' | null>(null)
   const [importDraft, setImportDraft] = useState('')
@@ -95,7 +98,7 @@ export function BoardShare({ saved, onImport, chromeVisible = true }: BoardShare
     <div ref={menuRef} className={`${styles.container} ${!chromeVisible && !jsonModal ? styles.hidden : ''}`}>
       <button
         type="button"
-        className={styles.triggerButton}
+        className={tone === 'dark' ? `${styles.triggerButton} glass-dark` : styles.triggerButton}
         onClick={() => setIsOpen(!isOpen)}
         aria-label="Share options"
         aria-expanded={isOpen}
