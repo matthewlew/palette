@@ -28,6 +28,7 @@ interface AppState {
   toggleSaveGradient: (gradient: Gradient) => void
   enterEditMode: () => void
   exitEditMode: () => void
+  setMode: (mode: ViewMode) => void
   setActiveColorSet: (colorSet: ColorSet) => void
   setPendingImport: (gradients: Gradient[]) => void
   confirmImport: () => void
@@ -37,7 +38,7 @@ interface AppState {
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
-      mode: 'explore',
+      mode: 'create',
       current: null,
       saved: [],
       activeColorSet: DEFAULT_COLOR_SET,
@@ -103,7 +104,9 @@ export const useAppStore = create<AppState>()(
         }
       },
       enterEditMode: () => set({ mode: 'edit' }),
-      exitEditMode: () => set({ mode: 'explore' }),
+      // Edit is only reachable from create, so exiting always lands there.
+      exitEditMode: () => set({ mode: 'create' }),
+      setMode: (mode) => set({ mode }),
       setActiveColorSet: (colorSet) => set({ activeColorSet: colorSet }),
       setPendingImport: (gradients) => set({ pendingImport: gradients }),
       confirmImport: () => {

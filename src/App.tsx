@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
 import { useAppStore } from './store/useAppStore'
-import { Feed } from './components/Feed'
-import { Drawer } from './components/Drawer'
+import { Feed, riffIntoFeed } from './components/Feed'
+import { Gallery } from './components/Gallery'
+import { TabBar } from './components/TabBar'
 import { EditMode } from './components/EditMode'
 import { ImportBanner } from './components/ImportBanner'
 import { BoardShare } from './components/BoardShare'
@@ -18,6 +19,7 @@ export function App() {
   const pendingImport = useAppStore((s) => s.pendingImport)
   const setCurrentGradient = useAppStore((s) => s.setCurrentGradient)
   const exitEditMode = useAppStore((s) => s.exitEditMode)
+  const setMode = useAppStore((s) => s.setMode)
   const setPendingImport = useAppStore((s) => s.setPendingImport)
   const confirmImport = useAppStore((s) => s.confirmImport)
   const dismissImport = useAppStore((s) => s.dismissImport)
@@ -47,6 +49,16 @@ export function App() {
     history.replaceState(null, '', window.location.pathname + window.location.search)
   }
 
+  function handleRiff(gradient: Gradient) {
+    // Riff seeds the Create rolodex with the picked gradient (appending to
+    // the persistent session) and switches surfaces in one transition.
+    withViewTransition(() => {
+      riffIntoFeed(gradient)
+      setCurrentGradient(gradient)
+      setMode('create')
+    })
+  }
+
   if (mode === 'edit' && current) {
     return <EditMode gradient={current} onExit={() => withViewTransition(exitEditMode)} />
   }
@@ -56,18 +68,25 @@ export function App() {
       {pendingImport && (
         <ImportBanner count={pendingImport.length} onConfirm={handleConfirmImport} onDismiss={handleDismissImport} />
       )}
-      <BoardShare
-        saved={saved}
-        onImport={handleImportJson}
-        chromeVisible={chromeVisible}
-        tone={current ? glassToneAt(current, 0.94, 0.05) : 'light'}
-      />
-      <Feed chromeVisible={chromeVisible} />
-      <Drawer
-        hidden={!chromeVisible}
-        saved={saved}
-        onSelect={(gradient) => {
-          setCurrentGradient(gradient)
+      {mode === 'create' && (
+        <>
+          <BoardShare
+            saved={saved}
+            current={current}
+            onImport={handleImportJson}
+            chromeVisible={chromeVisible}
+            tone={current ? glassToneAt(current, 0.94, 0.05) : 'light'}
+          />
+          <Feed chromeVisible={chromeVisible} />
+        </>
+      )}
+      {mode === 'gallery' && <Gallery onRiff={handleRiff} />}
+      <TabBar
+        mode={mode}
+        hidden={mode === 'create' && !chromeVisible}
+        onChange={(next) => {
+          if (next === mode) return
+          withViewTransition(() => setMode(next))
         }}
       />
     </>
