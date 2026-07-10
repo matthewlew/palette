@@ -130,6 +130,31 @@ describe('isSharePayloadGradient hardening (via fromImportJson)', () => {
     ).toBeNull()
   })
 
+  it('rejects gradients with more than 32 stops', () => {
+    const tooManyStops = Array.from({ length: 33 }, (_, i) => ({
+      hex: '#ff0000',
+      position: Math.floor((i / 33) * 100),
+    }))
+    expect(fromImportJson(boardWith({ ...gradientA, stops: tooManyStops }))).toBeNull()
+  })
+
+  it('rejects names longer than 80 characters', () => {
+    const longName = 'a'.repeat(81)
+    expect(fromImportJson(boardWith({ ...gradientA, name: longName }))).toBeNull()
+  })
+
+  it('rejects boards with more than 50 gradients', () => {
+    const tooManyGradients = Array.from({ length: 51 }, () => gradientA)
+    const boardPayload = JSON.stringify({ kind: 'board', gradients: tooManyGradients })
+    expect(fromImportJson(boardPayload)).toBeNull()
+  })
+
+  it('rejects invalid optional flag types', () => {
+    expect(fromImportJson(boardWith({ ...gradientA, reversed: 'yes' }))).toBeNull()
+    expect(fromImportJson(boardWith({ ...gradientA, repeatEnabled: 1 }))).toBeNull()
+    expect(fromImportJson(boardWith({ ...gradientA, hardStops: null }))).toBeNull()
+  })
+
   it('still accepts a valid gradient', () => {
     expect(fromImportJson(boardWith(gradientA))).not.toBeNull()
   })
