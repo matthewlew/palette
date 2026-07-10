@@ -61,6 +61,7 @@ export function isSharePayloadGradient(value: unknown): value is SharePayloadGra
     // buildGradientCss asserts >= 2 stops, so anything shorter would render
     // fine in the import banner and then crash-loop the app once saved.
     v.stops.length >= 2 &&
+    v.stops.length <= 32 &&
     v.stops.every(
       (s) =>
         typeof s === 'object' &&
@@ -68,7 +69,11 @@ export function isSharePayloadGradient(value: unknown): value is SharePayloadGra
         isHexColor((s as Record<string, unknown>).hex) &&
         isStopPosition((s as Record<string, unknown>).position)
     ) &&
-    typeof v.name === 'string'
+    typeof v.name === 'string' &&
+    v.name.length <= 80 &&
+    (v.reversed === undefined || typeof v.reversed === 'boolean') &&
+    (v.repeatEnabled === undefined || typeof v.repeatEnabled === 'boolean') &&
+    (v.hardStops === undefined || typeof v.hardStops === 'boolean')
   )
 }
 
@@ -91,6 +96,7 @@ function isSharePayload(value: unknown): value is SharePayload {
   return (
     (v.kind === 'gradient' || v.kind === 'board') &&
     Array.isArray(v.gradients) &&
+    v.gradients.length <= 50 &&
     v.gradients.every(isSharePayloadGradient)
   )
 }
