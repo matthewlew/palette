@@ -32,6 +32,23 @@ export function toSharePayloadGradient(gradient: Gradient): SharePayloadGradient
   return out
 }
 
+/** Builds a fresh Gradient from an imported wire payload, copying only the
+ * known SharePayloadGradient fields — stale keys from old share links or
+ * exports (e.g. the removed smoothEnabled/flutedEnabled) never reach app
+ * state, which persists to localStorage. */
+export function importGradient(g: SharePayloadGradient): Gradient {
+  const out: Gradient = {
+    id: crypto.randomUUID(),
+    type: g.type,
+    stops: g.stops,
+    name: g.name,
+  }
+  if (g.reversed !== undefined) out.reversed = g.reversed
+  if (g.repeatEnabled !== undefined) out.repeatEnabled = g.repeatEnabled
+  if (g.hardStops !== undefined) out.hardStops = g.hardStops
+  return out
+}
+
 export function isSharePayloadGradient(value: unknown): value is SharePayloadGradient {
   if (typeof value !== 'object' || value === null) return false
   const v = value as Record<string, unknown>

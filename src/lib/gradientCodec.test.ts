@@ -4,7 +4,9 @@ import {
   decodeFromFragment,
   toExportJson,
   fromImportJson,
+  importGradient,
   type SharePayload,
+  type SharePayloadGradient,
 } from './gradientCodec'
 
 const gradientA = {
@@ -64,5 +66,32 @@ describe('gradientCodec JSON round-trip', () => {
     expect(fromImportJson(JSON.stringify({ foo: 'bar' }))).toBeNull()
     expect(fromImportJson(JSON.stringify({ kind: 'gradient' }))).toBeNull()
     expect(fromImportJson(JSON.stringify({ kind: 'nonsense', gradients: [] }))).toBeNull()
+  })
+})
+
+describe('importGradient', () => {
+  it('assigns a fresh id and copies the known wire fields', () => {
+    const g = importGradient({ ...gradientA, reversed: true, hardStops: true })
+    expect(g.id).toBeTruthy()
+    expect(g).toMatchObject({ ...gradientA, reversed: true, hardStops: true })
+    expect(importGradient(gradientA).id).not.toBe(g.id)
+  })
+
+  it('omits optional flags that are absent instead of writing undefined keys', () => {
+    const g = importGradient(gradientA)
+    expect('reversed' in g).toBe(false)
+    expect('repeatEnabled' in g).toBe(false)
+    expect('hardStops' in g).toBe(false)
+  })
+
+  it('strips unknown legacy fields from old payloads (e.g. smoothEnabled/flutedEnabled)', () => {
+    const legacy = {
+      ...gradientA,
+      smoothEnabled: true,
+      flutedEnabled: true,
+    } as SharePayloadGradient
+    const g = importGradient(legacy)
+    expect('smoothEnabled' in g).toBe(false)
+    expect('flutedEnabled' in g).toBe(false)
   })
 })
