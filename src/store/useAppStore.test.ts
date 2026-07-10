@@ -161,3 +161,23 @@ describe('useAppStore activeColorSet', () => {
     expect(new Set(ids).size).toBe(2)
   })
 })
+
+describe('persist migration', () => {
+  it('drops the removed smoothEnabled/flutedEnabled flags from v0 boards', async () => {
+    localStorage.setItem(
+      'palette-saved-gradients',
+      JSON.stringify({
+        state: {
+          saved: [{ ...sampleGradient, smoothEnabled: true, flutedEnabled: true }],
+          noiseEnabled: false,
+        },
+        version: 0,
+      })
+    )
+    await useAppStore.persist.rehydrate()
+    const saved = useAppStore.getState().saved
+    expect(saved).toHaveLength(1)
+    expect('smoothEnabled' in saved[0]).toBe(false)
+    expect('flutedEnabled' in saved[0]).toBe(false)
+  })
+})

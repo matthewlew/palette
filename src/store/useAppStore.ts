@@ -120,6 +120,23 @@ export const useAppStore = create<AppState>()(
     {
       name: 'palette-saved-gradients',
       partialize: (state) => ({ saved: state.saved, noiseEnabled: state.noiseEnabled }),
+      // v1 drops the removed smoothEnabled/flutedEnabled flags from boards
+      // persisted before those filters were deleted, so stale keys don't
+      // live in localStorage forever.
+      version: 1,
+      migrate: (persisted) => {
+        const state = persisted as { saved?: Gradient[]; noiseEnabled?: boolean }
+        if (Array.isArray(state.saved)) {
+          state.saved = state.saved.map((g) => {
+            const { smoothEnabled: _s, flutedEnabled: _f, ...rest } = g as Gradient & {
+              smoothEnabled?: boolean
+              flutedEnabled?: boolean
+            }
+            return rest
+          })
+        }
+        return state
+      },
     }
   )
 )
