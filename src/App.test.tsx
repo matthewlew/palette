@@ -116,4 +116,17 @@ describe('App import flow', () => {
 
     window.location.hash = ''
   })
+
+  it('renders a thumbnail in the TabBar Gallery button once a gradient is saved', () => {
+    render(<App />)
+
+    // Initially, no thumbnail
+    expect(screen.queryByTestId('tab-gallery-thumb')).not.toBeInTheDocument()
+
+    // Like/save current gradient
+    fireEvent.click(screen.getByTestId('like-button'))
+
+    // Now it should render the thumbnail
+    expect(screen.getByTestId('tab-gallery-thumb')).toBeInTheDocument()
+  })
 })

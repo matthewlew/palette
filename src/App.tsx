@@ -84,6 +84,7 @@ export function App() {
       <TabBar
         mode={mode}
         hidden={mode === 'create' && !chromeVisible}
+        recentGradient={saved.length > 0 ? saved[saved.length - 1] : null}
         onChange={(next) => {
           if (next === mode) return
           withViewTransition(() => setMode(next))
