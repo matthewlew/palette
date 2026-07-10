@@ -18,6 +18,6 @@ export interface Gradient {
   hardStops?: boolean
 }
 
-// 'create' is the home surface (the rolodex feed); 'gallery' is the
-// Yours • Inspiration browsing surface; 'edit' is reachable only from create.
+// 'create' is the home surface (the rolodex feed); 'gallery' is your saved
+// pins; 'edit' is reachable only from create.
 export type ViewMode = 'create' | 'gallery' | 'edit'
