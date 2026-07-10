@@ -1,6 +1,5 @@
 import type { Gradient } from '../store/types'
 import {
-  smoothenStops,
   repeatedStops,
   hardenStops,
   positionedStops,
@@ -10,7 +9,7 @@ import {
 /**
  * Renders the base gradient to a canvas context at specified width and height.
  * Handles Linear, Radial, Angular, Square, Mirror, and Repeat gradient types,
- * along with reverse, repeat, hard, and smooth filters.
+ * along with reverse, repeat, and hard filters.
  */
 export function renderGradientToCanvas(
   canvas: HTMLCanvasElement,
@@ -28,7 +27,6 @@ export function renderGradientToCanvas(
     reversed = false,
     repeatEnabled = false,
     hardStops = false,
-    smoothEnabled = false,
   } = gradient
 
   let stops = [...gradient.stops].sort((a, b) => a.position - b.position)
@@ -39,12 +37,7 @@ export function renderGradientToCanvas(
     stops = stops.map((s, i) => ({ hex: reversedHexes[i], position: s.position }))
   }
 
-  // 2. Apply smooth filter (doesn't apply to square)
-  if (smoothEnabled && !hardStops && type !== 'square') {
-    stops = smoothenStops(stops)
-  }
-
-  // 3. Apply repeat & hard filters (doesn't apply to square, mirror, repeat)
+  // 2. Apply repeat & hard filters (doesn't apply to square, mirror, repeat)
   if (type !== 'square' && type !== 'mirror' && type !== 'repeat') {
     if (repeatEnabled) stops = repeatedStops(stops)
     if (hardStops) stops = hardenStops(stops)

@@ -103,44 +103,12 @@ export function hardenStops(stops: GradientStop[]): GradientStop[] {
   }
   return result
 }
-function easeInOut(t: number): number {
-  return t * t * (3 - 2 * t)
-}
-
-/** Interior stops inserted between each adjacent pair when smoothing. */
-const SMOOTH_SUBDIVISIONS = 7
-
-/** Eases each segment between adjacent stops (the "easing linear gradients"
- * technique): original stops stay exactly where the user placed them, and
- * the inserted interior stops follow an ease-in-out curve blended in OKLCH,
- * removing the harsh linear-interpolation banding at every stop boundary. */
-export function smoothenStops(stops: GradientStop[]): GradientStop[] {
-  if (stops.length < 2) return stops
-  const sorted = [...stops].sort((a, b) => a.position - b.position)
-  const result: GradientStop[] = [{ ...sorted[0] }]
-  for (let i = 0; i < sorted.length - 1; i++) {
-    const a = sorted[i]
-    const b = sorted[i + 1]
-    for (let k = 1; k <= SMOOTH_SUBDIVISIONS; k++) {
-      const t = k / (SMOOTH_SUBDIVISIONS + 1)
-      result.push({
-        hex: blendOklchHex(a.hex, b.hex, easeInOut(t)),
-        position: Math.round((a.position + (b.position - a.position) * t) * 10) / 10,
-      })
-    }
-    result.push({ ...b })
-  }
-  return result
-}
-
 export interface GradientFilters {
   /** Cycles the stop sequence twice across the gradient, like the old
    * dedicated "repeat" type but layered on top of any geometry. */
   repeat?: boolean
   /** Renders solid color bands with hard cuts instead of smooth blends. */
   hard?: boolean
-  /** Smoothens the gradient transitions using an ease-in-out curve in OKLCH color space. */
-  smooth?: boolean
 }
 
 export function buildGradientCss(
@@ -151,10 +119,6 @@ export function buildGradientCss(
 ): string {
   assertStops(stops)
   let orderedStops = applyReversed(stops, reversed)
-
-  if (filters.smooth && !filters.hard && type !== 'square') {
-    orderedStops = smoothenStops(orderedStops)
-  }
 
   // Turrell squares are already solid, non-interpolated blocks, and mirror/
   // legacy-repeat build their own position sequence from raw hex order —

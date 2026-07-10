@@ -3,7 +3,6 @@ import type { Gradient } from '../store/types'
 import { buildGradientCss } from '../lib/gradient'
 import { downloadGradientAsPng } from '../lib/canvasExport'
 import { TurrellSquare } from './TurrellSquare'
-import { FlutedOverlay } from './FlutedOverlay'
 import styles from './ExportModal.module.css'
 
 interface ExportModalProps {
@@ -56,7 +55,6 @@ export function ExportModal({ gradient, onClose }: ExportModalProps) {
     : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
         repeat: gradient.repeatEnabled,
         hard: gradient.hardStops,
-        smooth: gradient.smoothEnabled,
       })
 
   async function handleExport(preset: ExportPreset) {
@@ -98,7 +96,6 @@ export function ExportModal({ gradient, onClose }: ExportModalProps) {
               style={{ backgroundImage: backgroundStyle }}
             >
               {isSquare && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} blurPx={8} />}
-              <FlutedOverlay visible={!!gradient.flutedEnabled} />
             </div>
             <span className={styles.previewName}>{gradient.name ?? 'Untitled'}</span>
             <span className={styles.previewMeta}>

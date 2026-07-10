@@ -5,7 +5,6 @@ import { namePalette } from '../lib/naming'
 import { glassToneAt } from '../lib/glassTone'
 import { TurrellSquare } from './TurrellSquare'
 import { PaletteTitle } from './PaletteTitle'
-import { FlutedOverlay } from './FlutedOverlay'
 import { LikeButton } from './LikeButton'
 import { GrainButton } from './GrainButton'
 import { NoiseOverlay } from './NoiseOverlay'
@@ -72,7 +71,6 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
             : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
                 repeat: gradient.repeatEnabled,
                 hard: gradient.hardStops,
-                smooth: gradient.smoothEnabled,
               }),
         touchAction: 'manipulation',
       }}
@@ -80,7 +78,6 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
       onPointerUp={handlePointerUp}
     >
       {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} />}
-      <FlutedOverlay visible={!!gradient.flutedEnabled} />
       <NoiseOverlay visible={noiseEnabled} />
       <PaletteTitle
         name={gradient.name ?? namePalette(gradient.stops.map((s) => s.hex))}

@@ -19,7 +19,6 @@ import { GrainButton } from './GrainButton'
 import { NoiseOverlay } from './NoiseOverlay'
 import { GeometryTabs } from './GeometryTabs'
 import { PaletteTitle } from './PaletteTitle'
-import { FlutedOverlay } from './FlutedOverlay'
 import { Drawer } from './Drawer'
 import { namePalette } from '../lib/naming'
 import { glassToneAt } from '../lib/glassTone'
@@ -383,9 +382,7 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   // positions the user has already dragged into place — only handle removal/
   // addition/sorting re-equalizes, since those change stop count or order.
   function commitPreservingPositions(
-    overrides: Partial<
-      Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops' | 'smoothEnabled' | 'flutedEnabled'>
-    >
+    overrides: Partial<Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops'>>
   ) {
     setCurrentGradient({
       ...gradient,
@@ -413,14 +410,6 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
 
   function handleToggleHardStops() {
     commitPreservingPositions({ hardStops: !gradient.hardStops })
-  }
-
-  function handleToggleSmooth() {
-    commitPreservingPositions({ smoothEnabled: !gradient.smoothEnabled })
-  }
-
-  function handleToggleFluted() {
-    commitPreservingPositions({ flutedEnabled: !gradient.flutedEnabled })
   }
 
   function isPointOverElement(point: { x: number; y: number }, el: HTMLElement): boolean {
@@ -520,7 +509,6 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
               : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
                   repeat: gradient.repeatEnabled,
                   hard: gradient.hardStops,
-                  smooth: gradient.smoothEnabled,
                 }),
         }}
         onPointerDown={handlePreviewPointerDown}
@@ -528,7 +516,6 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
       >
         <ScrollTicker index={tickerIndex} />
         {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} />}
-        <FlutedOverlay visible={!!gradient.flutedEnabled} />
         <NoiseOverlay visible={noiseEnabled} />
         <PaletteTitle
           name={gradient.name ?? namePalette(gradient.stops.map((s) => s.hex))}
@@ -565,10 +552,6 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
           onToggleRepeat={handleToggleRepeat}
           hardStops={gradient.hardStops}
           onToggleHardStops={handleToggleHardStops}
-          smoothEnabled={gradient.smoothEnabled}
-          onToggleSmooth={handleToggleSmooth}
-          flutedEnabled={gradient.flutedEnabled}
-          onToggleFluted={handleToggleFluted}
         />
         <div className={styles.blockArea}>
           <FlowEditor
