@@ -154,3 +154,31 @@ describe('Gallery JSON Import', () => {
     expect(importSpy).toHaveBeenCalledWith('{"gradients": []}')
   })
 })
+
+describe('Gallery layout switcher', () => {
+  it('toggles layout from grid to masonry and stores preference', () => {
+    // Start with grid layout
+    useAppStore.setState({ galleryLayout: 'grid' })
+
+    render(<Gallery onRiff={vi.fn()} />)
+
+    // Verify grid layout switcher buttons are in document
+    const gridBtn = screen.getByRole('button', { name: /Show grid layout/i })
+    const masonryBtn = screen.getByRole('button', { name: /Show Pinterest masonry layout/i })
+
+    expect(gridBtn).toBeInTheDocument()
+    expect(masonryBtn).toBeInTheDocument()
+
+    // Click masonry layout button
+    fireEvent.click(masonryBtn)
+
+    // Check store updated
+    expect(useAppStore.getState().galleryLayout).toBe('masonry')
+
+    // Click grid layout button
+    fireEvent.click(gridBtn)
+
+    // Check store updated
+    expect(useAppStore.getState().galleryLayout).toBe('grid')
+  })
+})
