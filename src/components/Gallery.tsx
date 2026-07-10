@@ -37,11 +37,14 @@ function Tile({
   gradient,
   onOpen,
   galleryLayout,
+  onRiff,
 }: {
   gradient: Gradient
   onOpen: (gradient: Gradient) => void
   galleryLayout: 'grid' | 'masonry'
+  onRiff: (gradient: Gradient) => void
 }) {
+  const shareFeedback = useCopyFeedback()
   // Deterministic aspect ratio based on ID length or character code sum
   const charCodeSum = gradient.id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0)
   const ratioIndex = charCodeSum % 3
@@ -64,6 +67,28 @@ function Tile({
         }}
       >
         {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} blurPx={6} />}
+        <div className={styles.tileHoverOverlay} onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            className={styles.tileHoverBtnActive}
+            onClick={(e) => {
+              e.stopPropagation()
+              onRiff(gradient)
+            }}
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            className={styles.tileHoverBtn}
+            onClick={(e) => {
+              e.stopPropagation()
+              shareFeedback.copy(shareLink(gradient))
+            }}
+          >
+            {shareFeedback.copied ? '✓ Copied' : 'Copy link'}
+          </button>
+        </div>
       </div>
       <div className={styles.tileMeta}>
         <span className={styles.tileName}>{gradient.name ?? 'Untitled'}</span>
@@ -407,6 +432,7 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
               gradient={gradient}
               onOpen={setOpen}
               galleryLayout={galleryLayout}
+              onRiff={onRiff}
             />
           ))}
         </div>

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, act } from '@testing-library/react'
+import { render, screen, fireEvent, act, within } from '@testing-library/react'
 import { App } from './App'
 import { useAppStore } from './store/useAppStore'
 import { resetFeedSession } from './components/Feed'
@@ -85,7 +85,8 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: /Saved Palette One/ }))
 
     // Click Edit
-    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    const viewer = screen.getByTestId('gallery-viewer')
+    fireEvent.click(within(viewer).getByRole('button', { name: 'Edit' }))
 
     // Verify we are in EditMode
     expect(screen.getByTestId('edit-mode')).toBeInTheDocument()
