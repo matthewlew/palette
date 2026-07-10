@@ -62,3 +62,65 @@ describe('Gallery component viewer interactions', () => {
     expect(screen.queryByTestId('gallery-viewer')).not.toBeInTheDocument()
   })
 })
+
+describe('Gallery grid keyboard navigation', () => {
+  const threeGradients: Gradient[] = [
+    {
+      id: 'g1',
+      type: 'linear',
+      stops: [{ hex: '#ff0000', position: 0 }, { hex: '#0000ff', position: 100 }],
+      name: 'Tile One',
+    },
+    {
+      id: 'g2',
+      type: 'linear',
+      stops: [{ hex: '#00ff00', position: 0 }, { hex: '#ffff00', position: 100 }],
+      name: 'Tile Two',
+    },
+    {
+      id: 'g3',
+      type: 'linear',
+      stops: [{ hex: '#00ffff', position: 0 }, { hex: '#ff00ff', position: 100 }],
+      name: 'Tile Three',
+    },
+  ]
+
+  beforeEach(() => {
+    useAppStore.setState({
+      saved: threeGradients,
+      mode: 'gallery',
+    })
+  })
+
+  it('navigates focus between grid items via arrow keys', () => {
+    render(<Gallery onRiff={vi.fn()} />)
+
+    const tile1 = screen.getByRole('button', { name: /Tile One/ })
+    const tile2 = screen.getByRole('button', { name: /Tile Two/ })
+    const tile3 = screen.getByRole('button', { name: /Tile Three/ })
+
+    // Focus first tile
+    tile1.focus()
+    expect(document.activeElement).toBe(tile1)
+
+    // Press ArrowRight to focus tile 2
+    fireEvent.keyDown(tile1, { key: 'ArrowRight' })
+    expect(document.activeElement).toBe(tile2)
+
+    // Press ArrowRight to focus tile 3
+    fireEvent.keyDown(tile2, { key: 'ArrowRight' })
+    expect(document.activeElement).toBe(tile3)
+
+    // Press ArrowLeft to focus tile 2 again
+    fireEvent.keyDown(tile3, { key: 'ArrowLeft' })
+    expect(document.activeElement).toBe(tile2)
+
+    // Press Home to focus tile 1
+    fireEvent.keyDown(tile2, { key: 'Home' })
+    expect(document.activeElement).toBe(tile1)
+
+    // Press End to focus tile 3
+    fireEvent.keyDown(tile1, { key: 'End' })
+    expect(document.activeElement).toBe(tile3)
+  })
+})
