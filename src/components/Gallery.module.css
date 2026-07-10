@@ -120,38 +120,42 @@
 }
 
 .tile {
-  position: relative;
-  aspect-ratio: 4 / 5;
   border: 0;
-  border-radius: 16px;
-  overflow: hidden;
-  cursor: pointer;
+  background: transparent;
   padding: 0;
-  display: block;
-  background-color: #26262c;
-  text-align: left;
-}
-
-.tileScrim {
-  position: absolute;
-  inset: auto 0 0 0;
+  cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 26px 12px 10px;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.7) 100%);
-  pointer-events: none;
+  gap: var(--space-xs);
+  text-align: left;
+  width: 100%;
+}
+
+.tilePreview {
+  width: 100%;
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  background-color: #26262c;
+  background-size: cover;
+  background-position: center;
+}
+
+.tileMeta {
+  padding: 0 var(--space-xs);
+  display: flex;
+  flex-direction: column;
 }
 
 .tileName {
-  color: #fff;
+  color: rgba(255, 255, 255, 0.9);
   font-family: var(--heading);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.01em;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .empty {
@@ -434,7 +438,8 @@
 
 .masonryTile {
   composes: tile;
-  display: inline-block;
+  display: inline-flex;
+  flex-direction: column;
   width: 100%;
   margin-bottom: var(--space-md);
   break-inside: avoid;

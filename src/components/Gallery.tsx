@@ -53,16 +53,21 @@ function Tile({
       data-testid="gallery-tile"
       className={galleryLayout === 'masonry' ? styles.masonryTile : styles.tile}
       aria-label={`${gradient.name ?? 'Untitled'}, ${gradient.type} gradient`}
-      style={{
-        backgroundImage: tileBackground(gradient),
-        aspectRatio: galleryLayout === 'masonry' ? aspectRatio : undefined,
-      }}
       onClick={() => onOpen(gradient)}
     >
-      {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} blurPx={6} />}
-      <span className={styles.tileScrim}>
+      <div
+        className={styles.tilePreview}
+        style={{
+          backgroundImage: tileBackground(gradient),
+          aspectRatio: galleryLayout === 'masonry' ? aspectRatio : '4 / 5',
+          viewTransitionName: `palette-card-${gradient.id}`,
+        }}
+      >
+        {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} blurPx={6} />}
+      </div>
+      <div className={styles.tileMeta}>
         <span className={styles.tileName}>{gradient.name ?? 'Untitled'}</span>
-      </span>
+      </div>
     </button>
   )
 }
