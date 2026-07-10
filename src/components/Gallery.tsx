@@ -177,14 +177,17 @@ function Viewer({ gradient, onClose, onRiff }: ViewerProps) {
 
 interface GalleryProps {
   onRiff: (gradient: Gradient) => void
+  onImport?: (jsonText: string) => void
 }
 
-export function Gallery({ onRiff }: GalleryProps) {
+export function Gallery({ onRiff, onImport }: GalleryProps) {
   const saved = useAppStore((s) => s.saved)
   const setMode = useAppStore((s) => s.setMode)
   const [typeFilter, setTypeFilter] = useState<GradientType | null>(null)
   const [hueFilter, setHueFilter] = useState<string | null>(null)
   const [open, setOpen] = useState<Gradient | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
+  const [importDraft, setImportDraft] = useState('')
   const galleryHint = useHint('gallery')
 
   // Visiting the Gallery answers the "Saved to your Gallery" hint forever.
@@ -251,6 +254,25 @@ export function Gallery({ onRiff }: GalleryProps) {
 
   return (
     <div data-testid="gallery" className={styles.container}>
+      <div className={styles.header}>
+        <h2 className={styles.title}>Gallery</h2>
+        <button
+          type="button"
+          className={styles.importButton}
+          onClick={() => {
+            setImportDraft('')
+            setImportOpen(true)
+          }}
+        >
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          Import JSON
+        </button>
+      </div>
+
       <div className={styles.chips}>
         <button
           type="button"
@@ -327,6 +349,43 @@ export function Gallery({ onRiff }: GalleryProps) {
       )}
 
       {open && <Viewer gradient={open} onClose={() => setOpen(null)} onRiff={onRiff} />}
+
+      {importOpen && (
+        <>
+          <div className={styles.modalBackdrop} onClick={() => setImportOpen(false)} />
+          <div
+            className={styles.modal}
+            role="dialog"
+            aria-label="Import board JSON"
+          >
+            <h3 className={styles.modalTitle}>Import JSON</h3>
+            <textarea
+              className={styles.jsonArea}
+              aria-label="Paste JSON here"
+              rows={10}
+              value={importDraft}
+              placeholder="Paste gradient or board JSON…"
+              onChange={(e) => setImportDraft(e.target.value)}
+            />
+            <div className={styles.modalActions}>
+              <button type="button" className={styles.modalButton} onClick={() => setImportOpen(false)}>
+                Close
+              </button>
+              <button
+                type="button"
+                className={styles.modalButtonPrimary}
+                disabled={importDraft.trim().length === 0}
+                onClick={() => {
+                  onImport?.(importDraft)
+                  setImportOpen(false)
+                }}
+              >
+                Import
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

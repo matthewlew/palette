@@ -264,3 +264,119 @@
   font-size: 14px;
   cursor: pointer;
 }
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-md);
+  padding: 0 var(--space-xs);
+  flex-shrink: 0;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0;
+  font-family: var(--heading);
+}
+
+.importButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-lg);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms ease, transform 100ms ease;
+  font-family: var(--sans);
+}
+
+.importButton:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.importButton:active {
+  transform: scale(0.96);
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 20;
+}
+
+.modal {
+  composes: glass-surface from global;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(480px, calc(100vw - 32px));
+  border-radius: 16px;
+  padding: 16px;
+  z-index: 21;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modalTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  text-align: left;
+  font-family: var(--heading);
+}
+
+.jsonArea {
+  width: 100%;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.modalButton,
+.modalButtonPrimary {
+  border-radius: 999px;
+  font-size: 13px;
+  padding: 8px 16px;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: transparent;
+  color: #fff;
+  font-family: var(--sans);
+  font-weight: 500;
+}
+
+.modalButtonPrimary {
+  background: rgba(255, 255, 255, 0.9);
+  color: #111;
+  font-weight: 600;
+}
+
+.modalButtonPrimary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

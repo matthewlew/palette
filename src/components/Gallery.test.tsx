@@ -124,3 +124,33 @@ describe('Gallery grid keyboard navigation', () => {
     expect(document.activeElement).toBe(tile3)
   })
 })
+
+describe('Gallery JSON Import', () => {
+  it('renders the Import JSON button and triggers onImport prop upon submitting modal', () => {
+    const importSpy = vi.fn()
+    render(<Gallery onRiff={vi.fn()} onImport={importSpy} />)
+
+    // Verify Import JSON button is visible
+    const importBtn = screen.getByRole('button', { name: /Import JSON/i })
+    expect(importBtn).toBeInTheDocument()
+
+    // Click to open the modal
+    fireEvent.click(importBtn)
+
+    // The modal text area and button should be visible
+    const textarea = screen.getByLabelText(/Paste JSON here/i)
+    expect(textarea).toBeInTheDocument()
+
+    const importSubmitBtn = screen.getByRole('button', { name: /^Import$/ })
+    expect(importSubmitBtn).toBeDisabled()
+
+    // Type draft JSON and submit
+    fireEvent.change(textarea, { target: { value: '{"gradients": []}' } })
+    expect(importSubmitBtn).not.toBeDisabled()
+
+    fireEvent.click(importSubmitBtn)
+
+    // Check if onImport was invoked
+    expect(importSpy).toHaveBeenCalledWith('{"gradients": []}')
+  })
+})

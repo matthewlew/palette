@@ -87,7 +87,7 @@ export function App() {
           <Feed chromeVisible={chromeVisible} />
         </>
       )}
-      {mode === 'gallery' && <Gallery onRiff={handleRiff} />}
+      {mode === 'gallery' && <Gallery onRiff={handleRiff} onImport={handleImportJson} />}
       <TabBar
         mode={mode}
         hidden={mode === 'create' && !chromeVisible}
