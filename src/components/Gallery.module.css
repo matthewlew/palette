@@ -5,14 +5,14 @@
   flex-direction: column;
   background: var(--surface, #101014);
   overflow-y: auto;
-  padding: max(14px, env(safe-area-inset-top)) 16px calc(90px + env(safe-area-inset-bottom));
+  padding: max(var(--space-md), env(safe-area-inset-top)) var(--space-lg) calc(90px + env(safe-area-inset-bottom));
 }
 
 .chips {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 2px 0 14px;
+  gap: var(--space-sm);
+  padding: 2px 0 var(--space-md);
   overflow-x: auto;
   scrollbar-width: none;
   flex-shrink: 0;
@@ -97,13 +97,13 @@
 .grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
+  gap: var(--space-md);
 }
 
 @media (min-width: 600px) {
   .grid {
     grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
+    gap: var(--space-xl);
   }
 }
 
