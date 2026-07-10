@@ -2,9 +2,10 @@
   display: grid;
   grid-auto-flow: column;
   grid-template-rows: repeat(2, auto);
-  gap: 8px 6px;
+  gap: var(--space-sm);
+  justify-items: center;
   overflow-x: auto;
-  padding: 8px 12px;
+  padding: var(--space-sm) var(--space-md);
 }
 
 .swatch,
@@ -12,7 +13,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-xs);
   width: 40px;
   border: none;
   background: none;
@@ -66,8 +67,10 @@
     grid-auto-flow: row;
     grid-template-rows: none;
     grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+    justify-items: center;
+    gap: var(--space-md);
     overflow-x: visible;
-    padding: 16px 20px;
+    padding: var(--space-lg) var(--space-xl);
   }
 
   /* On desktop the wrapped grid is dense and pointer users can hover: the
