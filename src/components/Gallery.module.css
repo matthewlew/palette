@@ -216,7 +216,7 @@
   flex-direction: column;
   gap: 10px;
   padding: 40px 22px calc(28px + env(safe-area-inset-bottom));
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.5) 55%);
+  background: transparent;
 }
 
 .viewerName {
@@ -245,28 +245,47 @@
 }
 
 .viewerPrimary {
-  min-height: 44px;
-  padding: 0 26px;
+  min-height: 40px;
+  padding: 0 24px;
   border-radius: 999px;
   border: 0;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.92);
   color: #111;
-  font-family: var(--heading);
-  font-size: 15px;
-  font-weight: 700;
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
+  transition: background 150ms ease, transform 100ms ease;
+}
+
+.viewerPrimary:hover {
+  background: #fff;
+}
+
+.viewerPrimary:active {
+  transform: scale(0.96);
 }
 
 .viewerAction {
-  min-height: 44px;
+  min-height: 40px;
   padding: 0 18px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.45);
-  background: rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: transparent;
   color: #fff;
-  font-size: 14px;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
+  transition: background 150ms ease, transform 100ms ease;
+}
+
+.viewerAction:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.viewerAction:active {
+  transform: scale(0.96);
 }
 
 .header {

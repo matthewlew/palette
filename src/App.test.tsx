@@ -84,8 +84,8 @@ describe('App', () => {
     // Open viewer
     fireEvent.click(screen.getByRole('button', { name: /Saved Palette One/ }))
 
-    // Click Riff
-    fireEvent.click(screen.getByRole('button', { name: 'Riff' }))
+    // Click Edit
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
 
     // Verify we are in EditMode
     expect(screen.getByTestId('edit-mode')).toBeInTheDocument()

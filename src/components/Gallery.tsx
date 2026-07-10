@@ -151,7 +151,7 @@ function Viewer({ gradient, onClose, onRiff }: ViewerProps) {
             className={styles.viewerPrimary}
             onClick={() => onRiff(gradient)}
           >
-            Riff
+            Edit
           </button>
           <button
             type="button"
