@@ -161,13 +161,14 @@ describe('EditMode', () => {
     expect(onExit).toHaveBeenCalledTimes(1)
   })
 
-  it('renders a LikeButton in the preview that toggles the saved state', () => {
+  it('renders a save button that toggles the saved state', () => {
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
-    const likeButton = screen.getByTestId('like-button')
-    expect(likeButton.getAttribute('aria-pressed')).toBe('false')
+    const saveButton = screen.getByTestId('save-btn')
+    expect(saveButton.textContent).toBe('Save to Gallery')
 
-    fireEvent.click(likeButton)
+    fireEvent.click(saveButton)
     expect(useAppStore.getState().saved).toHaveLength(1)
+    expect(saveButton.textContent).toBe('✓ Saved to Gallery')
   })
 
   it('tapping an unselected swatch appends a new stop', () => {

@@ -14,7 +14,6 @@ import {
 import { sortByOklch, type SortKey } from '../lib/sortColors'
 import { useHint } from '../hooks/useHint'
 import { Hint } from './Hint'
-import { LikeButton } from './LikeButton'
 import { GrainButton } from './GrainButton'
 import { NoiseOverlay } from './NoiseOverlay'
 import { GeometryTabs } from './GeometryTabs'
@@ -570,7 +569,6 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
           tone={titleTone}
         />
         <GrainButton enabled={noiseEnabled} onToggle={toggleNoise} tone={cornerTone} />
-        <LikeButton liked={isGradientSaved} onToggle={() => toggleSaveGradient(gradient)} tone={cornerTone} />
         <button
           type="button"
           data-testid="sort-fab"
@@ -619,6 +617,14 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
             activeStopId={activeStopId}
           />
         </div>
+        <button
+          type="button"
+          data-testid="save-btn"
+          className={isGradientSaved ? styles.saveButtonSaved : styles.saveButton}
+          onClick={() => toggleSaveGradient(gradient)}
+        >
+          {isGradientSaved ? '✓ Saved to Gallery' : 'Save to Gallery'}
+        </button>
         <SwatchTray
           colorSet={activeColorSet}
           stops={editableStops}
