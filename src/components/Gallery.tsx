@@ -196,6 +196,59 @@ export function Gallery({ onRiff }: GalleryProps) {
   const filtered = saved.filter((gradient) => matchesFilters(gradient, typeFilter, hueFilter))
   const hasFilters = typeFilter !== null || hueFilter !== null
 
+  const gridRef = useRef<HTMLDivElement>(null)
+
+  function handleGridKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    const active = document.activeElement as HTMLElement
+    if (!active || !gridRef.current || !gridRef.current.contains(active)) return
+
+    const tiles = Array.from(gridRef.current.querySelectorAll('.' + styles.tile)) as HTMLElement[]
+    const currentIndex = tiles.indexOf(active)
+    if (currentIndex === -1) return
+
+    // Calculate columns
+    let cols = 1
+    if (tiles.length > 1) {
+      const firstTop = tiles[0].getBoundingClientRect().top
+      for (let i = 1; i < tiles.length; i++) {
+        if (Math.abs(tiles[i].getBoundingClientRect().top - firstTop) < 2) {
+          cols++
+        } else {
+          break
+        }
+      }
+    }
+
+    let nextIndex = currentIndex
+    switch (e.key) {
+      case 'ArrowLeft':
+        nextIndex = currentIndex - 1
+        break
+      case 'ArrowRight':
+        nextIndex = currentIndex + 1
+        break
+      case 'ArrowUp':
+        nextIndex = currentIndex - cols
+        break
+      case 'ArrowDown':
+        nextIndex = currentIndex + cols
+        break
+      case 'Home':
+        nextIndex = 0
+        break
+      case 'End':
+        nextIndex = tiles.length - 1
+        break
+      default:
+        return // Let other keys propagate
+    }
+
+    if (nextIndex >= 0 && nextIndex < tiles.length) {
+      e.preventDefault()
+      tiles[nextIndex].focus()
+    }
+  }
+
   return (
     <div data-testid="gallery" className={styles.container}>
       <div className={styles.chips}>
@@ -266,7 +319,7 @@ export function Gallery({ onRiff }: GalleryProps) {
           )}
         </div>
       ) : (
-        <div className={styles.grid}>
+        <div ref={gridRef} onKeyDown={handleGridKeyDown} className={styles.grid}>
           {filtered.map((gradient) => (
             <Tile key={gradient.id} gradient={gradient} onOpen={setOpen} />
           ))}
