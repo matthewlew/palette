@@ -32,6 +32,8 @@ import { tickHaptic, primeHaptics } from '../lib/haptics'
 import type { Gradient } from '../store/types'
 import styles from './EditMode.module.css'
 
+const GEOMETRY_TYPES: GradientType[] = ['linear', 'radial', 'angular', 'square']
+
 // 'original' restores the order the stops had before any sorting (the saved
 // palette order, or whatever the user last arranged by hand).
 type OrderKey = SortKey | 'original'
@@ -320,33 +322,11 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
       }
     }
 
-    function handleKeyDown(e: KeyboardEvent) {
-      const target = e.target as HTMLElement
-      if (
-        target?.tagName === 'INPUT' ||
-        target?.tagName === 'TEXTAREA' ||
-        target?.isContentEditable
-      ) {
-        return
-      }
-
-      if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
-        e.preventDefault()
-        goTo(feedSession.index + 1)
-      } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
-        e.preventDefault()
-        if (feedSession.index > 0) {
-          goTo(feedSession.index - 1)
-        }
-      }
-    }
-
     el.addEventListener('wheel', handleWheel, { passive: false })
     el.addEventListener('touchstart', handleTouchStart, { passive: false })
     el.addEventListener('touchmove', handleTouchMove, { passive: false })
     el.addEventListener('touchend', handleTouchEnd, { passive: false })
     el.addEventListener('mousedown', handleMouseDown)
-    window.addEventListener('keydown', handleKeyDown)
 
     return () => {
       cancelMomentum()
@@ -357,9 +337,68 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
       el.removeEventListener('mousedown', handleMouseDown)
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseup', handleMouseUp)
-      window.removeEventListener('keydown', handleKeyDown)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const editableStopsRef = useRef(editableStops)
+  editableStopsRef.current = editableStops
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement
+      if (
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'TEXTAREA' ||
+        target?.isContentEditable
+      ) {
+        return
+      }
+
+      if (e.key === 'PageDown' || e.key === ' ') {
+        e.preventDefault()
+        goTo(feedSession.index + 1)
+      } else if (e.key === 'PageUp') {
+        e.preventDefault()
+        if (feedSession.index > 0) {
+          goTo(feedSession.index - 1)
+        }
+      } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        e.preventDefault()
+        const currentGrad = useAppStore.getState().current
+        if (currentGrad) {
+          const currentType = currentGrad.type
+          const currentIndex = GEOMETRY_TYPES.indexOf(currentType)
+          let nextIndex = currentIndex
+          if (e.key === 'ArrowRight') {
+            nextIndex = (currentIndex + 1) % GEOMETRY_TYPES.length
+          } else {
+            nextIndex = (currentIndex - 1 + GEOMETRY_TYPES.length) % GEOMETRY_TYPES.length
+          }
+          const nextType = GEOMETRY_TYPES[nextIndex]
+          setCurrentGradient({
+            ...currentGrad,
+            type: nextType,
+            stops: toGradientStops(editableStopsRef.current),
+          })
+        }
+      } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault()
+        const currentGrad = useAppStore.getState().current
+        if (currentGrad) {
+          setCurrentGradient({
+            ...currentGrad,
+            reversed: !currentGrad.reversed,
+            stops: toGradientStops(editableStopsRef.current),
+          })
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
   }, [])
 
   function commit(

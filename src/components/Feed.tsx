@@ -351,13 +351,41 @@ export function Feed({ chromeVisible = true }: FeedProps) {
         return
       }
 
-      if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
+      if (e.key === 'PageDown' || e.key === ' ') {
         e.preventDefault()
         goTo(feedSession.index + 1)
-      } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+      } else if (e.key === 'PageUp') {
         e.preventDefault()
         if (feedSession.index > 0) {
           goTo(feedSession.index - 1)
+        }
+      } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        e.preventDefault()
+        const currentGrad = feedSession.history[feedSession.index]
+        if (currentGrad) {
+          const currentType = currentGrad.type
+          const currentIndex = GEOMETRY_TYPES.indexOf(currentType)
+          let nextIndex = currentIndex
+          if (e.key === 'ArrowRight') {
+            nextIndex = (currentIndex + 1) % GEOMETRY_TYPES.length
+          } else {
+            nextIndex = (currentIndex - 1 + GEOMETRY_TYPES.length) % GEOMETRY_TYPES.length
+          }
+          const nextType = GEOMETRY_TYPES[nextIndex]
+          const updated = { ...currentGrad, type: nextType }
+          feedSession.history[feedSession.index] = updated
+          feedSession.lockedType = nextType
+          setDisplayed(updated)
+          setCurrentGradient(updated)
+        }
+      } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault()
+        const currentGrad = feedSession.history[feedSession.index]
+        if (currentGrad) {
+          const updated = { ...currentGrad, reversed: !currentGrad.reversed }
+          feedSession.history[feedSession.index] = updated
+          setDisplayed(updated)
+          setCurrentGradient(updated)
         }
       }
     }

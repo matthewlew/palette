@@ -485,4 +485,38 @@ describe('EditMode', () => {
     const updated = useAppStore.getState().current!
     expect(updated.stops).toHaveLength(2)
   })
+
+  it('cycles shapes and flips orientation via ArrowLeft/Right and ArrowUp/Down keys in EditMode', () => {
+    const custom: Gradient = {
+      id: 'g6',
+      type: 'linear',
+      stops: [
+        { hex: '#ff0000', position: 0 },
+        { hex: '#0000ff', position: 100 },
+      ],
+      reversed: false,
+    }
+    useAppStore.setState({ current: custom })
+    render(<EditMode gradient={custom} onExit={vi.fn()} />)
+
+    // Press ArrowRight to cycle type forward
+    fireEvent.keyDown(window, { key: 'ArrowRight' })
+    let updated = useAppStore.getState().current!
+    expect(updated.type).toBe('radial')
+
+    // Press ArrowLeft to cycle type backward
+    fireEvent.keyDown(window, { key: 'ArrowLeft' })
+    updated = useAppStore.getState().current!
+    expect(updated.type).toBe('linear')
+
+    // Press ArrowDown to flip orientation
+    fireEvent.keyDown(window, { key: 'ArrowDown' })
+    updated = useAppStore.getState().current!
+    expect(updated.reversed).toBe(true)
+
+    // Press ArrowUp to flip orientation back
+    fireEvent.keyDown(window, { key: 'ArrowUp' })
+    updated = useAppStore.getState().current!
+    expect(updated.reversed).toBe(false)
+  })
 })

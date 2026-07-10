@@ -436,12 +436,12 @@ describe('Feed', () => {
     expect(useAppStore.getState().current).toBe(edited)
   })
 
-  it('navigates forward and backward via keyboard arrow keys, Space, and PageUp/PageDown', () => {
+  it('navigates forward and backward via Space, PageDown, and PageUp', () => {
     render(<Feed />)
     const first = useAppStore.getState().current
     
-    // Press ArrowDown
-    fireEvent.keyDown(window, { key: 'ArrowDown' })
+    // Press PageDown
+    fireEvent.keyDown(window, { key: 'PageDown' })
     const second = useAppStore.getState().current
     expect(second).not.toEqual(first)
 
@@ -453,10 +453,36 @@ describe('Feed', () => {
     // Press PageUp
     fireEvent.keyDown(window, { key: 'PageUp' })
     expect(useAppStore.getState().current).toEqual(second)
+  })
 
-    // Press ArrowUp
+  it('cycles shapes and flips orientation via ArrowLeft/Right and ArrowUp/Down keys', () => {
+    render(<Feed />)
+    const initial = useAppStore.getState().current
+    expect(initial).toBeDefined()
+    const initialType = initial!.type
+    const initialReversed = initial!.reversed
+
+    // Press ArrowRight to cycle type forward
+    fireEvent.keyDown(window, { key: 'ArrowRight' })
+    const afterRight = useAppStore.getState().current
+    const GEOMETRY_TYPES = ['linear', 'radial', 'angular', 'square']
+    const nextType = GEOMETRY_TYPES[(GEOMETRY_TYPES.indexOf(initialType) + 1) % 4]
+    expect(afterRight!.type).toBe(nextType)
+
+    // Press ArrowLeft to cycle type backward
+    fireEvent.keyDown(window, { key: 'ArrowLeft' })
+    const afterLeft = useAppStore.getState().current
+    expect(afterLeft!.type).toBe(initialType)
+
+    // Press ArrowDown to flip orientation
+    fireEvent.keyDown(window, { key: 'ArrowDown' })
+    const afterDown = useAppStore.getState().current
+    expect(afterDown!.reversed).toBe(!initialReversed)
+
+    // Press ArrowUp to flip orientation back
     fireEvent.keyDown(window, { key: 'ArrowUp' })
-    expect(useAppStore.getState().current).toEqual(first)
+    const afterUp = useAppStore.getState().current
+    expect(afterUp!.reversed).toBe(initialReversed)
   })
 
   it('scrubs forward and backward via mouse click-and-drag events', () => {
