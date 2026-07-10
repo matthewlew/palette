@@ -129,4 +129,41 @@ describe('App import flow', () => {
     // Now it should render the thumbnail
     expect(screen.getByTestId('tab-gallery-thumb')).toBeInTheDocument()
   })
+
+  it('renders a toast notification once the import is confirmed', () => {
+    vi.useFakeTimers()
+    const payload = {
+      kind: 'board' as const,
+      gradients: [
+        {
+          type: 'linear' as const,
+          stops: [
+            { hex: '#ff0000', position: 0 },
+            { hex: '#0000ff', position: 100 },
+          ],
+          name: 'ImportedTest',
+        },
+      ],
+    }
+    const fragment = encodeToFragment(payload)
+    window.location.hash = `#${fragment}`
+
+    render(<App />)
+    expect(screen.getByTestId('import-banner')).toBeInTheDocument()
+
+    // Confirm the import
+    fireEvent.click(screen.getByText('Add to board'))
+
+    // The toast notification should appear
+    expect(screen.getByText('Imported 1 gradient to your Gallery!')).toBeInTheDocument()
+
+    // Fast-forward timers to check if the toast fades out
+    act(() => {
+      vi.advanceTimersByTime(2500)
+    })
+    expect(screen.queryByText('Imported 1 gradient to your Gallery!')).not.toBeInTheDocument()
+
+    window.location.hash = ''
+    vi.useRealTimers()
+  })
 })

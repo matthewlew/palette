@@ -1,5 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useAppStore } from './store/useAppStore'
+import { Hint } from './components/Hint'
 import { Feed, riffIntoFeed } from './components/Feed'
 import { Gallery } from './components/Gallery'
 import { TabBar } from './components/TabBar'
@@ -24,6 +25,7 @@ export function App() {
   const confirmImport = useAppStore((s) => s.confirmImport)
   const dismissImport = useAppStore((s) => s.dismissImport)
   const chromeVisible = useIdleFade()
+  const [toastText, setToastText] = useState<string | null>(null)
 
   useEffect(() => {
     const payload = decodeFromFragment(window.location.hash)
@@ -45,7 +47,12 @@ export function App() {
   }
 
   function handleConfirmImport() {
+    const count = pendingImport?.length ?? 0
     confirmImport()
+    setToastText(`Imported ${count} gradient${count === 1 ? '' : 's'} to your Gallery!`)
+    setTimeout(() => {
+      setToastText(null)
+    }, 2500)
     history.replaceState(null, '', window.location.pathname + window.location.search)
   }
 
@@ -90,6 +97,7 @@ export function App() {
           withViewTransition(() => setMode(next))
         }}
       />
+      {toastText && <Hint text={toastText} visible={!!toastText} />}
     </>
   )
 }
