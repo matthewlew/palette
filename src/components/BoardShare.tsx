@@ -167,17 +167,19 @@ export function BoardShare({ saved, current = null, onImport, chromeVisible = tr
             <span className={styles.menuItemText}>Export Image…</span>
             <span className={styles.menuItemHint}>Save wallpaper or story size</span>
           </button>
-          <button
-            type="button"
-            className={styles.menuItem}
-            onClick={() => current && curatedFeedback.copy(toCuratedEntryJson(current))}
-            disabled={!current}
-          >
-            <span className={styles.menuItemText}>
-              {curatedFeedback.copied ? '✓ Copied' : 'Copy as curated entry'}
-            </span>
-            <span className={styles.menuItemHint}>Ready to paste into curated.json</span>
-          </button>
+          {typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('curator') && (
+            <button
+              type="button"
+              className={styles.menuItem}
+              onClick={() => current && curatedFeedback.copy(toCuratedEntryJson(current))}
+              disabled={!current}
+            >
+              <span className={styles.menuItemText}>
+                {curatedFeedback.copied ? '✓ Copied' : 'Copy as curated entry'}
+              </span>
+              <span className={styles.menuItemHint}>Ready to paste into curated.json</span>
+            </button>
+          )}
         </div>
       )}
 
