@@ -380,3 +380,84 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.toggleGroup {
+  display: inline-flex;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 3px;
+  align-items: center;
+}
+
+.toggleBtn,
+.toggleBtnActive {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease, transform 100ms ease;
+}
+
+.toggleBtn:hover {
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.toggleBtnActive {
+  background: rgba(255, 255, 255, 0.9);
+  color: #111;
+}
+
+.toggleBtn:active,
+.toggleBtnActive:active {
+  transform: scale(0.92);
+}
+
+.masonryGrid {
+  column-count: 2;
+  column-gap: var(--space-md);
+  width: 100%;
+}
+
+.masonryTile {
+  composes: tile;
+  display: inline-block;
+  width: 100%;
+  margin-bottom: var(--space-md);
+  break-inside: avoid;
+}
+
+@media (min-width: 600px) {
+  .masonryGrid {
+    column-count: 3;
+    column-gap: var(--space-xl);
+  }
+  .masonryTile {
+    margin-bottom: var(--space-xl);
+  }
+}
+
+@media (min-width: 1000px) {
+  .masonryGrid {
+    column-count: 4;
+  }
+}
+
+@media (min-width: 1400px) {
+  .masonryGrid {
+    column-count: 5;
+  }
+}

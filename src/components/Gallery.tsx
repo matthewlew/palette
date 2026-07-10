@@ -33,14 +33,30 @@ function tileBackground(gradient: Gradient): string | undefined {
       })
 }
 
-function Tile({ gradient, onOpen }: { gradient: Gradient; onOpen: (gradient: Gradient) => void }) {
+function Tile({
+  gradient,
+  onOpen,
+  galleryLayout,
+}: {
+  gradient: Gradient
+  onOpen: (gradient: Gradient) => void
+  galleryLayout: 'grid' | 'masonry'
+}) {
+  // Deterministic aspect ratio based on ID length or character code sum
+  const charCodeSum = gradient.id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0)
+  const ratioIndex = charCodeSum % 3
+  const aspectRatio = ratioIndex === 0 ? '3 / 4' : ratioIndex === 1 ? '4 / 5' : '2 / 3'
+
   return (
     <button
       type="button"
       data-testid="gallery-tile"
-      className={styles.tile}
+      className={galleryLayout === 'masonry' ? styles.masonryTile : styles.tile}
       aria-label={`${gradient.name ?? 'Untitled'}, ${gradient.type} gradient`}
-      style={{ backgroundImage: tileBackground(gradient) }}
+      style={{
+        backgroundImage: tileBackground(gradient),
+        aspectRatio: galleryLayout === 'masonry' ? aspectRatio : undefined,
+      }}
       onClick={() => onOpen(gradient)}
     >
       {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} blurPx={6} />}
@@ -183,6 +199,8 @@ interface GalleryProps {
 export function Gallery({ onRiff, onImport }: GalleryProps) {
   const saved = useAppStore((s) => s.saved)
   const setMode = useAppStore((s) => s.setMode)
+  const galleryLayout = useAppStore((s) => s.galleryLayout)
+  const setGalleryLayout = useAppStore((s) => s.setGalleryLayout)
   const [typeFilter, setTypeFilter] = useState<GradientType | null>(null)
   const [hueFilter, setHueFilter] = useState<string | null>(null)
   const [open, setOpen] = useState<Gradient | null>(null)
@@ -256,21 +274,53 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
     <div data-testid="gallery" className={styles.container}>
       <div className={styles.header}>
         <h2 className={styles.title}>Gallery</h2>
-        <button
-          type="button"
-          className={styles.importButton}
-          onClick={() => {
-            setImportDraft('')
-            setImportOpen(true)
-          }}
-        >
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-          </svg>
-          Import JSON
-        </button>
+        <div className={styles.headerActions}>
+          <div className={styles.toggleGroup}>
+            <button
+              type="button"
+              className={galleryLayout === 'grid' ? styles.toggleBtnActive : styles.toggleBtn}
+              onClick={() => setGalleryLayout('grid')}
+              aria-label="Show grid layout"
+              title="Grid layout"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="7" height="7" />
+                <rect x="14" y="3" width="7" height="7" />
+                <rect x="14" y="14" width="7" height="7" />
+                <rect x="3" y="14" width="7" height="7" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className={galleryLayout === 'masonry' ? styles.toggleBtnActive : styles.toggleBtn}
+              onClick={() => setGalleryLayout('masonry')}
+              aria-label="Show Pinterest masonry layout"
+              title="Pinterest masonry layout"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="7" height="9" />
+                <rect x="14" y="3" width="7" height="5" />
+                <rect x="14" y="12" width="7" height="9" />
+                <rect x="3" y="16" width="7" height="5" />
+              </svg>
+            </button>
+          </div>
+          <button
+            type="button"
+            className={styles.importButton}
+            onClick={() => {
+              setImportDraft('')
+              setImportOpen(true)
+            }}
+          >
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Import JSON
+          </button>
+        </div>
       </div>
 
       <div className={styles.chips}>
@@ -341,9 +391,18 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
           )}
         </div>
       ) : (
-        <div ref={gridRef} onKeyDown={handleGridKeyDown} className={styles.grid}>
+        <div
+          ref={gridRef}
+          onKeyDown={handleGridKeyDown}
+          className={galleryLayout === 'masonry' ? styles.masonryGrid : styles.grid}
+        >
           {filtered.map((gradient) => (
-            <Tile key={gradient.id} gradient={gradient} onOpen={setOpen} />
+            <Tile
+              key={gradient.id}
+              gradient={gradient}
+              onOpen={setOpen}
+              galleryLayout={galleryLayout}
+            />
           ))}
         </div>
       )}

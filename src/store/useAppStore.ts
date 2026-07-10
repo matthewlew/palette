@@ -33,6 +33,8 @@ interface AppState {
   setPendingImport: (gradients: Gradient[]) => void
   confirmImport: () => void
   dismissImport: () => void
+  galleryLayout: 'grid' | 'masonry'
+  setGalleryLayout: (layout: 'grid' | 'masonry') => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -116,16 +118,22 @@ export const useAppStore = create<AppState>()(
         set({ pendingImport: null })
       },
       dismissImport: () => set({ pendingImport: null }),
+      galleryLayout: 'grid',
+      setGalleryLayout: (layout) => set({ galleryLayout: layout }),
     }),
     {
       name: 'palette-saved-gradients',
-      partialize: (state) => ({ saved: state.saved, noiseEnabled: state.noiseEnabled }),
+      partialize: (state) => ({
+        saved: state.saved,
+        noiseEnabled: state.noiseEnabled,
+        galleryLayout: state.galleryLayout,
+      }),
       // v1 drops the removed smoothEnabled/flutedEnabled flags from boards
       // persisted before those filters were deleted, so stale keys don't
       // live in localStorage forever.
       version: 1,
       migrate: (persisted) => {
-        const state = persisted as { saved?: Gradient[]; noiseEnabled?: boolean }
+        const state = persisted as { saved?: Gradient[]; noiseEnabled?: boolean; galleryLayout?: 'grid' | 'masonry' }
         if (Array.isArray(state.saved)) {
           state.saved = state.saved.map((g) => {
             const { smoothEnabled: _s, flutedEnabled: _f, ...rest } = g as Gradient & {
@@ -134,6 +142,9 @@ export const useAppStore = create<AppState>()(
             }
             return rest
           })
+        }
+        if (!state.galleryLayout) {
+          state.galleryLayout = 'grid'
         }
         return state
       },
