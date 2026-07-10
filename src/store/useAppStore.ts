@@ -57,7 +57,12 @@ export const useAppStore = create<AppState>()(
         // id across signature changes, so saving before and after an edit
         // would otherwise put two entries with the same id (= duplicate React
         // keys) into the drawer.
-        set({ saved: [...get().saved, { ...gradient, id: crypto.randomUUID(), name }] })
+        set({
+          saved: [
+            ...get().saved,
+            { ...gradient, id: crypto.randomUUID(), name, createdAt: Date.now() },
+          ],
+        })
       },
       isGradientSaved: (gradient) => {
         const signature = gradientSignature(gradient)
@@ -78,7 +83,12 @@ export const useAppStore = create<AppState>()(
         const index = saved.findIndex((g) => g.id === id)
         if (index === -1) return
         const original = saved[index]
-        const copy = { ...original, id: crypto.randomUUID(), name: `${original.name ?? 'Untitled'} Copy` }
+        const copy = {
+          ...original,
+          id: crypto.randomUUID(),
+          name: `${original.name ?? 'Untitled'} Copy`,
+          createdAt: Date.now(),
+        }
         set({ saved: [...saved.slice(0, index + 1), copy, ...saved.slice(index + 1)] })
       },
       renameSavedGradient: (id, name) => {

@@ -16,6 +16,7 @@ export interface Gradient {
   // bands instead of a smooth blend.
   repeatEnabled?: boolean
   hardStops?: boolean
+  createdAt?: number
 }
 
 // 'create' is the home surface (the rolodex feed); 'gallery' is your saved

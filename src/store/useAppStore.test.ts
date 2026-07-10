@@ -39,7 +39,7 @@ describe('useAppStore', () => {
     // Saved entries get a fresh id (see duplicate-key regression test below)
     // and a generated name (see naming tests below); everything else is
     // preserved verbatim.
-    const { id: _id, name: _name, ...savedRest } = useAppStore.getState().saved[0]
+    const { id: _id, name: _name, createdAt: _createdAt, ...savedRest } = useAppStore.getState().saved[0]
     const { id: _sampleId, ...sampleRest } = sampleGradient
     expect(savedRest).toEqual(sampleRest)
   })
