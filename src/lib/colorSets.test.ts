@@ -3,8 +3,8 @@ import { DEFAULT_COLOR_SET } from './colorSets'
 import { hexToOklch, oklchToHex } from './oklch'
 
 describe('DEFAULT_COLOR_SET', () => {
-  it('has exactly 60 colors', () => {
-    expect(DEFAULT_COLOR_SET.colors).toHaveLength(60)
+  it('has exactly 78 colors', () => {
+    expect(DEFAULT_COLOR_SET.colors).toHaveLength(78)
   })
 
   it('has unique names', () => {

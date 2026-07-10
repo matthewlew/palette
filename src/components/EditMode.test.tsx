@@ -33,7 +33,7 @@ describe('EditMode', () => {
     expect(screen.getByTestId('edit-mode-preview')).toBeInTheDocument()
     expect(screen.getByText('Linear')).toBeInTheDocument()
     expect(screen.getAllByTestId('flow-handle')).toHaveLength(3)
-    expect(screen.getAllByTestId('swatch').length).toBe(60)
+    expect(screen.getAllByTestId('swatch').length).toBe(78)
   })
 
   it('renders FlowEditor (not BlockWheel) for square/Turrell gradients', () => {
