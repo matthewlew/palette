@@ -15,6 +15,7 @@ interface BoardShareProps {
   chromeVisible?: boolean
   /** 'dark' flips the glass trigger for legibility over bright backdrops. */
   tone?: GlassTone
+  position?: 'fixed' | 'inline' | 'viewer'
 }
 
 function getShareLink(gradients: Gradient[]): string {
@@ -22,14 +23,28 @@ function getShareLink(gradients: Gradient[]): string {
   return `${window.location.origin}${window.location.pathname}#${fragment}`
 }
 
-export function BoardShare({ saved, current = null, onImport, chromeVisible = true, tone = 'light' }: BoardShareProps) {
+function getSingleShareLink(gradient: Gradient): string {
+  const fragment = encodeToFragment({ kind: 'gradient', gradients: [toSharePayloadGradient(gradient)] })
+  return `${window.location.origin}${window.location.pathname}#${fragment}`
+}
+
+export function BoardShare({
+  saved,
+  current = null,
+  onImport,
+  chromeVisible = true,
+  tone = 'light',
+  position = 'fixed',
+}: BoardShareProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [jsonModal, setJsonModal] = useState<'export' | 'import' | null>(null)
+  const [jsonModal, setJsonModal] = useState<'export-board' | 'export-single' | 'import' | null>(null)
   const [importDraft, setImportDraft] = useState('')
   const [exportOpen, setExportOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const shareFeedback = useCopyFeedback()
+  const shareSingleFeedback = useCopyFeedback()
   const jsonFeedback = useCopyFeedback()
+  const jsonSingleFeedback = useCopyFeedback()
   const curatedFeedback = useCopyFeedback()
 
   // Close dropdown on click outside
@@ -69,7 +84,6 @@ export function BoardShare({ saved, current = null, onImport, chromeVisible = tr
         setIsOpen(false)
         return
       } catch (err) {
-        // User cancelled or share failed, fallback to clipboard copy
         if ((err as Error).name !== 'AbortError') {
           console.error('Error sharing:', err)
         }
@@ -80,10 +94,41 @@ export function BoardShare({ saved, current = null, onImport, chromeVisible = tr
     shareFeedback.copy(link)
   }
 
+  async function handleShareSingle() {
+    if (!current) return
+    const link = getSingleShareLink(current)
+    const shareData = {
+      title: current.name ?? 'Gradient',
+      text: `Check out this gradient: ${current.name ?? ''}`,
+      url: link,
+    }
+
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      try {
+        await navigator.share(shareData)
+        setIsOpen(false)
+        return
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          console.error('Error sharing:', err)
+        }
+      }
+    }
+
+    // Fallback: Copy link
+    shareSingleFeedback.copy(link)
+  }
+
   function handleCopyJson() {
-    if (saved.length === 0) return
-    const json = toExportJson({ kind: 'board', gradients: saved.map(toSharePayloadGradient) })
-    jsonFeedback.copy(json)
+    if (jsonModal === 'export-single') {
+      if (!current) return
+      const json = toExportJson({ kind: 'gradient', gradients: [toSharePayloadGradient(current)] })
+      jsonSingleFeedback.copy(json)
+    } else {
+      if (saved.length === 0) return
+      const json = toExportJson({ kind: 'board', gradients: saved.map(toSharePayloadGradient) })
+      jsonFeedback.copy(json)
+    }
   }
 
   function handleImportClick() {
@@ -92,16 +137,19 @@ export function BoardShare({ saved, current = null, onImport, chromeVisible = tr
     setImportDraft('')
   }
 
-  function handleViewJson() {
-    if (saved.length === 0) return
-    setIsOpen(false)
-    setJsonModal('export')
-  }
-
   const hasSaved = saved.length > 0
+  const positionClass =
+    position === 'inline'
+      ? styles.inline
+      : position === 'viewer'
+      ? styles.viewer
+      : styles.fixed
 
   return (
-    <div ref={menuRef} className={`${styles.container} ${!chromeVisible && !jsonModal ? styles.hidden : ''}`}>
+    <div
+      ref={menuRef}
+      className={`${positionClass} ${!chromeVisible && !jsonModal ? styles.hidden : ''}`}
+    >
       <button
         type="button"
         className={tone === 'dark' ? `${styles.triggerButton} glass-dark` : styles.triggerButton}
@@ -138,15 +186,47 @@ export function BoardShare({ saved, current = null, onImport, chromeVisible = tr
             </span>
             <span className={styles.menuItemHint}>Rich preview link anyone can open</span>
           </button>
+
+          {current && (
+            <button
+              type="button"
+              className={styles.menuItem}
+              onClick={handleShareSingle}
+            >
+              <span className={styles.menuItemText}>
+                {shareSingleFeedback.copied ? 'Link Copied!' : 'Share Gradient Link'}
+              </span>
+              <span className={styles.menuItemHint}>Rich link to this single gradient</span>
+            </button>
+          )}
+
           <button
             type="button"
             className={styles.menuItem}
-            onClick={handleViewJson}
+            onClick={() => {
+              setIsOpen(false)
+              setJsonModal('export-board')
+            }}
             disabled={!hasSaved}
           >
-            <span className={styles.menuItemText}>Export JSON…</span>
-            <span className={styles.menuItemHint}>Raw data for backup or tools</span>
+            <span className={styles.menuItemText}>Export Board JSON…</span>
+            <span className={styles.menuItemHint}>Raw collection backup data</span>
           </button>
+
+          {current && (
+            <button
+              type="button"
+              className={styles.menuItem}
+              onClick={() => {
+                setIsOpen(false)
+                setJsonModal('export-single')
+              }}
+            >
+              <span className={styles.menuItemText}>Export Gradient JSON…</span>
+              <span className={styles.menuItemHint}>Raw single gradient data</span>
+            </button>
+          )}
+
           <button
             type="button"
             className={styles.menuItem}
@@ -155,6 +235,7 @@ export function BoardShare({ saved, current = null, onImport, chromeVisible = tr
             <span className={styles.menuItemText}>Import JSON…</span>
             <span className={styles.menuItemHint}>Paste a board or gradient export</span>
           </button>
+
           <button
             type="button"
             className={styles.menuItem}
@@ -167,6 +248,7 @@ export function BoardShare({ saved, current = null, onImport, chromeVisible = tr
             <span className={styles.menuItemText}>Export Image…</span>
             <span className={styles.menuItemHint}>Save wallpaper or story size</span>
           </button>
+
           {typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('curator') && (
             <button
               type="button"
@@ -190,30 +272,56 @@ export function BoardShare({ saved, current = null, onImport, chromeVisible = tr
             className={styles.modal}
             data-testid="json-modal"
             role="dialog"
-            aria-label={jsonModal === 'export' ? 'Export board JSON' : 'Import board JSON'}
+            aria-label={
+              jsonModal === 'export-board'
+                ? 'Export board JSON'
+                : jsonModal === 'export-single'
+                ? 'Export gradient JSON'
+                : 'Import JSON'
+            }
           >
-            <h3 className={styles.modalTitle}>{jsonModal === 'export' ? 'Board JSON' : 'Import JSON'}</h3>
+            <h3 className={styles.modalTitle}>
+              {jsonModal === 'export-board'
+                ? 'Board JSON'
+                : jsonModal === 'export-single'
+                ? 'Gradient JSON'
+                : 'Import JSON'}
+            </h3>
             <textarea
               className={styles.jsonArea}
-              aria-label={jsonModal === 'export' ? 'Board JSON' : 'Paste JSON here'}
+              aria-label={
+                jsonModal === 'export-board'
+                  ? 'Board JSON'
+                  : jsonModal === 'export-single'
+                  ? 'Gradient JSON'
+                  : 'Paste JSON here'
+              }
               rows={10}
-              readOnly={jsonModal === 'export'}
+              readOnly={jsonModal !== 'import'}
               value={
-                jsonModal === 'export'
+                jsonModal === 'export-board'
                   ? toExportJson({ kind: 'board', gradients: saved.map(toSharePayloadGradient) })
+                  : jsonModal === 'export-single' && current
+                  ? toExportJson({ kind: 'gradient', gradients: [toSharePayloadGradient(current)] })
                   : importDraft
               }
               placeholder={jsonModal === 'import' ? 'Paste gradient or board JSON…' : undefined}
               onChange={(e) => setImportDraft(e.target.value)}
-              onFocus={(e) => jsonModal === 'export' && e.currentTarget.select()}
+              onFocus={(e) => jsonModal !== 'import' && e.currentTarget.select()}
             />
             <div className={styles.modalActions}>
               <button type="button" className={styles.modalButton} onClick={() => setJsonModal(null)}>
                 Close
               </button>
-              {jsonModal === 'export' ? (
+              {jsonModal !== 'import' ? (
                 <button type="button" className={styles.modalButtonPrimary} onClick={handleCopyJson}>
-                  {jsonFeedback.copied ? '✓ Copied' : 'Copy JSON'}
+                  {jsonModal === 'export-single'
+                    ? jsonSingleFeedback.copied
+                      ? '✓ Copied'
+                      : 'Copy JSON'
+                    : jsonFeedback.copied
+                    ? '✓ Copied'
+                    : 'Copy JSON'}
                 </button>
               ) : (
                 <button
