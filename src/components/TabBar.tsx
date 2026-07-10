@@ -11,9 +11,16 @@ interface TabBarProps {
    * in Gallery it is always visible. */
   hidden?: boolean
   recentGradient?: Gradient | null
+  savedCount?: number
 }
 
-export function TabBar({ mode, onChange, hidden = false, recentGradient = null }: TabBarProps) {
+export function TabBar({
+  mode,
+  onChange,
+  hidden = false,
+  recentGradient = null,
+  savedCount = 0,
+}: TabBarProps) {
   const thumbStyle = recentGradient
     ? {
         backgroundImage:
@@ -60,7 +67,7 @@ export function TabBar({ mode, onChange, hidden = false, recentGradient = null }
               )}
             </span>
           )}
-          Gallery
+          Gallery {savedCount > 0 ? `(${savedCount})` : ''}
         </span>
       </button>
     </nav>

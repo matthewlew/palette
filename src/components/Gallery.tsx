@@ -8,7 +8,7 @@ import { useHint } from '../hooks/useHint'
 import { useAppStore } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
 import { TurrellSquare } from './TurrellSquare'
-import { ExportModal } from './ExportModal'
+import { BoardShare } from './BoardShare'
 import styles from './Gallery.module.css'
 
 const TYPE_CHIPS: GradientType[] = ['linear', 'radial', 'angular', 'square']
@@ -16,6 +16,12 @@ const TYPE_CHIPS: GradientType[] = ['linear', 'radial', 'angular', 'square']
 function shareLink(gradient: Gradient): string {
   const fragment = encodeToFragment({ kind: 'gradient', gradients: [toSharePayloadGradient(gradient)] })
   return `${window.location.origin}${window.location.pathname}#${fragment}`
+}
+
+function formatDate(timestamp?: number): string | null {
+  if (!timestamp) return null
+  const date = new Date(timestamp)
+  return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
 function matchesFilters(gradient: Gradient, type: GradientType | null, hue: string | null): boolean {
@@ -92,6 +98,9 @@ function Tile({
       </div>
       <div className={styles.tileMeta}>
         <span className={styles.tileName}>{gradient.name ?? 'Untitled'}</span>
+        {gradient.createdAt && (
+          <span className={styles.tileDate}>{formatDate(gradient.createdAt)}</span>
+        )}
       </div>
     </button>
   )
@@ -101,14 +110,14 @@ interface ViewerProps {
   gradient: Gradient
   onClose: () => void
   onRiff: (gradient: Gradient) => void
+  onImport: (jsonText: string) => void
 }
 
-function Viewer({ gradient, onClose, onRiff }: ViewerProps) {
+function Viewer({ gradient, onClose, onRiff, onImport }: ViewerProps) {
+  const saved = useAppStore((s) => s.saved)
   const renameSavedGradient = useAppStore((s) => s.renameSavedGradient)
   const removeSavedGradientById = useAppStore((s) => s.removeSavedGradientById)
-  const shareFeedback = useCopyFeedback()
   const [renaming, setRenaming] = useState(false)
-  const [exportOpen, setExportOpen] = useState(false)
   const [draft, setDraft] = useState(gradient.name ?? '')
   const touchStartYRef = useRef<number | null>(null)
 
@@ -149,6 +158,13 @@ function Viewer({ gradient, onClose, onRiff }: ViewerProps) {
       <button type="button" className={styles.viewerClose} aria-label="Close" onClick={(e) => { e.stopPropagation(); onClose(); }}>
         ✕
       </button>
+      <BoardShare
+        saved={saved}
+        current={gradient}
+        onImport={onImport}
+        position="viewer"
+        tone="dark"
+      />
       <div className={styles.viewerPanel} onClick={(e) => e.stopPropagation()}>
         {renaming ? (
           <input
@@ -168,7 +184,12 @@ function Viewer({ gradient, onClose, onRiff }: ViewerProps) {
             }}
           />
         ) : (
-          <h2 className={styles.viewerName}>{gradient.name ?? 'Untitled'}</h2>
+          <div>
+            <h2 className={styles.viewerName}>{gradient.name ?? 'Untitled'}</h2>
+            {gradient.createdAt && (
+              <span className={styles.viewerDate}>Saved on {formatDate(gradient.createdAt)}</span>
+            )}
+          </div>
         )}
         <div className={styles.viewerActions}>
           <button
@@ -177,20 +198,6 @@ function Viewer({ gradient, onClose, onRiff }: ViewerProps) {
             onClick={() => onRiff(gradient)}
           >
             Edit
-          </button>
-          <button
-            type="button"
-            className={styles.viewerAction}
-            onClick={() => shareFeedback.copy(shareLink(gradient))}
-          >
-            {shareFeedback.copied ? '✓ Copied' : 'Share'}
-          </button>
-          <button
-            type="button"
-            className={styles.viewerAction}
-            onClick={() => setExportOpen(true)}
-          >
-            Export
           </button>
           <button
             type="button"
@@ -214,9 +221,6 @@ function Viewer({ gradient, onClose, onRiff }: ViewerProps) {
           </button>
         </div>
       </div>
-      {exportOpen && (
-        <ExportModal gradient={gradient} onClose={() => setExportOpen(false)} />
-      )}
     </div>
   )
 }
@@ -234,8 +238,6 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
   const [typeFilter, setTypeFilter] = useState<GradientType | null>(null)
   const [hueFilter, setHueFilter] = useState<string | null>(null)
   const [open, setOpen] = useState<Gradient | null>(null)
-  const [importOpen, setImportOpen] = useState(false)
-  const [importDraft, setImportDraft] = useState('')
   const galleryHint = useHint('gallery')
 
   // Visiting the Gallery answers the "Saved to your Gallery" hint forever.
@@ -303,7 +305,9 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
   return (
     <div data-testid="gallery" className={styles.container}>
       <div className={styles.header}>
-        <h2 className={styles.title}>Gallery</h2>
+        <h2 className={styles.title}>
+          Gallery <span className={styles.titleCount}>({saved.length})</span>
+        </h2>
         <div className={styles.headerActions}>
           <div className={styles.toggleGroup}>
             <button
@@ -335,21 +339,12 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
               </svg>
             </button>
           </div>
-          <button
-            type="button"
-            className={styles.importButton}
-            onClick={() => {
-              setImportDraft('')
-              setImportOpen(true)
-            }}
-          >
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            Import JSON
-          </button>
+          <BoardShare
+            saved={saved}
+            onImport={onImport ?? (() => {})}
+            position="inline"
+            tone="light"
+          />
         </div>
       </div>
 
@@ -438,43 +433,13 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
         </div>
       )}
 
-      {open && <Viewer gradient={open} onClose={() => setOpen(null)} onRiff={onRiff} />}
-
-      {importOpen && (
-        <>
-          <div className={styles.modalBackdrop} onClick={() => setImportOpen(false)} />
-          <div
-            className={styles.modal}
-            role="dialog"
-            aria-label="Import board JSON"
-          >
-            <h3 className={styles.modalTitle}>Import JSON</h3>
-            <textarea
-              className={styles.jsonArea}
-              aria-label="Paste JSON here"
-              rows={10}
-              value={importDraft}
-              placeholder="Paste gradient or board JSON…"
-              onChange={(e) => setImportDraft(e.target.value)}
-            />
-            <div className={styles.modalActions}>
-              <button type="button" className={styles.modalButton} onClick={() => setImportOpen(false)}>
-                Close
-              </button>
-              <button
-                type="button"
-                className={styles.modalButtonPrimary}
-                disabled={importDraft.trim().length === 0}
-                onClick={() => {
-                  onImport?.(importDraft)
-                  setImportOpen(false)
-                }}
-              >
-                Import
-              </button>
-            </div>
-          </div>
-        </>
+      {open && (
+        <Viewer
+          gradient={open}
+          onClose={() => setOpen(null)}
+          onRiff={onRiff}
+          onImport={onImport ?? (() => {})}
+        />
       )}
     </div>
   )

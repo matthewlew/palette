@@ -66,14 +66,17 @@ export function App() {
     })
   }
 
-  if (mode === 'edit' && current) {
-    return <EditMode gradient={current} onExit={() => withViewTransition(exitEditMode)} />
-  }
-
   return (
     <>
       {pendingImport && (
         <ImportBanner count={pendingImport.length} onConfirm={handleConfirmImport} onDismiss={handleDismissImport} />
+      )}
+      {mode === 'edit' && current && (
+        <EditMode
+          gradient={current}
+          onExit={() => withViewTransition(exitEditMode)}
+          onImport={handleImportJson}
+        />
       )}
       {mode === 'create' && (
         <>
@@ -89,11 +92,15 @@ export function App() {
       )}
       {mode === 'gallery' && <Gallery onRiff={handleRiff} onImport={handleImportJson} />}
       <TabBar
-        mode={mode}
-        hidden={mode === 'create' && !chromeVisible}
+        mode={mode === 'edit' ? 'create' : mode}
+        hidden={(mode === 'create' && !chromeVisible) || (mode === 'edit' && !chromeVisible)}
         recentGradient={saved.length > 0 ? saved[saved.length - 1] : null}
+        savedCount={saved.length}
         onChange={(next) => {
           if (next === mode) return
+          if (mode === 'edit') {
+            exitEditMode()
+          }
           withViewTransition(() => setMode(next))
         }}
       />

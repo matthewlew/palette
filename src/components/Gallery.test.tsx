@@ -126,19 +126,22 @@ describe('Gallery grid keyboard navigation', () => {
 })
 
 describe('Gallery JSON Import', () => {
-  it('renders the Import JSON button and triggers onImport prop upon submitting modal', () => {
+  it('renders the share options button, opens the import modal, and triggers onImport prop upon submitting', () => {
     const importSpy = vi.fn()
     render(<Gallery onRiff={vi.fn()} onImport={importSpy} />)
 
-    // Verify Import JSON button is visible
-    const importBtn = screen.getByRole('button', { name: /Import JSON/i })
-    expect(importBtn).toBeInTheDocument()
+    // Click share trigger
+    const shareTrigger = screen.getByRole('button', { name: /share options/i })
+    expect(shareTrigger).toBeInTheDocument()
+    fireEvent.click(shareTrigger)
 
-    // Click to open the modal
+    // Click "Import JSON..." menu item
+    const importBtn = screen.getByRole('button', { name: /import json/i })
+    expect(importBtn).toBeInTheDocument()
     fireEvent.click(importBtn)
 
     // The modal text area and button should be visible
-    const textarea = screen.getByLabelText(/Paste JSON here/i)
+    const textarea = screen.getByPlaceholderText(/Paste gradient or board JSON…/i)
     expect(textarea).toBeInTheDocument()
 
     const importSubmitBtn = screen.getByRole('button', { name: /^Import$/ })

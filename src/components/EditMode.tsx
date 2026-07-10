@@ -19,6 +19,7 @@ import { NoiseOverlay } from './NoiseOverlay'
 import { GeometryTabs } from './GeometryTabs'
 import { PaletteTitle } from './PaletteTitle'
 import { Drawer } from './Drawer'
+import { BoardShare } from './BoardShare'
 import { namePalette } from '../lib/naming'
 import { glassToneAt } from '../lib/glassTone'
 import { FlowEditor } from './FlowEditor'
@@ -47,9 +48,10 @@ const ORDER_LABELS: Record<OrderKey, string> = {
 interface EditModeProps {
   gradient: Gradient
   onExit: () => void
+  onImport?: (jsonText: string) => void
 }
 
-export function EditMode({ gradient, onExit }: EditModeProps) {
+export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProps) {
   const setCurrentGradient = useAppStore((s) => s.setCurrentGradient)
   const activeColorSet = useAppStore((s) => s.activeColorSet)
   const saved = useAppStore((s) => s.saved)
@@ -544,6 +546,12 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
           <path d="M15 5l-7 7 7 7" />
         </svg>
       </button>
+      <BoardShare
+        saved={saved}
+        current={gradient}
+        onImport={onImport}
+        tone={backTone}
+      />
       <div
         data-testid="edit-mode-preview"
         ref={previewRef}

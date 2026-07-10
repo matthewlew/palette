@@ -35,7 +35,7 @@ describe('App', () => {
     render(<App />)
 
     fireEvent.click(screen.getByTestId('like-button'))
-    fireEvent.click(screen.getByText('Gallery'))
+    fireEvent.click(screen.getByRole('button', { name: /Gallery/ }))
 
     expect(screen.getAllByTestId('gallery-tile')).toHaveLength(1)
   })
