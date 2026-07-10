@@ -68,6 +68,7 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   const previewRef = useRef<HTMLDivElement>(null)
   const onExitRef = useRef(onExit)
   onExitRef.current = onExit
+  const [activeStopId, setActiveStopId] = useState<string | null>(null)
   const editHint = useHint('edit')
 
   // Per-corner glass tones so each floating control flips dark only when the
@@ -93,6 +94,7 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
     setActiveOrder('original')
     setTickerIndex(feedSession.index)
     feedSession.lockedType = gradient.type
+    setActiveStopId(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gradient.id, gradient.type])
 
@@ -393,6 +395,9 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
 
   function handleRemove(id: string) {
     if (editableStops.length <= 2) return
+    if (activeStopId === id) {
+      setActiveStopId(null)
+    }
     commit(removeStopAt(editableStops, id))
   }
 
@@ -425,7 +430,12 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   }
 
   function handleTapAdd(hex: string) {
-    commit(addStop(editableStops, hex))
+    if (activeStopId) {
+      const updated = editableStops.map((s) => (s.id === activeStopId ? { ...s, hex } : s))
+      commit(updated)
+    } else {
+      commit(addStop(editableStops, hex))
+    }
   }
 
   function handleTapRemove(hex: string) {
@@ -447,10 +457,8 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
     setActiveOrder(next)
   }
 
-  function handleTapStop(_id: string) {
-    // Placeholder hook for a future "tap to change color" UI. No such UI
-    // exists yet in this codebase (BlockStack never wired one either), so
-    // this intentionally does nothing until that flow is built.
+  function handleTapStop(id: string) {
+    setActiveStopId(activeStopId === id ? null : id)
   }
 
   // Exit-on-tap for the preview, with two guards: taps on child buttons
@@ -536,7 +544,16 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
           Order: {ORDER_LABELS[activeOrder]}
         </button>
       </div>
-      <div data-testid="edit-sheet" ref={sheetRef} className={styles.sheet}>
+      <div
+        data-testid="edit-sheet"
+        ref={sheetRef}
+        className={styles.sheet}
+        onPointerDown={(e) => {
+          if (e.target === e.currentTarget) {
+            setActiveStopId(null)
+          }
+        }}
+      >
         <button
           type="button"
           data-testid="sheet-handle"
@@ -560,6 +577,7 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
             onTapStop={handleTapStop}
             onRemoveStop={handleRemove}
             containerRef={blockContainerRef}
+            activeStopId={activeStopId}
           />
         </div>
         <SwatchTray
@@ -568,6 +586,7 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
           onTapAdd={handleTapAdd}
           onTapRemove={handleTapRemove}
           onDragAdd={handleDragAddFromTray}
+          activeStopHex={editableStops.find((s) => s.id === activeStopId)?.hex ?? null}
         />
       </div>
       {editHint.visible && <Hint text="Tap a swatch to edit" visible={editHint.visible} />}

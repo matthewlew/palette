@@ -11,9 +11,10 @@ interface FlowEditorProps {
   onTapStop: (id: string) => void
   onRemoveStop?: (id: string) => void
   containerRef?: RefObject<HTMLDivElement>
+  activeStopId?: string | null
 }
 
-export function FlowEditor({ stops, onMove, onTapStop, onRemoveStop, containerRef }: FlowEditorProps) {
+export function FlowEditor({ stops, onMove, onTapStop, onRemoveStop, containerRef, activeStopId }: FlowEditorProps) {
   const internalRef = useRef<HTMLDivElement>(null)
   const trackRef = containerRef ?? (internalRef as RefObject<HTMLDivElement>)
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null)
@@ -75,6 +76,9 @@ export function FlowEditor({ stops, onMove, onTapStop, onRemoveStop, containerRe
       onMove(stop.id, stop.position - step)
     } else if (e.key === 'ArrowRight') {
       onMove(stop.id, stop.position + step)
+    } else if (e.key === 'Backspace' || e.key === 'Delete') {
+      e.preventDefault()
+      onRemoveStop?.(stop.id)
     }
   }
 
@@ -97,12 +101,16 @@ export function FlowEditor({ stops, onMove, onTapStop, onRemoveStop, containerRe
           aria-orientation="horizontal"
           aria-label={`Stop ${stop.hex}`}
           data-testid="flow-handle"
-          className={styles.handle}
+          className={stop.id === activeStopId ? `${styles.handle} ${styles.handleActive}` : styles.handle}
           style={{
             left: `${stop.position}%`,
             backgroundColor: stop.hex,
             opacity: removeCandidateId === stop.id ? 0.35 : 1,
-            transform: removeCandidateId === stop.id ? 'translate(-50%, -50%) scale(0.8)' : undefined,
+            transform: removeCandidateId === stop.id
+              ? 'translate(-50%, -50%) scale(0.8)'
+              : stop.id === activeStopId
+              ? 'translate(-50%, -50%) scale(1.15)'
+              : undefined,
           }}
           onPointerDown={(e) => handlePointerDown(e, stop.id)}
           onPointerUp={(e) => handlePointerUp(e, stop.id)}

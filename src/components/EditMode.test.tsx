@@ -429,4 +429,60 @@ describe('EditMode', () => {
     expect(onExit).not.toHaveBeenCalled()
     expect(sheet.style.height).toBe('')
   })
+
+  it('tapping a stop handle selects it, and tapping a swatch replaces its color in-place', () => {
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    const handle = screen.getAllByTestId('flow-handle')[0]
+    expect(handle).toBeInTheDocument()
+
+    // Tap the handle
+    fireEvent.pointerDown(handle, { clientX: 0, clientY: 0 })
+    fireEvent.pointerUp(handle, { clientX: 0, clientY: 0 })
+
+    // Check if it is selected (has active class)
+    expect(handle.className).toContain('handleActive')
+
+    // Tap a swatch (e.g. index 5)
+    const swatch = screen.getAllByTestId('swatch')[5]
+    fireEvent.pointerDown(swatch, { clientX: 0, clientY: 0 })
+    fireEvent.pointerUp(swatch, { clientX: 0, clientY: 0 })
+
+    // Verify that the color of the first stop has been updated to match the swatch's color
+    const updated = useAppStore.getState().current!
+    expect(updated.stops[0].hex).not.toBe('#ff0000') // Initially #ff0000
+    
+    // Tapping again outside (on the sheet background) should clear the selection
+    const sheet = screen.getByTestId('edit-sheet')
+    fireEvent.pointerDown(sheet)
+    expect(handle.className).not.toContain('handleActive')
+  })
+
+  it('pressing Backspace or Delete on the selected stop handle removes the stop', () => {
+    const custom: Gradient = {
+      id: 'g5',
+      type: 'linear',
+      stops: [
+        { hex: '#ff0000', position: 0 },
+        { hex: '#00ff00', position: 50 },
+        { hex: '#0000ff', position: 100 },
+      ],
+      reversed: false,
+    }
+    useAppStore.setState({ current: custom })
+    render(<EditMode gradient={custom} onExit={vi.fn()} />)
+
+    const handles = screen.getAllByTestId('flow-handle')
+    expect(handles).toHaveLength(3)
+
+    // Select second handle
+    fireEvent.pointerDown(handles[1], { clientX: 0, clientY: 0 })
+    fireEvent.pointerUp(handles[1], { clientX: 0, clientY: 0 })
+
+    // Press Backspace
+    fireEvent.keyDown(handles[1], { key: 'Backspace' })
+
+    // Verify stop is removed
+    const updated = useAppStore.getState().current!
+    expect(updated.stops).toHaveLength(2)
+  })
 })

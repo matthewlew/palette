@@ -35,6 +35,11 @@
   outline-offset: 2px;
 }
 
+.swatchActiveStop .swatchColor {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--text, #fff);
+  transform: scale(1.08);
+}
+
 .checkmark {
   position: absolute;
   bottom: -4px;

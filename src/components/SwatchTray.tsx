@@ -14,9 +14,10 @@ interface SwatchTrayProps {
   onTapRemove: (hex: string) => void
   onDragAdd: (hex: string, point: { x: number; y: number }) => void
   onDragMove?: (point: { x: number; y: number }) => void
+  activeStopHex?: string | null
 }
 
-export function SwatchTray({ colorSet, stops, onTapAdd, onTapRemove, onDragAdd, onDragMove }: SwatchTrayProps) {
+export function SwatchTray({ colorSet, stops, onTapAdd, onTapRemove, onDragAdd, onDragMove, activeStopHex }: SwatchTrayProps) {
   // Set once a 150ms hold has elapsed without a pointerup: distinguishes a
   // press-and-drag from a plain tap, same threshold as BlockStack/BlockWheel
   // reordering.
@@ -137,6 +138,7 @@ export function SwatchTray({ colorSet, stops, onTapAdd, onTapRemove, onDragAdd, 
       {colorSet.colors.map((color) => {
         const hex = oklchToHex(color.value)
         const selected = selectedHexes.has(hex)
+        const isActiveStop = activeStopHex === hex
         return (
           <button
             key={color.name}
@@ -144,7 +146,7 @@ export function SwatchTray({ colorSet, stops, onTapAdd, onTapRemove, onDragAdd, 
             data-testid="swatch"
             aria-label={color.name}
             title={color.name}
-            className={selected ? styles.swatchSelected : styles.swatch}
+            className={`${selected ? styles.swatchSelected : styles.swatch} ${isActiveStop ? styles.swatchActiveStop : ''}`}
             style={{ opacity: draggingHex === hex ? 0.6 : 1 }}
             onPointerDown={(e) => handlePointerDown(hex, e)}
           >
