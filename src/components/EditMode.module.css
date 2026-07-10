@@ -122,12 +122,8 @@
     right: 340px;
   }
 
-  .preview :global([data-testid='like-button']) {
-    bottom: calc(84px + env(safe-area-inset-bottom));
-  }
-
   .preview :global([data-testid='grain-button']) {
-    bottom: calc(140px + env(safe-area-inset-bottom));
+    bottom: calc(84px + env(safe-area-inset-bottom));
   }
 }
 
@@ -138,4 +134,38 @@
   flex-direction: column;
   justify-content: center;
   min-height: 0;
+}
+
+.saveButton {
+  margin: 8px 24px 16px;
+  padding: 12px 24px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: background 150ms ease, transform 100ms ease, color 150ms ease, border-color 150ms ease;
+  background: var(--text, #fff);
+  color: var(--bg, #101014);
+}
+
+.saveButton:hover {
+  background: #e2e2e2;
+}
+
+.saveButton:active {
+  transform: scale(0.98);
+}
+
+.saveButtonSaved {
+  composes: saveButton;
+  background: var(--surface-hover, #26262c);
+  color: var(--text, #fff);
+  border-color: var(--border, rgba(255, 255, 255, 0.08));
+}
+
+.saveButtonSaved:hover {
+  background: rgba(255, 255, 255, 0.08);
 }
