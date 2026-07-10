@@ -10,7 +10,6 @@ import { useHint } from '../hooks/useHint'
 import { useAppStore } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
 import { TurrellSquare } from './TurrellSquare'
-import { FlutedOverlay } from './FlutedOverlay'
 import { ExportModal } from './ExportModal'
 import styles from './Gallery.module.css'
 
@@ -50,7 +49,6 @@ function tileBackground(gradient: Gradient): string | undefined {
     : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
         repeat: gradient.repeatEnabled,
         hard: gradient.hardStops,
-        smooth: gradient.smoothEnabled,
       })
 }
 
@@ -66,7 +64,6 @@ function Tile({ item, onOpen }: { item: GalleryItem; onOpen: (item: GalleryItem)
       onClick={() => onOpen(item)}
     >
       {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} blurPx={6} />}
-      <FlutedOverlay visible={!!gradient.flutedEnabled} />
       <span className={styles.tileScrim}>
         <span className={styles.tileName}>
           {item.curated && <span className={styles.badge} aria-hidden="true" />}
@@ -128,7 +125,6 @@ function Viewer({ item, onClose, onRiff }: ViewerProps) {
       }}
     >
       {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} />}
-      <FlutedOverlay visible={!!gradient.flutedEnabled} />
       <button type="button" className={styles.viewerClose} aria-label="Close" onClick={(e) => { e.stopPropagation(); onClose(); }}>
         ✕
       </button>

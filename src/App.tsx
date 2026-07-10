@@ -6,7 +6,7 @@ import { TabBar } from './components/TabBar'
 import { EditMode } from './components/EditMode'
 import { ImportBanner } from './components/ImportBanner'
 import { BoardShare } from './components/BoardShare'
-import { decodeFromFragment, fromImportJson } from './lib/gradientCodec'
+import { decodeFromFragment, fromImportJson, importGradient } from './lib/gradientCodec'
 import { glassToneAt } from './lib/glassTone'
 import { withViewTransition } from './lib/viewTransition'
 import { useIdleFade } from './hooks/useIdleFade'
@@ -28,14 +28,14 @@ export function App() {
   useEffect(() => {
     const payload = decodeFromFragment(window.location.hash)
     if (!payload) return
-    const gradients: Gradient[] = payload.gradients.map((g) => ({ ...g, id: crypto.randomUUID() }))
+    const gradients: Gradient[] = payload.gradients.map(importGradient)
     setPendingImport(gradients)
   }, [setPendingImport])
 
   function handleImportJson(jsonText: string) {
     const payload = fromImportJson(jsonText)
     if (!payload) return
-    const gradients: Gradient[] = payload.gradients.map((g) => ({ ...g, id: crypto.randomUUID() }))
+    const gradients: Gradient[] = payload.gradients.map(importGradient)
     setPendingImport(gradients)
   }
 

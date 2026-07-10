@@ -8,8 +8,6 @@ export interface SharePayloadGradient {
   reversed?: boolean
   repeatEnabled?: boolean
   hardStops?: boolean
-  smoothEnabled?: boolean
-  flutedEnabled?: boolean
   name: string
 }
 
@@ -31,8 +29,25 @@ export function toSharePayloadGradient(gradient: Gradient): SharePayloadGradient
   if (gradient.reversed !== undefined) out.reversed = gradient.reversed
   if (gradient.repeatEnabled !== undefined) out.repeatEnabled = gradient.repeatEnabled
   if (gradient.hardStops !== undefined) out.hardStops = gradient.hardStops
-  if (gradient.smoothEnabled !== undefined) out.smoothEnabled = gradient.smoothEnabled
-  if (gradient.flutedEnabled !== undefined) out.flutedEnabled = gradient.flutedEnabled
+  return out
+}
+
+/** Builds a fresh Gradient from an imported wire payload, copying only the
+ * known SharePayloadGradient fields — stale keys from old share links or
+ * exports (e.g. the removed smoothEnabled/flutedEnabled) never reach app
+ * state, which persists to localStorage. */
+export function importGradient(g: SharePayloadGradient): Gradient {
+  const out: Gradient = {
+    id: crypto.randomUUID(),
+    type: g.type,
+    // Rebuilt (not copied by reference) so extra keys on stop objects from
+    // hand-crafted payloads can't ride into persisted state.
+    stops: g.stops.map((s) => ({ hex: s.hex, position: s.position })),
+    name: g.name,
+  }
+  if (g.reversed !== undefined) out.reversed = g.reversed
+  if (g.repeatEnabled !== undefined) out.repeatEnabled = g.repeatEnabled
+  if (g.hardStops !== undefined) out.hardStops = g.hardStops
   return out
 }
 
@@ -41,16 +56,33 @@ export function isSharePayloadGradient(value: unknown): value is SharePayloadGra
   const v = value as Record<string, unknown>
   return (
     typeof v.type === 'string' &&
+    GRADIENT_TYPES.includes(v.type as GradientType) &&
     Array.isArray(v.stops) &&
+    // buildGradientCss asserts >= 2 stops, so anything shorter would render
+    // fine in the import banner and then crash-loop the app once saved.
+    v.stops.length >= 2 &&
     v.stops.every(
       (s) =>
         typeof s === 'object' &&
         s !== null &&
-        typeof (s as Record<string, unknown>).hex === 'string' &&
-        typeof (s as Record<string, unknown>).position === 'number'
+        isHexColor((s as Record<string, unknown>).hex) &&
+        isStopPosition((s as Record<string, unknown>).position)
     ) &&
     typeof v.name === 'string'
   )
+}
+
+const GRADIENT_TYPES: GradientType[] = ['linear', 'radial', 'angular', 'square', 'mirror', 'repeat']
+
+// Strict hex check: the value is interpolated into CSS backgroundImage, so a
+// free-form string in a crafted share link could inject url() and leak the
+// viewer's IP to a remote host.
+function isHexColor(value: unknown): boolean {
+  return typeof value === 'string' && /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(value)
+}
+
+function isStopPosition(value: unknown): boolean {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 100
 }
 
 function isSharePayload(value: unknown): value is SharePayload {

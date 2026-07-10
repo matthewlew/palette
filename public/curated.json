@@ -52,19 +52,6 @@
     }
   },
   {
-    "id": "curated-indigo-sky",
-    "note": "The depth of twilight. A dark, ink-like midnight center that blooms outwards into a rich, saturated indigo blue, capturing the transition from dusk to night.",
-    "date": "2026-07-06",
-    "gradient": {
-      "type": "radial",
-      "stops": [
-        { "hex": "#1c1f30", "position": 0 },
-        { "hex": "#45528a", "position": 100 }
-      ],
-      "name": "Indigo Sky"
-    }
-  },
-  {
     "id": "curated-blush-adobe",
     "note": "Gentle southwest light. Soft rose and warm biscuit-adobe colors blending seamlessly to create a tranquil, warm glow that feels incredibly soft.",
     "date": "2026-07-05",
@@ -153,19 +140,6 @@
         { "hex": "#8c8291", "position": 100 }
       ],
       "name": "Lilac Fog"
-    }
-  },
-  {
-    "id": "curated-apricot-glaze",
-    "note": "Sunny, warm apricot yellow melting into a sweet cream blush. An optimistic, bright mood that radiates outward.",
-    "date": "2026-06-28",
-    "gradient": {
-      "type": "radial",
-      "stops": [
-        { "hex": "#f0ab7f", "position": 0 },
-        { "hex": "#ffdcb5", "position": 100 }
-      ],
-      "name": "Apricot Glaze"
     }
   },
   {
