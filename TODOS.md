@@ -55,3 +55,17 @@
 **Context:** Full spec in the design-review session and referenced from the design doc's "Deferred by choice (D11)" bullet (~/.gstack/projects/matthewlew-palette/matthewlew-main-design-20260709-discovery-first-curated-feed.md).
 
 **Depends on / blocked by:** PR1 Gallery shipped.
+
+## Cap share-link payload sizes
+
+**What:** Enforce upper bounds when importing share links / JSON: max gradients per board, max stops per gradient, max name length.
+
+**Why:** Adversarial review (2026-07-10, /ship of chore/remove-smooth-fluted) noted nothing caps payload sizes. A crafted link with a multi-megabyte name or 100k stops, once confirmed into the board, can blow the localStorage quota (zustand persist then fails silently) and generates megabyte CSS strings on every render.
+
+**Pros:** Closes the last known abuse path in the import surface; tiny change (a few guards in `isSharePayloadGradient`).
+
+**Cons:** Needs sensible limits chosen (e.g. 50 gradients, 32 stops, 80-char names) — too tight and legitimate boards fail to import.
+
+**Context:** `src/lib/gradientCodec.ts` — the validator already rejects bad hex/positions/types after the hardening commit; this adds size bounds on top.
+
+**Depends on / blocked by:** Nothing.
