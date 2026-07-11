@@ -35,7 +35,9 @@ describe('App', () => {
     render(<App />)
 
     fireEvent.click(screen.getByTestId('like-button'))
-    fireEvent.click(screen.getByRole('button', { name: /Gallery/ }))
+    // ^Gallery: the Save pill's label ("Remove from Gallery") also matches
+    // a bare /Gallery/ once the gradient is saved.
+    fireEvent.click(screen.getByRole('button', { name: /^Gallery/ }))
 
     expect(screen.getAllByTestId('gallery-tile')).toHaveLength(1)
   })
@@ -82,7 +84,9 @@ describe('App', () => {
     render(<App />)
 
     // Open viewer
-    fireEvent.click(screen.getByRole('button', { name: /Saved Palette One/ }))
+    // Trailing comma matches the tile's "<name>, <type> gradient" label but
+    // not the hover overlay's "Delete Saved Palette One" button.
+    fireEvent.click(screen.getByRole('button', { name: /Saved Palette One,/ }))
 
     // Click Edit
     const viewer = screen.getByTestId('gallery-viewer')

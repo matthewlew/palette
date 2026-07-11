@@ -5,13 +5,29 @@ import { Feed, riffIntoFeed } from './components/Feed'
 import { Gallery } from './components/Gallery'
 import { TabBar } from './components/TabBar'
 import { EditMode } from './components/EditMode'
+import { ShortcutHints, type ShortcutHintItem } from './components/ShortcutHints'
 import { ImportBanner } from './components/ImportBanner'
 import { BoardShare } from './components/BoardShare'
 import { decodeFromFragment, fromImportJson, importGradient } from './lib/gradientCodec'
-import { glassToneAt } from './lib/glassTone'
+import { titleColorAt } from './lib/titleColor'
 import { withViewTransition } from './lib/viewTransition'
 import { useIdleFade } from './hooks/useIdleFade'
 import type { Gradient } from './store/types'
+
+const CREATE_SHORTCUTS: ShortcutHintItem[] = [
+  { keys: ['↑', '↓'], label: 'Browse' },
+  { keys: ['←', '→'], label: 'Style' },
+  { keys: ['S'], label: 'Save' },
+  { keys: ['E'], label: 'Edit' },
+]
+
+const EDIT_SHORTCUTS: ShortcutHintItem[] = [
+  { keys: ['↑', '↓'], label: 'Browse' },
+  { keys: ['←', '→'], label: 'Style' },
+  { keys: ['S'], label: 'Save' },
+  { keys: ['F'], label: 'Flip' },
+  { keys: ['Esc'], label: 'Back' },
+]
 
 export function App() {
   const mode = useAppStore((s) => s.mode)
@@ -85,23 +101,40 @@ export function App() {
             current={current}
             onImport={handleImportJson}
             chromeVisible={chromeVisible}
-            tone={current ? glassToneAt(current, 0.94, 0.05) : 'light'}
+            color={current ? titleColorAt(current, 0.94, 0.05) : undefined}
           />
           <Feed chromeVisible={chromeVisible} />
         </>
       )}
       {mode === 'gallery' && <Gallery onRiff={handleRiff} onImport={handleImportJson} />}
+      {mode !== 'gallery' && (
+        <ShortcutHints
+          items={mode === 'edit' ? EDIT_SHORTCUTS : CREATE_SHORTCUTS}
+          placement={mode === 'edit' ? 'top' : 'bottom'}
+          visible={mode === 'edit' || chromeVisible}
+          // Same foreground strategy as the title, sampled where the strip
+          // actually sits (top-left in edit, bottom-left in create).
+          color={current ? titleColorAt(current, 0.08, mode === 'edit' ? 0.12 : 0.9) : '#ffffff'}
+        />
+      )}
       <TabBar
         mode={mode === 'edit' ? 'create' : mode}
-        hidden={(mode === 'create' && !chromeVisible) || (mode === 'edit' && !chromeVisible)}
-        recentGradient={saved.length > 0 ? saved[saved.length - 1] : null}
+        hidden={mode === 'create' && !chromeVisible}
+        panelOpen={mode === 'edit'}
+        recentGradients={saved.slice(-3)}
         savedCount={saved.length}
         onChange={(next) => {
           if (next === mode) return
-          if (mode === 'edit') {
-            exitEditMode()
-          }
-          withViewTransition(() => setMode(next))
+          // Exiting edit must happen inside the same view transition as the
+          // mode switch — running it synchronously first re-rendered the
+          // feed for a frame (the sheet vanished with a visible flash)
+          // before the animated transition even started.
+          withViewTransition(() => {
+            if (mode === 'edit') {
+              exitEditMode()
+            }
+            setMode(next)
+          })
         }}
       />
       {toastText && <Hint text={toastText} visible={!!toastText} />}

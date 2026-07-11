@@ -22,10 +22,20 @@ interface AppState {
   isGradientSaved: (gradient: Gradient) => boolean
   removeSavedGradient: (gradient: Gradient) => void
   removeSavedGradientById: (id: string) => void
+  /** The most recent explicit deletion, held so it can be undone. Not
+   * persisted — undo is a same-session affordance. */
+  lastDeleted: { gradient: Gradient; index: number } | null
+  undoDelete: () => void
+  /** The most recent undo, so redo can re-apply the deletion. */
+  lastUndone: { gradient: Gradient; index: number } | null
+  redoDelete: () => void
   duplicateSavedGradient: (id: string) => void
   renameSavedGradient: (id: string, name: string) => void
   renameCurrentGradient: (name: string) => void
   toggleSaveGradient: (gradient: Gradient) => void
+  /** Where exiting edit mode returns to — the surface edit was entered
+   * from (Create feed or Gallery). */
+  editReturnMode: Exclude<ViewMode, 'edit'>
   enterEditMode: () => void
   exitEditMode: () => void
   setMode: (mode: ViewMode) => void
@@ -76,7 +86,35 @@ export const useAppStore = create<AppState>()(
       // so signature-based removal (the heart toggle's semantics) would wipe
       // every copy at once.
       removeSavedGradientById: (id) => {
-        set({ saved: get().saved.filter((g) => g.id !== id) })
+        const saved = get().saved
+        const index = saved.findIndex((g) => g.id === id)
+        if (index === -1) return
+        set({
+          saved: saved.filter((g) => g.id !== id),
+          lastDeleted: { gradient: saved[index], index },
+          // A fresh deletion starts a new undo chain.
+          lastUndone: null,
+        })
+      },
+      lastDeleted: null,
+      undoDelete: () => {
+        const deleted = get().lastDeleted
+        if (!deleted) return
+        const saved = get().saved
+        // Restore at the original spot (clamped in case the board shrank).
+        const at = Math.min(deleted.index, saved.length)
+        set({
+          saved: [...saved.slice(0, at), deleted.gradient, ...saved.slice(at)],
+          lastDeleted: null,
+          lastUndone: deleted,
+        })
+      },
+      lastUndone: null,
+      redoDelete: () => {
+        const undone = get().lastUndone
+        if (!undone) return
+        // Re-applies the deletion; removeSavedGradientById re-arms undo.
+        get().removeSavedGradientById(undone.gradient.id)
       },
       duplicateSavedGradient: (id) => {
         const saved = get().saved
@@ -115,10 +153,21 @@ export const useAppStore = create<AppState>()(
           get().saveGradient(gradient)
         }
       },
-      enterEditMode: () => set({ mode: 'edit' }),
-      // Edit is only reachable from create, so exiting always lands there.
-      exitEditMode: () => set({ mode: 'create' }),
-      setMode: (mode) => set({ mode }),
+      editReturnMode: 'create',
+      enterEditMode: () => {
+        const mode = get().mode
+        set({ mode: 'edit', editReturnMode: mode === 'edit' ? get().editReturnMode : mode })
+      },
+      // Exit returns to the surface edit was entered from — riffing from the
+      // Gallery goes back to the Gallery, editing from the feed back to Create.
+      exitEditMode: () => set({ mode: get().editReturnMode }),
+      setMode: (mode) => {
+        if (mode === 'edit') {
+          get().enterEditMode()
+          return
+        }
+        set({ mode })
+      },
       setActiveColorSet: (colorSet) => set({ activeColorSet: colorSet }),
       setPendingImport: (gradients) => set({ pendingImport: gradients }),
       confirmImport: () => {
@@ -128,7 +177,7 @@ export const useAppStore = create<AppState>()(
         set({ pendingImport: null })
       },
       dismissImport: () => set({ pendingImport: null }),
-      galleryLayout: 'grid',
+      galleryLayout: 'masonry',
       setGalleryLayout: (layout) => set({ galleryLayout: layout }),
     }),
     {
@@ -141,8 +190,10 @@ export const useAppStore = create<AppState>()(
       // v1 drops the removed smoothEnabled/flutedEnabled flags from boards
       // persisted before those filters were deleted, so stale keys don't
       // live in localStorage forever.
-      version: 1,
-      migrate: (persisted) => {
+      // v2 makes masonry the default gallery layout (a one-time reset for
+      // boards persisted while 'grid' was the default).
+      version: 2,
+      migrate: (persisted, version) => {
         const state = persisted as { saved?: Gradient[]; noiseEnabled?: boolean; galleryLayout?: 'grid' | 'masonry' }
         if (Array.isArray(state.saved)) {
           state.saved = state.saved.map((g) => {
@@ -153,8 +204,8 @@ export const useAppStore = create<AppState>()(
             return rest
           })
         }
-        if (!state.galleryLayout) {
-          state.galleryLayout = 'grid'
+        if (!state.galleryLayout || version < 2) {
+          state.galleryLayout = 'masonry'
         }
         return state
       },
