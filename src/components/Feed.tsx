@@ -346,19 +346,36 @@ export function Feed({ chromeVisible = true }: FeedProps) {
       if (
         target?.tagName === 'INPUT' ||
         target?.tagName === 'TEXTAREA' ||
-        target?.isContentEditable
+        target?.tagName === 'BUTTON' ||
+        target?.isContentEditable ||
+        // Modifier combos (⌘S, ⌘Z…) belong to the browser or other handlers.
+        e.metaKey ||
+        e.ctrlKey ||
+        e.altKey ||
+        // Focused range widgets (flow-editor stops) own the arrow keys.
+        target?.closest?.('[role="slider"]')
       ) {
         return
       }
 
-      if (e.key === 'PageDown' || e.key === ' ') {
+      // ArrowDown/Up scrub the feed, matching the vertical scroll and the
+      // tick marks; PageDown/Up mirror them. Flip moved to F.
+      if (e.key === 'PageDown' || e.key === 'ArrowDown') {
         e.preventDefault()
         goTo(feedSession.index + 1)
-      } else if (e.key === 'PageUp') {
+      } else if (e.key === 'PageUp' || e.key === 'ArrowUp') {
         e.preventDefault()
         if (feedSession.index > 0) {
           goTo(feedSession.index - 1)
         }
+      } else if (e.key === ' ' || e.key === 's' || e.key === 'S') {
+        e.preventDefault()
+        const state = useAppStore.getState()
+        const shown = feedSession.history[feedSession.index]
+        if (shown) state.toggleSaveGradient(shown)
+      } else if (e.key === 'Enter' || e.key === 'e' || e.key === 'E') {
+        e.preventDefault()
+        withViewTransition(useAppStore.getState().enterEditMode)
       } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
         e.preventDefault()
         const currentGrad = feedSession.history[feedSession.index]
@@ -378,7 +395,7 @@ export function Feed({ chromeVisible = true }: FeedProps) {
           setDisplayed(updated)
           setCurrentGradient(updated)
         }
-      } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      } else if (e.key === 'f' || e.key === 'F') {
         e.preventDefault()
         const currentGrad = feedSession.history[feedSession.index]
         if (currentGrad) {
@@ -427,7 +444,7 @@ export function Feed({ chromeVisible = true }: FeedProps) {
       />
       <ScrollTicker index={tickerIndex} />
       {scrollHint.visible && <Hint text="Scroll to explore palettes ↓" visible={scrollHint.visible} />}
-      {!scrollHint.visible && likeHint.visible && <Hint text="Tap ♥ to save" visible={likeHint.visible} />}
+      {!scrollHint.visible && likeHint.visible && <Hint text="Tap Save to keep it" visible={likeHint.visible} />}
       {!scrollHint.visible && !likeHint.visible && galleryHint.visible && hasSaved && (
         <Hint text="Saved to your Gallery" visible />
       )}

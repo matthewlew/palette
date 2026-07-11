@@ -38,6 +38,11 @@ export function ScrollTicker({ index }: ScrollTickerProps) {
   return (
     <div data-testid="scroll-ticker" aria-hidden="true" className={styles.ticker} style={{ opacity: visible ? 1 : 0 }}>
       <div className={styles.strip} style={{ transform: `translateY(${-index * TICK_SPACING_PX}px)` }}>
+        {/* Lives inside the translated strip at the active tick's offset, so
+            it scrolls with the marks and reads as a counter ticking up/down. */}
+        <div data-testid="ticker-count" className={styles.count} style={{ top: `${index * TICK_SPACING_PX}px` }}>
+          {index + 1}
+        </div>
         {tickIndices.map((t) => {
           const isActive = t === index
           // Digital-crown feel: every tick's size is a continuous function of

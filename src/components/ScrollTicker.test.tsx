@@ -61,9 +61,10 @@ describe('ScrollTicker', () => {
     expect(screen.getByTestId('scroll-ticker').getAttribute('aria-hidden')).toBe('true')
   })
 
-  it('does not render any numeric tick labels', () => {
+  it('renders a counter next to the selected tick showing the 1-based position', () => {
     render(<ScrollTicker index={12} />)
-    expect(screen.queryByText('13')).not.toBeInTheDocument()
+    const count = screen.getByTestId('ticker-count')
+    expect(count.textContent).toBe('13')
     expect(screen.queryByText('11')).not.toBeInTheDocument()
   })
 })

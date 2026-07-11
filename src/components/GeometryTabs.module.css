@@ -1,25 +1,43 @@
 .tabs {
   display: flex;
+  align-items: center;
   gap: 8px;
   overflow-x: auto;
   padding: 8px 12px;
+  scrollbar-width: none;
 }
 
+/* Same design-system pill as the other toggle chips (gallery filters, tab
+   switcher): hairline outline, filled + inverted when active. Theme
+   variables keep it legible on the sheet in both color schemes. */
 .tab {
   flex: 0 0 auto;
-  padding: 6px 14px;
+  min-height: 34px;
+  padding: 0 14px;
   border-radius: 999px;
-  border: 1px solid rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.18));
   background: transparent;
-  cursor: pointer;
+  color: var(--text, rgba(255, 255, 255, 0.7));
   font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+.tab:hover:not(:disabled) {
+  color: var(--text-h, #fff);
 }
 
 .tabActive {
   composes: tab;
-  background: #000;
-  color: #fff;
-  border-color: #000;
+  background: var(--text-h, #fff);
+  border-color: var(--text-h, #fff);
+  color: var(--bg, #111);
+  font-weight: 600;
+}
+
+.tabActive:hover:not(:disabled) {
+  color: var(--bg, #111);
 }
 
 .tab:disabled,
@@ -30,7 +48,8 @@
 
 .divider {
   flex: 0 0 auto;
+  align-self: stretch;
   width: 1px;
   margin: 4px 2px;
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--border, rgba(255, 255, 255, 0.18));
 }

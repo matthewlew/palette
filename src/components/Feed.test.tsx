@@ -387,7 +387,7 @@ describe('Feed', () => {
   it('shows the like hint only after the scroll hint has been dismissed', () => {
     localStorage.setItem('palette-hint-scroll', '1')
     render(<Feed />)
-    expect(screen.getByText('Tap ♥ to save')).toBeInTheDocument()
+    expect(screen.getByText('Tap Save to keep it')).toBeInTheDocument()
   })
 
   it('preserves scroll position across an unmount/remount (e.g. entering and exiting edit mode)', () => {
@@ -436,26 +436,42 @@ describe('Feed', () => {
     expect(useAppStore.getState().current).toBe(edited)
   })
 
-  it('navigates forward and backward via Space, PageDown, and PageUp', () => {
+  it('navigates forward and backward via PageDown and PageUp', () => {
     render(<Feed />)
     const first = useAppStore.getState().current
-    
+
     // Press PageDown
     fireEvent.keyDown(window, { key: 'PageDown' })
     const second = useAppStore.getState().current
     expect(second).not.toEqual(first)
 
-    // Press Space
-    fireEvent.keyDown(window, { key: ' ' })
-    const third = useAppStore.getState().current
-    expect(third).not.toEqual(second)
-
     // Press PageUp
     fireEvent.keyDown(window, { key: 'PageUp' })
-    expect(useAppStore.getState().current).toEqual(second)
+    expect(useAppStore.getState().current).toEqual(first)
   })
 
-  it('cycles shapes and flips orientation via ArrowLeft/Right and ArrowUp/Down keys', () => {
+  it('toggles saving the shown gradient via Space', () => {
+    render(<Feed />)
+    const shown = useAppStore.getState().current
+    expect(useAppStore.getState().isGradientSaved(shown!)).toBe(false)
+
+    fireEvent.keyDown(window, { key: ' ' })
+    expect(useAppStore.getState().isGradientSaved(shown!)).toBe(true)
+    // The shown gradient does not advance — Space saves, it no longer scrolls.
+    expect(useAppStore.getState().current).toEqual(shown)
+
+    fireEvent.keyDown(window, { key: ' ' })
+    expect(useAppStore.getState().isGradientSaved(shown!)).toBe(false)
+  })
+
+  it('enters edit mode via Enter', () => {
+    render(<Feed />)
+    expect(useAppStore.getState().mode).toBe('create')
+    fireEvent.keyDown(window, { key: 'Enter' })
+    expect(useAppStore.getState().mode).toBe('edit')
+  })
+
+  it('cycles shapes via ArrowLeft/Right and flips orientation via F', () => {
     render(<Feed />)
     const initial = useAppStore.getState().current
     expect(initial).toBeDefined()
@@ -474,15 +490,37 @@ describe('Feed', () => {
     const afterLeft = useAppStore.getState().current
     expect(afterLeft!.type).toBe(initialType)
 
-    // Press ArrowDown to flip orientation
-    fireEvent.keyDown(window, { key: 'ArrowDown' })
-    const afterDown = useAppStore.getState().current
-    expect(afterDown!.reversed).toBe(!initialReversed)
+    // Press F to flip orientation
+    fireEvent.keyDown(window, { key: 'f' })
+    const afterFlip = useAppStore.getState().current
+    expect(afterFlip!.reversed).toBe(!initialReversed)
 
-    // Press ArrowUp to flip orientation back
+    // Press F to flip orientation back
+    fireEvent.keyDown(window, { key: 'f' })
+    const afterFlipBack = useAppStore.getState().current
+    expect(afterFlipBack!.reversed).toBe(initialReversed)
+  })
+
+  it('navigates the feed via ArrowDown/ArrowUp, matching the vertical scroll', () => {
+    render(<Feed />)
+    const first = useAppStore.getState().current
+
+    fireEvent.keyDown(window, { key: 'ArrowDown' })
+    const second = useAppStore.getState().current
+    expect(second).not.toEqual(first)
+
     fireEvent.keyDown(window, { key: 'ArrowUp' })
-    const afterUp = useAppStore.getState().current
-    expect(afterUp!.reversed).toBe(initialReversed)
+    expect(useAppStore.getState().current).toEqual(first)
+  })
+
+  it('saves via S and enters edit mode via E', () => {
+    render(<Feed />)
+    const shown = useAppStore.getState().current
+    fireEvent.keyDown(window, { key: 's' })
+    expect(useAppStore.getState().isGradientSaved(shown!)).toBe(true)
+
+    fireEvent.keyDown(window, { key: 'e' })
+    expect(useAppStore.getState().mode).toBe('edit')
   })
 
   it('scrubs forward and backward via mouse click-and-drag events', () => {
