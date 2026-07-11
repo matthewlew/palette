@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import type { GlassTone } from '../lib/glassTone'
 import styles from './PaletteTitle.module.css'
 
 interface PaletteTitleProps {
@@ -7,13 +6,15 @@ interface PaletteTitleProps {
   onRename: (name: string) => void
   /** Fades the title out (and disables pointer events) while the user is idle. */
   hidden?: boolean
-  /** 'dark' flips the glass surface for legibility over bright backdrops. */
-  tone?: GlassTone
+  /** Text color, picked by titleColorAt so it contrasts the gradient behind
+   * the title — one of the palette's own stops when possible. */
+  color?: string
 }
 
-/** Glass pill at the top center showing the palette's name; tapping it swaps
- * in an inline input for renaming. Enter/blur commits, Escape cancels. */
-export function PaletteTitle({ name, onRename, hidden = false, tone = 'light' }: PaletteTitleProps) {
+/** Palette name as plain text at the top center — no glass pill, the color
+ * itself carries the contrast (see lib/titleColor). Tapping swaps in an
+ * inline input for renaming. Enter/blur commits, Escape cancels. */
+export function PaletteTitle({ name, onRename, hidden = false, color = '#ffffff' }: PaletteTitleProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(name)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -45,7 +46,8 @@ export function PaletteTitle({ name, onRename, hidden = false, tone = 'light' }:
           ref={inputRef}
           data-testid="palette-title-input"
           aria-label="Palette name"
-          className={tone === 'dark' ? `${styles.input} glass-dark` : styles.input}
+          className={styles.input}
+          style={{ color, borderColor: color }}
           value={draft}
           maxLength={40}
           onChange={(e) => setDraft(e.target.value)}
@@ -63,7 +65,8 @@ export function PaletteTitle({ name, onRename, hidden = false, tone = 'light' }:
           type="button"
           data-testid="palette-title-button"
           aria-label={`Palette name: ${name}. Tap to rename`}
-          className={tone === 'dark' ? `${styles.pill} glass-dark` : styles.pill}
+          className={styles.pill}
+          style={{ color }}
           onClick={() => {
             setDraft(name)
             setEditing(true)

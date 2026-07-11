@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { buildGradientCss } from '../lib/gradient'
 import { useAppStore } from '../store/useAppStore'
 import { namePalette } from '../lib/naming'
-import { glassToneAt } from '../lib/glassTone'
+import { titleColorAt } from '../lib/titleColor'
 import { TurrellSquare } from './TurrellSquare'
 import { PaletteTitle } from './PaletteTitle'
 import { LikeButton } from './LikeButton'
@@ -31,8 +31,8 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
   // Each glass element samples the gradient where it actually sits, so e.g.
   // the title can stay light while the corner buttons flip dark. Coordinates
   // are rough normalized anchors — tone only needs the right neighborhood.
-  const titleTone = glassToneAt(gradient, 0.5, 0.06)
-  const cornerTone = glassToneAt(gradient, 0.93, 0.85)
+  const titleColor = titleColorAt(gradient, 0.5, 0.06)
+  const cornerColor = titleColorAt(gradient, 0.93, 0.85)
 
   function handlePointerDown(e: React.PointerEvent) {
     pointerStartRef.current = { x: e.clientX, y: e.clientY }
@@ -83,10 +83,10 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
         name={gradient.name ?? namePalette(gradient.stops.map((s) => s.hex))}
         onRename={renameCurrentGradient}
         hidden={!chromeVisible}
-        tone={titleTone}
+        color={titleColor}
       />
-      <GrainButton enabled={noiseEnabled} onToggle={toggleNoise} hidden={!chromeVisible} tone={cornerTone} />
-      <LikeButton liked={liked} onToggle={onToggleLike} hidden={!chromeVisible} tone={cornerTone} />
+      <GrainButton enabled={noiseEnabled} onToggle={toggleNoise} hidden={!chromeVisible} color={cornerColor} />
+      <LikeButton liked={liked} onToggle={onToggleLike} hidden={!chromeVisible} color={cornerColor} />
     </div>
   )
 }

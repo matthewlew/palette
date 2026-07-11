@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react'
 import { encodeToFragment, toExportJson, toSharePayloadGradient } from '../lib/gradientCodec'
 import { toCuratedEntryJson } from '../lib/curated'
 import { useCopyFeedback } from '../hooks/useCopyFeedback'
-import type { GlassTone } from '../lib/glassTone'
 import type { Gradient } from '../store/types'
 import { ExportModal } from './ExportModal'
 import styles from './BoardShare.module.css'
@@ -13,8 +12,11 @@ interface BoardShareProps {
   current?: Gradient | null
   onImport: (jsonText: string) => void
   chromeVisible?: boolean
-  /** 'dark' flips the glass trigger for legibility over bright backdrops. */
-  tone?: GlassTone
+  /** Palette-derived foreground for the trigger (same strategy as the
+   * title). When set the trigger renders as a minimal ghost chip on the
+   * gradient; when absent (e.g. Gallery header, over the app background)
+   * it keeps the standard glass surface. */
+  color?: string
   position?: 'fixed' | 'inline' | 'viewer'
 }
 
@@ -33,7 +35,7 @@ export function BoardShare({
   current = null,
   onImport,
   chromeVisible = true,
-  tone = 'light',
+  color,
   position = 'fixed',
 }: BoardShareProps) {
   const [isOpen, setIsOpen] = useState(false)
@@ -152,7 +154,8 @@ export function BoardShare({
     >
       <button
         type="button"
-        className={tone === 'dark' ? `${styles.triggerButton} glass-dark` : styles.triggerButton}
+        className={color ? `${styles.triggerBase} ghost-chip` : styles.triggerButton}
+        style={color ? { color } : undefined}
         onClick={() => setIsOpen(!isOpen)}
         aria-label="Share options"
         aria-expanded={isOpen}

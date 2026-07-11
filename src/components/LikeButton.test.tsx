@@ -3,17 +3,19 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { LikeButton } from './LikeButton'
 
 describe('LikeButton', () => {
-  it('shows a hollow heart and "Like" label when not liked', () => {
+  it('shows a "Save" label when not saved', () => {
     render(<LikeButton liked={false} onToggle={vi.fn()} />)
     const button = screen.getByTestId('like-button')
-    expect(button.getAttribute('aria-label')).toBe('Like this gradient')
+    expect(button.textContent).toBe('Save')
+    expect(button.getAttribute('aria-label')).toBe('Save to Gallery')
     expect(button.getAttribute('aria-pressed')).toBe('false')
   })
 
-  it('shows a filled heart and "Unlike" label when liked', () => {
+  it('shows a "Saved" label when saved', () => {
     render(<LikeButton liked={true} onToggle={vi.fn()} />)
     const button = screen.getByTestId('like-button')
-    expect(button.getAttribute('aria-label')).toBe('Unlike this gradient')
+    expect(button.textContent).toBe('✓ Saved')
+    expect(button.getAttribute('aria-label')).toBe('Remove from Gallery')
     expect(button.getAttribute('aria-pressed')).toBe('true')
   })
 
