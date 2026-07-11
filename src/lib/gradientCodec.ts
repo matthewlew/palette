@@ -77,7 +77,7 @@ export function isSharePayloadGradient(value: unknown): value is SharePayloadGra
   )
 }
 
-const GRADIENT_TYPES: GradientType[] = ['linear', 'radial', 'angular', 'square', 'mirror', 'repeat']
+const GRADIENT_TYPES: GradientType[] = ['linear', 'radial', 'angular', 'square', 'mirror', 'repeat', 'fan']
 
 // Strict hex check: the value is interpolated into CSS backgroundImage, so a
 // free-form string in a crafted share link could inject url() and leak the

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildGradientCss, type GradientStop } from './gradient'
+import { buildGradientCss, gradientColorAt, SELECTABLE_GEOMETRY, type GradientStop } from './gradient'
 
 const stops: GradientStop[] = [
   { hex: '#ff0000', position: 0 },
@@ -23,6 +23,22 @@ describe('buildGradientCss', () => {
     // 3 stops (0%,50%,100%) compressed by 3/4 -> (0%,38%,75%), then the first
     // color repeated at 100% closes the seam instead of a hard 360deg->0deg cut.
     expect(css).toBe('conic-gradient(#ff0000 0%, #00ff00 38%, #0000ff 75%, #ff0000 100%)')
+  })
+
+  it('builds a bottom-centered 180° fan (conic from 270deg) for fan type', () => {
+    const css = buildGradientCss('fan', stops)
+    // Palette compressed into the visible top semicircle (0-50%), last color
+    // held across the off-screen lower half so the fan shows no seam.
+    expect(css).toBe(
+      'conic-gradient(from 270deg at 50% 100%, #ff0000 0%, #00ff00 25%, #0000ff 50%, #0000ff 100%)'
+    )
+  })
+
+  it('fan sampling maps the horizons to the ends and straight-up to the middle', () => {
+    // Left horizon → first color, right horizon → last, straight up → middle.
+    expect(gradientColorAt('fan', stops, 0, 1)).toBe('#ff0000')
+    expect(gradientColorAt('fan', stops, 1, 1)).toBe('#0000ff')
+    expect(gradientColorAt('fan', stops, 0.5, 0)).toBe('#00ff00')
   })
 
   it('builds a nested conic-gradient with hard stops sized to the stop count for square type', () => {
@@ -53,6 +69,12 @@ describe('buildGradientCss', () => {
 
   it('throws for fewer than 2 stops', () => {
     expect(() => buildGradientCss('linear', [stops[0]])).toThrow()
+  })
+})
+
+describe('SELECTABLE_GEOMETRY', () => {
+  it('is the full cycle order the keyboard and tabs share, including mirror and fan', () => {
+    expect(SELECTABLE_GEOMETRY).toEqual(['linear', 'radial', 'angular', 'square', 'mirror', 'fan'])
   })
 })
 

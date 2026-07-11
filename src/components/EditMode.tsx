@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { useAppStore } from '../store/useAppStore'
-import { buildGradientCss, type GradientType } from '../lib/gradient'
+import { buildGradientCss, SELECTABLE_GEOMETRY, type GradientType } from '../lib/gradient'
 import {
   toEditableStops,
   equalizePositions,
@@ -31,8 +31,6 @@ import { decayVelocity, shouldStartMomentum } from '../lib/momentum'
 import { tickHaptic, primeHaptics } from '../lib/haptics'
 import type { Gradient } from '../store/types'
 import styles from './EditMode.module.css'
-
-const GEOMETRY_TYPES: GradientType[] = ['linear', 'radial', 'angular', 'square']
 
 // 'original' restores the order the stops had before any sorting (the saved
 // palette order, or whatever the user last arranged by hand).
@@ -398,14 +396,13 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         const currentGrad = useAppStore.getState().current
         if (currentGrad) {
           const currentType = currentGrad.type
-          const currentIndex = GEOMETRY_TYPES.indexOf(currentType)
-          let nextIndex = currentIndex
-          if (e.key === 'ArrowRight') {
-            nextIndex = (currentIndex + 1) % GEOMETRY_TYPES.length
-          } else {
-            nextIndex = (currentIndex - 1 + GEOMETRY_TYPES.length) % GEOMETRY_TYPES.length
-          }
-          const nextType = GEOMETRY_TYPES[nextIndex]
+          // indexOf can be -1 for a legacy type not in the list; start the
+          // step from 0 so ←/→ still reaches a valid selectable geometry.
+          const currentIndex = Math.max(0, SELECTABLE_GEOMETRY.indexOf(currentType))
+          const len = SELECTABLE_GEOMETRY.length
+          const nextIndex =
+            e.key === 'ArrowRight' ? (currentIndex + 1) % len : (currentIndex - 1 + len) % len
+          const nextType = SELECTABLE_GEOMETRY[nextIndex]
           setCurrentGradient({
             ...currentGrad,
             type: nextType,

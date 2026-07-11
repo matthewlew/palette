@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import { generateGradientStops } from '../lib/palette'
 import { GradientPage } from './GradientPage'
-import type { GradientType } from '../lib/gradient'
+import { SELECTABLE_GEOMETRY, type GradientType } from '../lib/gradient'
 import type { Gradient } from '../store/types'
 import type { ColorSet } from '../lib/colorSets'
 import { withViewTransition } from '../lib/viewTransition'
@@ -13,10 +13,13 @@ import { useHint } from '../hooks/useHint'
 import { ScrollTicker } from './ScrollTicker'
 import styles from './Feed.module.css'
 
-const GEOMETRY_TYPES: GradientType[] = ['linear', 'radial', 'angular', 'square']
+// The feed generates these at random. Mirror is selectable via the tabs but
+// left out of the random mix (it reads as a busier variant of linear); the
+// fan is included so the new shape is discoverable while browsing.
+const RANDOM_TYPES: GradientType[] = ['linear', 'radial', 'angular', 'square', 'fan']
 
 function pickRandomType(): GradientType {
-  return GEOMETRY_TYPES[Math.floor(Math.random() * GEOMETRY_TYPES.length)]
+  return RANDOM_TYPES[Math.floor(Math.random() * RANDOM_TYPES.length)]
 }
 
 export function makeGradient(type: GradientType, colorSet: ColorSet): Gradient {
@@ -381,14 +384,13 @@ export function Feed({ chromeVisible = true }: FeedProps) {
         const currentGrad = feedSession.history[feedSession.index]
         if (currentGrad) {
           const currentType = currentGrad.type
-          const currentIndex = GEOMETRY_TYPES.indexOf(currentType)
-          let nextIndex = currentIndex
-          if (e.key === 'ArrowRight') {
-            nextIndex = (currentIndex + 1) % GEOMETRY_TYPES.length
-          } else {
-            nextIndex = (currentIndex - 1 + GEOMETRY_TYPES.length) % GEOMETRY_TYPES.length
-          }
-          const nextType = GEOMETRY_TYPES[nextIndex]
+          // indexOf can be -1 for a legacy type not in the list; start the
+          // step from 0 so ←/→ still reaches a valid selectable geometry.
+          const currentIndex = Math.max(0, SELECTABLE_GEOMETRY.indexOf(currentType))
+          const len = SELECTABLE_GEOMETRY.length
+          const nextIndex =
+            e.key === 'ArrowRight' ? (currentIndex + 1) % len : (currentIndex - 1 + len) % len
+          const nextType = SELECTABLE_GEOMETRY[nextIndex]
           const updated = { ...currentGrad, type: nextType }
           feedSession.history[feedSession.index] = updated
           feedSession.lockedType = nextType
