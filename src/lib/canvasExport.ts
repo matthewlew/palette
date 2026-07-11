@@ -157,7 +157,14 @@ export async function downloadGradientAsPng(gradient: Gradient, width: number, h
   renderGradientToCanvas(canvas, gradient, width, height)
 
   const filename = `${(gradient.name ?? 'gradient').toLowerCase().replace(/\s+/g, '-')}-${width}x${height}.png`
+  await shareOrDownloadCanvas(canvas, filename, gradient.name ?? 'Gradient')
+}
 
+/**
+ * Shares (mobile share sheet) or downloads (desktop anchor) a rendered canvas
+ * as PNG. Shared by the plain export and the vignette export paths.
+ */
+export async function shareOrDownloadCanvas(canvas: HTMLCanvasElement, filename: string, title: string) {
   // Use Web Share API if available (for iOS share sheet / mobile save path)
   if (navigator.canShare && navigator.share) {
     try {
@@ -167,7 +174,7 @@ export async function downloadGradientAsPng(gradient: Gradient, width: number, h
         if (navigator.canShare({ files: [file] })) {
           await navigator.share({
             files: [file],
-            title: gradient.name ?? 'Gradient',
+            title,
           })
           return
         }

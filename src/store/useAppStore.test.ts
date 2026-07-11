@@ -39,7 +39,7 @@ describe('useAppStore', () => {
     // Saved entries get a fresh id (see duplicate-key regression test below)
     // and a generated name (see naming tests below); everything else is
     // preserved verbatim.
-    const { id: _id, name: _name, ...savedRest } = useAppStore.getState().saved[0]
+    const { id: _id, name: _name, createdAt: _createdAt, ...savedRest } = useAppStore.getState().saved[0]
     const { id: _sampleId, ...sampleRest } = sampleGradient
     expect(savedRest).toEqual(sampleRest)
   })
@@ -90,6 +90,22 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().mode).toBe('create')
   })
 
+  it('returns to the gallery when edit was entered from the gallery', () => {
+    useAppStore.getState().setMode('gallery')
+    useAppStore.getState().setMode('edit')
+    expect(useAppStore.getState().mode).toBe('edit')
+    useAppStore.getState().exitEditMode()
+    expect(useAppStore.getState().mode).toBe('gallery')
+  })
+
+  it('keeps the original return surface when edit mode is re-entered', () => {
+    useAppStore.getState().setMode('gallery')
+    useAppStore.getState().enterEditMode()
+    useAppStore.getState().enterEditMode()
+    useAppStore.getState().exitEditMode()
+    expect(useAppStore.getState().mode).toBe('gallery')
+  })
+
   it('isGradientSaved reflects whether a gradient (by signature) is in saved', () => {
     expect(useAppStore.getState().isGradientSaved(sampleGradient)).toBe(false)
     useAppStore.getState().saveGradient(sampleGradient)
@@ -106,6 +122,44 @@ describe('useAppStore', () => {
     useAppStore.getState().saveGradient(sampleGradient)
     useAppStore.getState().toggleSaveGradient({ ...sampleGradient, id: 'different-id' })
     expect(useAppStore.getState().saved).toHaveLength(0)
+  })
+
+  it('removeSavedGradientById records the deletion and undoDelete restores it in place', () => {
+    useAppStore.getState().saveGradient(sampleGradient)
+    useAppStore.getState().saveGradient({ ...sampleGradient, stops: [
+      { hex: '#00ff00', position: 0 },
+      { hex: '#0000ff', position: 100 },
+    ] })
+    const [first, second] = useAppStore.getState().saved
+
+    useAppStore.getState().removeSavedGradientById(first.id)
+    expect(useAppStore.getState().saved).toEqual([second])
+    expect(useAppStore.getState().lastDeleted).toEqual({ gradient: first, index: 0 })
+
+    useAppStore.getState().undoDelete()
+    expect(useAppStore.getState().saved).toEqual([first, second])
+    expect(useAppStore.getState().lastDeleted).toBeNull()
+  })
+
+  it('redoDelete re-applies an undone deletion; a fresh delete clears the redo chain', () => {
+    useAppStore.getState().saveGradient(sampleGradient)
+    const [only] = useAppStore.getState().saved
+
+    useAppStore.getState().removeSavedGradientById(only.id)
+    useAppStore.getState().undoDelete()
+    expect(useAppStore.getState().saved).toEqual([only])
+
+    useAppStore.getState().redoDelete()
+    expect(useAppStore.getState().saved).toEqual([])
+    expect(useAppStore.getState().lastUndone).toBeNull()
+    // …and the redo-applied deletion is itself undoable again.
+    expect(useAppStore.getState().lastDeleted).toEqual({ gradient: only, index: 0 })
+  })
+
+  it('undoDelete is a no-op with nothing deleted', () => {
+    useAppStore.getState().saveGradient(sampleGradient)
+    useAppStore.getState().undoDelete()
+    expect(useAppStore.getState().saved).toHaveLength(1)
   })
 
   it('starts with no pending import', () => {

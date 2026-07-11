@@ -58,40 +58,66 @@
   }
 }
 
-/* Shared liquid-glass surface for floating chrome buttons (like, grain,
-   edit-mode back/sort) — kept in one place so the blur/border/shadow recipe
-   only needs tuning once. */
+/* Shared surface for floating chrome buttons (title, share, grain, back,
+   sort). Deliberately the same recipe as the bottom tab switcher — one dark
+   translucent pill with a single cheap blur — so all chrome matches and the
+   compositor does far less work than the old saturate/brightness glass. */
 .glass-surface {
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  background: rgba(255, 255, 255, 0.12);
-  /* The brightness lift makes the glass read as a distinct surface even
-     over flat color regions, where a plain blur of a uniform backdrop is
-     invisible and the button looked identical regardless of background. */
-  backdrop-filter: blur(16px) saturate(180%) brightness(1.18);
-  -webkit-backdrop-filter: blur(16px) saturate(180%) brightness(1.18);
-  /* Own compositing layer: without it the backdrop-filter output can go
-     stale when the gradient behind the button swaps (background-image
-     changes cause no layout), leaving the previous gradient's tint. */
-  will-change: backdrop-filter;
-  box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(20, 20, 24, 0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
-/* Dark counterpart applied on top of .glass-surface when the gradient
-   behind an element is bright and white-on-glass would wash out (see
-   lib/glassTone). Doubled class beats the single-class module rules that
-   set color/text-shadow, regardless of stylesheet order. */
+/* Legacy hook from the per-corner tone flipping era. The dark pill with
+   white text is legible over any gradient, so the "dark" variant is now the
+   same surface — kept only so existing glassTone call sites stay harmless. */
 .glass-dark.glass-dark {
-  border-color: rgba(0, 0, 0, 0.2);
-  background: rgba(0, 0, 0, 0.16);
-  backdrop-filter: blur(16px) saturate(160%) brightness(0.92);
-  -webkit-backdrop-filter: blur(16px) saturate(160%) brightness(0.92);
-  color: rgba(15, 15, 20, 0.88);
-  text-shadow: none;
-  box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+/* Minimal floating chrome for buttons that sit ON the gradient. One size,
+   one recipe: a 44px round chip whose ink is the palette-derived foreground
+   (set via inline `color`, same strategy as the title) and whose fill and
+   border are faint mixes of that ink — so the gradient stays the focus.
+   Add .ghost-pill for text buttons; .ghost-chip-active marks toggled state. */
+.ghost-chip {
+  height: 44px;
+  min-width: 44px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: none;
+  color: currentColor;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 150ms ease-out, opacity 400ms ease, background 150ms ease;
+}
+
+.ghost-chip:hover {
+  background: color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.ghost-chip:active {
+  transform: scale(0.95);
+}
+
+.ghost-pill {
+  padding: 0 18px;
+}
+
+.ghost-chip-active {
+  background: color-mix(in srgb, currentColor 24%, transparent);
+  border-color: color-mix(in srgb, currentColor 45%, transparent);
 }
 
 #root {
@@ -113,6 +139,16 @@ body {
 
 body {
   margin: 0;
+}
+
+/* Buttons/inputs don't inherit the page font — without this they fall back
+   to the browser default (Arial et al.), which is where the mismatched
+   typography came from. Components may still override size/weight. */
+button,
+input,
+textarea,
+select {
+  font-family: var(--sans);
 }
 
 h1,
@@ -198,12 +234,16 @@ code {
   }
 }
 
+/* fill-mode both pins the snapshots to the keyframes' first/last frames for
+   the transition's whole lifetime — without it the sheet painted one frame
+   at its resting position (a visible flash at the bottom edge) before the
+   slide began. */
 ::view-transition-new(edit-sheet) {
-  animation: sheet-slide-up 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: sheet-slide-up 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 ::view-transition-old(edit-sheet) {
-  animation: sheet-slide-down 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: sheet-slide-down 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* At tablet/desktop widths the sheet is a right-side panel, so it enters and
@@ -222,10 +262,10 @@ code {
   }
 
   ::view-transition-new(edit-sheet) {
-    animation: sheet-slide-in-right 320ms cubic-bezier(0.22, 1, 0.36, 1);
+    animation: sheet-slide-in-right 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
   ::view-transition-old(edit-sheet) {
-    animation: sheet-slide-out-right 320ms cubic-bezier(0.22, 1, 0.36, 1);
+    animation: sheet-slide-out-right 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 }

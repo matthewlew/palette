@@ -5,74 +5,74 @@ export type HueFamily =
 export type LightnessBand = 'dark' | 'mid' | 'light'
 export type Mood = 'muted' | 'soft' | 'vivid'
 
-// Color nouns keyed by [family][band]. Every family has all three bands
-// filled; lists are intentionally short (3-4 words) — the naming function
-// picks one, it doesn't need breadth beyond avoiding obvious repetition.
+// Color nouns keyed by [family][band]. Six-ish per band so names don't
+// repeat across a gallery of saves; single short words people actually
+// write — paint-chip register, not perfume copy.
 export const COLOR_NOUNS: Record<HueFamily, Record<LightnessBand, string[]>> = {
   red: {
-    dark: ['Doom', 'Ox-Blood', 'Ember'],
-    mid: ['Brick', 'Rooibos', 'Paprika'],
-    light: ['Petal', 'Shell', 'Coral'],
+    dark: ['Ember', 'Garnet', 'Wine', 'Cherry', 'Brick', 'Cinder'],
+    mid: ['Paprika', 'Poppy', 'Chili', 'Rouge', 'Clay', 'Flame'],
+    light: ['Petal', 'Shell', 'Coral', 'Salmon', 'Rosewater', 'Blossom'],
   },
   orange: {
-    dark: ['Rust', 'Copper', 'Amber Ash'],
-    mid: ['Marmalade', 'Terracotta', 'Persimmon'],
-    light: ['Peach', 'Apricot', 'Melon'],
+    dark: ['Rust', 'Copper', 'Cedar', 'Ginger', 'Brandy', 'Clove'],
+    mid: ['Terracotta', 'Persimmon', 'Marigold', 'Tangerine', 'Carrot', 'Spice'],
+    light: ['Peach', 'Apricot', 'Melon', 'Sherbet', 'Papaya', 'Creamsicle'],
   },
   amber: {
-    dark: ['Whiskey', 'Tobacco', 'Bronze'],
-    mid: ['Amber', 'Caramel', 'Ochre'],
-    light: ['Honey', 'Butterscotch', 'Wheat'],
+    dark: ['Whiskey', 'Tobacco', 'Bronze', 'Walnut', 'Toffee', 'Umber'],
+    mid: ['Amber', 'Caramel', 'Ochre', 'Maple', 'Cider', 'Fawn'],
+    light: ['Honey', 'Wheat', 'Sand', 'Flax', 'Biscuit', 'Cream'],
   },
   yellow: {
-    dark: ['Ochre', 'Bee', 'Dijon'],
-    mid: ['Mustard', 'Honeycomb', 'Saffron'],
-    light: ['Toast', 'Butter', 'Straw'],
+    dark: ['Dijon', 'Brass', 'Curry', 'Olive', 'Bronze', 'Marsh'],
+    mid: ['Mustard', 'Saffron', 'Gold', 'Corn', 'Sunflower', 'Lemon'],
+    light: ['Butter', 'Straw', 'Custard', 'Daffodil', 'Vanilla', 'Parchment'],
   },
   lime: {
-    dark: ['Olive', 'Fern', 'Moss Bark'],
-    mid: ['Chartreuse', 'Pear', 'Sprig'],
-    light: ['Spring Leaf', 'Sprout', 'Pistachio'],
+    dark: ['Olive', 'Fern', 'Moss', 'Pickle', 'Cactus', 'Ivy'],
+    mid: ['Pear', 'Sprig', 'Lime', 'Apple', 'Palm', 'Leaf'],
+    light: ['Sprout', 'Pistachio', 'Mint', 'Honeydew', 'Celery', 'Fennel'],
   },
   green: {
-    dark: ['Juniper', 'Forest', 'Kelp'],
-    mid: ['Moss', 'Fig Leaf', 'Matcha'],
-    light: ['Celadon', 'Mist', 'Sprout'],
+    dark: ['Juniper', 'Forest', 'Kelp', 'Pine', 'Spruce', 'Hunter'],
+    mid: ['Moss', 'Matcha', 'Jade', 'Basil', 'Clover', 'Emerald'],
+    light: ['Celadon', 'Mist', 'Sage', 'Seafoam', 'Dew', 'Willow'],
   },
   teal: {
-    dark: ['Pine', 'Deep Lagoon', 'Malachite'],
-    mid: ['Teal', 'Verdigris', 'Lagoon'],
-    light: ['Sea Glass', 'Aqua', 'Spearmint'],
+    dark: ['Pine', 'Malachite', 'Spruce', 'Marine', 'Juniper', 'Kelp'],
+    mid: ['Teal', 'Lagoon', 'Jade', 'Marina', 'Peacock', 'Tide'],
+    light: ['Aqua', 'Spearmint', 'Surf', 'Foam', 'Opal', 'Mist'],
   },
   cyanBlue: {
-    dark: ['Fathom', 'Abyss', 'Ink Well'],
-    mid: ['Harbor', 'Cerulean', 'Slate'],
-    light: ['Powder', 'Glacier', 'Sky'],
+    dark: ['Fathom', 'Abyss', 'Ink', 'Storm', 'Depth', 'Petrol'],
+    mid: ['Harbor', 'Cerulean', 'Slate', 'Marine', 'Wave', 'Steel'],
+    light: ['Powder', 'Glacier', 'Sky', 'Frost', 'Cloud', 'Ice'],
   },
   blue: {
-    dark: ['Midnight', 'Ink', 'Navy'],
-    mid: ['Denim', 'Delft', 'Cobalt'],
-    light: ['Dawn', 'Periwinkle', 'Chicory'],
+    dark: ['Midnight', 'Ink', 'Navy', 'Sapphire', 'Indigo', 'Nightfall'],
+    mid: ['Denim', 'Delft', 'Cobalt', 'Ocean', 'Marine', 'Lapis'],
+    light: ['Dawn', 'Periwinkle', 'Chicory', 'Bluebell', 'Fog', 'Robin'],
   },
   violet: {
-    dark: ['Eclipse', 'Nightshade', 'Damson'],
-    mid: ['Iris', 'Violet Hour', 'Wisteria'],
-    light: ['Lilac', 'Lavender', 'Hazy Bloom'],
+    dark: ['Eclipse', 'Nightshade', 'Damson', 'Ink', 'Raisin', 'Dusk'],
+    mid: ['Iris', 'Wisteria', 'Violet', 'Pansy', 'Amethyst', 'Bloom'],
+    light: ['Lilac', 'Lavender', 'Haze', 'Mauve', 'Mist', 'Sweetpea'],
   },
   purple: {
-    dark: ['Aubergine', 'Plum', 'Mulberry'],
-    mid: ['Orchid', 'Amethyst', 'Grape'],
-    light: ['Heather', 'Thistle', 'Orchid Mist'],
+    dark: ['Aubergine', 'Plum', 'Mulberry', 'Fig', 'Raisin', 'Cassis'],
+    mid: ['Orchid', 'Amethyst', 'Grape', 'Magenta', 'Dahlia', 'Fuchsia'],
+    light: ['Heather', 'Thistle', 'Mauve', 'Lilac', 'Petal', 'Pearl'],
   },
   pink: {
-    dark: ['Garnet', 'Berry', 'Sangria'],
-    mid: ['Rose', 'Peony', 'Guava'],
-    light: ['Blush', 'Cotton Candy', 'Bellini'],
+    dark: ['Garnet', 'Berry', 'Sangria', 'Raspberry', 'Currant', 'Beet'],
+    mid: ['Rose', 'Peony', 'Guava', 'Punch', 'Flamingo', 'Taffy'],
+    light: ['Blush', 'Bellini', 'Ballet', 'Rosebud', 'Cameo', 'Sorbet'],
   },
   neutral: {
-    dark: ['Charcoal', 'Basalt', 'Soot'],
-    mid: ['Clay', 'Pumice', 'Loam'],
-    light: ['Bone', 'Oat', 'Chalk'],
+    dark: ['Charcoal', 'Basalt', 'Soot', 'Graphite', 'Shadow', 'Slate'],
+    mid: ['Clay', 'Pumice', 'Loam', 'Stone', 'Taupe', 'Driftwood'],
+    light: ['Bone', 'Oat', 'Chalk', 'Ivory', 'Fog', 'Linen'],
   },
 }
 
@@ -85,80 +85,80 @@ export interface PlaceThing {
 }
 
 // Grouped loosely by register — places, times of day, weather, landscape,
-// botanicals, textures, and scents — in the spirit of Werner's Nomenclature
-// and paint-chip naming: concrete sensory nouns that carry a color without
+// botanicals, textures — short concrete nouns that carry a color without
 // describing one.
 export const PLACE_THINGS: PlaceThing[] = [
   // Places
   { word: 'Amalfi', families: ['yellow', 'orange', 'blue'] },
   { word: 'Kyoto', families: ['pink', 'green'] },
   { word: 'Tangier', families: ['amber', 'orange'] },
-  { word: 'Reykjavik', families: ['cyanBlue', 'blue', 'neutral'], moods: ['muted'] },
   { word: 'Marrakesh', families: ['red', 'orange', 'amber'] },
-  { word: 'Apothecary', moods: ['muted', 'soft'] },
-  { word: 'Verandah' },
-  { word: 'Arcade' },
+  { word: 'Harbor', families: ['cyanBlue', 'blue', 'neutral'] },
+  { word: 'Market', moods: ['vivid'] },
+  { word: 'Garden' },
+  { word: 'Porch' },
+  { word: 'Studio' },
   { word: 'Atlas' },
-  { word: 'Meridian' },
+  { word: 'Postcard' },
   { word: 'Sonnet' },
-  { word: 'Fable' },
   // Time of day
-  { word: 'Vespers', moods: ['muted', 'soft'] },
-  { word: 'Matins', moods: ['soft'] },
-  { word: 'Gloaming', families: ['violet', 'purple', 'blue', 'neutral'], moods: ['muted', 'soft'] },
-  { word: 'Daybreak', families: ['pink', 'orange', 'yellow'], moods: ['soft'] },
-  { word: 'Noonday', families: ['yellow', 'amber'], moods: ['vivid'] },
+  { word: 'Dawn', moods: ['soft'] },
+  { word: 'Dusk', families: ['violet', 'purple', 'blue', 'neutral'] },
+  { word: 'Noon', families: ['yellow', 'amber'], moods: ['vivid'] },
   { word: 'Twilight', families: ['violet', 'blue', 'purple'] },
   { word: 'Solstice' },
-  { word: 'Equinox' },
+  { word: 'Sunday', moods: ['soft', 'muted'] },
+  { word: 'Hour' },
   // Weather
-  { word: 'Mizzle', families: ['neutral', 'cyanBlue', 'green'], moods: ['muted'] },
-  { word: 'Haar', families: ['neutral', 'cyanBlue'], moods: ['muted'] },
-  { word: 'Zephyr', moods: ['soft'] },
-  { word: 'Sirocco', families: ['amber', 'orange', 'red'] },
+  { word: 'Drizzle', families: ['neutral', 'cyanBlue', 'green'], moods: ['muted'] },
+  { word: 'Fog', families: ['neutral', 'cyanBlue'], moods: ['muted'] },
+  { word: 'Breeze', moods: ['soft'] },
   { word: 'Squall', families: ['cyanBlue', 'blue', 'neutral'], moods: ['vivid'] },
   { word: 'Monsoon', families: ['teal', 'green', 'blue'] },
   { word: 'Thaw', moods: ['soft', 'muted'] },
-  { word: 'Nimbus', families: ['neutral', 'cyanBlue'] },
+  { word: 'Storm', moods: ['vivid', 'muted'] },
+  { word: 'Rain', moods: ['muted', 'soft'] },
   // Landscape
   { word: 'Moor', families: ['green', 'purple', 'neutral'], moods: ['muted'] },
   { word: 'Fjord', families: ['teal', 'cyanBlue', 'blue'] },
-  { word: 'Tarn', families: ['teal', 'blue', 'neutral'], moods: ['muted'] },
   { word: 'Dune', families: ['amber', 'yellow', 'neutral'] },
   { word: 'Heath', families: ['green', 'purple', 'lime'] },
-  { word: 'Estuary', families: ['teal', 'cyanBlue', 'neutral'] },
   { word: 'Orchard', families: ['green', 'lime', 'red'] },
   { word: 'Grove', families: ['green', 'lime'] },
-  { word: 'Tidepool', families: ['teal', 'cyanBlue'] },
+  { word: 'Cove', families: ['teal', 'cyanBlue', 'blue'] },
+  { word: 'Reef', families: ['teal', 'cyanBlue'], moods: ['vivid'] },
+  { word: 'Shore', families: ['blue', 'teal', 'neutral'] },
+  { word: 'Field', families: ['green', 'lime', 'yellow'] },
+  { word: 'Creek', families: ['teal', 'green', 'neutral'] },
+  { word: 'Cliff', families: ['neutral', 'amber'] },
   { word: 'Sunset', families: ['red', 'orange', 'pink'] },
   { word: 'Prairie', families: ['amber', 'yellow', 'lime'] },
   { word: 'Bayou', families: ['green', 'teal'], moods: ['muted'] },
+  { word: 'Valley' },
+  { word: 'Trail' },
   // Botanical
   { word: 'Yarrow', families: ['yellow', 'lime'] },
   { word: 'Sorrel', families: ['green', 'lime', 'red'] },
-  { word: 'Bracken', families: ['green', 'amber', 'orange'], moods: ['muted'] },
   { word: 'Clover', families: ['green', 'lime', 'pink'] },
-  { word: 'Hollyhock', families: ['pink', 'purple', 'red'] },
-  { word: 'Alder', families: ['green', 'neutral'], moods: ['muted'] },
   { word: 'Willow', families: ['green', 'lime', 'neutral'], moods: ['soft', 'muted'] },
-  // Texture
+  { word: 'Poppy', families: ['red', 'orange'], moods: ['vivid'] },
+  { word: 'Bramble', families: ['purple', 'pink', 'green'], moods: ['muted'] },
+  { word: 'Petal', moods: ['soft'] },
+  // Texture / material
   { word: 'Velvet', moods: ['vivid', 'soft'] },
   { word: 'Linen', moods: ['muted', 'soft'] },
-  { word: 'Gossamer', moods: ['soft'] },
+  { word: 'Silk', moods: ['soft'] },
+  { word: 'Glass' },
   { word: 'Patina', families: ['teal', 'green', 'neutral'], moods: ['muted'] },
-  { word: 'Raku', families: ['neutral', 'amber'], moods: ['muted'] },
-  // Scent
-  { word: 'Petrichor', families: ['neutral', 'green', 'cyanBlue'], moods: ['muted'] },
-  { word: 'Vetiver', families: ['green', 'amber'], moods: ['muted'] },
-  { word: 'Bergamot', families: ['yellow', 'lime', 'green'] },
-  { word: 'Myrrh', families: ['amber', 'orange', 'neutral'] },
-  { word: 'Chai', families: ['amber', 'orange', 'neutral'], moods: ['soft', 'muted'] },
+  { word: 'Smoke', families: ['neutral'], moods: ['muted'] },
+  { word: 'Chalk', families: ['neutral'], moods: ['muted', 'soft'] },
 ]
 
 // Modifiers keyed by mood — experiential and textural adjectives (how a
-// palette feels, weathers, or catches light), not color words.
+// palette feels, weathers, or catches light), not color words. Short and
+// plain: words someone would actually put in front of a paint name.
 export const MODIFIERS: Record<Mood, string[]> = {
-  muted: ['Quiet', 'Sleeping', 'Faded', 'Dusty', 'Hushed', 'Weathered', 'Fogbound', 'Worn', 'Overcast', 'Sun-Faded'],
-  soft: ['Wandering', 'Morning', 'Folded', 'Tender', 'Gauzy', 'Milky', 'Honeyed', 'Half-Lit', 'Drowsy'],
-  vivid: ['Running', 'Electric', 'Feral', 'Loud', 'Molten', 'Sunstruck', 'Ripe', 'Burning'],
+  muted: ['Quiet', 'Faded', 'Dusty', 'Worn', 'Pale', 'Still', 'Smoky', 'Soft', 'Ashen', 'Misty', 'Dim', 'Cool'],
+  soft: ['Morning', 'Tender', 'Mellow', 'Milky', 'Hazy', 'Drowsy', 'Gentle', 'Warm', 'Sleepy', 'Calm', 'Light'],
+  vivid: ['Electric', 'Loud', 'Bold', 'Bright', 'Wild', 'Ripe', 'Burning', 'Neon', 'Hot', 'Molten', 'Fresh'],
 }

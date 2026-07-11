@@ -36,6 +36,18 @@ describe('EditMode', () => {
     expect(screen.getAllByTestId('swatch').length).toBe(78)
   })
 
+  it('shows the scroll-position ticker when editing from the Create feed', () => {
+    useAppStore.setState({ editReturnMode: 'create' })
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    expect(screen.getByTestId('scroll-ticker')).toBeInTheDocument()
+  })
+
+  it('hides the scroll-position ticker when editing a gradient from the Gallery', () => {
+    useAppStore.setState({ editReturnMode: 'gallery' })
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    expect(screen.queryByTestId('scroll-ticker')).not.toBeInTheDocument()
+  })
+
   it('renders FlowEditor (not BlockWheel) for square/Turrell gradients', () => {
     render(<EditMode gradient={{ ...gradient, type: 'square' }} onExit={vi.fn()} />)
     expect(screen.getAllByTestId('flow-handle')).toHaveLength(3)
@@ -161,14 +173,17 @@ describe('EditMode', () => {
     expect(onExit).toHaveBeenCalledTimes(1)
   })
 
-  it('renders a save button that toggles the saved state', () => {
+  it('renders a save pill on the gradient (not in the sheet) that toggles the saved state', () => {
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
-    const saveButton = screen.getByTestId('save-btn')
-    expect(saveButton.textContent).toBe('Save to Gallery')
+    const saveButton = screen.getByTestId('like-button')
+    expect(saveButton.textContent).toBe('Save')
+    // The pill sits on the gradient preview, not inside the bottom sheet.
+    expect(screen.getByTestId('edit-mode-preview').contains(saveButton)).toBe(true)
+    expect(screen.getByTestId('edit-sheet').contains(saveButton)).toBe(false)
 
     fireEvent.click(saveButton)
     expect(useAppStore.getState().saved).toHaveLength(1)
-    expect(saveButton.textContent).toBe('✓ Saved to Gallery')
+    expect(saveButton.textContent).toBe('✓ Saved')
   })
 
   it('tapping an unselected swatch appends a new stop', () => {
@@ -487,7 +502,7 @@ describe('EditMode', () => {
     expect(updated.stops).toHaveLength(2)
   })
 
-  it('cycles shapes and flips orientation via ArrowLeft/Right and ArrowUp/Down keys in EditMode', () => {
+  it('cycles shapes via ArrowLeft/Right and flips orientation via F in EditMode', () => {
     const custom: Gradient = {
       id: 'g6',
       type: 'linear',
@@ -510,13 +525,13 @@ describe('EditMode', () => {
     updated = useAppStore.getState().current!
     expect(updated.type).toBe('linear')
 
-    // Press ArrowDown to flip orientation
-    fireEvent.keyDown(window, { key: 'ArrowDown' })
+    // Press F to flip orientation
+    fireEvent.keyDown(window, { key: 'f' })
     updated = useAppStore.getState().current!
     expect(updated.reversed).toBe(true)
 
-    // Press ArrowUp to flip orientation back
-    fireEvent.keyDown(window, { key: 'ArrowUp' })
+    // Press F to flip orientation back
+    fireEvent.keyDown(window, { key: 'f' })
     updated = useAppStore.getState().current!
     expect(updated.reversed).toBe(false)
   })

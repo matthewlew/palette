@@ -18,9 +18,10 @@ import { GrainButton } from './GrainButton'
 import { NoiseOverlay } from './NoiseOverlay'
 import { GeometryTabs } from './GeometryTabs'
 import { PaletteTitle } from './PaletteTitle'
-import { Drawer } from './Drawer'
+import { BoardShare } from './BoardShare'
 import { namePalette } from '../lib/naming'
-import { glassToneAt } from '../lib/glassTone'
+import { titleColorAt } from '../lib/titleColor'
+import { LikeButton } from './LikeButton'
 import { FlowEditor } from './FlowEditor'
 import { SwatchTray } from './SwatchTray'
 import { TurrellSquare } from './TurrellSquare'
@@ -47,9 +48,10 @@ const ORDER_LABELS: Record<OrderKey, string> = {
 interface EditModeProps {
   gradient: Gradient
   onExit: () => void
+  onImport?: (jsonText: string) => void
 }
 
-export function EditMode({ gradient, onExit }: EditModeProps) {
+export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProps) {
   const setCurrentGradient = useAppStore((s) => s.setCurrentGradient)
   const activeColorSet = useAppStore((s) => s.activeColorSet)
   const saved = useAppStore((s) => s.saved)
@@ -58,6 +60,10 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   const noiseEnabled = useAppStore((s) => s.noiseEnabled)
   const toggleNoise = useAppStore((s) => s.toggleNoise)
   const renameCurrentGradient = useAppStore((s) => s.renameCurrentGradient)
+  // The scroll-position number only means something in the endless Create
+  // feed. When editing a saved gradient (opened from the Gallery) it's a
+  // named, one-off palette, so the counter would be meaningless — hide it.
+  const fromGallery = useAppStore((s) => s.editReturnMode === 'gallery')
   const [editableStops, setEditableStops] = useState<EditableStop[]>(() => toEditableStops(gradient.stops))
   const [activeOrder, setActiveOrder] = useState<OrderKey>('original')
   // Stop ids in the user's own order — the baseline "Original" restores to.
@@ -72,12 +78,13 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   const [activeStopId, setActiveStopId] = useState<string | null>(null)
   const editHint = useHint('edit')
 
-  // Per-corner glass tones so each floating control flips dark only when the
-  // gradient underneath it is bright (see lib/glassTone).
-  const backTone = glassToneAt(gradient, 0.06, 0.06)
-  const titleTone = glassToneAt(gradient, 0.5, 0.06)
-  const cornerTone = glassToneAt(gradient, 0.93, 0.88)
-  const sortTone = glassToneAt(gradient, 0.12, 0.93)
+  // Per-corner palette-derived foregrounds (same strategy as the title) so
+  // every floating control reads as an extension of the gradient.
+  const backColor = titleColorAt(gradient, 0.06, 0.06)
+  const titleColor = titleColorAt(gradient, 0.5, 0.06)
+  const shareColor = titleColorAt(gradient, 0.94, 0.06)
+  const cornerColor = titleColorAt(gradient, 0.93, 0.88)
+  const sortColor = titleColorAt(gradient, 0.12, 0.93)
 
   // Scroll, drag, and keyboard navigation state for editing
   const [tickerIndex, setTickerIndex] = useState(() => feedSession.index)
@@ -346,22 +353,46 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement
+      const inTextField =
+        target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable
+
+      // Escape works even while a button holds focus (e.g. right after
+      // clicking Save) — only text fields own it, for cancelling their own
+      // editing. It discards unsaved edits, mirroring the close/back
+      // buttons; only the explicit Save action commits to the Gallery.
+      if (e.key === 'Escape' && !inTextField) {
+        e.preventDefault()
+        onExitRef.current()
+        return
+      }
+
       if (
-        target?.tagName === 'INPUT' ||
-        target?.tagName === 'TEXTAREA' ||
-        target?.isContentEditable
+        inTextField ||
+        target?.tagName === 'BUTTON' ||
+        // Modifier combos (⌘S, ⌘Z…) belong to the browser or other handlers.
+        e.metaKey ||
+        e.ctrlKey ||
+        e.altKey ||
+        // Focused flow-editor stops own the arrow keys (they're sliders).
+        target?.closest?.('[role="slider"]')
       ) {
         return
       }
 
-      if (e.key === 'PageDown' || e.key === ' ') {
+      // ArrowDown/Up scrub the rolodex, matching the vertical scroll and
+      // the tick marks; PageDown/Up mirror them. Flip lives on F.
+      if (e.key === 'PageDown' || e.key === 'ArrowDown') {
         e.preventDefault()
         goTo(feedSession.index + 1)
-      } else if (e.key === 'PageUp') {
+      } else if (e.key === 'PageUp' || e.key === 'ArrowUp') {
         e.preventDefault()
         if (feedSession.index > 0) {
           goTo(feedSession.index - 1)
         }
+      } else if (e.key === ' ' || e.key === 's' || e.key === 'S') {
+        e.preventDefault()
+        const state = useAppStore.getState()
+        if (state.current) state.toggleSaveGradient(state.current)
       } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
         e.preventDefault()
         const currentGrad = useAppStore.getState().current
@@ -381,7 +412,7 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
             stops: toGradientStops(editableStopsRef.current),
           })
         }
-      } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      } else if (e.key === 'f' || e.key === 'F') {
         e.preventDefault()
         const currentGrad = useAppStore.getState().current
         if (currentGrad) {
@@ -537,13 +568,20 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
         type="button"
         data-testid="edit-mode-back"
         aria-label="Back"
-        className={backTone === 'dark' ? `${styles.backButton} glass-dark` : styles.backButton}
+        className={`${styles.backButton} ghost-chip`}
+        style={{ color: backColor }}
         onClick={onExit}
       >
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M15 5l-7 7 7 7" />
         </svg>
       </button>
+      <BoardShare
+        saved={saved}
+        current={gradient}
+        onImport={onImport}
+        color={shareColor}
+      />
       <div
         data-testid="edit-mode-preview"
         ref={previewRef}
@@ -560,26 +598,35 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
         onPointerDown={handlePreviewPointerDown}
         onPointerUp={handlePreviewPointerUp}
       >
-        <ScrollTicker index={tickerIndex} />
+        {!fromGallery && <ScrollTicker index={tickerIndex} />}
         {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} />}
         <NoiseOverlay visible={noiseEnabled} />
         <PaletteTitle
           name={gradient.name ?? namePalette(gradient.stops.map((s) => s.hex))}
           onRename={renameCurrentGradient}
-          tone={titleTone}
+          color={titleColor}
         />
-        <GrainButton enabled={noiseEnabled} onToggle={toggleNoise} tone={cornerTone} />
+        <GrainButton enabled={noiseEnabled} onToggle={toggleNoise} color={cornerColor} />
         <button
           type="button"
           data-testid="sort-fab"
           aria-label={`Stop order: ${activeOrder}. Tap to change`}
-          className={sortTone === 'dark' ? `${styles.sortFab} glass-dark` : styles.sortFab}
+          className={`${styles.sortFab} ghost-chip ghost-pill`}
+          style={{ color: sortColor }}
           onClick={handleSortCycle}
           onPointerDown={(e) => e.stopPropagation()}
           onPointerUp={(e) => e.stopPropagation()}
         >
           Order: {ORDER_LABELS[activeOrder]}
         </button>
+        {/* Save lives on the gradient itself (bottom-right, above grain) on
+            every screen size — the same spot and pill as the create feed —
+            instead of a full-width button inside the sheet. */}
+        <LikeButton
+          liked={isGradientSaved}
+          onToggle={() => toggleSaveGradient(gradient)}
+          color={cornerColor}
+        />
       </div>
       <div
         data-testid="edit-sheet"
@@ -617,14 +664,6 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
             activeStopId={activeStopId}
           />
         </div>
-        <button
-          type="button"
-          data-testid="save-btn"
-          className={isGradientSaved ? styles.saveButtonSaved : styles.saveButton}
-          onClick={() => toggleSaveGradient(gradient)}
-        >
-          {isGradientSaved ? '✓ Saved to Gallery' : 'Save to Gallery'}
-        </button>
         <SwatchTray
           colorSet={activeColorSet}
           stops={editableStops}
@@ -635,11 +674,6 @@ export function EditMode({ gradient, onExit }: EditModeProps) {
         />
       </div>
       {editHint.visible && <Hint text="Tap a swatch to edit" visible={editHint.visible} />}
-      {/* Desktop keeps the favorites stack from explore mode (shifted left of
-          the side panel) so the corner stays seamless across modes and saved
-          palettes are one tap away while editing. Hidden on mobile, where the
-          bottom sheet owns that space (see .container drawer override). */}
-      <Drawer saved={saved} onSelect={(g) => setCurrentGradient(g)} />
     </div>
   )
 }

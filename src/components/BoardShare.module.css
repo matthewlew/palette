@@ -1,9 +1,29 @@
 .container {
-  position: fixed;
-  top: 16px;
-  right: 16px;
-  z-index: 3;
+  z-index: 5;
   transition: opacity 400ms ease;
+}
+
+.fixed {
+  composes: container;
+  position: fixed;
+  top: max(16px, env(safe-area-inset-top));
+  right: 16px;
+}
+
+.inline {
+  composes: container;
+  position: relative;
+  display: inline-block;
+}
+
+/* Same top-right anchor as .fixed — the share trigger must not move
+   between the feed and the full-screen viewer (close sits top-left). */
+.viewer {
+  composes: container;
+  position: fixed;
+  top: max(16px, env(safe-area-inset-top));
+  right: 16px;
+  z-index: 41;
 }
 
 .hidden {
@@ -24,6 +44,12 @@
   padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.3);
   transition: transform 150ms ease-out;
+}
+
+/* Layout-only twin of .triggerButton for the ghost-chip variant — the
+   visual recipe comes from the global .ghost-chip class. */
+.triggerBase {
+  width: 44px;
 }
 
 .triggerButton:active {

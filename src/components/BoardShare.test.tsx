@@ -47,7 +47,7 @@ describe('BoardShare Component', () => {
     fireEvent.click(trigger)
 
     expect(screen.getByRole('button', { name: /share board link/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /export json/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /export board json/i })).toBeDisabled()
     expect(screen.getByRole('button', { name: /import json/i })).not.toBeDisabled()
   })
 
@@ -65,13 +65,13 @@ describe('BoardShare Component', () => {
     render(<BoardShare saved={board} onImport={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: /share options/i }))
     expect(screen.getByText(/rich preview link/i)).toBeInTheDocument()
-    expect(screen.getByText(/raw data for backup/i)).toBeInTheDocument()
+    expect(screen.getByText(/raw collection backup data/i)).toBeInTheDocument()
   })
 
   it('opens a modal with the full board JSON in a large textarea and copies it', () => {
     render(<BoardShare saved={board} onImport={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: /share options/i }))
-    fireEvent.click(screen.getByRole('button', { name: /export json/i }))
+    fireEvent.click(screen.getByRole('button', { name: /export board json/i }))
 
     const area = screen.getByLabelText('Board JSON') as HTMLTextAreaElement
     expect(area.rows).toBeGreaterThanOrEqual(8)

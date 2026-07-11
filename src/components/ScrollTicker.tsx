@@ -8,6 +8,11 @@ const IDLE_FADE_MS = 1000
 
 interface ScrollTickerProps {
   index: number
+  /** Text shown beside the active tick instead of the 1-based position. The
+   * Create feed leaves this off (its gradients are numbered); the Gallery
+   * passes the palette's name, since a saved gradient reads by name, not by
+   * its spot in the list. */
+  label?: string
 }
 
 /** Decorative timeline on the right edge of the feed: tick marks scroll past
@@ -17,7 +22,7 @@ interface ScrollTickerProps {
  * Ticks live at fixed offsets inside a single translated strip so that only
  * one element animates per step — animating each tick individually restarts
  * 21 transitions per step, which reads as jank on mobile. */
-export function ScrollTicker({ index }: ScrollTickerProps) {
+export function ScrollTicker({ index, label }: ScrollTickerProps) {
   const [visible, setVisible] = useState(false)
   const isFirstRender = useRef(true)
 
@@ -38,6 +43,11 @@ export function ScrollTicker({ index }: ScrollTickerProps) {
   return (
     <div data-testid="scroll-ticker" aria-hidden="true" className={styles.ticker} style={{ opacity: visible ? 1 : 0 }}>
       <div className={styles.strip} style={{ transform: `translateY(${-index * TICK_SPACING_PX}px)` }}>
+        {/* Lives inside the translated strip at the active tick's offset, so
+            it scrolls with the marks and reads as a counter ticking up/down. */}
+        <div data-testid="ticker-count" className={styles.count} style={{ top: `${index * TICK_SPACING_PX}px` }}>
+          {label ?? index + 1}
+        </div>
         {tickIndices.map((t) => {
           const isActive = t === index
           // Digital-crown feel: every tick's size is a continuous function of

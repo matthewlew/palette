@@ -1,4 +1,3 @@
-import type { GlassTone } from '../lib/glassTone'
 import styles from './GrainButton.module.css'
 
 interface GrainButtonProps {
@@ -6,13 +5,13 @@ interface GrainButtonProps {
   onToggle: () => void
   /** Fades the button out alongside the rest of the chrome. */
   hidden?: boolean
-  /** 'dark' flips the glass surface for legibility over bright backdrops. */
-  tone?: GlassTone
+  /** Palette-derived foreground (same strategy as the title). */
+  color?: string
 }
 
-/** Round toggle for the mono noise overlay, stacked above the like button. */
-export function GrainButton({ enabled, onToggle, hidden = false, tone = 'light' }: GrainButtonProps) {
-  const className = [styles.grainButton, hidden && styles.hidden, tone === 'dark' && 'glass-dark']
+/** Round toggle for the mono noise overlay, stacked above the save button. */
+export function GrainButton({ enabled, onToggle, hidden = false, color = '#ffffff' }: GrainButtonProps) {
+  const className = [styles.grainButton, 'ghost-chip', enabled && 'ghost-chip-active', hidden && styles.hidden]
     .filter(Boolean)
     .join(' ')
   return (
@@ -22,6 +21,7 @@ export function GrainButton({ enabled, onToggle, hidden = false, tone = 'light' 
       aria-label="Toggle grain"
       aria-pressed={enabled}
       className={className}
+      style={{ color }}
       onPointerDown={(e) => e.stopPropagation()}
       onPointerUp={(e) => e.stopPropagation()}
       onClick={(e) => {

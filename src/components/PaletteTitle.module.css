@@ -13,16 +13,17 @@
   pointer-events: none;
 }
 
+/* Plain text, no glass blob: the color (set inline, see lib/titleColor) is
+   one of the palette's own stops chosen for contrast against the gradient
+   right here, so the title reads as part of the palette. */
 .pill {
-  composes: glass-surface from global;
-  /* Keeps the white label readable when the gradient behind is pale. */
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  border: 0;
+  background: transparent;
   height: 36px;
   max-width: 100%;
   padding: 0 16px;
-  border-radius: 999px;
-  color: #fff;
-  font-size: 14px;
+  font-family: var(--heading);
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.2px;
   white-space: nowrap;
@@ -32,14 +33,17 @@
 }
 
 .input {
-  composes: glass-surface from global;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  background: transparent;
+  border: 0;
+  /* The rename affordance is a hairline underline in the title's own color
+     (set inline), keeping the editing state as blob-free as the label. */
+  border-bottom: 1px solid currentColor;
+  border-radius: 0;
   height: 36px;
   width: min(70vw, 280px);
   padding: 0 16px;
-  border-radius: 999px;
-  color: #fff;
-  font-size: 14px;
+  font-family: var(--heading);
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.2px;
   text-align: center;
@@ -48,5 +52,5 @@
 }
 
 .input::selection {
-  background: rgba(255, 255, 255, 0.35);
+  background: rgba(128, 128, 128, 0.35);
 }
