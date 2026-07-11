@@ -121,16 +121,61 @@ function Tile({
 
 interface ViewerProps {
   gradient: Gradient
+  /** The ordered gradients the viewer scrolls through — the currently
+   * filtered gallery list, so navigation respects the active filters. */
+  items: Gradient[]
+  onNavigate: (gradient: Gradient) => void
   onClose: () => void
   onRiff: (gradient: Gradient) => void
   onImport: (jsonText: string) => void
 }
 
-function Viewer({ gradient, onClose, onRiff, onImport }: ViewerProps) {
+// Scroll/swipe past this to step to the neighbouring gradient. Wheel deltas
+// accumulate so a trackpad flick steps once, not a dozen times.
+const WHEEL_STEP_THRESHOLD = 90
+const TOUCH_STEP_PX = 60
+
+function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport }: ViewerProps) {
   const saved = useAppStore((s) => s.saved)
   const renameSavedGradient = useAppStore((s) => s.renameSavedGradient)
   const removeSavedGradientById = useAppStore((s) => s.removeSavedGradientById)
   const touchStartYRef = useRef<number | null>(null)
+  const wheelAccumRef = useRef(0)
+  const wheelResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Index within the list the viewer is scrolling through. Falls back to 0 if
+  // the open gradient was filtered out from under the viewer.
+  const index = Math.max(0, items.findIndex((g) => g.id === gradient.id))
+
+  // Step to a neighbour, clamped to the ends (no wrap — the list has a top and
+  // a bottom, like the Create feed). Down/next = +1, matching wheel direction.
+  function step(delta: number) {
+    const next = index + delta
+    if (next < 0 || next >= items.length) return
+    onNavigate(items[next])
+  }
+
+  useEffect(() => {
+    return () => {
+      if (wheelResetTimerRef.current) clearTimeout(wheelResetTimerRef.current)
+    }
+  }, [])
+
+  function handleWheel(e: React.WheelEvent) {
+    // A direction flip abandons the in-progress accumulation.
+    if (Math.sign(e.deltaY) !== Math.sign(wheelAccumRef.current)) wheelAccumRef.current = 0
+    wheelAccumRef.current += e.deltaY
+    if (wheelResetTimerRef.current) clearTimeout(wheelResetTimerRef.current)
+    if (Math.abs(wheelAccumRef.current) >= WHEEL_STEP_THRESHOLD) {
+      step(wheelAccumRef.current > 0 ? 1 : -1)
+      wheelAccumRef.current = 0
+      return
+    }
+    // A pause abandons a partial scroll so it doesn't carry into the next one.
+    wheelResetTimerRef.current = setTimeout(() => {
+      wheelAccumRef.current = 0
+    }, 250)
+  }
 
   // The `gradient` prop is the snapshot captured when the tile was tapped;
   // renames land in `saved`, so read the live copy for display.
@@ -164,11 +209,20 @@ function Viewer({ gradient, onClose, onRiff, onImport }: ViewerProps) {
         removeSavedGradientById(gradient.id)
         onClose()
       }
+      // Arrows scroll between gradients, same as the wheel/swipe.
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+        e.preventDefault()
+        step(1)
+      }
+      if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+        e.preventDefault()
+        step(-1)
+      }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onClose, onRiff, gradient])
+  }, [onClose, onRiff, gradient, items, index])
 
   return (
     <div
@@ -179,6 +233,7 @@ function Viewer({ gradient, onClose, onRiff, onImport }: ViewerProps) {
       className={styles.viewer}
       style={{ backgroundImage: tileBackground(live) }}
       onClick={onClose}
+      onWheel={handleWheel}
       onTouchStart={(e) => {
         touchStartYRef.current = e.touches[0]?.clientY ?? null
       }}
@@ -187,8 +242,10 @@ function Viewer({ gradient, onClose, onRiff, onImport }: ViewerProps) {
         touchStartYRef.current = null
         const end = e.changedTouches[0]?.clientY
         if (start == null || end == null) return
-        // Swipe down closes, matching the "back is swipe-down/×" rule.
-        if (end - start > 80) onClose()
+        // Swipe up → next, swipe down → previous, mirroring the wheel. Close
+        // is the ✕ / Escape, not a gesture, so it can't fight navigation.
+        const dy = start - end
+        if (Math.abs(dy) > TOUCH_STEP_PX) step(dy > 0 ? 1 : -1)
       }}
     >
       {/* Turrell paints as an absolute backdrop layer — in normal flow its
@@ -546,6 +603,8 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
       {open && (
         <Viewer
           gradient={open}
+          items={filtered}
+          onNavigate={setOpen}
           onClose={() => setOpen(null)}
           onRiff={onRiff}
           onImport={onImport ?? (() => {})}

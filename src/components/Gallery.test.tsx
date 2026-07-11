@@ -60,35 +60,73 @@ describe('Gallery component viewer interactions', () => {
     expect(screen.queryByTestId('gallery-viewer')).not.toBeInTheDocument()
   })
 
-  it('does not treat scrolling as an edit gesture (scroll navigates, not edits)', () => {
+  const twoGradients: Gradient[] = [
+    { id: 'n1', type: 'linear', stops: savedGradients[0].stops, name: 'First Palette' },
+    { id: 'n2', type: 'linear', stops: savedGradients[0].stops, name: 'Second Palette' },
+  ]
+
+  it('scrolling steps between gradients without triggering edit', () => {
     const onRiff = vi.fn()
+    useAppStore.setState({ saved: twoGradients, mode: 'gallery' })
     render(<Gallery onRiff={onRiff} />)
-    fireEvent.click(screen.getByRole('button', { name: /Saved Palette One,/ }))
+    fireEvent.click(screen.getByRole('button', { name: /First Palette,/ }))
+    const viewer = screen.getByTestId('gallery-viewer')
+    expect(viewer).toHaveAttribute('aria-label', 'First Palette')
+
+    // Wheel down → next gradient
+    fireEvent.wheel(viewer, { deltaY: 200 })
+    expect(screen.getByTestId('gallery-viewer')).toHaveAttribute('aria-label', 'Second Palette')
+
+    // Wheel up → back to the first
+    fireEvent.wheel(viewer, { deltaY: -200 })
+    expect(screen.getByTestId('gallery-viewer')).toHaveAttribute('aria-label', 'First Palette')
+
+    // Scrolling is navigation, never edit
+    expect(onRiff).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('pull-to-edit-hint')).not.toBeInTheDocument()
+  })
+
+  it('does not step past the ends of the list', () => {
+    useAppStore.setState({ saved: twoGradients, mode: 'gallery' })
+    render(<Gallery onRiff={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /First Palette,/ }))
     const viewer = screen.getByTestId('gallery-viewer')
 
-    fireEvent.wheel(viewer, { deltaY: 200 })
-    fireEvent.wheel(viewer, { deltaY: 200 })
-    expect(screen.queryByTestId('pull-to-edit-hint')).not.toBeInTheDocument()
+    // Already at the top: wheel up stays put
+    fireEvent.wheel(viewer, { deltaY: -200 })
+    expect(screen.getByTestId('gallery-viewer')).toHaveAttribute('aria-label', 'First Palette')
+  })
+
+  it('swiping navigates (up → next, down → previous) and does not close', () => {
+    const onRiff = vi.fn()
+    useAppStore.setState({ saved: twoGradients, mode: 'gallery' })
+    render(<Gallery onRiff={onRiff} />)
+    fireEvent.click(screen.getByRole('button', { name: /First Palette,/ }))
+    const viewer = screen.getByTestId('gallery-viewer')
+
+    // Swipe up → next
+    fireEvent.touchStart(viewer, { touches: [{ clientY: 500 }] })
+    fireEvent.touchEnd(viewer, { changedTouches: [{ clientY: 300 }] })
+    expect(screen.getByTestId('gallery-viewer')).toHaveAttribute('aria-label', 'Second Palette')
+
+    // Swipe down → previous (does not close the viewer)
+    fireEvent.touchStart(viewer, { touches: [{ clientY: 300 }] })
+    fireEvent.touchEnd(viewer, { changedTouches: [{ clientY: 500 }] })
+    expect(screen.getByTestId('gallery-viewer')).toHaveAttribute('aria-label', 'First Palette')
     expect(onRiff).not.toHaveBeenCalled()
   })
 
-  it('swiping down still closes the viewer; swiping up does not edit', async () => {
-    const onRiff = vi.fn()
-    render(<Gallery onRiff={onRiff} />)
-    fireEvent.click(screen.getByRole('button', { name: /Saved Palette One,/ }))
-    const viewer = screen.getByTestId('gallery-viewer')
+  it('arrow keys step between gradients', () => {
+    useAppStore.setState({ saved: twoGradients, mode: 'gallery' })
+    render(<Gallery onRiff={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /First Palette,/ }))
+    expect(screen.getByTestId('gallery-viewer')).toHaveAttribute('aria-label', 'First Palette')
 
-    // Swipe up 200px → no edit
-    fireEvent.touchStart(viewer, { touches: [{ clientY: 500 }] })
-    fireEvent.touchEnd(viewer, { changedTouches: [{ clientY: 300 }] })
-    expect(onRiff).not.toHaveBeenCalled()
+    fireEvent.keyDown(window, { key: 'ArrowDown' })
+    expect(screen.getByTestId('gallery-viewer')).toHaveAttribute('aria-label', 'Second Palette')
 
-    // Swipe down 200px → close
-    fireEvent.touchStart(viewer, { touches: [{ clientY: 300 }] })
-    fireEvent.touchEnd(viewer, { changedTouches: [{ clientY: 500 }] })
-    await waitFor(() => {
-      expect(screen.queryByTestId('gallery-viewer')).not.toBeInTheDocument()
-    })
+    fireEvent.keyDown(window, { key: 'ArrowUp' })
+    expect(screen.getByTestId('gallery-viewer')).toHaveAttribute('aria-label', 'First Palette')
   })
 })
 
