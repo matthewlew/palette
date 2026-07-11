@@ -36,6 +36,18 @@ describe('EditMode', () => {
     expect(screen.getAllByTestId('swatch').length).toBe(78)
   })
 
+  it('shows the scroll-position ticker when editing from the Create feed', () => {
+    useAppStore.setState({ editReturnMode: 'create' })
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    expect(screen.getByTestId('scroll-ticker')).toBeInTheDocument()
+  })
+
+  it('hides the scroll-position ticker when editing a gradient from the Gallery', () => {
+    useAppStore.setState({ editReturnMode: 'gallery' })
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    expect(screen.queryByTestId('scroll-ticker')).not.toBeInTheDocument()
+  })
+
   it('renders FlowEditor (not BlockWheel) for square/Turrell gradients', () => {
     render(<EditMode gradient={{ ...gradient, type: 'square' }} onExit={vi.fn()} />)
     expect(screen.getAllByTestId('flow-handle')).toHaveLength(3)

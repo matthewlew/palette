@@ -126,48 +126,12 @@ interface ViewerProps {
   onImport: (jsonText: string) => void
 }
 
-// Swipe/scroll up far enough in the viewer and it opens the editor — the
-// reverse of pull-to-refresh. Wheel deltas accumulate toward the threshold
-// and decay after a pause; touch reads the drag distance directly.
-const WHEEL_EDIT_THRESHOLD = 360
-const TOUCH_EDIT_PX = 140
-
 function Viewer({ gradient, onClose, onRiff, onImport }: ViewerProps) {
   const saved = useAppStore((s) => s.saved)
   const renameSavedGradient = useAppStore((s) => s.renameSavedGradient)
   const removeSavedGradientById = useAppStore((s) => s.removeSavedGradientById)
   const touchStartYRef = useRef<number | null>(null)
-  const wheelAccumRef = useRef(0)
-  const wheelResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [pullProgress, setPullProgress] = useState(0)
 
-  useEffect(() => {
-    return () => {
-      if (wheelResetTimerRef.current) clearTimeout(wheelResetTimerRef.current)
-    }
-  }, [])
-
-  function resetPull() {
-    wheelAccumRef.current = 0
-    setPullProgress(0)
-  }
-
-  function handleWheel(e: React.WheelEvent) {
-    if (e.deltaY <= 0) {
-      resetPull()
-      return
-    }
-    wheelAccumRef.current += e.deltaY
-    if (wheelResetTimerRef.current) clearTimeout(wheelResetTimerRef.current)
-    if (wheelAccumRef.current >= WHEEL_EDIT_THRESHOLD) {
-      resetPull()
-      onRiff(live)
-      return
-    }
-    setPullProgress(Math.min(1, wheelAccumRef.current / WHEEL_EDIT_THRESHOLD))
-    // A pause abandons the gesture, like releasing a pull-to-refresh early.
-    wheelResetTimerRef.current = setTimeout(resetPull, 600)
-  }
   // The `gradient` prop is the snapshot captured when the tile was tapped;
   // renames land in `saved`, so read the live copy for display.
   const live = saved.find((g) => g.id === gradient.id) ?? gradient
@@ -215,26 +179,16 @@ function Viewer({ gradient, onClose, onRiff, onImport }: ViewerProps) {
       className={styles.viewer}
       style={{ backgroundImage: tileBackground(live) }}
       onClick={onClose}
-      onWheel={handleWheel}
       onTouchStart={(e) => {
         touchStartYRef.current = e.touches[0]?.clientY ?? null
-      }}
-      onTouchMove={(e) => {
-        const start = touchStartYRef.current
-        const y = e.touches[0]?.clientY
-        if (start == null || y == null) return
-        setPullProgress(Math.min(1, Math.max(0, (start - y) / TOUCH_EDIT_PX)))
       }}
       onTouchEnd={(e) => {
         const start = touchStartYRef.current
         touchStartYRef.current = null
-        setPullProgress(0)
         const end = e.changedTouches[0]?.clientY
         if (start == null || end == null) return
         // Swipe down closes, matching the "back is swipe-down/×" rule.
         if (end - start > 80) onClose()
-        // Swipe up far enough opens the editor (reverse pull-to-refresh).
-        if (start - end > TOUCH_EDIT_PX) onRiff(live)
       }}
     >
       {/* Turrell paints as an absolute backdrop layer — in normal flow its
@@ -282,16 +236,6 @@ function Viewer({ gradient, onClose, onRiff, onImport }: ViewerProps) {
         <span className={styles.viewerDate} style={{ color: titleColor }}>
           Saved on {formatDate(live.createdAt)}
         </span>
-      )}
-      {pullProgress > 0.05 && (
-        <div
-          data-testid="pull-to-edit-hint"
-          className={styles.pullHint}
-          style={{ opacity: 0.4 + pullProgress * 0.6, transform: `translateX(-50%) translateY(${(1 - pullProgress) * 12}px)` }}
-          aria-hidden="true"
-        >
-          ↑ {pullProgress >= 1 ? 'Release to edit' : 'Keep scrolling to edit'}
-        </div>
       )}
       <div className={styles.viewerActionsBar} onClick={(e) => e.stopPropagation()}>
         <button

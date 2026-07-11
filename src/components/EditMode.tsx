@@ -60,6 +60,10 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   const noiseEnabled = useAppStore((s) => s.noiseEnabled)
   const toggleNoise = useAppStore((s) => s.toggleNoise)
   const renameCurrentGradient = useAppStore((s) => s.renameCurrentGradient)
+  // The scroll-position number only means something in the endless Create
+  // feed. When editing a saved gradient (opened from the Gallery) it's a
+  // named, one-off palette, so the counter would be meaningless — hide it.
+  const fromGallery = useAppStore((s) => s.editReturnMode === 'gallery')
   const [editableStops, setEditableStops] = useState<EditableStop[]>(() => toEditableStops(gradient.stops))
   const [activeOrder, setActiveOrder] = useState<OrderKey>('original')
   // Stop ids in the user's own order — the baseline "Original" restores to.
@@ -594,7 +598,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         onPointerDown={handlePreviewPointerDown}
         onPointerUp={handlePreviewPointerUp}
       >
-        <ScrollTicker index={tickerIndex} />
+        {!fromGallery && <ScrollTicker index={tickerIndex} />}
         {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} />}
         <NoiseOverlay visible={noiseEnabled} />
         <PaletteTitle

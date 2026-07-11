@@ -60,46 +60,28 @@ describe('Gallery component viewer interactions', () => {
     expect(screen.queryByTestId('gallery-viewer')).not.toBeInTheDocument()
   })
 
-  it('triggers edit when the user scrolls up past the threshold (reverse pull-to-refresh)', () => {
-    const onRiff = vi.fn()
-    render(<Gallery onRiff={onRiff} />)
-    fireEvent.click(screen.getByRole('button', { name: /Saved Palette One,/ }))
-    const viewer = screen.getByTestId('gallery-viewer')
-
-    // Partial scroll shows the hint but does not trigger
-    fireEvent.wheel(viewer, { deltaY: 200 })
-    expect(screen.getByTestId('pull-to-edit-hint')).toBeInTheDocument()
-    expect(onRiff).not.toHaveBeenCalled()
-
-    // Crossing the threshold triggers edit
-    fireEvent.wheel(viewer, { deltaY: 200 })
-    expect(onRiff).toHaveBeenCalledTimes(1)
-  })
-
-  it('scrolling down does not trigger edit and resets progress', () => {
+  it('does not treat scrolling as an edit gesture (scroll navigates, not edits)', () => {
     const onRiff = vi.fn()
     render(<Gallery onRiff={onRiff} />)
     fireEvent.click(screen.getByRole('button', { name: /Saved Palette One,/ }))
     const viewer = screen.getByTestId('gallery-viewer')
 
     fireEvent.wheel(viewer, { deltaY: 200 })
-    fireEvent.wheel(viewer, { deltaY: -50 })
+    fireEvent.wheel(viewer, { deltaY: 200 })
     expect(screen.queryByTestId('pull-to-edit-hint')).not.toBeInTheDocument()
-    // Accumulator was reset, so another partial scroll must not trigger
-    fireEvent.wheel(viewer, { deltaY: 200 })
     expect(onRiff).not.toHaveBeenCalled()
   })
 
-  it('swiping up past the threshold triggers edit; swiping down still closes', async () => {
+  it('swiping down still closes the viewer; swiping up does not edit', async () => {
     const onRiff = vi.fn()
     render(<Gallery onRiff={onRiff} />)
     fireEvent.click(screen.getByRole('button', { name: /Saved Palette One,/ }))
     const viewer = screen.getByTestId('gallery-viewer')
 
-    // Swipe up 200px → edit
+    // Swipe up 200px → no edit
     fireEvent.touchStart(viewer, { touches: [{ clientY: 500 }] })
     fireEvent.touchEnd(viewer, { changedTouches: [{ clientY: 300 }] })
-    expect(onRiff).toHaveBeenCalledTimes(1)
+    expect(onRiff).not.toHaveBeenCalled()
 
     // Swipe down 200px → close
     fireEvent.touchStart(viewer, { touches: [{ clientY: 300 }] })

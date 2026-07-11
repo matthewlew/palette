@@ -307,25 +307,6 @@
 }
 
 /* Bottom-right action cluster, mirroring the create flow's Save pill. */
-/* Reverse pull-to-refresh affordance: appears bottom-center while the user
-   scrolls/swipes up, filling in as the gesture approaches the threshold. */
-.pullHint {
-  position: absolute;
-  bottom: calc(78px + env(safe-area-inset-bottom));
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 3;
-  padding: 8px 16px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  color: #fff;
-  font-size: 13px;
-  white-space: nowrap;
-  pointer-events: none;
-}
-
 .viewerActionsBar {
   position: absolute;
   bottom: calc(16px + env(safe-area-inset-bottom));
