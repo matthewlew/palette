@@ -28,7 +28,7 @@ describe('Gallery component viewer interactions', () => {
     render(<Gallery onRiff={vi.fn()} />)
 
     // Verify tile is present
-    const tile = screen.getByRole('button', { name: /Saved Palette One/ })
+    const tile = screen.getByRole('button', { name: /Saved Palette One,/ })
     expect(tile).toBeInTheDocument()
 
     // Click tile to open Viewer
@@ -36,10 +36,8 @@ describe('Gallery component viewer interactions', () => {
     const viewer = screen.getByTestId('gallery-viewer')
     expect(viewer).toBeInTheDocument()
 
-    // Clicking inside the details panel should NOT close it
-    const panel = screen.getByRole('heading', { name: 'Saved Palette One' }).closest('div')
-    expect(panel).toBeInTheDocument()
-    fireEvent.click(panel!)
+    // Clicking the title (the rename affordance) should NOT close it
+    fireEvent.click(screen.getByTestId('palette-title-button'))
     expect(screen.queryByTestId('gallery-viewer')).toBeInTheDocument()
 
     // Clicking the background gradient itself (the outer viewer) should close it
@@ -52,7 +50,7 @@ describe('Gallery component viewer interactions', () => {
   it('closes full-screen viewer when the Close (✕) button is clicked', () => {
     render(<Gallery onRiff={vi.fn()} />)
 
-    const tile = screen.getByRole('button', { name: /Saved Palette One/ })
+    const tile = screen.getByRole('button', { name: /Saved Palette One,/ })
     fireEvent.click(tile)
 
     const closeBtn = screen.getByRole('button', { name: /close/i })
@@ -60,6 +58,55 @@ describe('Gallery component viewer interactions', () => {
 
     fireEvent.click(closeBtn)
     expect(screen.queryByTestId('gallery-viewer')).not.toBeInTheDocument()
+  })
+
+  it('triggers edit when the user scrolls up past the threshold (reverse pull-to-refresh)', () => {
+    const onRiff = vi.fn()
+    render(<Gallery onRiff={onRiff} />)
+    fireEvent.click(screen.getByRole('button', { name: /Saved Palette One,/ }))
+    const viewer = screen.getByTestId('gallery-viewer')
+
+    // Partial scroll shows the hint but does not trigger
+    fireEvent.wheel(viewer, { deltaY: 200 })
+    expect(screen.getByTestId('pull-to-edit-hint')).toBeInTheDocument()
+    expect(onRiff).not.toHaveBeenCalled()
+
+    // Crossing the threshold triggers edit
+    fireEvent.wheel(viewer, { deltaY: 200 })
+    expect(onRiff).toHaveBeenCalledTimes(1)
+  })
+
+  it('scrolling down does not trigger edit and resets progress', () => {
+    const onRiff = vi.fn()
+    render(<Gallery onRiff={onRiff} />)
+    fireEvent.click(screen.getByRole('button', { name: /Saved Palette One,/ }))
+    const viewer = screen.getByTestId('gallery-viewer')
+
+    fireEvent.wheel(viewer, { deltaY: 200 })
+    fireEvent.wheel(viewer, { deltaY: -50 })
+    expect(screen.queryByTestId('pull-to-edit-hint')).not.toBeInTheDocument()
+    // Accumulator was reset, so another partial scroll must not trigger
+    fireEvent.wheel(viewer, { deltaY: 200 })
+    expect(onRiff).not.toHaveBeenCalled()
+  })
+
+  it('swiping up past the threshold triggers edit; swiping down still closes', async () => {
+    const onRiff = vi.fn()
+    render(<Gallery onRiff={onRiff} />)
+    fireEvent.click(screen.getByRole('button', { name: /Saved Palette One,/ }))
+    const viewer = screen.getByTestId('gallery-viewer')
+
+    // Swipe up 200px → edit
+    fireEvent.touchStart(viewer, { touches: [{ clientY: 500 }] })
+    fireEvent.touchEnd(viewer, { changedTouches: [{ clientY: 300 }] })
+    expect(onRiff).toHaveBeenCalledTimes(1)
+
+    // Swipe down 200px → close
+    fireEvent.touchStart(viewer, { touches: [{ clientY: 300 }] })
+    fireEvent.touchEnd(viewer, { changedTouches: [{ clientY: 500 }] })
+    await waitFor(() => {
+      expect(screen.queryByTestId('gallery-viewer')).not.toBeInTheDocument()
+    })
   })
 })
 
@@ -95,9 +142,9 @@ describe('Gallery grid keyboard navigation', () => {
   it('navigates focus between grid items via arrow keys', () => {
     render(<Gallery onRiff={vi.fn()} />)
 
-    const tile1 = screen.getByRole('button', { name: /Tile One/ })
-    const tile2 = screen.getByRole('button', { name: /Tile Two/ })
-    const tile3 = screen.getByRole('button', { name: /Tile Three/ })
+    const tile1 = screen.getByRole('button', { name: /Tile One,/ })
+    const tile2 = screen.getByRole('button', { name: /Tile Two,/ })
+    const tile3 = screen.getByRole('button', { name: /Tile Three,/ })
 
     // Focus first tile
     tile1.focus()

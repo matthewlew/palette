@@ -2,21 +2,17 @@ import { useEffect, useRef, useState } from 'react'
 import { buildGradientCss } from '../lib/gradient'
 import type { GradientType } from '../lib/gradient'
 import { gradientHueFamily, HUE_FAMILIES } from '../lib/hueFilter'
-import { encodeToFragment, toSharePayloadGradient } from '../lib/gradientCodec'
-import { useCopyFeedback } from '../hooks/useCopyFeedback'
+import { gradientMetric } from '../lib/sortColors'
 import { useHint } from '../hooks/useHint'
 import { useAppStore } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
+import { titleColorAt } from '../lib/titleColor'
 import { TurrellSquare } from './TurrellSquare'
 import { BoardShare } from './BoardShare'
+import { PaletteTitle } from './PaletteTitle'
 import styles from './Gallery.module.css'
 
 const TYPE_CHIPS: GradientType[] = ['linear', 'radial', 'angular', 'square']
-
-function shareLink(gradient: Gradient): string {
-  const fragment = encodeToFragment({ kind: 'gradient', gradients: [toSharePayloadGradient(gradient)] })
-  return `${window.location.origin}${window.location.pathname}#${fragment}`
-}
 
 function formatDate(timestamp?: number): string | null {
   if (!timestamp) return null
@@ -44,25 +40,39 @@ function Tile({
   onOpen,
   galleryLayout,
   onRiff,
+  onDelete,
+  enterDelayMs,
 }: {
   gradient: Gradient
   onOpen: (gradient: Gradient) => void
   galleryLayout: 'grid' | 'masonry'
   onRiff: (gradient: Gradient) => void
+  onDelete: (id: string) => void
+  enterDelayMs: number
 }) {
-  const shareFeedback = useCopyFeedback()
-  // Deterministic aspect ratio based on ID length or character code sum
+  // Deterministic standard ratio per gradient (from its id) so the masonry
+  // mixes squares, portraits, and landscapes instead of all-portrait tiles.
+  const RATIOS = ['1 / 1', '4 / 5', '3 / 4', '2 / 3', '4 / 3', '3 / 2']
   const charCodeSum = gradient.id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0)
-  const ratioIndex = charCodeSum % 3
-  const aspectRatio = ratioIndex === 0 ? '3 / 4' : ratioIndex === 1 ? '4 / 5' : '2 / 3'
+  const aspectRatio = RATIOS[charCodeSum % RATIOS.length]
 
   return (
-    <button
-      type="button"
+    // A div with button semantics, not a real <button>: the hover overlay's
+    // Edit action is a button, and buttons can't nest inside buttons.
+    <div
+      role="button"
+      tabIndex={0}
       data-testid="gallery-tile"
       className={galleryLayout === 'masonry' ? styles.masonryTile : styles.tile}
+      style={{ animationDelay: `${enterDelayMs}ms` }}
       aria-label={`${gradient.name ?? 'Untitled'}, ${gradient.type} gradient`}
       onClick={() => onOpen(gradient)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onOpen(gradient)
+        }
+      }}
     >
       <div
         className={styles.tilePreview}
@@ -73,7 +83,9 @@ function Tile({
         }}
       >
         {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} blurPx={6} />}
-        <div className={styles.tileHoverOverlay} onClick={(e) => e.stopPropagation()}>
+        {/* Clicks anywhere except the Edit button bubble to the tile and
+            open the viewer. */}
+        <div className={styles.tileHoverOverlay}>
           <button
             type="button"
             className={styles.tileHoverBtnActive}
@@ -86,13 +98,14 @@ function Tile({
           </button>
           <button
             type="button"
+            aria-label={`Delete ${gradient.name ?? 'Untitled'}`}
             className={styles.tileHoverBtn}
             onClick={(e) => {
               e.stopPropagation()
-              shareFeedback.copy(shareLink(gradient))
+              onDelete(gradient.id)
             }}
           >
-            {shareFeedback.copied ? '✓ Copied' : 'Copy link'}
+            Delete
           </button>
         </div>
       </div>
@@ -102,7 +115,7 @@ function Tile({
           <span className={styles.tileDate}>{formatDate(gradient.createdAt)}</span>
         )}
       </div>
-    </button>
+    </div>
   )
 }
 
@@ -113,113 +126,188 @@ interface ViewerProps {
   onImport: (jsonText: string) => void
 }
 
+// Swipe/scroll up far enough in the viewer and it opens the editor — the
+// reverse of pull-to-refresh. Wheel deltas accumulate toward the threshold
+// and decay after a pause; touch reads the drag distance directly.
+const WHEEL_EDIT_THRESHOLD = 360
+const TOUCH_EDIT_PX = 140
+
 function Viewer({ gradient, onClose, onRiff, onImport }: ViewerProps) {
   const saved = useAppStore((s) => s.saved)
   const renameSavedGradient = useAppStore((s) => s.renameSavedGradient)
   const removeSavedGradientById = useAppStore((s) => s.removeSavedGradientById)
-  const [renaming, setRenaming] = useState(false)
-  const [draft, setDraft] = useState(gradient.name ?? '')
   const touchStartYRef = useRef<number | null>(null)
+  const wheelAccumRef = useRef(0)
+  const wheelResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [pullProgress, setPullProgress] = useState(0)
+
+  useEffect(() => {
+    return () => {
+      if (wheelResetTimerRef.current) clearTimeout(wheelResetTimerRef.current)
+    }
+  }, [])
+
+  function resetPull() {
+    wheelAccumRef.current = 0
+    setPullProgress(0)
+  }
+
+  function handleWheel(e: React.WheelEvent) {
+    if (e.deltaY <= 0) {
+      resetPull()
+      return
+    }
+    wheelAccumRef.current += e.deltaY
+    if (wheelResetTimerRef.current) clearTimeout(wheelResetTimerRef.current)
+    if (wheelAccumRef.current >= WHEEL_EDIT_THRESHOLD) {
+      resetPull()
+      onRiff(live)
+      return
+    }
+    setPullProgress(Math.min(1, wheelAccumRef.current / WHEEL_EDIT_THRESHOLD))
+    // A pause abandons the gesture, like releasing a pull-to-refresh early.
+    wheelResetTimerRef.current = setTimeout(resetPull, 600)
+  }
+  // The `gradient` prop is the snapshot captured when the tile was tapped;
+  // renames land in `saved`, so read the live copy for display.
+  const live = saved.find((g) => g.id === gradient.id) ?? gradient
+  const titleColor = titleColorAt(live, 0.5, 0.06)
+  // Per-corner palette foregrounds, same strategy as the title.
+  const closeColor = titleColorAt(live, 0.06, 0.06)
+  const shareColor = titleColorAt(live, 0.94, 0.06)
+  const actionColor = titleColorAt(live, 0.9, 0.92)
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
+      const target = e.target as HTMLElement
+      const inInput = target?.tagName === 'INPUT'
+      const onButton = target?.tagName === 'BUTTON'
+      const modified = e.metaKey || e.ctrlKey || e.altKey
+      // Escape closes no matter what was last clicked — only the rename
+      // input owns it (its handler cancels editing and stops propagation).
+      if (e.key === 'Escape' && !inInput) onClose()
+      if (inInput || modified) return
+      // Enter/E jump into edit mode; changes there stay unsaved until the
+      // explicit Save, so closing/Escape never silently commits edits.
+      // Enter must not fire while a button has focus, where it already
+      // means "activate".
+      if ((e.key === 'Enter' && !onButton) || e.key === 'e' || e.key === 'E') {
+        onRiff(gradient)
+      }
+      // Delete removes the open palette (undoable via the toast / ⌘Z).
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault()
+        removeSavedGradientById(gradient.id)
+        onClose()
+      }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
-
-  function commitRename() {
-    setRenaming(false)
-    renameSavedGradient(gradient.id, draft)
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onClose, onRiff, gradient])
 
   return (
     <div
       data-testid="gallery-viewer"
       role="dialog"
       aria-modal="true"
-      aria-label={gradient.name ?? 'Gradient'}
+      aria-label={live.name ?? 'Gradient'}
       className={styles.viewer}
-      style={{ backgroundImage: tileBackground(gradient) }}
+      style={{ backgroundImage: tileBackground(live) }}
       onClick={onClose}
+      onWheel={handleWheel}
       onTouchStart={(e) => {
         touchStartYRef.current = e.touches[0]?.clientY ?? null
+      }}
+      onTouchMove={(e) => {
+        const start = touchStartYRef.current
+        const y = e.touches[0]?.clientY
+        if (start == null || y == null) return
+        setPullProgress(Math.min(1, Math.max(0, (start - y) / TOUCH_EDIT_PX)))
       }}
       onTouchEnd={(e) => {
         const start = touchStartYRef.current
         touchStartYRef.current = null
+        setPullProgress(0)
         const end = e.changedTouches[0]?.clientY
+        if (start == null || end == null) return
         // Swipe down closes, matching the "back is swipe-down/×" rule.
-        if (start != null && end != null && end - start > 80) onClose()
+        if (end - start > 80) onClose()
+        // Swipe up far enough opens the editor (reverse pull-to-refresh).
+        if (start - end > TOUCH_EDIT_PX) onRiff(live)
       }}
     >
-      {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} />}
-      <button type="button" className={styles.viewerClose} aria-label="Close" onClick={(e) => { e.stopPropagation(); onClose(); }}>
+      {/* Turrell paints as an absolute backdrop layer — in normal flow its
+          100% height would fill the flex column and push the panel below
+          the fold, unlike the other shapes' background-image. */}
+      {gradient.type === 'square' && (
+        <div className={styles.viewerSquare}>
+          <TurrellSquare stops={live.stops} reversed={live.reversed} />
+        </div>
+      )}
+      <button
+        type="button"
+        className={`${styles.viewerClose} ghost-chip`}
+        style={{ color: closeColor }}
+        aria-label="Close"
+        onClick={(e) => { e.stopPropagation(); onClose(); }}
+      >
         ✕
       </button>
       <BoardShare
         saved={saved}
-        current={gradient}
+        current={live}
         onImport={onImport}
         position="viewer"
-        tone="dark"
+        color={shareColor}
       />
-      <div className={styles.viewerPanel} onClick={(e) => e.stopPropagation()}>
-        {renaming ? (
-          <input
-            className={styles.viewerRenameInput}
-            aria-label="Palette name"
-            value={draft}
-            autoFocus
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={commitRename}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') commitRename()
-              if (e.key === 'Escape') {
-                e.stopPropagation()
-                setDraft(gradient.name ?? '')
-                setRenaming(false)
-              }
-            }}
-          />
-        ) : (
-          <div>
-            <h2 className={styles.viewerName}>{gradient.name ?? 'Untitled'}</h2>
-            {gradient.createdAt && (
-              <span className={styles.viewerDate}>Saved on {formatDate(gradient.createdAt)}</span>
-            )}
-          </div>
-        )}
-        <div className={styles.viewerActions}>
-          <button
-            type="button"
-            className={styles.viewerPrimary}
-            onClick={() => onRiff(gradient)}
-          >
-            Edit
-          </button>
-          <button
-            type="button"
-            className={styles.viewerAction}
-            onClick={() => {
-              setDraft(gradient.name ?? '')
-              setRenaming(true)
-            }}
-          >
-            Rename
-          </button>
-          <button
-            type="button"
-            className={styles.viewerAction}
-            onClick={() => {
-              removeSavedGradientById(gradient.id)
-              onClose()
-            }}
-          >
-            Delete
-          </button>
+      {/* Same chrome as the create flow: the palette-colored title at the
+          top center is itself the rename affordance (tap to edit), so
+          there's no separate Rename button. display:contents keeps the
+          title's own absolute positioning while stopping clicks from
+          bubbling to the close-on-tap backdrop. */}
+      <div style={{ display: 'contents' }} onClick={(e) => e.stopPropagation()}>
+        <PaletteTitle
+          name={live.name ?? 'Untitled'}
+          color={titleColor}
+          onRename={(name) => renameSavedGradient(gradient.id, name)}
+        />
+      </div>
+      {live.createdAt && (
+        <span className={styles.viewerDate} style={{ color: titleColor }}>
+          Saved on {formatDate(live.createdAt)}
+        </span>
+      )}
+      {pullProgress > 0.05 && (
+        <div
+          data-testid="pull-to-edit-hint"
+          className={styles.pullHint}
+          style={{ opacity: 0.4 + pullProgress * 0.6, transform: `translateX(-50%) translateY(${(1 - pullProgress) * 12}px)` }}
+          aria-hidden="true"
+        >
+          ↑ {pullProgress >= 1 ? 'Release to edit' : 'Keep scrolling to edit'}
         </div>
+      )}
+      <div className={styles.viewerActionsBar} onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          className="ghost-chip ghost-pill"
+          style={{ color: actionColor }}
+          onClick={() => {
+            removeSavedGradientById(gradient.id)
+            onClose()
+          }}
+        >
+          Delete
+        </button>
+        <button
+          type="button"
+          className="ghost-chip ghost-pill"
+          style={{ color: actionColor }}
+          onClick={() => onRiff(live)}
+        >
+          Edit
+        </button>
       </div>
     </div>
   )
@@ -232,13 +320,51 @@ interface GalleryProps {
 
 export function Gallery({ onRiff, onImport }: GalleryProps) {
   const saved = useAppStore((s) => s.saved)
+  const removeSavedGradientById = useAppStore((s) => s.removeSavedGradientById)
+  const lastDeleted = useAppStore((s) => s.lastDeleted)
+  const undoDelete = useAppStore((s) => s.undoDelete)
+  const redoDelete = useAppStore((s) => s.redoDelete)
   const setMode = useAppStore((s) => s.setMode)
   const galleryLayout = useAppStore((s) => s.galleryLayout)
   const setGalleryLayout = useAppStore((s) => s.setGalleryLayout)
   const [typeFilter, setTypeFilter] = useState<GradientType | null>(null)
   const [hueFilter, setHueFilter] = useState<string | null>(null)
   const [open, setOpen] = useState<Gradient | null>(null)
+  const [undoVisible, setUndoVisible] = useState(false)
   const galleryHint = useHint('gallery')
+
+  // Every delete surfaces an Undo toast for a few seconds. The deleted
+  // gradient stays recoverable in the store either way; the timer only
+  // hides the affordance.
+  useEffect(() => {
+    if (!lastDeleted) {
+      setUndoVisible(false)
+      return
+    }
+    setUndoVisible(true)
+    const timer = setTimeout(() => setUndoVisible(false), 6000)
+    return () => clearTimeout(timer)
+  }, [lastDeleted])
+
+  // Platform-standard undo/redo for deletions: ⌘Z / ⌘⇧Z (Ctrl on Windows).
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement
+      if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable) {
+        return
+      }
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'z' || e.key === 'Z')) {
+        e.preventDefault()
+        if (e.shiftKey) {
+          redoDelete()
+        } else {
+          undoDelete()
+        }
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [undoDelete, redoDelete])
 
   // Visiting the Gallery answers the "Saved to your Gallery" hint forever.
   useEffect(() => {
@@ -249,13 +375,31 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
   const filtered = saved.filter((gradient) => matchesFilters(gradient, typeFilter, hueFilter))
   const hasFilters = typeFilter !== null || hueFilter !== null
 
+  // Entering the Gallery dissolves the tiles in lightest-first: each tile's
+  // fade delay is its rank by average OKLCH lightness. Steps are tiny (25ms,
+  // capped) so it reads as a subtle ripple, not an obvious sequence.
+  const ENTER_STEP_MS = 25
+  const ENTER_DELAY_CAP_MS = 375
+  const enterDelayByid = new Map<string, number>()
+  ;[...filtered]
+    .sort(
+      (a, b) =>
+        gradientMetric(b.stops.map((s) => s.hex), 'lightness') -
+        gradientMetric(a.stops.map((s) => s.hex), 'lightness')
+    )
+    .forEach((gradient, rank) => {
+      enterDelayByid.set(gradient.id, Math.min(rank * ENTER_STEP_MS, ENTER_DELAY_CAP_MS))
+    })
+
   const gridRef = useRef<HTMLDivElement>(null)
 
   function handleGridKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     const active = document.activeElement as HTMLElement
     if (!active || !gridRef.current || !gridRef.current.contains(active)) return
 
-    const tiles = Array.from(gridRef.current.querySelectorAll('.' + styles.tile)) as HTMLElement[]
+    // By testid, not styles.tile: masonry tiles carry the composed
+    // masonryTile class, so a class query misses them.
+    const tiles = Array.from(gridRef.current.querySelectorAll('[data-testid="gallery-tile"]')) as HTMLElement[]
     const currentIndex = tiles.indexOf(active)
     if (currentIndex === -1) return
 
@@ -428,8 +572,26 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
               onOpen={setOpen}
               galleryLayout={galleryLayout}
               onRiff={onRiff}
+              onDelete={removeSavedGradientById}
+              enterDelayMs={enterDelayByid.get(gradient.id) ?? 0}
             />
           ))}
+        </div>
+      )}
+
+      {undoVisible && lastDeleted && (
+        <div data-testid="undo-toast" className={styles.undoToast} role="status">
+          <span className={styles.undoText}>
+            Deleted “{lastDeleted.gradient.name ?? 'Untitled'}”
+          </span>
+          <button
+            type="button"
+            data-testid="undo-delete"
+            className={styles.undoButton}
+            onClick={undoDelete}
+          >
+            Undo
+          </button>
         </div>
       )}
 
