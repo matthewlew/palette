@@ -116,6 +116,16 @@ describe('Gallery component viewer interactions', () => {
     expect(onRiff).not.toHaveBeenCalled()
   })
 
+  it('labels the scroll ticker with the gradient name, not a number', () => {
+    useAppStore.setState({ saved: twoGradients, mode: 'gallery' })
+    render(<Gallery onRiff={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /First Palette,/ }))
+    expect(screen.getByTestId('ticker-count')).toHaveTextContent('First Palette')
+
+    fireEvent.wheel(screen.getByTestId('gallery-viewer'), { deltaY: 200 })
+    expect(screen.getByTestId('ticker-count')).toHaveTextContent('Second Palette')
+  })
+
   it('arrow keys step between gradients', () => {
     useAppStore.setState({ saved: twoGradients, mode: 'gallery' })
     render(<Gallery onRiff={vi.fn()} />)

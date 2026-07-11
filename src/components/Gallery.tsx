@@ -10,6 +10,7 @@ import { titleColorAt } from '../lib/titleColor'
 import { TurrellSquare } from './TurrellSquare'
 import { BoardShare } from './BoardShare'
 import { PaletteTitle } from './PaletteTitle'
+import { ScrollTicker } from './ScrollTicker'
 import styles from './Gallery.module.css'
 
 const TYPE_CHIPS: GradientType[] = ['linear', 'radial', 'angular', 'square']
@@ -265,6 +266,10 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport }: View
       >
         ✕
       </button>
+      {/* Same scroll ticker as the Create feed, but labelled with the
+          palette's name instead of a position number — the marks track where
+          you are as you scroll between saved gradients. */}
+      <ScrollTicker index={index} label={live.name ?? 'Untitled'} />
       {/* Wrapper stops the trigger/menu clicks from bubbling to the
           close-on-tap backdrop, which would otherwise dismiss the viewer
           before the share menu could act. */}
