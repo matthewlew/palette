@@ -254,13 +254,18 @@ function Viewer({ gradient, onClose, onRiff, onImport }: ViewerProps) {
       >
         ✕
       </button>
-      <BoardShare
-        saved={saved}
-        current={live}
-        onImport={onImport}
-        position="viewer"
-        color={shareColor}
-      />
+      {/* Wrapper stops the trigger/menu clicks from bubbling to the
+          close-on-tap backdrop, which would otherwise dismiss the viewer
+          before the share menu could act. */}
+      <div style={{ display: 'contents' }} onClick={(e) => e.stopPropagation()}>
+        <BoardShare
+          saved={saved}
+          current={live}
+          onImport={onImport}
+          position="viewer"
+          color={shareColor}
+        />
+      </div>
       {/* Same chrome as the create flow: the palette-colored title at the
           top center is itself the rename affordance (tap to edit), so
           there's no separate Rename button. display:contents keeps the
