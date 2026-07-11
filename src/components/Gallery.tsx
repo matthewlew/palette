@@ -487,7 +487,6 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
             saved={saved}
             onImport={onImport ?? (() => {})}
             position="inline"
-            tone="light"
           />
         </div>
       </div>
