@@ -481,8 +481,11 @@ describe('Feed', () => {
     // Press ArrowRight to cycle type forward
     fireEvent.keyDown(window, { key: 'ArrowRight' })
     const afterRight = useAppStore.getState().current
-    const GEOMETRY_TYPES = ['linear', 'radial', 'angular', 'square']
-    const nextType = GEOMETRY_TYPES[(GEOMETRY_TYPES.indexOf(initialType) + 1) % 4]
+    // ←/→ steps the full selectable list (mirror and fan included), not just
+    // the four random-feed shapes.
+    const CYCLE = ['linear', 'radial', 'angular', 'square', 'mirror', 'fan']
+    const startIndex = Math.max(0, CYCLE.indexOf(initialType))
+    const nextType = CYCLE[(startIndex + 1) % CYCLE.length]
     expect(afterRight!.type).toBe(nextType)
 
     // Press ArrowLeft to cycle type backward

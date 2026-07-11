@@ -13,7 +13,7 @@ import { PaletteTitle } from './PaletteTitle'
 import { ScrollTicker } from './ScrollTicker'
 import styles from './Gallery.module.css'
 
-const TYPE_CHIPS: GradientType[] = ['linear', 'radial', 'angular', 'square']
+const TYPE_CHIPS: GradientType[] = ['linear', 'radial', 'angular', 'square', 'fan']
 
 function formatDate(timestamp?: number): string | null {
   if (!timestamp) return null

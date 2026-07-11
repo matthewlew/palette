@@ -2,7 +2,13 @@
 
 import { blendOklchHex } from './oklch'
 
-export type GradientType = 'linear' | 'radial' | 'angular' | 'square' | 'mirror' | 'repeat'
+export type GradientType = 'linear' | 'radial' | 'angular' | 'square' | 'mirror' | 'repeat' | 'fan'
+
+/** Every geometry the user can select or cycle through, in display order.
+ * The keyboard's ←/→ steps this whole list and GeometryTabs renders it, so
+ * they can never drift out of sync. 'repeat' is intentionally absent — it's a
+ * legacy type replaced by the Repeat×2 filter, reachable only via old saves. */
+export const SELECTABLE_GEOMETRY: GradientType[] = ['linear', 'radial', 'angular', 'square', 'mirror', 'fan']
 
 export interface GradientStop {
   hex: string
@@ -39,6 +45,17 @@ function buildAngularGradient(stops: GradientStop[]): string {
   const compressed = stops.map((s) => ({ hex: s.hex, position: Math.round(s.position * scaleFactor) }))
   const withSeam = [...compressed, { hex: stops[0].hex, position: 100 }]
   return `conic-gradient(${stopsToCss(withSeam)})`
+}
+
+function buildFanGradient(stops: GradientStop[]): string {
+  // A 180° fan rising from the bottom-center, like a sunburst (the Edward
+  // Sharpe "Up from Below" cover): the palette is compressed into the visible
+  // upper semicircle — 0–50% of the cone, which sweeps 270°→90° over the top
+  // from the left horizon to the right — and the last color holds across the
+  // off-screen lower half so no seam shows in the fan.
+  const compressed = stops.map((s) => ({ hex: s.hex, position: Math.round(s.position * 0.5) }))
+  const withTail = [...compressed, { hex: stops[stops.length - 1].hex, position: 100 }]
+  return `conic-gradient(from 270deg at 50% 100%, ${stopsToCss(withTail)})`
 }
 
 function applyReversed(stops: GradientStop[], reversed: boolean): GradientStop[] {
@@ -144,6 +161,8 @@ export function buildGradientCss(
       return buildMirrorGradient(orderedStops)
     case 'repeat':
       return buildRepeatGradient(orderedStops)
+    case 'fan':
+      return buildFanGradient(orderedStops)
   }
 }
 
@@ -223,6 +242,15 @@ export function gradientColorAt(
     case 'repeat': {
       const hexes = orderedStops.map((s) => s.hex)
       return sampleStops(positionedStops([...hexes, ...hexes]), y)
+    }
+    case 'fan': {
+      // Same compressed sequence buildFanGradient renders, sampled by the
+      // angle (clockwise from straight up) about the bottom-center pivot.
+      const compressed = orderedStops.map((s) => ({ hex: s.hex, position: Math.round(s.position * 0.5) }))
+      const withTail = [...compressed, { hex: orderedStops[orderedStops.length - 1].hex, position: 100 }]
+      const deg = ((Math.atan2(x - 0.5, -(y - 1)) * 180) / Math.PI + 360) % 360
+      const t = ((deg - 270 + 360) % 360) / 360
+      return sampleStops(withTail, t)
     }
   }
 }

@@ -18,6 +18,7 @@ const TABS: { type: GradientType; label: string }[] = [
   { type: 'angular', label: 'Angular' },
   { type: 'square', label: 'Turrell' },
   { type: 'mirror', label: 'Mirror' },
+  { type: 'fan', label: 'Fan' },
 ]
 
 // These types render their own hard-coded position sequence (mirror/legacy
