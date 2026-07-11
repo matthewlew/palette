@@ -109,6 +109,124 @@
   position: relative;
 }
 
+/* Vignette previews: paper card with the gradient clipped to the shape */
+.previewPaper {
+  background: #f7f5f0;
+  display: flex;
+  flex-direction: column;
+}
+
+.previewShape {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  overflow: hidden;
+}
+
+.previewShapeCircle {
+  clip-path: circle(39% at 50% 50%);
+}
+
+.previewShapeOval {
+  clip-path: ellipse(39% 39% at 50% 50%);
+}
+
+.previewShapeDiamond {
+  clip-path: polygon(50% 9%, 91% 50%, 50% 91%, 9% 50%);
+}
+
+.previewShapePoster {
+  inset: 8% 8% 26% 8%;
+  border-radius: 2px;
+}
+
+.posterCaption {
+  position: absolute;
+  left: 8%;
+  bottom: 9%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+
+.posterTitle {
+  font-family: var(--heading);
+  font-size: 11px;
+  font-weight: 500;
+  color: #1c1a20;
+}
+
+.posterMeta {
+  font-size: 6px;
+  letter-spacing: 0.08em;
+  color: #8d8894;
+  text-transform: uppercase;
+}
+
+/* Shape selector row */
+.shapeRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.shapeButton {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.shapeButton:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.shapeButtonActive {
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.shapeGlyph {
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.45));
+}
+
+.shapeGlyphFull {
+  border-radius: 3px;
+}
+
+.shapeGlyphCircle {
+  border-radius: 50%;
+}
+
+.shapeGlyphOval {
+  border-radius: 50%;
+  transform: scaleX(0.68);
+}
+
+.shapeGlyphDiamond {
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+.shapeGlyphPoster {
+  border-radius: 2px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9)) 50% 25% / 70% 45% no-repeat,
+    rgba(255, 255, 255, 0.25);
+}
+
 @media (max-width: 600px) {
   .previewCard {
     width: 64px;

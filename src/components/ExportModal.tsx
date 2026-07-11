@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Gradient } from '../store/types'
 import { buildGradientCss } from '../lib/gradient'
-import { downloadGradientAsPng } from '../lib/canvasExport'
+import { downloadVignettePng, VIGNETTE_SHAPES, type VignetteShape } from '../lib/vignette'
 import { TurrellSquare } from './TurrellSquare'
 import styles from './ExportModal.module.css'
 
@@ -46,8 +46,24 @@ const PRESETS: ExportPreset[] = [
   },
 ]
 
+const SHAPE_PREVIEW_CLASS: Record<Exclude<VignetteShape, 'full'>, string> = {
+  circle: styles.previewShapeCircle,
+  oval: styles.previewShapeOval,
+  diamond: styles.previewShapeDiamond,
+  poster: styles.previewShapePoster,
+}
+
+const SHAPE_GLYPH_CLASS: Record<VignetteShape, string> = {
+  full: styles.shapeGlyphFull,
+  circle: styles.shapeGlyphCircle,
+  oval: styles.shapeGlyphOval,
+  diamond: styles.shapeGlyphDiamond,
+  poster: styles.shapeGlyphPoster,
+}
+
 export function ExportModal({ gradient, onClose }: ExportModalProps) {
   const [exportingId, setExportingId] = useState<string | null>(null)
+  const [shape, setShape] = useState<VignetteShape>('full')
 
   const isSquare = gradient.type === 'square'
   const backgroundStyle = isSquare
@@ -63,13 +79,22 @@ export function ExportModal({ gradient, onClose }: ExportModalProps) {
     try {
       // Small timeout to let UI update and render the exporting state
       await new Promise((resolve) => setTimeout(resolve, 100))
-      await downloadGradientAsPng(gradient, preset.width, preset.height)
+      await downloadVignettePng(gradient, preset.width, preset.height, shape)
     } catch (e) {
       console.error('Export failed:', e)
     } finally {
       setExportingId(null)
     }
   }
+
+  const gradientLayer = (
+    <div
+      className={shape === 'full' ? undefined : `${styles.previewShape} ${SHAPE_PREVIEW_CLASS[shape as Exclude<VignetteShape, 'full'>]}`}
+      style={shape === 'full' ? { position: 'absolute', inset: 0, backgroundImage: backgroundStyle } : { backgroundImage: backgroundStyle }}
+    >
+      {isSquare && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} blurPx={8} />}
+    </div>
+  )
 
   return (
     <>
@@ -91,11 +116,33 @@ export function ExportModal({ gradient, onClose }: ExportModalProps) {
         <div className={styles.content}>
           {/* Gradient Preview Card */}
           <div className={styles.previewContainer}>
-            <div
-              className={styles.previewCard}
-              style={{ backgroundImage: backgroundStyle }}
-            >
-              {isSquare && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} blurPx={8} />}
+            <div className={`${styles.previewCard} ${shape !== 'full' ? styles.previewPaper : ''}`}>
+              {gradientLayer}
+              {shape === 'poster' && (
+                <div className={styles.posterCaption}>
+                  <span className={styles.posterTitle}>{gradient.name ?? 'Untitled'}</span>
+                  <span className={styles.posterMeta}>
+                    {gradient.type} gradient · {gradient.stops.length} colors
+                  </span>
+                </div>
+              )}
+            </div>
+            {/* Vignette shape selector */}
+            <div className={styles.shapeRow} role="radiogroup" aria-label="Vignette shape">
+              {VIGNETTE_SHAPES.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={shape === s.id}
+                  aria-label={`${s.label} vignette`}
+                  title={s.label}
+                  className={`${styles.shapeButton} ${shape === s.id ? styles.shapeButtonActive : ''}`}
+                  onClick={() => setShape(s.id)}
+                >
+                  <span className={`${styles.shapeGlyph} ${SHAPE_GLYPH_CLASS[s.id]}`} />
+                </button>
+              ))}
             </div>
             <span className={styles.previewName}>{gradient.name ?? 'Untitled'}</span>
             <span className={styles.previewMeta}>

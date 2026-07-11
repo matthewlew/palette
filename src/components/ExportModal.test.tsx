@@ -3,9 +3,10 @@ import { render, screen, fireEvent, act } from '@testing-library/react'
 import { ExportModal } from './ExportModal'
 import type { Gradient } from '../store/types'
 
-// Mock the canvasExport library
-vi.mock('../lib/canvasExport', () => ({
-  downloadGradientAsPng: vi.fn().mockResolvedValue(undefined),
+// Mock the vignette export library (keep the real shape list)
+vi.mock('../lib/vignette', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/vignette')>()),
+  downloadVignettePng: vi.fn().mockResolvedValue(undefined),
 }))
 
 const sampleGradient: Gradient = {
@@ -47,8 +48,8 @@ describe('ExportModal Component', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
-  it('triggers downloadGradientAsPng with correct dimensions when a preset is clicked', async () => {
-    const { downloadGradientAsPng } = await import('../lib/canvasExport')
+  it('triggers a full-bleed export by default when a preset is clicked', async () => {
+    const { downloadVignettePng } = await import('../lib/vignette')
     render(<ExportModal gradient={sampleGradient} onClose={vi.fn()} />)
 
     vi.useFakeTimers()
@@ -60,7 +61,35 @@ describe('ExportModal Component', () => {
       vi.advanceTimersByTime(150)
     })
 
-    expect(downloadGradientAsPng).toHaveBeenCalledWith(sampleGradient, 1179, 2556)
+    expect(downloadVignettePng).toHaveBeenCalledWith(sampleGradient, 1179, 2556, 'full')
+    vi.useRealTimers()
+  })
+
+  it('lists all five vignette shapes with Full selected by default', () => {
+    render(<ExportModal gradient={sampleGradient} onClose={vi.fn()} />)
+    const group = screen.getByRole('radiogroup', { name: /vignette shape/i })
+    expect(group).toBeInTheDocument()
+    for (const label of ['Full', 'Circle', 'Oval', 'Diamond', 'Poster']) {
+      expect(screen.getByRole('radio', { name: `${label} vignette` })).toBeInTheDocument()
+    }
+    expect(screen.getByRole('radio', { name: 'Full vignette' })).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('exports with the selected vignette shape', async () => {
+    const { downloadVignettePng } = await import('../lib/vignette')
+    render(<ExportModal gradient={sampleGradient} onClose={vi.fn()} />)
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Poster vignette' }))
+    expect(screen.getByRole('radio', { name: 'Poster vignette' })).toHaveAttribute('aria-checked', 'true')
+    // Poster preview shows the title caption
+    expect(screen.getByText(/linear gradient · 2 colors/i)).toBeInTheDocument()
+
+    vi.useFakeTimers()
+    fireEvent.click(screen.getByRole('button', { name: /Instagram Story/i }))
+    await act(async () => {
+      vi.advanceTimersByTime(150)
+    })
+    expect(downloadVignettePng).toHaveBeenCalledWith(sampleGradient, 1080, 1920, 'poster')
     vi.useRealTimers()
   })
 })
