@@ -294,15 +294,20 @@
    palette-derived color as the title. */
 .viewerDate {
   position: absolute;
-  /* Hugs the title above it (title block ends ≈44px) so name + date read
-     as one unit rather than two floating lines. */
-  top: calc(42px + env(safe-area-inset-top));
+  /* Hugs the title above it so name + date read as one unit. The title's
+     glyphs bottom out ≈41px; a tight line-height (the inherited 1.9 was
+     inflating this line into a floating second block) lets the date sit a
+     few px under it. */
+  top: calc(44px + env(safe-area-inset-top));
   left: 50%;
   transform: translateX(-50%);
   z-index: 3;
+  font-family: var(--sans);
   font-size: 12px;
   font-weight: 500;
-  opacity: 0.75;
+  line-height: 1.2;
+  letter-spacing: 0.2px;
+  opacity: 0.72;
   white-space: nowrap;
 }
 
