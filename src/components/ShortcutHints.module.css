@@ -1,0 +1,68 @@
+.strip {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  /* No pill: the strip inherits a palette-derived foreground color (same
+   * strategy as the title) and sits directly on the gradient, kept subtle
+   * with per-part opacity below. */
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+
+/* .strip.top outranks the narrow-viewport bottom offset below. */
+.strip.top {
+  bottom: auto;
+  top: 76px;
+}
+
+.hidden {
+  opacity: 0;
+}
+
+.hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 4px;
+  background: none;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  color: currentColor;
+  opacity: 0.65;
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.label {
+  color: currentColor;
+  opacity: 0.5;
+  font-size: 11px;
+}
+
+/* Below ~1280px the strip would run into the centered tab bar, so it
+ * floats just above it instead. */
+@media (max-width: 1280px) {
+  .strip {
+    bottom: 80px;
+  }
+}
+
+/* No keyboard, no hints: touch-only devices. */
+@media (pointer: coarse) {
+  .strip {
+    display: none;
+  }
+}
