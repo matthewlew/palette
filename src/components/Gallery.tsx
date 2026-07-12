@@ -343,11 +343,14 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
   const [hueFilter, setHueFilter] = useState<string | null>(null)
   const [open, setOpen] = useState<Gradient | null>(null)
 
-  // Publish the open viewer gradient so the app-level Cmd+C copies it.
+  // Publish the open viewer gradient so the app-level Cmd+C copies it. Resolve
+  // the live copy from `saved` (the viewer reads `live` for the same reason) so
+  // a rename made in the viewer is reflected in what gets copied.
   useEffect(() => {
-    setViewerGradient(open)
+    const liveOpen = open ? saved.find((g) => g.id === open.id) ?? open : null
+    setViewerGradient(liveOpen)
     return () => setViewerGradient(null)
-  }, [open, setViewerGradient])
+  }, [open, saved, setViewerGradient])
   const [undoVisible, setUndoVisible] = useState(false)
   const galleryHint = useHint('gallery')
 

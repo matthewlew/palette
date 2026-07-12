@@ -146,6 +146,73 @@ describe('App import flow', () => {
     window.location.hash = ''
   })
 
+  function dispatchPaste(text: string) {
+    const ev = new Event('paste', { bubbles: true, cancelable: true }) as Event & {
+      clipboardData: { getData: (t: string) => string }
+    }
+    ev.clipboardData = { getData: (t: string) => (t === 'text/plain' ? text : '') }
+    act(() => {
+      document.dispatchEvent(ev)
+    })
+    return ev
+  }
+
+  const pastePayload = JSON.stringify({
+    kind: 'gradient',
+    gradients: [
+      {
+        type: 'linear',
+        stops: [
+          { hex: '#123456', position: 0 },
+          { hex: '#abcdef', position: 100 },
+        ],
+        name: 'Pasted',
+      },
+    ],
+  })
+
+  it('auto-adds a gradient pasted from the clipboard and shows an undo toast', () => {
+    render(<App />)
+    expect(useAppStore.getState().saved).toHaveLength(0)
+    dispatchPaste(pastePayload)
+    expect(useAppStore.getState().saved).toHaveLength(1)
+    expect(screen.getByTestId('undo-toast')).toBeInTheDocument()
+  })
+
+  it('ignores paste while a text field is focused (native paste wins)', () => {
+    render(<App />)
+    const input = document.createElement('textarea')
+    document.body.appendChild(input)
+    input.focus()
+    dispatchPaste(pastePayload)
+    expect(useAppStore.getState().saved).toHaveLength(0)
+    expect(screen.queryByTestId('undo-toast')).not.toBeInTheDocument()
+    input.remove()
+  })
+
+  it('ignores a paste that is not a Palette payload', () => {
+    render(<App />)
+    dispatchPaste('just some text')
+    expect(useAppStore.getState().saved).toHaveLength(0)
+    expect(screen.queryByTestId('undo-toast')).not.toBeInTheDocument()
+  })
+
+  it('copies the current gradient to the clipboard on the copy event', () => {
+    render(<App />)
+    const written = new Map<string, string>()
+    const ev = new Event('copy', { bubbles: true, cancelable: true }) as Event & {
+      clipboardData: { setData: (t: string, v: string) => void }
+    }
+    ev.clipboardData = { setData: (t: string, v: string) => written.set(t, v) }
+    act(() => {
+      document.dispatchEvent(ev)
+    })
+    // A current gradient exists in create mode, so JSON + SVG get written.
+    expect(written.get('text/plain')).toContain('"kind": "gradient"')
+    expect(written.get('image/svg+xml')).toContain('<svg')
+    expect(screen.getByText(/copied gradient/i)).toBeInTheDocument()
+  })
+
   it('renders a thumbnail in the TabBar Gallery button once a gradient is saved', () => {
     render(<App />)
 

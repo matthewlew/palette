@@ -1,5 +1,6 @@
 import type { Gradient } from '../store/types'
 import type { GradientStop, GradientType } from './gradient'
+import { applyReversed, positionedStops, repeatedStops, hardenStops } from './gradient'
 
 const RADIAL_TYPES: ReadonlySet<GradientType> = new Set(['radial'])
 
@@ -7,13 +8,39 @@ function safeHex(hex: string): string {
   return hex.replace(/[^#0-9a-fA-F]/g, '')
 }
 
-function stopEls(stops: GradientStop[], reversed: boolean): string {
-  const ordered = reversed ? [...stops].reverse() : stops
-  return ordered
-    .map((s, i) => {
-      const offset = reversed ? (i / Math.max(1, ordered.length - 1)) * 100 : s.position
-      return `<stop offset="${offset}%" stop-color="${safeHex(s.hex)}"/>`
-    })
+/** Resolve the {hex, position} stop list a gradient actually renders, mirroring
+ * buildGradientCss: reversal swaps colors (positions stay fixed and ascending),
+ * mirror/repeat/square build their own even sequence from hex order (and ignore
+ * the repeat/hard filters, exactly like the app), and every other type layers
+ * the repeat then hard filters on top. Keeping this in lockstep with
+ * buildGradientCss means the pasted SVG matches what's on screen. */
+function effectiveStops(gradient: Gradient): GradientStop[] {
+  const reversed = applyReversed(gradient.stops, gradient.reversed ?? false)
+  const hexes = reversed.map((s) => s.hex)
+
+  switch (gradient.type) {
+    case 'mirror': {
+      // Palindrome without duplicating the color at the axis: [A,B,C]->[A,B,C,B,A].
+      const mirrored = [...hexes, ...hexes.slice(0, -1).reverse()]
+      return positionedStops(mirrored)
+    }
+    case 'repeat':
+      return positionedStops([...hexes, ...hexes])
+    case 'square':
+      // Turrell squares aren't a real blend; approximate with the raw stops.
+      return reversed
+    default: {
+      let stops = reversed
+      if (gradient.repeatEnabled) stops = repeatedStops(stops)
+      if (gradient.hardStops) stops = hardenStops(stops)
+      return stops
+    }
+  }
+}
+
+function stopEls(stops: GradientStop[]): string {
+  return stops
+    .map((s) => `<stop offset="${s.position}%" stop-color="${safeHex(s.hex)}"/>`)
     .join('')
 }
 
@@ -21,11 +48,11 @@ function stopEls(stops: GradientStop[], reversed: boolean): string {
  * Figma/Illustrator yields a vector rectangle. linear/mirror/repeat render as
  * a vertical linear gradient (matching the app's 180deg); radial as a centered
  * circle; conic types (angular/square/fan) fall back to a linear approximation
- * since SVG has no native conic gradient. */
+ * since SVG has no native conic gradient. Reversal, the repeat/hard filters,
+ * and mirror/repeat geometry are honored via effectiveStops. */
 export function gradientToSvg(gradient: Gradient, size = 512): string {
   const id = `g${gradient.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8) || 'grad'}`
-  const reversed = gradient.reversed ?? false
-  const stops = stopEls(gradient.stops, reversed)
+  const stops = stopEls(effectiveStops(gradient))
 
   const def = RADIAL_TYPES.has(gradient.type)
     ? `<radialGradient id="${id}" cx="0.5" cy="0.5" r="0.5">${stops}</radialGradient>`

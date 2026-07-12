@@ -56,6 +56,46 @@ describe('gradientToSvg', () => {
     expect(firstStopIdx).toBeLessThan(secondStopIdx)
   })
 
+  it('preserves real stop positions when reversed (does not evenly re-space)', () => {
+    // Colors at 0/20/100 reversed -> hexes swap but positions stay fixed.
+    const svg = gradientToSvg(
+      grad({
+        reversed: true,
+        stops: [
+          { hex: '#ff0000', position: 0 },
+          { hex: '#00ff00', position: 20 },
+          { hex: '#0000ff', position: 100 },
+        ],
+      })
+    )
+    expect(svg).toContain('offset="0%" stop-color="#0000ff"')
+    expect(svg).toContain('offset="20%" stop-color="#00ff00"')
+    expect(svg).toContain('offset="100%" stop-color="#ff0000"')
+  })
+
+  it('honors hardStops by emitting duplicate-position band stops', () => {
+    const svg = gradientToSvg(grad({ hardStops: true }))
+    // hardenStops turns 2 smooth stops into 4 band stops (two per color).
+    const stopCount = (svg.match(/<stop /g) ?? []).length
+    expect(stopCount).toBe(4)
+  })
+
+  it('expands mirror into a palindrome stop sequence', () => {
+    const svg = gradientToSvg(
+      grad({
+        type: 'mirror',
+        stops: [
+          { hex: '#ff0000', position: 0 },
+          { hex: '#00ff00', position: 50 },
+          { hex: '#0000ff', position: 100 },
+        ],
+      })
+    )
+    // [A,B,C] -> [A,B,C,B,A] = 5 stops.
+    const stopCount = (svg.match(/<stop /g) ?? []).length
+    expect(stopCount).toBe(5)
+  })
+
   it('never throws for any gradient type', () => {
     for (const type of ['linear', 'radial', 'angular', 'square', 'mirror', 'repeat', 'fan'] as const) {
       expect(() => gradientToSvg(grad({ type }))).not.toThrow()
