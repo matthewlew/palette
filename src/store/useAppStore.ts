@@ -32,6 +32,10 @@ interface AppState {
   duplicateSavedGradient: (id: string) => void
   renameSavedGradient: (id: string, name: string) => void
   renameCurrentGradient: (name: string) => void
+  /** Moves the saved gradient `fromId` to occupy `toId`'s current position,
+   * shifting the others. Persisted via the `saved` array. No-op if either id
+   * is missing or the ids are equal. */
+  reorderSaved: (fromId: string, toId: string) => void
   toggleSaveGradient: (gradient: Gradient) => void
   /** Where exiting edit mode returns to — the surface edit was entered
    * from (Create feed or Gallery). */
@@ -145,6 +149,17 @@ export const useAppStore = create<AppState>()(
           current: { ...current, name: trimmed },
           saved: get().saved.map((g) => (gradientSignature(g) === signature ? { ...g, name: trimmed } : g)),
         })
+      },
+      reorderSaved: (fromId, toId) => {
+        if (fromId === toId) return
+        const saved = get().saved
+        const fromIndex = saved.findIndex((g) => g.id === fromId)
+        const toIndex = saved.findIndex((g) => g.id === toId)
+        if (fromIndex === -1 || toIndex === -1) return
+        const next = saved.slice()
+        const [moved] = next.splice(fromIndex, 1)
+        next.splice(toIndex, 0, moved)
+        set({ saved: next })
       },
       toggleSaveGradient: (gradient) => {
         if (get().isGradientSaved(gradient)) {
