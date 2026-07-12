@@ -12,6 +12,7 @@ import { tickHaptic, primeHaptics } from '../lib/haptics'
 import { Hint } from './Hint'
 import { useHint } from '../hooks/useHint'
 import { ScrollTicker } from './ScrollTicker'
+import { useMorph } from '../hooks/useMorph'
 import styles from './Feed.module.css'
 
 // The feed generates these at random. Mirror is selectable via the tabs but
@@ -44,6 +45,18 @@ export function makeDriftedGradient(type: GradientType, prev: Gradient): Gradien
   }
 }
 
+
+// Stable placeholder so useMorph can be called unconditionally even before the
+// first gradient exists; it is never rendered (guarded by the null check below).
+const EMPTY_GRADIENT: Gradient = {
+  id: '__empty__',
+  type: 'linear',
+  stops: [
+    { hex: '#000000', position: 0 },
+    { hex: '#000000', position: 100 },
+  ],
+  reversed: false,
+}
 
 const STEP_PX = 60
 // Horizontal travel (wheel delta / touch drag) per one shape step, so a
@@ -522,12 +535,18 @@ export function Feed({ chromeVisible = true }: FeedProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displayed !== null])
 
+  // Skip the morph during momentum flings so fast scrolling stays snappy; the
+  // morph only plays when the user settles on a gradient. useMorph must run on
+  // every render (hook rules), so it takes a non-null placeholder target.
+  const morphSkip = momentumFrameIdRef.current !== null
+  const rendered = useMorph(displayed ?? EMPTY_GRADIENT, morphSkip)
+
   if (!displayed) return null
 
   return (
     <div data-testid="feed-container" ref={containerRef} className={styles.container}>
       <GradientPage
-        gradient={displayed}
+        gradient={rendered}
         chromeVisible={chromeVisible}
         liked={isGradientSaved(displayed)}
         onToggleLike={() => {
