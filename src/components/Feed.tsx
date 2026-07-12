@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import { generateGradientStops } from '../lib/palette'
+import { driftGradientStops } from '../lib/drift'
 import { GradientPage } from './GradientPage'
 import { SELECTABLE_GEOMETRY, type GradientType } from '../lib/gradient'
 import type { Gradient } from '../store/types'
@@ -29,6 +30,17 @@ export function makeGradient(type: GradientType, colorSet: ColorSet): Gradient {
     type,
     stops,
     reversed: false,
+  }
+}
+
+/** The next forward gradient: same locked shape, colors drifted from `prev`
+ * so the feed walks through nearby colors instead of jumping randomly. */
+export function makeDriftedGradient(type: GradientType, prev: Gradient): Gradient {
+  return {
+    id: crypto.randomUUID(),
+    type,
+    stops: driftGradientStops(prev.stops),
+    reversed: prev.reversed,
   }
 }
 
@@ -202,9 +214,13 @@ export function Feed({ chromeVisible = true }: FeedProps) {
     }
 
     if (newIndex >= history.length) {
-      // Forward past the end of history: generate a brand-new gradient,
-      // keeping the same locked shape for this Feed session.
-      const fresh = makeGradient(feedSession.lockedType!, activeColorSet)
+      // Forward past the end of history: keep the locked shape. The first
+      // gradient of a session seeds from the active color set; every one after
+      // drifts from its predecessor so the feed walks through nearby colors.
+      const prev = history[history.length - 1]
+      const fresh = prev
+        ? makeDriftedGradient(feedSession.lockedType!, prev)
+        : makeGradient(feedSession.lockedType!, activeColorSet)
       history.push(fresh)
     }
 
