@@ -100,6 +100,36 @@ export function oklchToHex(oklch: Oklch): string {
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`
 }
 
+/**
+ * Whether an OKLCH color falls inside the sRGB gamut, checked against the raw
+ * (unclamped) linear-sRGB values so callers can detect clipping before
+ * oklchToHex's per-channel clamp silently distorts L and H.
+ */
+export function isInSrgbGamut(oklch: Oklch): boolean {
+  const { r, g, b } = oklabToLinearSrgb(oklchToOklab(oklch))
+  const eps = 1e-4
+  return r >= -eps && r <= 1 + eps && g >= -eps && g <= 1 + eps && b >= -eps && b <= 1 + eps
+}
+
+/**
+ * Pull an out-of-gamut OKLCH color back in-gamut by reducing chroma (holding
+ * L and H fixed) via binary search. In-gamut colors are returned unchanged.
+ */
+export function clampChromaToGamut(oklch: Oklch): Oklch {
+  if (isInSrgbGamut(oklch)) return oklch
+  let lo = 0
+  let hi = oklch.c
+  for (let i = 0; i < 20; i++) {
+    const mid = (lo + hi) / 2
+    if (isInSrgbGamut({ ...oklch, c: mid })) {
+      lo = mid
+    } else {
+      hi = mid
+    }
+  }
+  return { ...oklch, c: lo }
+}
+
 export function hexToSrgb(hex: string): Srgb {
   const clean = hex.replace('#', '')
   return {
