@@ -99,7 +99,11 @@ describe('App', () => {
 })
 
 describe('App import flow', () => {
-  it('shows the import banner when the URL hash contains a valid share payload on load', () => {
+  beforeEach(() => {
+    useAppStore.setState({ saved: [], lastImported: null })
+  })
+
+  it('auto-adds gradients from a share link on load and shows an undo toast', () => {
     const payload = {
       kind: 'gradient' as const,
       gradients: [
@@ -113,12 +117,32 @@ describe('App import flow', () => {
         },
       ],
     }
-    const fragment = encodeToFragment(payload)
-    window.location.hash = `#${fragment}`
-
+    window.location.hash = `#${encodeToFragment(payload)}`
     render(<App />)
-    expect(screen.getByTestId('import-banner')).toBeInTheDocument()
+    expect(screen.getByTestId('undo-toast')).toBeInTheDocument()
+    expect(screen.getByText(/added 1 gradient to gallery/i)).toBeInTheDocument()
+    expect(screen.queryByTestId('import-banner')).not.toBeInTheDocument()
+    window.location.hash = ''
+  })
 
+  it('undo removes the just-imported gradient', () => {
+    const payload = {
+      kind: 'board' as const,
+      gradients: [
+        {
+          type: 'linear' as const,
+          stops: [
+            { hex: '#00ff00', position: 0 },
+            { hex: '#000000', position: 100 },
+          ],
+          name: 'UndoMe',
+        },
+      ],
+    }
+    window.location.hash = `#${encodeToFragment(payload)}`
+    render(<App />)
+    fireEvent.click(screen.getByTestId('undo-import'))
+    expect(screen.queryByTestId('undo-toast')).not.toBeInTheDocument()
     window.location.hash = ''
   })
 
@@ -135,40 +159,4 @@ describe('App import flow', () => {
     expect(screen.getByTestId('tab-gallery-thumb')).toBeInTheDocument()
   })
 
-  it('renders a toast notification once the import is confirmed', () => {
-    vi.useFakeTimers()
-    const payload = {
-      kind: 'board' as const,
-      gradients: [
-        {
-          type: 'linear' as const,
-          stops: [
-            { hex: '#ff0000', position: 0 },
-            { hex: '#0000ff', position: 100 },
-          ],
-          name: 'ImportedTest',
-        },
-      ],
-    }
-    const fragment = encodeToFragment(payload)
-    window.location.hash = `#${fragment}`
-
-    render(<App />)
-    expect(screen.getByTestId('import-banner')).toBeInTheDocument()
-
-    // Confirm the import
-    fireEvent.click(screen.getByText('Add to board'))
-
-    // The toast notification should appear
-    expect(screen.getByText('Imported 1 gradient to your Gallery!')).toBeInTheDocument()
-
-    // Fast-forward timers to check if the toast fades out
-    act(() => {
-      vi.advanceTimersByTime(2500)
-    })
-    expect(screen.queryByText('Imported 1 gradient to your Gallery!')).not.toBeInTheDocument()
-
-    window.location.hash = ''
-    vi.useRealTimers()
-  })
 })
