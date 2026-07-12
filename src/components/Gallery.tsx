@@ -4,6 +4,7 @@ import type { GradientType } from '../lib/gradient'
 import { gradientHueFamily, HUE_FAMILIES } from '../lib/hueFilter'
 import { useHint } from '../hooks/useHint'
 import { useMasonryRowSpans } from '../hooks/useMasonryRowSpans'
+import { useFlipReorder } from '../hooks/useFlipReorder'
 import { useAppStore } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
 import { titleColorAt } from '../lib/titleColor'
@@ -64,6 +65,7 @@ function Tile({
       role="button"
       tabIndex={0}
       data-testid="gallery-tile"
+      data-tile-id={gradient.id}
       className={galleryLayout === 'masonry' ? styles.masonryTile : styles.tile}
       style={{ animationDelay: `${enterDelayMs}ms` }}
       aria-label={`${gradient.name ?? 'Untitled'}, ${gradient.type} gradient`}
@@ -400,6 +402,14 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
     galleryLayout,
     filtered.map((g) => g.id).join(','),
   ])
+
+  // Glide tiles to their new spots after a drag reorder (FLIP). Disabled under
+  // reduced-motion. Keyed on the current order so it runs only on reorder.
+  const orderKey = filtered.map((g) => g.id).join(',')
+  const prefersReducedMotion =
+    typeof window !== 'undefined' &&
+    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  useFlipReorder(gridRef, orderKey, !prefersReducedMotion)
 
   function handleGridKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     const active = document.activeElement as HTMLElement
