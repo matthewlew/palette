@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { buildGradientCss } from '../lib/gradient'
 import type { GradientType } from '../lib/gradient'
 import { gradientHueFamily, HUE_FAMILIES } from '../lib/hueFilter'
-import { gradientMetric } from '../lib/sortColors'
 import { useHint } from '../hooks/useHint'
 import { useAppStore } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
@@ -386,21 +385,12 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
   const filtered = saved.filter((gradient) => matchesFilters(gradient, typeFilter, hueFilter))
   const hasFilters = typeFilter !== null || hueFilter !== null
 
-  // Entering the Gallery dissolves the tiles in lightest-first: each tile's
-  // fade delay is its rank by average OKLCH lightness. Steps are tiny (25ms,
-  // capped) so it reads as a subtle ripple, not an obvious sequence.
-  const ENTER_STEP_MS = 25
-  const ENTER_DELAY_CAP_MS = 375
-  const enterDelayByid = new Map<string, number>()
-  ;[...filtered]
-    .sort(
-      (a, b) =>
-        gradientMetric(b.stops.map((s) => s.hex), 'lightness') -
-        gradientMetric(a.stops.map((s) => s.hex), 'lightness')
-    )
-    .forEach((gradient, rank) => {
-      enterDelayByid.set(gradient.id, Math.min(rank * ENTER_STEP_MS, ENTER_DELAY_CAP_MS))
-    })
+  // Entering the Gallery loads tiles in reading order: each tile's delay is
+  // its index in the rendered list, so the grid arrives top-left → bottom-right
+  // like it's loading in. Tiny steps, capped, so it reads as a ripple.
+  const ENTER_STEP_MS = 35
+  const ENTER_DELAY_CAP_MS = 400
+  const enterDelayFor = (index: number) => Math.min(index * ENTER_STEP_MS, ENTER_DELAY_CAP_MS)
 
   const gridRef = useRef<HTMLDivElement>(null)
 
@@ -572,10 +562,11 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
       ) : (
         <div
           ref={gridRef}
+          key={`${typeFilter ?? 'all'}-${hueFilter ?? 'all'}`}
           onKeyDown={handleGridKeyDown}
           className={galleryLayout === 'masonry' ? styles.masonryGrid : styles.grid}
         >
-          {filtered.map((gradient) => (
+          {filtered.map((gradient, index) => (
             <Tile
               key={gradient.id}
               gradient={gradient}
@@ -583,7 +574,7 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
               galleryLayout={galleryLayout}
               onRiff={onRiff}
               onDelete={removeSavedGradientById}
-              enterDelayMs={enterDelayByid.get(gradient.id) ?? 0}
+              enterDelayMs={enterDelayFor(index)}
             />
           ))}
         </div>

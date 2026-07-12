@@ -262,3 +262,25 @@ describe('Gallery layout switcher', () => {
     expect(useAppStore.getState().galleryLayout).toBe('grid')
   })
 })
+
+
+describe('Gallery load-in stagger', () => {
+  beforeEach(() => {
+    useAppStore.setState({
+      saved: [
+        { id: 'a', type: 'linear', stops: [{ hex: '#000000', position: 0 }, { hex: '#111111', position: 100 }], name: 'A' },
+        { id: 'b', type: 'linear', stops: [{ hex: '#ffffff', position: 0 }, { hex: '#eeeeee', position: 100 }], name: 'B' },
+        { id: 'c', type: 'linear', stops: [{ hex: '#888888', position: 0 }, { hex: '#777777', position: 100 }], name: 'C' },
+      ],
+      mode: 'gallery',
+    })
+  })
+
+  it('staggers tile animationDelay by render order, not color', () => {
+    render(<Gallery onRiff={vi.fn()} />)
+    const tiles = screen.getAllByTestId('gallery-tile')
+    const delays = tiles.map((t) => (t as HTMLElement).style.animationDelay)
+    // Index-based: 0ms, 35ms, 70ms in DOM/render order regardless of lightness.
+    expect(delays).toEqual(['0ms', '35ms', '70ms'])
+  })
+})
