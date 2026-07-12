@@ -399,40 +399,43 @@
   transform: scale(0.92);
 }
 
+/* Reading-order masonry: a CSS grid with a small row unit (grid-auto-rows),
+   where useMasonryRowSpans measures each tile and sets its row span. Tiles
+   flow left-to-right, top-to-bottom, so visual order == saved-array order
+   (which is what makes drag-reorder intuitive). align-items:start lets tiles
+   size to content instead of stretching to their (8px) grid area. */
 .masonryGrid {
-  column-count: 2;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-auto-rows: 8px;
+  align-items: start;
   column-gap: var(--space-md);
+  row-gap: var(--space-md);
   width: 100%;
 }
 
 .masonryTile {
   composes: tile;
-  display: inline-flex;
-  flex-direction: column;
   width: 100%;
-  margin-bottom: var(--space-md);
-  break-inside: avoid;
 }
 
 @media (min-width: 600px) {
   .masonryGrid {
-    column-count: 3;
+    grid-template-columns: repeat(3, 1fr);
     column-gap: var(--space-xl);
-  }
-  .masonryTile {
-    margin-bottom: var(--space-xl);
+    row-gap: var(--space-xl);
   }
 }
 
 @media (min-width: 1000px) {
   .masonryGrid {
-    column-count: 4;
+    grid-template-columns: repeat(4, 1fr);
   }
 }
 
 @media (min-width: 1400px) {
   .masonryGrid {
-    column-count: 5;
+    grid-template-columns: repeat(5, 1fr);
   }
 }
 

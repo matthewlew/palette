@@ -3,6 +3,7 @@ import { buildGradientCss } from '../lib/gradient'
 import type { GradientType } from '../lib/gradient'
 import { gradientHueFamily, HUE_FAMILIES } from '../lib/hueFilter'
 import { useHint } from '../hooks/useHint'
+import { useMasonryRowSpans } from '../hooks/useMasonryRowSpans'
 import { useAppStore } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
 import { titleColorAt } from '../lib/titleColor'
@@ -393,6 +394,12 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
   const enterDelayFor = (index: number) => Math.min(index * ENTER_STEP_MS, ENTER_DELAY_CAP_MS)
 
   const gridRef = useRef<HTMLDivElement>(null)
+
+  // Masonry uses measured row spans; grid layout is a plain uniform grid.
+  useMasonryRowSpans(gridRef, galleryLayout === 'masonry', [
+    galleryLayout,
+    filtered.map((g) => g.id).join(','),
+  ])
 
   function handleGridKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     const active = document.activeElement as HTMLElement
