@@ -334,6 +334,7 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
   const removeSavedGradientById = useAppStore((s) => s.removeSavedGradientById)
   const lastDeleted = useAppStore((s) => s.lastDeleted)
   const undoDelete = useAppStore((s) => s.undoDelete)
+  const setViewerGradient = useAppStore((s) => s.setViewerGradient)
   const redoDelete = useAppStore((s) => s.redoDelete)
   const setMode = useAppStore((s) => s.setMode)
   const galleryLayout = useAppStore((s) => s.galleryLayout)
@@ -341,6 +342,12 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
   const [typeFilter, setTypeFilter] = useState<GradientType | null>(null)
   const [hueFilter, setHueFilter] = useState<string | null>(null)
   const [open, setOpen] = useState<Gradient | null>(null)
+
+  // Publish the open viewer gradient so the app-level Cmd+C copies it.
+  useEffect(() => {
+    setViewerGradient(open)
+    return () => setViewerGradient(null)
+  }, [open, setViewerGradient])
   const [undoVisible, setUndoVisible] = useState(false)
   const galleryHint = useHint('gallery')
 
