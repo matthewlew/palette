@@ -6,6 +6,7 @@ import { titleColorAt } from '../lib/titleColor'
 import { TurrellSquare } from './TurrellSquare'
 import { PaletteTitle } from './PaletteTitle'
 import { LikeButton } from './LikeButton'
+import { SaveDestination } from './SaveDestination'
 import { GrainButton } from './GrainButton'
 import { NoiseOverlay } from './NoiseOverlay'
 import type { Gradient } from '../store/types'
@@ -27,6 +28,24 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
   const noiseEnabled = useAppStore((s) => s.noiseEnabled)
   const toggleNoise = useAppStore((s) => s.toggleNoise)
   const renameCurrentGradient = useAppStore((s) => s.renameCurrentGradient)
+  const collections = useAppStore((s) => s.collections)
+  const activeCollectionId = useAppStore((s) => s.activeCollectionId)
+  const setActiveCollection = useAppStore((s) => s.setActiveCollection)
+  const createCollection = useAppStore((s) => s.createCollection)
+  const addToCollection = useAppStore((s) => s.addToCollection)
+
+  // Save toggles the gallery membership as before; when a collection is
+  // active, the freshly-saved copy (a new id, appended last) is also added to
+  // it. Removing (un-saving) leaves collection membership to the prune path.
+  function handleSave() {
+    const wasSaved = liked
+    onToggleLike()
+    if (!wasSaved && activeCollectionId) {
+      const saved = useAppStore.getState().saved
+      const newest = saved[saved.length - 1]
+      if (newest) addToCollection(activeCollectionId, newest.id)
+    }
+  }
 
   // Each glass element samples the gradient where it actually sits, so e.g.
   // the title can stay light while the corner buttons flip dark. Coordinates
@@ -71,6 +90,7 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
             : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
                 repeat: gradient.repeatEnabled,
                 hard: gradient.hardStops,
+                fanAnchor: gradient.fanAnchor,
               }),
         touchAction: 'manipulation',
       }}
@@ -86,7 +106,16 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
         color={titleColor}
       />
       <GrainButton enabled={noiseEnabled} onToggle={toggleNoise} hidden={!chromeVisible} color={cornerColor} />
-      <LikeButton liked={liked} onToggle={onToggleLike} hidden={!chromeVisible} color={cornerColor} />
+      {chromeVisible && (
+        <SaveDestination
+          collections={collections}
+          activeId={activeCollectionId}
+          onSelect={setActiveCollection}
+          onCreate={() => setActiveCollection(createCollection())}
+          color={cornerColor}
+        />
+      )}
+      <LikeButton liked={liked} onToggle={handleSave} hidden={!chromeVisible} color={cornerColor} />
     </div>
   )
 }
