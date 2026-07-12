@@ -19,6 +19,7 @@ export interface Gradient {
   /** Which edge a fan gradient rises from; defaults to 'bottom'. */
   fanAnchor?: FanAnchor
   createdAt?: number
+  note?: string
 }
 
 // 'create' is the home surface (the rolodex feed); 'gallery' is your saved

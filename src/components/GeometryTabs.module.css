@@ -3,8 +3,14 @@
   align-items: center;
   gap: 8px;
   overflow-x: auto;
-  padding: 8px 12px;
+  /* Taller strip = a bigger, more forgiving grab area for the horizontal
+     swipe; pan-x hands the gesture to native momentum scrolling instead of
+     fighting it, and -webkit-overflow-scrolling keeps it smooth on iOS. */
+  padding: 12px;
   scrollbar-width: none;
+  touch-action: pan-x;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
 }
 
 /* Same design-system pill as the other toggle chips (gallery filters, tab
@@ -12,8 +18,8 @@
    variables keep it legible on the sheet in both color schemes. */
 .tab {
   flex: 0 0 auto;
-  min-height: 34px;
-  padding: 0 14px;
+  min-height: 44px;
+  padding: 0 16px;
   border-radius: 999px;
   border: 1px solid var(--border, rgba(255, 255, 255, 0.18));
   background: transparent;

@@ -21,6 +21,13 @@
   margin-left: -2px;
 }
 
+/* Duck the back chevron and Order pill out of the way while scrolling the
+   rolodex, matching the title/grain/save chrome. */
+.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .preview {
   flex: 1;
   min-height: 0;
@@ -108,6 +115,58 @@
   justify-content: center;
   min-height: 0;
 }
+
+/* Row that replaced the swatch tray: an explicit Add color action plus a
+   one-line hint for the stop gestures. */
+.stopActions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px calc(12px + env(safe-area-inset-bottom));
+}
+
+.addColor {
+  min-height: 40px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.18));
+  background: transparent;
+  color: var(--text-h, inherit);
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.addColor:hover {
+  background: var(--surface-2, rgba(128, 128, 128, 0.12));
+  border-color: var(--text, rgba(128, 128, 128, 0.4));
+}
+
+.stopHint {
+  font-size: 11px;
+  color: var(--text, rgba(128, 128, 128, 0.7));
+  opacity: 0.8;
+  text-align: center;
+}
+
+/* Native color input driven programmatically; kept in the DOM (not
+   display:none) so .click() reliably opens the OS picker across browsers. */
+.colorInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  border: 0;
+  padding: 0;
+}
+
+/* Save now lives on the gradient itself (shared LikeButton pill in the
+   bottom-right corner, same as the create feed) — the sheet no longer has
+   its own Save button. */
 
 /* Save now lives on the gradient itself (shared LikeButton pill in the
    bottom-right corner, same as the create feed) — the sheet no longer has

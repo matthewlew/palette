@@ -1,4 +1,5 @@
-import type { GradientType } from './gradient'
+import type { FanAnchor, GradientType } from './gradient'
+import { FAN_ANCHORS } from './gradient'
 import type { GradientStop } from './gradient'
 import type { Gradient } from '../store/types'
 
@@ -8,6 +9,7 @@ export interface SharePayloadGradient {
   reversed?: boolean
   repeatEnabled?: boolean
   hardStops?: boolean
+  fanAnchor?: FanAnchor
   name: string
 }
 
@@ -29,6 +31,7 @@ export function toSharePayloadGradient(gradient: Gradient): SharePayloadGradient
   if (gradient.reversed !== undefined) out.reversed = gradient.reversed
   if (gradient.repeatEnabled !== undefined) out.repeatEnabled = gradient.repeatEnabled
   if (gradient.hardStops !== undefined) out.hardStops = gradient.hardStops
+  if (gradient.fanAnchor !== undefined) out.fanAnchor = gradient.fanAnchor
   return out
 }
 
@@ -48,6 +51,7 @@ export function importGradient(g: SharePayloadGradient): Gradient {
   if (g.reversed !== undefined) out.reversed = g.reversed
   if (g.repeatEnabled !== undefined) out.repeatEnabled = g.repeatEnabled
   if (g.hardStops !== undefined) out.hardStops = g.hardStops
+  if (g.fanAnchor !== undefined) out.fanAnchor = g.fanAnchor
   return out
 }
 
@@ -73,7 +77,8 @@ export function isSharePayloadGradient(value: unknown): value is SharePayloadGra
     v.name.length <= 80 &&
     (v.reversed === undefined || typeof v.reversed === 'boolean') &&
     (v.repeatEnabled === undefined || typeof v.repeatEnabled === 'boolean') &&
-    (v.hardStops === undefined || typeof v.hardStops === 'boolean')
+    (v.hardStops === undefined || typeof v.hardStops === 'boolean') &&
+    (v.fanAnchor === undefined || FAN_ANCHORS.includes(v.fanAnchor as FanAnchor))
   )
 }
 

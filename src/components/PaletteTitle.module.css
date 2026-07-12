@@ -6,6 +6,11 @@
   z-index: 3;
   max-width: min(70vw, 340px);
   transition: opacity 400ms ease;
+  /* Own view-transition group so the title morphs in place across surfaces
+     (view → edit, feed ↔ edit) at its true size, instead of being captured
+     inside the palette-card image and stretched by its object-fit:cover
+     resize — which read as the title janking larger then snapping back. */
+  view-transition-name: palette-title;
 }
 
 .hidden {

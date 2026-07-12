@@ -1,10 +1,15 @@
+/* Mobile: the swatches wrap into a vertical grid that grows downward and
+   scrolls vertically when it overflows — the old horizontal 2-row scroll was
+   awkward to reach and hid swatches off-screen. */
 .tray {
   display: grid;
-  grid-auto-flow: column;
-  grid-template-rows: repeat(2, auto);
-  gap: var(--space-sm);
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  gap: var(--space-sm) var(--space-md);
   justify-items: center;
-  overflow-x: auto;
+  max-height: 32vh;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
   padding: var(--space-sm) var(--space-md);
 }
 
@@ -18,9 +23,9 @@
   border: none;
   background: none;
   cursor: grab;
-  /* pan-x keeps native horizontal tray scrolling alive; vertical drags (add
-     to gradient) are still handled via pointer events. */
-  touch-action: pan-x;
+  /* The tray now scrolls vertically, so hand vertical panning to native
+     scroll; tap-to-add remains the primary way to add a color on touch. */
+  touch-action: pan-y;
   padding: 0;
 }
 
@@ -64,12 +69,11 @@
 
 @media (min-width: 768px) {
   .tray {
-    grid-auto-flow: row;
-    grid-template-rows: none;
     grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
     justify-items: center;
     gap: var(--space-md);
-    overflow-x: visible;
+    max-height: none;
+    overflow-y: visible;
     padding: var(--space-lg) var(--space-xl);
   }
 

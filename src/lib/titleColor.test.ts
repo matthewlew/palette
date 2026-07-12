@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { contrastRatio, titleColorAt } from './titleColor'
+import { contrastRatio, titleColorAt, paletteInkOn } from './titleColor'
 import type { Gradient } from '../store/types'
 
 function makeGradient(hexes: string[], overrides: Partial<Gradient> = {}): Gradient {
@@ -56,5 +56,36 @@ describe('titleColorAt', () => {
   it('falls back to black over a light palette with no contrasting stop', () => {
     const gradient = makeGradient(['#f5f5f0', '#eeeee6', '#e6e6da'])
     expect(titleColorAt(gradient, 0.5, 0.02)).toBe('#000000')
+  })
+})
+
+describe('paletteInkOn', () => {
+  const SURFACE = '#101014'
+
+  it('uses a vivid palette stop directly when it already reads on the surface', () => {
+    const gradient = makeGradient(['#101014', '#ff5aa0', '#3ad0ff'])
+    const ink = paletteInkOn(gradient, SURFACE)
+    // The bright pink/cyan stops clear AA on the dark surface, so one is used
+    // verbatim rather than white.
+    expect(['#ff5aa0', '#3ad0ff']).toContain(ink)
+    expect(contrastRatio(ink, SURFACE)).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('lightens a too-dark vivid stop to a legible tint of the same hue', () => {
+    // Deep saturated blue: too dark on the surface, so it must be lightened
+    // (not thrown away for white) while clearing AA.
+    const gradient = makeGradient(['#0a0a2e', '#141446', '#1e1e5a'])
+    const ink = paletteInkOn(gradient, SURFACE)
+    expect(ink).not.toBe('#ffffff')
+    expect(contrastRatio(ink, SURFACE)).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('lightens even a near-black desaturated palette into a legible tint', () => {
+    // Nothing colorful to echo, but lightening still yields a legible gray
+    // derived from the palette rather than dumping to raw dark stops.
+    const gradient = makeGradient(['#050506', '#0a0a0b', '#0e0e10'])
+    const ink = paletteInkOn(gradient, SURFACE)
+    expect(ink).not.toBe('#050506')
+    expect(contrastRatio(ink, SURFACE)).toBeGreaterThanOrEqual(4.5)
   })
 })

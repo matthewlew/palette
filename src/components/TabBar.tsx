@@ -54,6 +54,7 @@ export function TabBar({
     >
       <button
         type="button"
+        data-testid="tab-create"
         className={mode === 'create' ? styles.tabOn : styles.tab}
         aria-current={mode === 'create' ? 'page' : undefined}
         onClick={() => onChange('create')}
@@ -62,6 +63,7 @@ export function TabBar({
       </button>
       <button
         type="button"
+        data-testid="tab-gallery"
         className={mode === 'gallery' ? styles.tabOn : styles.tab}
         aria-current={mode === 'gallery' ? 'page' : undefined}
         onClick={() => onChange('gallery')}

@@ -1,18 +1,18 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { useAppStore } from '../store/useAppStore'
-import { buildGradientCss, SELECTABLE_GEOMETRY, type GradientType } from '../lib/gradient'
+import { buildGradientCss, FAN_ANCHORS, SELECTABLE_GEOMETRY, type GradientType } from '../lib/gradient'
 import {
   toEditableStops,
   equalizePositions,
   removeStopAt,
   addStop,
-  removeLastByHex,
   moveStop,
   toGradientStops,
   type EditableStop,
 } from '../lib/stopOrdering'
 import { sortByOklch, type SortKey } from '../lib/sortColors'
 import { useHint } from '../hooks/useHint'
+import { useScrolling } from '../hooks/useScrolling'
 import { Hint } from './Hint'
 import { GrainButton } from './GrainButton'
 import { NoiseOverlay } from './NoiseOverlay'
@@ -23,7 +23,6 @@ import { namePalette } from '../lib/naming'
 import { titleColorAt } from '../lib/titleColor'
 import { LikeButton } from './LikeButton'
 import { FlowEditor } from './FlowEditor'
-import { SwatchTray } from './SwatchTray'
 import { TurrellSquare } from './TurrellSquare'
 import { ScrollTicker } from './ScrollTicker'
 import { feedSession, makeGradient } from './Feed'
@@ -74,7 +73,14 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   const onExitRef = useRef(onExit)
   onExitRef.current = onExit
   const [activeStopId, setActiveStopId] = useState<string | null>(null)
+  // Hidden native color input, driven programmatically: tapping a stop (or the
+  // Add color button) seeds and opens it, replacing the removed swatch tray.
+  const colorInputRef = useRef<HTMLInputElement>(null)
+  const colorTargetRef = useRef<{ mode: 'recolor'; id: string } | { mode: 'add' } | null>(null)
   const editHint = useHint('edit')
+  // Duck the floating chrome (title, save, share, noise) out while scrubbing
+  // the rolodex, matching the create feed and the bottom tab bar.
+  const scrolling = useScrolling()
 
   // Per-corner palette-derived foregrounds (same strategy as the title) so
   // every floating control reads as an extension of the gradient.
@@ -450,7 +456,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   // positions the user has already dragged into place — only handle removal/
   // addition/sorting re-equalizes, since those change stop count or order.
   function commitPreservingPositions(
-    overrides: Partial<Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops'>>
+    overrides: Partial<Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops' | 'fanAnchor'>>
   ) {
     setCurrentGradient({
       ...gradient,
@@ -483,30 +489,42 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     commitPreservingPositions({ hardStops: !gradient.hardStops })
   }
 
-  function isPointOverElement(point: { x: number; y: number }, el: HTMLElement): boolean {
-    const rect = el.getBoundingClientRect()
-    return point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom
+  // Re-tapping the active Fan tab rotates which edge the cone rises from,
+  // cycling bottom → top → left → right.
+  function handleRotateFan() {
+    const currentIndex = FAN_ANCHORS.indexOf(gradient.fanAnchor ?? 'bottom')
+    const next = FAN_ANCHORS[(currentIndex + 1) % FAN_ANCHORS.length]
+    commitPreservingPositions({ fanAnchor: next })
   }
 
-  function handleDragAddFromTray(hex: string, point: { x: number; y: number }) {
-    const el = blockContainerRef.current
-    if (!el) return
-    if (!isPointOverElement(point, el)) return
-    commit(addStop(editableStops, hex))
+  // Recolor a stop in place — positions are left untouched, unlike commit(),
+  // which re-equalizes on add/remove.
+  function recolorStop(id: string, hex: string) {
+    const nextStops = editableStops.map((s) => (s.id === id ? { ...s, hex } : s))
+    setEditableStops(nextStops)
+    setCurrentGradient({ ...gradient, stops: toGradientStops(nextStops) })
   }
 
-  function handleTapAdd(hex: string) {
-    if (activeStopId) {
-      const updated = editableStops.map((s) => (s.id === activeStopId ? { ...s, hex } : s))
-      commit(updated)
+  // Fired when the native color picker commits. Either recolors the tapped
+  // stop or appends a new explicit color, per whatever opened the picker.
+  function handleColorPicked(hex: string) {
+    const target = colorTargetRef.current
+    if (!target) return
+    if (target.mode === 'recolor') {
+      recolorStop(target.id, hex)
     } else {
       commit(addStop(editableStops, hex))
     }
   }
 
-  function handleTapRemove(hex: string) {
-    if (editableStops.length <= 2) return
-    commit(removeLastByHex(editableStops, hex))
+  function handleAddColor() {
+    const seed = editableStops[editableStops.length - 1]?.hex ?? '#ffffff'
+    colorTargetRef.current = { mode: 'add' }
+    const input = colorInputRef.current
+    if (input) {
+      input.value = seed
+      input.click()
+    }
   }
 
   function handleSortCycle() {
@@ -523,8 +541,18 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     setActiveOrder(next)
   }
 
+  // Tapping a stop opens the OS color picker seeded with its current hex, so a
+  // specific color can be dialed in when the rolodex hasn't surfaced it.
   function handleTapStop(id: string) {
-    setActiveStopId(activeStopId === id ? null : id)
+    const stop = editableStops.find((s) => s.id === id)
+    if (!stop) return
+    setActiveStopId(id)
+    colorTargetRef.current = { mode: 'recolor', id }
+    const input = colorInputRef.current
+    if (input) {
+      input.value = stop.hex
+      input.click()
+    }
   }
 
   // Exit-on-tap for the preview, with two guards: taps on child buttons
@@ -565,7 +593,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         type="button"
         data-testid="edit-mode-back"
         aria-label="Back"
-        className={`${styles.backButton} ghost-chip`}
+        className={[styles.backButton, 'ghost-chip', scrolling && styles.hidden].filter(Boolean).join(' ')}
         style={{ color: backColor }}
         onClick={onExit}
       >
@@ -577,6 +605,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         saved={saved}
         current={gradient}
         onImport={onImport}
+        chromeVisible={!scrolling}
         color={shareColor}
       />
       <div
@@ -590,6 +619,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
               : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
                   repeat: gradient.repeatEnabled,
                   hard: gradient.hardStops,
+                  fanAnchor: gradient.fanAnchor,
                 }),
         }}
         onPointerDown={handlePreviewPointerDown}
@@ -601,14 +631,15 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         <PaletteTitle
           name={gradient.name ?? namePalette(gradient.stops.map((s) => s.hex))}
           onRename={renameCurrentGradient}
+          hidden={scrolling}
           color={titleColor}
         />
-        <GrainButton enabled={noiseEnabled} onToggle={toggleNoise} color={cornerColor} />
+        <GrainButton enabled={noiseEnabled} onToggle={toggleNoise} hidden={scrolling} color={cornerColor} />
         <button
           type="button"
           data-testid="sort-fab"
           aria-label={`Stop order: ${activeOrder}. Tap to change`}
-          className={`${styles.sortFab} ghost-chip ghost-pill`}
+          className={[styles.sortFab, 'ghost-chip', 'ghost-pill', scrolling && styles.hidden].filter(Boolean).join(' ')}
           style={{ color: sortColor }}
           onClick={handleSortCycle}
           onPointerDown={(e) => e.stopPropagation()}
@@ -622,6 +653,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         <LikeButton
           liked={isGradientSaved}
           onToggle={() => toggleSaveGradient(gradient)}
+          hidden={scrolling}
           color={cornerColor}
         />
       </div>
@@ -650,6 +682,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           onToggleRepeat={handleToggleRepeat}
           hardStops={gradient.hardStops}
           onToggleHardStops={handleToggleHardStops}
+          onRotateFan={handleRotateFan}
         />
         <div className={styles.blockArea}>
           <FlowEditor
@@ -661,16 +694,31 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
             activeStopId={activeStopId}
           />
         </div>
-        <SwatchTray
-          colorSet={activeColorSet}
-          stops={editableStops}
-          onTapAdd={handleTapAdd}
-          onTapRemove={handleTapRemove}
-          onDragAdd={handleDragAddFromTray}
-          activeStopHex={editableStops.find((s) => s.id === activeStopId)?.hex ?? null}
+        <div className={styles.stopActions}>
+          <button
+            type="button"
+            data-testid="add-color"
+            className={styles.addColor}
+            onClick={handleAddColor}
+          >
+            + Add color
+          </button>
+          <span className={styles.stopHint}>Tap a color to recolor · drag down to remove</span>
+        </div>
+        {/* Off-screen native picker, opened programmatically from a stop tap or
+            the Add color button — the explicit-color path that replaces the
+            swatch tray. */}
+        <input
+          ref={colorInputRef}
+          type="color"
+          aria-hidden="true"
+          tabIndex={-1}
+          data-testid="color-input"
+          className={styles.colorInput}
+          onChange={(e) => handleColorPicked(e.target.value)}
         />
       </div>
-      {editHint.visible && <Hint text="Tap a swatch to edit" visible={editHint.visible} />}
+      {editHint.visible && <Hint text="Tap a color to recolor" visible={editHint.visible} />}
     </div>
   )
 }

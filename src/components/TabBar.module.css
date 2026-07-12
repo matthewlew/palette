@@ -8,13 +8,17 @@
   gap: 4px;
   padding: 4px;
   border-radius: 999px;
-  /* Opaque enough (plus the hairline border) to stay visible over the
-     Gallery's near-black background, not just over bright gradients. */
-  background: rgba(20, 20, 24, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  /* Smart foreground adoption, same recipe as .ghost-chip: the ink is the
+     palette-derived foreground (set inline via `color`), and the fill/border
+     are faint mixes of that ink so the bar reads as part of the gradient.
+     `color` falls back to a light tone (see TabBar.tsx) over the Gallery's
+     near-black background. */
+  color: rgba(255, 255, 255, 0.92);
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
   transition: opacity 0.4s ease;
 }
 
@@ -23,38 +27,45 @@
   pointer-events: none;
 }
 
-/* While edit mode's desktop side panel (340px, see EditMode.module.css) is
-   open, center on the canvas that remains, not the full viewport. */
+/* On mobile the edit screen has its own back button + bottom sheet; the tab
+   bar would only cover the sheet's swatches and actions, so hide it there.
+   `.overCanvas` is applied only while editing (panelOpen), so this scopes to
+   edit mode. On tablet/desktop the sheet is a side panel, so the bar returns
+   and centers on the remaining canvas width. */
+.overCanvas {
+  display: none;
+}
+
 @media (min-width: 768px) {
   .overCanvas {
+    display: flex;
     left: calc((100vw - 340px) / 2);
   }
 }
 
-.tab,
-.tabOn {
-  min-height: 44px;
-  min-width: 92px;
+/* The single context control: ＋ Create in the Gallery, ← Gallery while
+   creating. One pill, so the two states morph in place. */
+.action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
   padding: 0 18px;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: 999px;
   background: transparent;
-  color: rgba(255, 255, 255, 0.8);
+  color: currentColor;
   font-family: var(--heading);
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.tabOn {
-  background: rgba(255, 255, 255, 0.92);
-  color: #111;
-  font-weight: 600;
-}
-
-.tabContent {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+.icon {
+  display: block;
+  flex-shrink: 0;
+  opacity: 0.85;
 }
 
 /* Fanned mini-stack of the latest saves. The container reserves room for
@@ -81,13 +92,54 @@
   overflow: hidden;
 }
 
-.tabOn .thumb {
-  border-color: rgba(0, 0, 0, 0.15);
-}
-
 .squareThumbInner {
   position: absolute;
   inset: 0;
   overflow: hidden;
   border-radius: 3px;
+}
+
+/* Camera-app-style Gallery thumbnail: a small stack pinned to the bottom-left
+   corner while creating, mirroring the Save pill at bottom-right. */
+.thumbButton {
+  position: fixed;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  left: 16px;
+  z-index: 30;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+  transition: opacity 0.4s ease, transform 150ms ease-out;
+}
+
+.thumbButton:active {
+  transform: scale(0.95);
+}
+
+.cornerStack {
+  position: absolute;
+  /* Leave room for the fanned offset of the thumbs behind the newest one. */
+  inset: 0 6px 6px 0;
+  display: block;
+}
+
+.cornerThumb {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+  background-color: color-mix(in srgb, currentColor 12%, #26262c);
+  background-size: cover;
+  background-position: center;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
