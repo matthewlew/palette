@@ -262,3 +262,32 @@ describe('Gallery layout switcher', () => {
     expect(useAppStore.getState().galleryLayout).toBe('grid')
   })
 })
+
+describe('Gallery collections', () => {
+  beforeEach(() => {
+    useAppStore.setState(useAppStore.getInitialState())
+    useAppStore.setState({ mode: 'gallery' })
+  })
+
+  it('shows a Collections row and opens a board detail view with Open-in-feed', () => {
+    const store = useAppStore.getState()
+    store.saveGradient({
+      id: 's1',
+      type: 'linear',
+      stops: [
+        { hex: '#b5643c', position: 0 },
+        { hex: '#3a5a78', position: 100 },
+      ],
+    })
+    const savedId = useAppStore.getState().saved[0].id
+    const cid = store.createCollection('Kiln')
+    store.addToCollection(cid, savedId)
+
+    render(<Gallery onRiff={vi.fn()} />)
+    expect(screen.getByTestId('collections-row')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId(`collection-cover-${cid}`))
+    expect(screen.getByTestId('collection-detail')).toBeInTheDocument()
+    expect(screen.getByTestId('collection-open-in-feed')).toBeInTheDocument()
+  })
+})

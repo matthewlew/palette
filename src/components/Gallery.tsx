@@ -6,14 +6,19 @@ import { gradientMetric } from '../lib/sortColors'
 import { useHint } from '../hooks/useHint'
 import { useAppStore } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
-import { titleColorAt } from '../lib/titleColor'
+import { titleColorAt, paletteInkOn } from '../lib/titleColor'
 import { TurrellSquare } from './TurrellSquare'
 import { BoardShare } from './BoardShare'
 import { PaletteTitle } from './PaletteTitle'
 import { ScrollTicker } from './ScrollTicker'
+import { CollectionsRow } from './CollectionsRow'
 import styles from './Gallery.module.css'
 
 const TYPE_CHIPS: GradientType[] = ['linear', 'radial', 'angular', 'square', 'fan']
+
+// The dark app surface the tile captions sit on (matches --surface in
+// index.css); tile ink is chosen to read against it.
+const GALLERY_SURFACE = '#101014'
 
 function formatDate(timestamp?: number): string | null {
   if (!timestamp) return null
@@ -33,6 +38,7 @@ function tileBackground(gradient: Gradient): string | undefined {
     : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
         repeat: gradient.repeatEnabled,
         hard: gradient.hardStops,
+        fanAnchor: gradient.fanAnchor,
       })
 }
 
@@ -43,6 +49,7 @@ function Tile({
   onRiff,
   onDelete,
   enterDelayMs,
+  onDragStartId,
 }: {
   gradient: Gradient
   onOpen: (gradient: Gradient) => void
@@ -50,12 +57,19 @@ function Tile({
   onRiff: (gradient: Gradient) => void
   onDelete: (id: string) => void
   enterDelayMs: number
+  /** When present, the tile is draggable and sets the gradient id on drag —
+   * used to drop it onto a collection cover. */
+  onDragStartId?: (id: string) => void
 }) {
   // Deterministic standard ratio per gradient (from its id) so the masonry
   // mixes squares, portraits, and landscapes instead of all-portrait tiles.
   const RATIOS = ['1 / 1', '4 / 5', '3 / 4', '2 / 3', '4 / 3', '3 / 2']
   const charCodeSum = gradient.id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0)
   const aspectRatio = RATIOS[charCodeSum % RATIOS.length]
+
+  // Caption ink echoes the gradient's own color, kept legible on the dark
+  // surface (see paletteInkOn), instead of a flat white for every tile.
+  const tileInk = paletteInkOn(gradient, GALLERY_SURFACE)
 
   return (
     // A div with button semantics, not a real <button>: the hover overlay's
@@ -67,6 +81,12 @@ function Tile({
       className={galleryLayout === 'masonry' ? styles.masonryTile : styles.tile}
       style={{ animationDelay: `${enterDelayMs}ms` }}
       aria-label={`${gradient.name ?? 'Untitled'}, ${gradient.type} gradient`}
+      draggable={!!onDragStartId}
+      onDragStart={(e) => {
+        if (!onDragStartId) return
+        e.dataTransfer.setData('text/plain', gradient.id)
+        onDragStartId(gradient.id)
+      }}
       onClick={() => onOpen(gradient)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -111,9 +131,13 @@ function Tile({
         </div>
       </div>
       <div className={styles.tileMeta}>
-        <span className={styles.tileName}>{gradient.name ?? 'Untitled'}</span>
+        <span className={styles.tileName} style={{ color: tileInk }}>
+          {gradient.name ?? 'Untitled'}
+        </span>
         {gradient.createdAt && (
-          <span className={styles.tileDate}>{formatDate(gradient.createdAt)}</span>
+          <span className={styles.tileDate} style={{ color: tileInk, opacity: 0.6 }}>
+            {formatDate(gradient.createdAt)}
+          </span>
         )}
       </div>
     </div>
@@ -324,12 +348,33 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport }: View
   )
 }
 
+// First-run onboarding: instead of dead filters, offer the shapes so a user
+// with an empty Gallery gets straight into the create flow by picking a type.
+// A fixed, appealing preview palette for the onboarding shape swatches.
+const ONBOARDING_STOPS = [
+  { hex: '#ff7a59', position: 0 },
+  { hex: '#7c5cff', position: 50 },
+  { hex: '#3ad0ff', position: 100 },
+]
+
+const ONBOARDING_TYPES: { type: GradientType; label: string }[] = [
+  { type: 'linear', label: 'Linear' },
+  { type: 'radial', label: 'Radial' },
+  { type: 'angular', label: 'Angular' },
+  { type: 'square', label: 'Turrell' },
+  { type: 'fan', label: 'Fan' },
+]
+
 interface GalleryProps {
   onRiff: (gradient: Gradient) => void
   onImport?: (jsonText: string) => void
+  onStartType?: (type: GradientType) => void
+  /** Fired when the full-screen viewer opens/closes so the shell can hide the
+   * global ＋ Create nav (the viewer has its own Delete/Edit actions). */
+  onViewerOpenChange?: (open: boolean) => void
 }
 
-export function Gallery({ onRiff, onImport }: GalleryProps) {
+export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: GalleryProps) {
   const saved = useAppStore((s) => s.saved)
   const removeSavedGradientById = useAppStore((s) => s.removeSavedGradientById)
   const lastDeleted = useAppStore((s) => s.lastDeleted)
@@ -338,8 +383,14 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
   const setMode = useAppStore((s) => s.setMode)
   const galleryLayout = useAppStore((s) => s.galleryLayout)
   const setGalleryLayout = useAppStore((s) => s.setGalleryLayout)
+  const collections = useAppStore((s) => s.collections)
+  const createCollection = useAppStore((s) => s.createCollection)
+  const setActiveCollection = useAppStore((s) => s.setActiveCollection)
+  const addToCollection = useAppStore((s) => s.addToCollection)
+  const removeFromCollection = useAppStore((s) => s.removeFromCollection)
   const [typeFilter, setTypeFilter] = useState<GradientType | null>(null)
   const [hueFilter, setHueFilter] = useState<string | null>(null)
+  const [collectionView, setCollectionView] = useState<string | null>(null)
   const [open, setOpen] = useState<Gradient | null>(null)
   const [undoVisible, setUndoVisible] = useState(false)
   const galleryHint = useHint('gallery')
@@ -383,8 +434,21 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Let the shell duck the global ＋ Create nav out while the viewer is open,
+  // so it never overlaps the viewer's own Delete/Edit actions.
+  useEffect(() => {
+    onViewerOpenChange?.(open !== null)
+  }, [open, onViewerOpenChange])
+
   const filtered = saved.filter((gradient) => matchesFilters(gradient, typeFilter, hueFilter))
   const hasFilters = typeFilter !== null || hueFilter !== null
+
+  // Lookup + active-collection membership for the collections layer.
+  const gradientsById = Object.fromEntries(saved.map((g) => [g.id, g])) as Record<string, Gradient>
+  const activeCol = collectionView ? collections.find((c) => c.id === collectionView) ?? null : null
+  const members = activeCol
+    ? activeCol.gradientIds.map((id) => gradientsById[id]).filter(Boolean) as Gradient[]
+    : []
 
   // Entering the Gallery dissolves the tiles in lightest-first: each tile's
   // fade delay is its rank by average OKLCH lightness. Steps are tiny (25ms,
@@ -502,6 +566,82 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
         </div>
       </div>
 
+      {saved.length === 0 ? (
+        <div className={styles.onboarding}>
+          <p className={styles.onboardingTitle}>Create a gradient</p>
+          <p className={styles.onboardingSub}>Pick a shape to start — your saves land here.</p>
+          <div className={styles.onboardingChoices}>
+            {ONBOARDING_TYPES.map(({ type, label }) => (
+              <button
+                key={type}
+                type="button"
+                className={styles.onboardingChoice}
+                onClick={() => onStartType?.(type)}
+              >
+                <span
+                  className={styles.onboardingSwatch}
+                  aria-hidden="true"
+                  style={{
+                    backgroundImage: buildGradientCss(
+                      type === 'square' ? 'linear' : type,
+                      ONBOARDING_STOPS,
+                      false
+                    ),
+                  }}
+                />
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : activeCol ? (
+        <div data-testid="collection-detail">
+          <div className={styles.header}>
+            <button
+              type="button"
+              className={styles.emptyAction}
+              onClick={() => setCollectionView(null)}
+            >
+              ← Collections
+            </button>
+            <h2 className={styles.title}>
+              {activeCol.name} <span className={styles.titleCount}>({members.length})</span>
+            </h2>
+            <button
+              type="button"
+              data-testid="collection-open-in-feed"
+              className={styles.emptyAction}
+              onClick={() => {
+                setActiveCollection(activeCol.id)
+                setMode('create')
+              }}
+            >
+              Open in feed
+            </button>
+          </div>
+          <div className={galleryLayout === 'masonry' ? styles.masonryGrid : styles.grid}>
+            {members.map((g) => (
+              <Tile
+                key={g.id}
+                gradient={g}
+                onOpen={setOpen}
+                galleryLayout={galleryLayout}
+                onRiff={onRiff}
+                onDelete={(id) => removeFromCollection(activeCol.id, id)}
+                enterDelayMs={0}
+              />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <>
+      <CollectionsRow
+        collections={collections}
+        gradientsById={gradientsById}
+        onOpen={(id) => setCollectionView(id)}
+        onCreate={() => setCollectionView(createCollection())}
+        onDropGradient={addToCollection}
+      />
       <div className={styles.chips}>
         <button
           type="button"
@@ -584,9 +724,12 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
               onRiff={onRiff}
               onDelete={removeSavedGradientById}
               enterDelayMs={enterDelayByid.get(gradient.id) ?? 0}
+              onDragStartId={() => {}}
             />
           ))}
         </div>
+      )}
+        </>
       )}
 
       {undoVisible && lastDeleted && (
