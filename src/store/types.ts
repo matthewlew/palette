@@ -1,4 +1,4 @@
-import type { GradientStop, GradientType } from '../lib/gradient'
+import type { FanAnchor, GradientStop, GradientType } from '../lib/gradient'
 
 export interface Gradient {
   id: string
@@ -16,9 +16,32 @@ export interface Gradient {
   // bands instead of a smooth blend.
   repeatEnabled?: boolean
   hardStops?: boolean
+  /** Which edge a fan gradient rises from; defaults to 'bottom'. */
+  fanAnchor?: FanAnchor
   createdAt?: number
 }
 
 // 'create' is the home surface (the rolodex feed); 'gallery' is your saved
 // pins; 'edit' is reachable only from create.
 export type ViewMode = 'create' | 'gallery' | 'edit'
+
+/** Bias levers for Phase 2's variant generator; stored now so a collection
+ * carries its recipe. 0–100, 50 = neutral. Unused by Phase 1 UI. */
+export interface CollectionLevers {
+  temp: number
+  depth: number
+  char: number
+}
+
+/** A labeled subset of `saved` — Pinterest-style board. Holds gradient ids
+ * only (never copies), so "All" always contains everything and removing from
+ * a collection never deletes the gradient. */
+export interface Collection {
+  id: string
+  name: string
+  createdAt: number
+  gradientIds: string[]
+  levers: CollectionLevers
+}
+
+export const NEUTRAL_LEVERS: CollectionLevers = { temp: 50, depth: 50, char: 50 }
