@@ -284,3 +284,42 @@ describe('Gallery load-in stagger', () => {
     expect(delays).toEqual(['0ms', '35ms', '70ms'])
   })
 })
+
+
+describe('Gallery drag reorder', () => {
+  const g = (id: string, hex: string): Gradient => ({
+    id,
+    type: 'linear',
+    stops: [{ hex, position: 0 }, { hex: '#000000', position: 100 }],
+    name: id.toUpperCase(),
+  })
+
+  beforeEach(() => {
+    useAppStore.setState({ saved: [g('a', '#ff0000'), g('b', '#00ff00'), g('c', '#0000ff')], mode: 'gallery' })
+  })
+
+  it('tiles are draggable when no filter is active', () => {
+    render(<Gallery onRiff={vi.fn()} />)
+    const tiles = screen.getAllByTestId('gallery-tile')
+    expect(tiles[0].getAttribute('draggable')).toBe('true')
+  })
+
+  it('reorders the saved array when a tile is dropped on another', () => {
+    render(<Gallery onRiff={vi.fn()} />)
+    const tiles = screen.getAllByTestId('gallery-tile')
+    // Drag tile A (index 0) onto tile C (index 2).
+    fireEvent.dragStart(tiles[0])
+    fireEvent.dragEnter(tiles[2])
+    fireEvent.dragOver(tiles[2])
+    fireEvent.drop(tiles[2])
+    expect(useAppStore.getState().saved.map((x) => x.id)).toEqual(['b', 'c', 'a'])
+  })
+
+  it('does not make tiles draggable while a type filter is active', () => {
+    render(<Gallery onRiff={vi.fn()} />)
+    // 'a','b','c' are all linear; click the Linear chip to filter.
+    fireEvent.click(screen.getByRole('button', { name: /^Linear/ }))
+    const tiles = screen.getAllByTestId('gallery-tile')
+    expect(tiles[0].getAttribute('draggable')).toBe('false')
+  })
+})

@@ -44,6 +44,13 @@ function Tile({
   onRiff,
   onDelete,
   enterDelayMs,
+  draggable,
+  isDragging,
+  isDragOver,
+  onDragStartTile,
+  onDragEnterTile,
+  onDropTile,
+  onDragEndTile,
 }: {
   gradient: Gradient
   onOpen: (gradient: Gradient) => void
@@ -51,6 +58,13 @@ function Tile({
   onRiff: (gradient: Gradient) => void
   onDelete: (id: string) => void
   enterDelayMs: number
+  draggable: boolean
+  isDragging: boolean
+  isDragOver: boolean
+  onDragStartTile: (id: string) => void
+  onDragEnterTile: (id: string) => void
+  onDropTile: (id: string) => void
+  onDragEndTile: () => void
 }) {
   // Deterministic standard ratio per gradient (from its id) so the masonry
   // mixes squares, portraits, and landscapes instead of all-portrait tiles.
@@ -66,9 +80,36 @@ function Tile({
       tabIndex={0}
       data-testid="gallery-tile"
       data-tile-id={gradient.id}
-      className={galleryLayout === 'masonry' ? styles.masonryTile : styles.tile}
+      className={[
+        galleryLayout === 'masonry' ? styles.masonryTile : styles.tile,
+        draggable ? styles.tileDraggable : '',
+        isDragging ? styles.tileDragging : '',
+        isDragOver ? styles.tileDragOver : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       style={{ animationDelay: `${enterDelayMs}ms` }}
       aria-label={`${gradient.name ?? 'Untitled'}, ${gradient.type} gradient`}
+      draggable={draggable}
+      onDragStart={(e) => {
+        if (e.dataTransfer) {
+          e.dataTransfer.effectAllowed = 'move'
+          // Firefox requires data to be set for a drag to start.
+          e.dataTransfer.setData('text/plain', gradient.id)
+        }
+        onDragStartTile(gradient.id)
+      }}
+      onDragEnter={() => onDragEnterTile(gradient.id)}
+      onDragOver={(e) => {
+        if (!draggable) return
+        e.preventDefault()
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
+      }}
+      onDrop={(e) => {
+        e.preventDefault()
+        onDropTile(gradient.id)
+      }}
+      onDragEnd={onDragEndTile}
       onClick={() => onOpen(gradient)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -343,6 +384,10 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
   const [typeFilter, setTypeFilter] = useState<GradientType | null>(null)
   const [hueFilter, setHueFilter] = useState<string | null>(null)
   const [open, setOpen] = useState<Gradient | null>(null)
+  const reorderSaved = useAppStore((s) => s.reorderSaved)
+  const dragIdRef = useRef<string | null>(null)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
   const [undoVisible, setUndoVisible] = useState(false)
   const galleryHint = useHint('gallery')
 
@@ -410,6 +455,24 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
     typeof window !== 'undefined' &&
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   useFlipReorder(gridRef, orderKey, !prefersReducedMotion)
+
+  function clearDrag() {
+    dragIdRef.current = null
+    setDraggingId(null)
+    setDragOverId(null)
+  }
+  function handleDragStartTile(id: string) {
+    dragIdRef.current = id
+    setDraggingId(id)
+  }
+  function handleDragEnterTile(id: string) {
+    if (dragIdRef.current && id !== dragIdRef.current) setDragOverId(id)
+  }
+  function handleDropTile(id: string) {
+    const from = dragIdRef.current
+    if (from && from !== id) reorderSaved(from, id)
+    clearDrag()
+  }
 
   function handleGridKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     const active = document.activeElement as HTMLElement
@@ -592,6 +655,13 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
               onRiff={onRiff}
               onDelete={removeSavedGradientById}
               enterDelayMs={enterDelayFor(index)}
+              draggable={!hasFilters}
+              isDragging={draggingId === gradient.id}
+              isDragOver={dragOverId === gradient.id}
+              onDragStartTile={handleDragStartTile}
+              onDragEnterTile={handleDragEnterTile}
+              onDropTile={handleDropTile}
+              onDragEndTile={clearDrag}
             />
           ))}
         </div>

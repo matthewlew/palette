@@ -493,3 +493,30 @@
 .tileHoverBtnActive:active {
   transform: scale(0.95);
 }
+
+/* Drag-to-reorder affordances (desktop, native HTML5 DnD). Only tiles in the
+   unfiltered board are draggable — reordering a filtered subset is ambiguous. */
+.tileDraggable {
+  cursor: grab;
+}
+
+.tileDraggable:active {
+  cursor: grabbing;
+}
+
+.tileDragging {
+  opacity: 0.85;
+  transform: scale(1.03);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+.tileDragOver .tilePreview {
+  outline: 2px solid rgba(255, 255, 255, 0.85);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tileDragging {
+    transform: none;
+  }
+}
