@@ -50,15 +50,37 @@
   text-overflow: ellipsis;
 }
 
-.newTile {
+.dropNew {
   flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
   width: 72px;
   height: 72px;
   border-radius: 12px;
-  border: 1px dashed rgba(255, 255, 255, 0.28);
-  background: transparent;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(255, 255, 255, 0.5);
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.dropNewArmed {
+  border-color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  transform: scale(1.04);
+}
+
+.dropPlus {
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.dropLabel {
+  font-size: 9px;
   font-weight: 600;
-  cursor: pointer;
+  letter-spacing: 0.02em;
 }

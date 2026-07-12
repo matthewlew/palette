@@ -26,7 +26,7 @@ describe('CollectionsRow', () => {
         collections={[col('c1', 'Kiln', ['g1', 'g2'])]}
         gradientsById={{ g1: grad('g1'), g2: grad('g2') }}
         onOpen={vi.fn()}
-        onCreate={vi.fn()}
+        onCreateFromDrop={vi.fn()}
       />
     )
     expect(screen.getByText('Kiln')).toBeInTheDocument()
@@ -40,20 +40,26 @@ describe('CollectionsRow', () => {
         collections={[col('c1', 'Kiln', ['g1'])]}
         gradientsById={{ g1: grad('g1') }}
         onOpen={onOpen}
-        onCreate={vi.fn()}
+        onCreateFromDrop={vi.fn()}
       />
     )
     fireEvent.click(screen.getByTestId('collection-cover-c1'))
     expect(onOpen).toHaveBeenCalledWith('c1')
   })
 
-  it('calls onCreate when the New tile is clicked', () => {
-    const onCreate = vi.fn()
+  it('seeds a new board with the dropped gradient (content-first, no empty shell)', () => {
+    const onCreateFromDrop = vi.fn()
     render(
-      <CollectionsRow collections={[]} gradientsById={{}} onOpen={vi.fn()} onCreate={onCreate} />
+      <CollectionsRow
+        collections={[]}
+        gradientsById={{}}
+        onOpen={vi.fn()}
+        onCreateFromDrop={onCreateFromDrop}
+      />
     )
-    fireEvent.click(screen.getByTestId('collection-new'))
-    expect(onCreate).toHaveBeenCalled()
+    const dataTransfer = { getData: () => 'g-seed' }
+    fireEvent.drop(screen.getByTestId('collection-new-drop'), { dataTransfer })
+    expect(onCreateFromDrop).toHaveBeenCalledWith('g-seed')
   })
 
   it('calls onDropGradient when a gradient id is dropped on a cover', () => {
@@ -63,7 +69,7 @@ describe('CollectionsRow', () => {
         collections={[col('c1', 'Kiln', [])]}
         gradientsById={{}}
         onOpen={vi.fn()}
-        onCreate={vi.fn()}
+        onCreateFromDrop={vi.fn()}
         onDropGradient={onDropGradient}
       />
     )

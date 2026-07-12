@@ -299,7 +299,7 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport }: View
       {/* Same scroll ticker as the Create feed, but labelled with the
           palette's name instead of a position number — the marks track where
           you are as you scroll between saved gradients. */}
-      <ScrollTicker index={index} label={live.name ?? 'Untitled'} />
+      <ScrollTicker index={index} label={live.name ?? 'Untitled'} total={items.length} />
       {/* Wrapper stops the trigger/menu clicks from bubbling to the
           close-on-tap backdrop, which would otherwise dismiss the viewer
           before the share menu could act. */}
@@ -758,7 +758,11 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
             collections={collections}
             gradientsById={gradientsById}
             onOpen={(id) => setCollectionView(id)}
-            onCreate={() => setCollectionView(createCollection())}
+            onCreateFromDrop={(gradientId) => {
+              const id = createCollection()
+              addToCollection(id, gradientId)
+              setCollectionView(id)
+            }}
             onDropGradient={addToCollection}
           />
           <div className={styles.chips}>

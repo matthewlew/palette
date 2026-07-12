@@ -54,15 +54,6 @@ export function TabBar({
     >
       <button
         type="button"
-        data-testid="tab-create"
-        className={mode === 'create' ? styles.tabOn : styles.tab}
-        aria-current={mode === 'create' ? 'page' : undefined}
-        onClick={() => onChange('create')}
-      >
-        Create
-      </button>
-      <button
-        type="button"
         data-testid="tab-gallery"
         className={mode === 'gallery' ? styles.tabOn : styles.tab}
         aria-current={mode === 'gallery' ? 'page' : undefined}
@@ -95,6 +86,15 @@ export function TabBar({
           )}
           Gallery {savedCount > 0 ? `(${savedCount})` : ''}
         </span>
+      </button>
+      <button
+        type="button"
+        data-testid="tab-create"
+        className={mode === 'create' ? styles.tabOn : styles.tab}
+        aria-current={mode === 'create' ? 'page' : undefined}
+        onClick={() => onChange('create')}
+      >
+        Create
       </button>
     </nav>
   )
