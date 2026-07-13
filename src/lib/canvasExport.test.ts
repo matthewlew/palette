@@ -59,4 +59,28 @@ describe('canvasExport rendering', () => {
     )
     expect(mockAddColorStop).toHaveBeenCalledTimes(2)
   })
+
+  it('renders fan gradients from the bottom-center with a tail stop', () => {
+    const mockAddColorStop = vi.fn()
+    const mockContext = {
+      fillRect: vi.fn(),
+      createConicGradient: vi.fn().mockReturnValue({
+        addColorStop: mockAddColorStop,
+      }),
+      fillStyle: '',
+    }
+    const canvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn().mockReturnValue(mockContext),
+    } as unknown as HTMLCanvasElement
+
+    const fanGradient: Gradient = { ...gradient, type: 'fan' }
+    renderGradientToCanvas(canvas, fanGradient, 1000, 1000)
+
+    // Center at bottom-center (500, 1000); CSS from 270deg -> canvas start π.
+    expect(mockContext.createConicGradient).toHaveBeenCalledWith(Math.PI, 500, 1000)
+    // 2 stops + 1 tail stop that holds the last color across the lower half.
+    expect(mockAddColorStop).toHaveBeenCalledTimes(3)
+  })
 })
