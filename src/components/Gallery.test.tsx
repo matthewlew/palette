@@ -291,3 +291,63 @@ describe('Gallery collections', () => {
     expect(screen.getByTestId('collection-open-in-feed')).toBeInTheDocument()
   })
 })
+
+describe('Gallery load-in stagger', () => {
+  beforeEach(() => {
+    useAppStore.setState({
+      saved: [
+        { id: 'a', type: 'linear', stops: [{ hex: '#000000', position: 0 }, { hex: '#111111', position: 100 }], name: 'A' },
+        { id: 'b', type: 'linear', stops: [{ hex: '#ffffff', position: 0 }, { hex: '#eeeeee', position: 100 }], name: 'B' },
+        { id: 'c', type: 'linear', stops: [{ hex: '#888888', position: 0 }, { hex: '#777777', position: 100 }], name: 'C' },
+      ],
+      mode: 'gallery',
+    })
+  })
+
+  it('staggers tile animationDelay by render order, not color', () => {
+    render(<Gallery onRiff={vi.fn()} />)
+    const tiles = screen.getAllByTestId('gallery-tile')
+    const delays = tiles.map((t) => (t as HTMLElement).style.animationDelay)
+    // Index-based: 0ms, 35ms, 70ms in DOM/render order regardless of lightness.
+    expect(delays).toEqual(['0ms', '35ms', '70ms'])
+  })
+})
+
+
+describe('Gallery drag reorder', () => {
+  const g = (id: string, hex: string): Gradient => ({
+    id,
+    type: 'linear',
+    stops: [{ hex, position: 0 }, { hex: '#000000', position: 100 }],
+    name: id.toUpperCase(),
+  })
+
+  beforeEach(() => {
+    useAppStore.setState({ saved: [g('a', '#ff0000'), g('b', '#00ff00'), g('c', '#0000ff')], mode: 'gallery' })
+  })
+
+  it('tiles are draggable when no filter is active', () => {
+    render(<Gallery onRiff={vi.fn()} />)
+    const tiles = screen.getAllByTestId('gallery-tile')
+    expect(tiles[0].getAttribute('draggable')).toBe('true')
+  })
+
+  it('reorders the saved array when a tile is dropped on another', () => {
+    render(<Gallery onRiff={vi.fn()} />)
+    const tiles = screen.getAllByTestId('gallery-tile')
+    // Drag tile A (index 0) onto tile C (index 2).
+    fireEvent.dragStart(tiles[0])
+    fireEvent.dragEnter(tiles[2])
+    fireEvent.dragOver(tiles[2])
+    fireEvent.drop(tiles[2])
+    expect(useAppStore.getState().saved.map((x) => x.id)).toEqual(['b', 'c', 'a'])
+  })
+
+  it('does not make tiles draggable while a type filter is active', () => {
+    render(<Gallery onRiff={vi.fn()} />)
+    // 'a','b','c' are all linear; click the Linear chip to filter.
+    fireEvent.click(screen.getByRole('button', { name: /^Linear/ }))
+    const tiles = screen.getAllByTestId('gallery-tile')
+    expect(tiles[0].getAttribute('draggable')).toBe('false')
+  })
+})

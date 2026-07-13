@@ -78,6 +78,33 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().saved).toHaveLength(1)
   })
 
+  it('reorders a saved gradient to a later position', () => {
+    const a: Gradient = { ...sampleGradient, id: 'a' }
+    const b: Gradient = { ...sampleGradient, id: 'b', stops: [{ hex: '#00ff00', position: 0 }, { hex: '#000000', position: 100 }] }
+    const c: Gradient = { ...sampleGradient, id: 'c', stops: [{ hex: '#ffffff', position: 0 }, { hex: '#111111', position: 100 }] }
+    useAppStore.setState({ saved: [a, b, c] })
+    useAppStore.getState().reorderSaved('a', 'c')
+    expect(useAppStore.getState().saved.map((g) => g.id)).toEqual(['b', 'c', 'a'])
+  })
+
+  it('reorders a saved gradient to an earlier position', () => {
+    const a: Gradient = { ...sampleGradient, id: 'a' }
+    const b: Gradient = { ...sampleGradient, id: 'b', stops: [{ hex: '#00ff00', position: 0 }, { hex: '#000000', position: 100 }] }
+    const c: Gradient = { ...sampleGradient, id: 'c', stops: [{ hex: '#ffffff', position: 0 }, { hex: '#111111', position: 100 }] }
+    useAppStore.setState({ saved: [a, b, c] })
+    useAppStore.getState().reorderSaved('c', 'a')
+    expect(useAppStore.getState().saved.map((g) => g.id)).toEqual(['c', 'a', 'b'])
+  })
+
+  it('no-ops reorder on unknown id or identical ids', () => {
+    const a: Gradient = { ...sampleGradient, id: 'a' }
+    const b: Gradient = { ...sampleGradient, id: 'b', stops: [{ hex: '#00ff00', position: 0 }, { hex: '#000000', position: 100 }] }
+    useAppStore.setState({ saved: [a, b] })
+    useAppStore.getState().reorderSaved('a', 'a')
+    useAppStore.getState().reorderSaved('a', 'missing')
+    expect(useAppStore.getState().saved.map((g) => g.id)).toEqual(['a', 'b'])
+  })
+
   it('persists saved gradients to localStorage', () => {
     useAppStore.getState().saveGradient(sampleGradient)
     const raw = localStorage.getItem('palette-saved-gradients')

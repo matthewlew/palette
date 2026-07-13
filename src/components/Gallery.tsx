@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { buildGradientCss } from '../lib/gradient'
 import type { GradientType } from '../lib/gradient'
 import { gradientHueFamily, HUE_FAMILIES } from '../lib/hueFilter'
-import { gradientMetric } from '../lib/sortColors'
 import { useHint } from '../hooks/useHint'
+import { useMasonryRowSpans } from '../hooks/useMasonryRowSpans'
+import { useFlipReorder } from '../hooks/useFlipReorder'
 import { useAppStore } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
 import { titleColorAt, paletteInkOn } from '../lib/titleColor'
@@ -50,7 +51,13 @@ function Tile({
   onRiff,
   onDelete,
   enterDelayMs,
-  onDragStartId,
+  draggable,
+  isDragging,
+  isDragOver,
+  onDragStartTile,
+  onDragEnterTile,
+  onDropTile,
+  onDragEndTile,
 }: {
   gradient: Gradient
   onOpen: (gradient: Gradient) => void
@@ -58,9 +65,17 @@ function Tile({
   onRiff: (gradient: Gradient) => void
   onDelete?: (id: string) => void
   enterDelayMs?: number
-  /** When present, the tile is draggable and sets the gradient id on drag —
-   * used to drop it onto a collection cover. */
-  onDragStartId?: (id: string) => void
+  // Drag-to-reorder within the "All" grid. Optional so board-detail and
+  // feed tiles can render without it. dragStart also sets the gradient id on
+  // the dataTransfer, which is what a collection cover reads on drop, so
+  // drag-to-board rides on the same gesture.
+  draggable?: boolean
+  isDragging?: boolean
+  isDragOver?: boolean
+  onDragStartTile?: (id: string) => void
+  onDragEnterTile?: (id: string) => void
+  onDropTile?: (id: string) => void
+  onDragEndTile?: () => void
 }) {
   // Deterministic standard ratio per gradient (from its id) so the masonry
   // mixes squares, portraits, and landscapes instead of all-portrait tiles.
@@ -79,15 +94,38 @@ function Tile({
       role="button"
       tabIndex={0}
       data-testid="gallery-tile"
-      className={galleryLayout === 'masonry' ? styles.masonryTile : styles.tile}
+      data-tile-id={gradient.id}
+      className={[
+        galleryLayout === 'masonry' ? styles.masonryTile : styles.tile,
+        draggable ? styles.tileDraggable : '',
+        isDragging ? styles.tileDragging : '',
+        isDragOver ? styles.tileDragOver : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       style={{ animationDelay: `${enterDelayMs ?? 0}ms` }}
       aria-label={`${gradient.name ?? 'Untitled'}, ${gradient.type} gradient`}
-      draggable={!!onDragStartId}
+      draggable={draggable}
       onDragStart={(e) => {
-        if (!onDragStartId) return
-        e.dataTransfer.setData('text/plain', gradient.id)
-        onDragStartId(gradient.id)
+        if (e.dataTransfer) {
+          e.dataTransfer.effectAllowed = 'move'
+          // Firefox requires data to be set for a drag to start. This id is
+          // also what a collection cover reads on drop (drag-to-board).
+          e.dataTransfer.setData('text/plain', gradient.id)
+        }
+        onDragStartTile?.(gradient.id)
       }}
+      onDragEnter={() => onDragEnterTile?.(gradient.id)}
+      onDragOver={(e) => {
+        if (!draggable) return
+        e.preventDefault()
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
+      }}
+      onDrop={(e) => {
+        e.preventDefault()
+        onDropTile?.(gradient.id)
+      }}
+      onDragEnd={onDragEndTile}
       onClick={() => onOpen(gradient)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -439,6 +477,10 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   const [hueFilter, setHueFilter] = useState<string | null>(null)
   const [collectionView, setCollectionView] = useState<string | null>(null)
   const [open, setOpen] = useState<Gradient | null>(null)
+  const reorderSaved = useAppStore((s) => s.reorderSaved)
+  const dragIdRef = useRef<string | null>(null)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
   const [undoVisible, setUndoVisible] = useState(false)
   const [segment, setSegment] = useState<'yours' | 'feed'>('yours')
   const [activeThemeId, setActiveThemeId] = useState<string>('banff')
@@ -499,24 +541,47 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
     ? activeCol.gradientIds.map((id) => gradientsById[id]).filter(Boolean) as Gradient[]
     : []
 
-  // Entering the Gallery dissolves the tiles in lightest-first: each tile's
-  // fade delay is its rank by average OKLCH lightness. Steps are tiny (25ms,
-  // capped) so it reads as a subtle ripple, not an obvious sequence.
-  const ENTER_STEP_MS = 25
-  const ENTER_DELAY_CAP_MS = 375
-  const enterDelayByid = new Map<string, number>()
-  ;[...filtered]
-    .sort(
-      (a, b) =>
-        gradientMetric(b.stops.map((s) => s.hex), 'lightness') -
-        gradientMetric(a.stops.map((s) => s.hex), 'lightness')
-    )
-    .forEach((gradient, rank) => {
-      enterDelayByid.set(gradient.id, Math.min(rank * ENTER_STEP_MS, ENTER_DELAY_CAP_MS))
-    })
+  // Entering the Gallery loads tiles in reading order: each tile's delay is
+  // its index in the rendered list, so the grid arrives top-left → bottom-right
+  // like it's loading in. Tiny steps, capped, so it reads as a ripple.
+  const ENTER_STEP_MS = 35
+  const ENTER_DELAY_CAP_MS = 400
+  const enterDelayFor = (index: number) => Math.min(index * ENTER_STEP_MS, ENTER_DELAY_CAP_MS)
 
   const gridRef = useRef<HTMLDivElement>(null)
   const activeTheme = THEMED_FEEDS.find((t) => t.id === activeThemeId) ?? THEMED_FEEDS[0]
+
+  // Masonry uses measured row spans; grid layout is a plain uniform grid.
+  useMasonryRowSpans(gridRef, galleryLayout === 'masonry', [
+    galleryLayout,
+    filtered.map((g) => g.id).join(','),
+  ])
+
+  // Glide tiles to their new spots after a drag reorder (FLIP). Disabled under
+  // reduced-motion. Keyed on the current order so it runs only on reorder.
+  const orderKey = filtered.map((g) => g.id).join(',')
+  const prefersReducedMotion =
+    typeof window !== 'undefined' &&
+    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  useFlipReorder(gridRef, orderKey, !prefersReducedMotion)
+
+  function clearDrag() {
+    dragIdRef.current = null
+    setDraggingId(null)
+    setDragOverId(null)
+  }
+  function handleDragStartTile(id: string) {
+    dragIdRef.current = id
+    setDraggingId(id)
+  }
+  function handleDragEnterTile(id: string) {
+    if (dragIdRef.current && id !== dragIdRef.current) setDragOverId(id)
+  }
+  function handleDropTile(id: string) {
+    const from = dragIdRef.current
+    if (from && from !== id) reorderSaved(from, id)
+    clearDrag()
+  }
 
   function handleGridKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     const active = document.activeElement as HTMLElement
@@ -835,10 +900,11 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
           ) : (
             <div
               ref={gridRef}
+              key={`${typeFilter ?? 'all'}-${hueFilter ?? 'all'}`}
               onKeyDown={handleGridKeyDown}
               className={galleryLayout === 'masonry' ? styles.masonryGrid : styles.grid}
             >
-              {filtered.map((gradient) => (
+              {filtered.map((gradient, index) => (
                 <Tile
                   key={gradient.id}
                   gradient={gradient}
@@ -846,8 +912,14 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
                   galleryLayout={galleryLayout}
                   onRiff={onRiff}
                   onDelete={removeSavedGradientById}
-                  enterDelayMs={enterDelayByid.get(gradient.id) ?? 0}
-                  onDragStartId={() => {}}
+                  enterDelayMs={enterDelayFor(index)}
+                  draggable={!hasFilters}
+                  isDragging={draggingId === gradient.id}
+                  isDragOver={dragOverId === gradient.id}
+                  onDragStartTile={handleDragStartTile}
+                  onDragEnterTile={handleDragEnterTile}
+                  onDropTile={handleDropTile}
+                  onDragEndTile={clearDrag}
                 />
               ))}
             </div>
