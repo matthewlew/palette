@@ -46,3 +46,24 @@ export interface Collection {
 }
 
 export const NEUTRAL_LEVERS: CollectionLevers = { temp: 50, depth: 50, char: 50 }
+
+/** One unit of the keyword vocabulary: a word bound to an ordered color
+ * pairing, plus optional composition hints. This is the reusable "training"
+ * unit a future export surfaces as an AI prompt. */
+export interface KeywordBinding {
+  id: string
+  keyword: string
+  colors: string[] // ordered hexes — the color / pairing for this word (>=1)
+  shape?: GradientType
+  note?: string
+}
+
+/** A hand-curated, dated drop: short blog copy plus the gradients the author
+ * composed from keyword bindings. */
+export interface CuratedDrop {
+  id: string
+  title: string
+  description: string
+  date: string // ISO calendar day, YYYY-MM-DD
+  gradients: Gradient[]
+}
