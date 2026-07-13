@@ -13,6 +13,7 @@ import { BoardShare } from './BoardShare'
 import { PaletteTitle } from './PaletteTitle'
 import { ScrollTicker } from './ScrollTicker'
 import { CollectionsRow } from './CollectionsRow'
+import { DropAuthor } from './DropAuthor'
 import { THEMED_FEEDS } from '../lib/themedFeed'
 import styles from './Gallery.module.css'
 
@@ -484,6 +485,8 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   const [undoVisible, setUndoVisible] = useState(false)
   const [segment, setSegment] = useState<'yours' | 'feed'>('yours')
   const [activeThemeId, setActiveThemeId] = useState<string>('banff')
+  const [authoring, setAuthoring] = useState(false)
+  const curatedDrops = useAppStore((s) => s.curatedDrops)
   const galleryHint = useHint('gallery')
 
   // Every delete surfaces an Undo toast for a few seconds. The deleted
@@ -704,51 +707,89 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
 
       {segment === 'feed' ? (
         <>
-          <div className={styles.themeSelector}>
-            {THEMED_FEEDS.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                className={activeThemeId === t.id ? styles.themeTabActive : styles.themeTab}
-                onClick={() => setActiveThemeId(t.id)}
-                style={
-                  activeThemeId === t.id
-                    ? ({ '--theme-color': t.themeColor } as React.CSSProperties)
-                    : undefined
-                }
+          <button
+            type="button"
+            data-testid="drop-author-toggle"
+            className={styles.emptyAction}
+            onClick={() => setAuthoring((v) => !v)}
+          >
+            {authoring ? 'Close author' : 'Author a drop'}
+          </button>
+          {authoring ? (
+            <>
+              <DropAuthor />
+              <div data-testid="curated-drops">
+                {curatedDrops.map((d) => (
+                  <article key={d.id} className={styles.themeHero} data-testid={`curated-drop-${d.id}`}>
+                    <div className={styles.themeHeroBadge}>{d.date}</div>
+                    <h3 className={styles.themeHeroTitle}>{d.title}</h3>
+                    <p className={styles.themeHeroDescription}>{d.description}</p>
+                    <div className={galleryLayout === 'masonry' ? styles.masonryGrid : styles.grid}>
+                      {d.gradients.map((g) => (
+                        <span
+                          key={g.id}
+                          className={styles.tilePreview}
+                          style={{
+                            backgroundImage: buildGradientCss(g.type, g.stops, false),
+                            aspectRatio: '4 / 5',
+                            display: 'block',
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className={styles.themeSelector}>
+                {THEMED_FEEDS.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={activeThemeId === t.id ? styles.themeTabActive : styles.themeTab}
+                    onClick={() => setActiveThemeId(t.id)}
+                    style={
+                      activeThemeId === t.id
+                        ? ({ '--theme-color': t.themeColor } as React.CSSProperties)
+                        : undefined
+                    }
+                  >
+                    <span className={styles.themeTabEmoji}>{t.emoji}</span>
+                    <span className={styles.themeTabName}>{t.name}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div
+                className={styles.themeHero}
+                style={{ '--theme-color': activeTheme.themeColor } as React.CSSProperties}
               >
-                <span className={styles.themeTabEmoji}>{t.emoji}</span>
-                <span className={styles.themeTabName}>{t.name}</span>
-              </button>
-            ))}
-          </div>
+                <div className={styles.themeHeroBadge}>Today’s themed drops</div>
+                <h3 className={styles.themeHeroTitle}>{activeTheme.name}</h3>
+                <p className={styles.themeHeroSubtitle}>{activeTheme.subtitle}</p>
+                <p className={styles.themeHeroDescription}>{activeTheme.description}</p>
+              </div>
 
-          <div
-            className={styles.themeHero}
-            style={{ '--theme-color': activeTheme.themeColor } as React.CSSProperties}
-          >
-            <div className={styles.themeHeroBadge}>Today’s themed drops</div>
-            <h3 className={styles.themeHeroTitle}>{activeTheme.name}</h3>
-            <p className={styles.themeHeroSubtitle}>{activeTheme.subtitle}</p>
-            <p className={styles.themeHeroDescription}>{activeTheme.description}</p>
-          </div>
-
-          <div
-            data-testid="gallery-grid"
-            ref={gridRef}
-            onKeyDown={handleGridKeyDown}
-            className={galleryLayout === 'masonry' ? styles.masonryGrid : styles.grid}
-          >
-            {activeTheme.gradients.map((g) => (
-              <Tile
-                key={g.id}
-                gradient={g}
-                onOpen={setOpen}
-                galleryLayout={galleryLayout}
-                onRiff={onRiff}
-              />
-            ))}
-          </div>
+              <div
+                data-testid="gallery-grid"
+                ref={gridRef}
+                onKeyDown={handleGridKeyDown}
+                className={galleryLayout === 'masonry' ? styles.masonryGrid : styles.grid}
+              >
+                {activeTheme.gradients.map((g) => (
+                  <Tile
+                    key={g.id}
+                    gradient={g}
+                    onOpen={setOpen}
+                    galleryLayout={galleryLayout}
+                    onRiff={onRiff}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </>
       ) : saved.length === 0 ? (
         <div className={styles.onboarding}>

@@ -16,6 +16,7 @@ export function DropAuthor() {
   const keywordBindings = useAppStore((s) => s.keywordBindings)
   const addKeywordBinding = useAppStore((s) => s.addKeywordBinding)
   const deleteKeywordBinding = useAppStore((s) => s.deleteKeywordBinding)
+  const createCuratedDrop = useAppStore((s) => s.createCuratedDrop)
 
   const [keyword, setKeyword] = useState('')
   const [colorsRaw, setColorsRaw] = useState('')
@@ -44,6 +45,28 @@ export function DropAuthor() {
 
   const composedGradient = matched.length > 0 ? composeGradient(matched) : null
   const score = matched.length >= 2 ? Math.round(scoreComposition(matched)) : null
+
+  const [dropGradients, setDropGradients] = useState<ReturnType<typeof composeGradient>[]>([])
+  const [dropTitle, setDropTitle] = useState('')
+  const [dropDesc, setDropDesc] = useState('')
+
+  function addToDrop() {
+    if (!composedGradient) return
+    setDropGradients((g) => [...g, composedGradient])
+    setMatchIds([])
+  }
+  function saveDrop() {
+    if (dropGradients.length === 0 || !dropTitle.trim()) return
+    createCuratedDrop({
+      title: dropTitle.trim(),
+      description: dropDesc.trim(),
+      date: new Date().toISOString().slice(0, 10),
+      gradients: dropGradients,
+    })
+    setDropGradients([])
+    setDropTitle('')
+    setDropDesc('')
+  }
 
   function add() {
     const colors = parseColors(colorsRaw)
@@ -105,6 +128,22 @@ export function DropAuthor() {
         {score !== null && (
           <div data-testid="compose-score" className={styles.score}>Aesthetic score: {score}/100</div>
         )}
+        <button type="button" data-testid="compose-add-to-drop" className={styles.btn} disabled={!composedGradient} onClick={addToDrop}>
+          Add to drop
+        </button>
+      </section>
+      <section className={styles.panel}>
+        <h3 className={styles.panelTitle}>Drop ({dropGradients.length})</h3>
+        <div className={styles.dropStrip}>
+          {dropGradients.map((g) => (
+            <span key={g.id} className={styles.dropThumb} style={{ backgroundImage: buildGradientCss(g.type, g.stops, false) }} />
+          ))}
+        </div>
+        <input data-testid="drop-title" className={styles.input} placeholder="title" value={dropTitle} onChange={(e) => setDropTitle(e.target.value)} />
+        <textarea data-testid="drop-desc" className={styles.input} placeholder="short description" value={dropDesc} onChange={(e) => setDropDesc(e.target.value)} />
+        <button type="button" data-testid="drop-save" className={styles.btn} disabled={dropGradients.length === 0 || !dropTitle.trim()} onClick={saveDrop}>
+          Save drop
+        </button>
       </section>
     </div>
   )
