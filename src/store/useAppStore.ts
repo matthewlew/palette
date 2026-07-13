@@ -1,6 +1,13 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Gradient, ViewMode, Collection, CollectionLevers } from './types'
+import type {
+  Gradient,
+  ViewMode,
+  Collection,
+  CollectionLevers,
+  KeywordBinding,
+  CuratedDrop,
+} from './types'
 import { NEUTRAL_LEVERS } from './types'
 import { DEFAULT_COLOR_SET, type ColorSet } from '../lib/colorSets'
 import { namePalette } from '../lib/naming'
@@ -59,6 +66,14 @@ interface AppState {
   removeFromCollection: (collectionId: string, gradientId: string) => void
   setActiveCollection: (id: string | null) => void
   setCollectionLevers: (id: string, levers: CollectionLevers) => void
+  keywordBindings: KeywordBinding[]
+  curatedDrops: CuratedDrop[]
+  addKeywordBinding: (binding: Omit<KeywordBinding, 'id'>) => string
+  updateKeywordBinding: (id: string, patch: Partial<Omit<KeywordBinding, 'id'>>) => void
+  deleteKeywordBinding: (id: string) => void
+  createCuratedDrop: (drop: Omit<CuratedDrop, 'id'>) => string
+  updateCuratedDrop: (id: string, patch: Partial<Omit<CuratedDrop, 'id'>>) => void
+  deleteCuratedDrop: (id: string) => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -268,6 +283,30 @@ export const useAppStore = create<AppState>()(
           ),
         })
       },
+      keywordBindings: [],
+      curatedDrops: [],
+      addKeywordBinding: (binding) => {
+        const id = crypto.randomUUID()
+        set({ keywordBindings: [...get().keywordBindings, { id, ...binding }] })
+        return id
+      },
+      updateKeywordBinding: (id, patch) => {
+        set({ keywordBindings: get().keywordBindings.map((b) => (b.id === id ? { ...b, ...patch } : b)) })
+      },
+      deleteKeywordBinding: (id) => {
+        set({ keywordBindings: get().keywordBindings.filter((b) => b.id !== id) })
+      },
+      createCuratedDrop: (drop) => {
+        const id = crypto.randomUUID()
+        set({ curatedDrops: [...get().curatedDrops, { id, ...drop }] })
+        return id
+      },
+      updateCuratedDrop: (id, patch) => {
+        set({ curatedDrops: get().curatedDrops.map((d) => (d.id === id ? { ...d, ...patch } : d)) })
+      },
+      deleteCuratedDrop: (id) => {
+        set({ curatedDrops: get().curatedDrops.filter((d) => d.id !== id) })
+      },
     }),
     {
       name: 'palette-saved-gradients',
@@ -277,13 +316,15 @@ export const useAppStore = create<AppState>()(
         galleryLayout: state.galleryLayout,
         collections: state.collections,
         activeCollectionId: state.activeCollectionId,
+        keywordBindings: state.keywordBindings,
+        curatedDrops: state.curatedDrops,
       }),
       // v1 drops the removed smoothEnabled/flutedEnabled flags from boards
       // persisted before those filters were deleted, so stale keys don't
       // live in localStorage forever.
       // v2 makes masonry the default gallery layout (a one-time reset for
       // boards persisted while 'grid' was the default).
-      version: 3,
+      version: 4,
       migrate: (persisted, version) => {
         const state = persisted as {
           saved?: Gradient[]
@@ -291,6 +332,8 @@ export const useAppStore = create<AppState>()(
           galleryLayout?: 'grid' | 'masonry'
           collections?: Collection[]
           activeCollectionId?: string | null
+          keywordBindings?: KeywordBinding[]
+          curatedDrops?: CuratedDrop[]
         }
         if (Array.isArray(state.saved)) {
           state.saved = state.saved.map((g) => {
@@ -307,6 +350,9 @@ export const useAppStore = create<AppState>()(
         // v3: collections are new — default them for older persisted state.
         if (!Array.isArray(state.collections)) state.collections = []
         if (state.activeCollectionId === undefined) state.activeCollectionId = null
+        // v4: keyword vocabulary + curated drops are new.
+        if (!Array.isArray(state.keywordBindings)) state.keywordBindings = []
+        if (!Array.isArray(state.curatedDrops)) state.curatedDrops = []
         return state
       },
     }
