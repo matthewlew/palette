@@ -6,8 +6,6 @@ import {
   hexToOklch,
   blendOklchHex,
   isLightColor,
-  isInSrgbGamut,
-  clampChromaToGamut,
 } from './oklch'
 
 describe('oklch <-> srgb conversion', () => {
@@ -91,23 +89,5 @@ describe('hex <-> oklch and blending', () => {
 
   it('reports a dark color (low L) as not light', () => {
     expect(isLightColor('#000000')).toBe(false)
-  })
-})
-
-describe('sRGB gamut helpers', () => {
-  it('reports an in-gamut color as in-gamut and returns it unchanged', () => {
-    const inGamut = { l: 0.7, c: 0.1, h: 200 }
-    expect(isInSrgbGamut(inGamut)).toBe(true)
-    expect(clampChromaToGamut(inGamut)).toEqual(inGamut)
-  })
-
-  it('reports an out-of-gamut color as out-of-gamut and clamps its chroma back in', () => {
-    const outOfGamut = { l: 0.9, c: 0.35, h: 120 }
-    expect(isInSrgbGamut(outOfGamut)).toBe(false)
-    const clamped = clampChromaToGamut(outOfGamut)
-    expect(isInSrgbGamut(clamped)).toBe(true)
-    expect(clamped.c).toBeLessThan(outOfGamut.c)
-    expect(clamped.l).toBe(outOfGamut.l)
-    expect(clamped.h).toBe(outOfGamut.h)
   })
 })

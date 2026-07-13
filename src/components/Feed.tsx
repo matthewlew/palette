@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import { generateGradientStops } from '../lib/palette'
-import { driftGradientStops } from '../lib/drift'
 import { GradientPage } from './GradientPage'
 import { SELECTABLE_GEOMETRY, type GradientType } from '../lib/gradient'
 import type { Gradient } from '../store/types'
@@ -12,7 +11,6 @@ import { tickHaptic, primeHaptics } from '../lib/haptics'
 import { Hint } from './Hint'
 import { useHint } from '../hooks/useHint'
 import { ScrollTicker } from './ScrollTicker'
-import { useMorph } from '../hooks/useMorph'
 import styles from './Feed.module.css'
 
 // The feed generates these at random. Mirror is selectable via the tabs but
@@ -34,29 +32,6 @@ export function makeGradient(type: GradientType, colorSet: ColorSet): Gradient {
   }
 }
 
-/** The next forward gradient: same locked shape, colors drifted from `prev`
- * so the feed walks through nearby colors instead of jumping randomly. */
-export function makeDriftedGradient(type: GradientType, prev: Gradient): Gradient {
-  return {
-    id: crypto.randomUUID(),
-    type,
-    stops: driftGradientStops(prev.stops),
-    reversed: prev.reversed,
-  }
-}
-
-
-// Stable placeholder so useMorph can be called unconditionally even before the
-// first gradient exists; it is never rendered (guarded by the null check below).
-const EMPTY_GRADIENT: Gradient = {
-  id: '__empty__',
-  type: 'linear',
-  stops: [
-    { hex: '#000000', position: 0 },
-    { hex: '#000000', position: 100 },
-  ],
-  reversed: false,
-}
 
 const STEP_PX = 60
 // Horizontal travel (wheel delta / touch drag) per one shape step, so a
@@ -227,13 +202,10 @@ export function Feed({ chromeVisible = true }: FeedProps) {
     }
 
     if (newIndex >= history.length) {
-      // Forward past the end of history: keep the locked shape. The first
-      // gradient of a session seeds from the active color set; every one after
-      // drifts from its predecessor so the feed walks through nearby colors.
-      const prev = history[history.length - 1]
-      const fresh = prev
-        ? makeDriftedGradient(feedSession.lockedType!, prev)
-        : makeGradient(feedSession.lockedType!, activeColorSet)
+      // Forward past the end of history: generate a brand-new gradient,
+      // keeping the same locked shape for this Feed session. Each tick is a
+      // completely new gradient, not a nudge from the previous one.
+      const fresh = makeGradient(feedSession.lockedType!, activeColorSet)
       history.push(fresh)
     }
 
@@ -535,18 +507,12 @@ export function Feed({ chromeVisible = true }: FeedProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displayed !== null])
 
-  // Skip the morph during momentum flings so fast scrolling stays snappy; the
-  // morph only plays when the user settles on a gradient. useMorph must run on
-  // every render (hook rules), so it takes a non-null placeholder target.
-  const morphSkip = momentumFrameIdRef.current !== null
-  const rendered = useMorph(displayed ?? EMPTY_GRADIENT, morphSkip)
-
   if (!displayed) return null
 
   return (
     <div data-testid="feed-container" ref={containerRef} className={styles.container}>
       <GradientPage
-        gradient={rendered}
+        gradient={displayed}
         chromeVisible={chromeVisible}
         liked={isGradientSaved(displayed)}
         onToggleLike={() => {

@@ -3,7 +3,6 @@ import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { Feed, resetFeedSession } from './Feed'
 import { useAppStore } from '../store/useAppStore'
 import * as paletteLib from '../lib/palette'
-import * as driftLib from '../lib/drift'
 import * as haptics from '../lib/haptics'
 
 const STEP_PX = 60
@@ -35,13 +34,12 @@ describe('Feed', () => {
     const first = useAppStore.getState().current
     const container = screen.getByTestId('feed-container')
 
-    // Forward gradients after the first now drift from their predecessor
-    // (see src/lib/drift.ts) rather than generating fresh random stops.
-    const driftSpy = vi.spyOn(driftLib, 'driftGradientStops')
+    // Each forward step generates a brand-new gradient.
+    const generateSpy = vi.spyOn(paletteLib, 'generateGradientStops')
 
     fireEvent.wheel(container, { deltaY: STEP_PX })
 
-    expect(driftSpy).toHaveBeenCalled()
+    expect(generateSpy).toHaveBeenCalled()
     expect(useAppStore.getState().current).not.toEqual(first)
   })
 
@@ -231,16 +229,15 @@ describe('Feed', () => {
     const first = useAppStore.getState().current
     const container = screen.getByTestId('feed-container')
 
-    // Forward gradients after the first now drift from their predecessor
-    // (see src/lib/drift.ts) rather than generating fresh random stops.
-    const driftSpy = vi.spyOn(driftLib, 'driftGradientStops')
+    // Each forward step generates a brand-new gradient.
+    const generateSpy = vi.spyOn(paletteLib, 'generateGradientStops')
 
     fireEvent.touchStart(container, { touches: [{ clientY: 400 }] })
     // Drag up in two increments totaling STEP_PX of upward movement.
     fireEvent.touchMove(container, { touches: [{ clientY: 400 - STEP_PX / 2 }] })
     fireEvent.touchMove(container, { touches: [{ clientY: 400 - STEP_PX }] })
 
-    expect(driftSpy).toHaveBeenCalled()
+    expect(generateSpy).toHaveBeenCalled()
     expect(useAppStore.getState().current).not.toEqual(first)
   })
 
@@ -317,9 +314,9 @@ describe('Feed', () => {
     })
     vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {})
 
-    // The initial mount gradient still uses generateGradientStops; every
-    // forward step after that drifts from its predecessor (src/lib/drift.ts).
-    const driftSpy = vi.spyOn(driftLib, 'driftGradientStops')
+    // Every forward step generates a brand-new gradient (initial mount plus
+    // each subsequent step).
+    const generateSpy = vi.spyOn(paletteLib, 'generateGradientStops')
 
     render(<Feed />)
     const container = screen.getByTestId('feed-container')
@@ -341,7 +338,7 @@ describe('Feed', () => {
       iterations++
     }
 
-    expect(driftSpy.mock.calls.length).toBeGreaterThanOrEqual(7) // 8 total steps - 1 initial mount
+    expect(generateSpy.mock.calls.length).toBeGreaterThanOrEqual(7) // ~8 forward steps
 
     nowSpy.mockRestore()
     rafSpy.mockRestore()

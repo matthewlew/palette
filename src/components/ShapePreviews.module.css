@@ -1,0 +1,127 @@
+.tray {
+  display: flex;
+  gap: var(--space-md, 10px);
+  padding: var(--space-sm, 4px) var(--space-md, 8px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+}
+
+.thumb,
+.thumbActive {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs, 4px);
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 4px;
+  border-radius: 10px;
+  transition: transform 120ms ease, opacity 120ms ease;
+  scroll-snap-align: start;
+}
+
+.thumb:hover {
+  transform: scale(1.06);
+}
+
+.thumbActive {
+  background: rgba(128, 128, 128, 0.12);
+}
+
+.thumbActive:hover {
+  transform: none;
+}
+
+.preview {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  border: 1.5px solid rgba(128, 128, 128, 0.15);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.thumbActive .preview {
+  border-color: var(--text, rgba(128, 128, 128, 0.7));
+  box-shadow: 0 0 0 1.5px var(--text, rgba(128, 128, 128, 0.4));
+}
+
+/* Shape masks applied inside the preview */
+.shapeInner {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+}
+
+/* Circle shape */
+.circle .shapeInner {
+  border-radius: 50%;
+  inset: 4px;
+}
+
+/* Diamond shape */
+.diamond .shapeInner {
+  inset: 6px;
+  transform: rotate(45deg);
+  border-radius: 3px;
+}
+
+/* Pill / stadium shape */
+.pill .shapeInner {
+  inset: 4px 10px;
+  border-radius: 999px;
+}
+
+/* Arch shape */
+.arch .shapeInner {
+  inset: 4px 8px;
+  border-radius: 999px 999px 4px 4px;
+}
+
+/* Squircle shape (iOS-style superellipse via large radius) */
+.squircle .shapeInner {
+  inset: 4px;
+  border-radius: 30%;
+}
+
+/* Full bleed — no mask */
+.full .shapeInner {
+  inset: 0;
+  border-radius: 0;
+}
+
+.label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text, #6b6375);
+  opacity: 0.7;
+  white-space: nowrap;
+}
+
+.thumbActive .label {
+  opacity: 1;
+}
+
+@media (min-width: 768px) {
+  .tray {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    justify-content: center;
+    gap: var(--space-md, 10px);
+    padding: var(--space-md, 8px) var(--space-lg, 12px);
+  }
+
+  .preview {
+    width: 64px;
+    height: 64px;
+  }
+}
