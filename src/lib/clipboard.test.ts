@@ -29,13 +29,22 @@ const gradient: Gradient = {
 }
 
 describe('writeGradientToClipboard', () => {
-  it('writes text/plain JSON, image/svg+xml, and text/html and prevents default', () => {
+  it('writes SVG (with embedded payload) to text/plain and image/svg+xml, and prevents default', () => {
     const { event, store, preventDefault } = fakeEvent()
     writeGradientToClipboard(event, gradient)
     expect(preventDefault).toHaveBeenCalled()
+    // text/plain is the SVG so Figma imports it as vector, with the Palette
+    // JSON embedded in <metadata> for exact round-trips.
+    expect(store.get('text/plain')).toContain('<svg')
+    expect(store.get('text/plain')).toContain('<metadata>')
     expect(store.get('text/plain')).toContain('"kind": "gradient"')
     expect(store.get('image/svg+xml')).toContain('<svg')
-    expect(store.get('text/html')).toContain('<svg')
+  })
+
+  it('does not set text/html (Figma would treat it as rich text)', () => {
+    const { event, store } = fakeEvent()
+    writeGradientToClipboard(event, gradient)
+    expect(store.has('text/html')).toBe(false)
   })
 })
 
@@ -50,6 +59,26 @@ describe('readGradientsFromClipboard', () => {
     expect(result![0].type).toBe('linear')
     expect(result![0].name).toBe('Sunset')
     expect(result![0].id).not.toBe('abc')
+  })
+
+  it('still reads raw Palette JSON (older copies / pasted exports)', () => {
+    const rawJson = JSON.stringify({
+      kind: 'gradient',
+      gradients: [
+        {
+          type: 'radial',
+          stops: [
+            { hex: '#000000', position: 0 },
+            { hex: '#ffffff', position: 100 },
+          ],
+          name: 'Mono',
+        },
+      ],
+    })
+    const { event } = fakeEvent({ 'text/plain': rawJson })
+    const result = readGradientsFromClipboard(event)
+    expect(result).not.toBeNull()
+    expect(result![0].type).toBe('radial')
   })
 
   it('returns null for foreign / non-JSON clipboard text', () => {
