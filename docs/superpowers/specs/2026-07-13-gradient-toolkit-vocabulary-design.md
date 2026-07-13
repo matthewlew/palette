@@ -69,20 +69,22 @@ Add two persisted arrays plus CRUD, following the existing collections pattern:
 
 ## Composition + aesthetic scoring
 
-Building a gradient from selected keyword bindings (new pure helper,
-`src/lib/keywordCompose.ts`):
+Building a gradient from an **ordered** list of selected keyword bindings (new pure
+helper, `src/lib/keywordCompose.ts`):
 
 - `composeStops(bindings: KeywordBinding[]): GradientStop[]` — concatenate each
-  binding's `colors` in selection order into stops, evenly spaced across 0–100.
+  binding's `colors` in the given order into stops, evenly spaced across 0–100.
+  Order is the author's arrangement, not fixed — see the word-matching sort below.
 - `composeGradient(bindings, type?): Gradient` — `composeStops` + a `type` (the
   first binding's `shape`, else `'linear'`).
 - **Score:** reuse `scorePalette(colors: Oklch[])` from `src/lib/paletteScore.ts`
   (returns 0–100). `scoreComposition(bindings): number` converts the composed
   stops' hexes to OKLCH via `hexToOklch` and calls `scorePalette`. This is the same
-  aesthetic engine that ranks generated palettes, surfaced live in authoring so the
-  author curates toward high-scoring pairings.
+  aesthetic engine that ranks generated palettes.
 
-No new scoring math — this slice consumes the existing `scorePalette` verbatim.
+No new scoring math — this slice consumes the existing `scorePalette` verbatim. The
+score is **advisory**: it updates live as the author reorders, but the tool never
+auto-reorders or auto-optimizes. The author's arrangement is always what ships.
 
 ## Authoring flow (minimal UI)
 
@@ -92,9 +94,13 @@ not gated behind auth in this slice). Three regions:
 1. **Vocabulary**: list of keyword bindings; a form to add one (keyword text,
    1+ color inputs = the pairing, optional shape select, optional note). Edit/delete
    inline.
-2. **Compose**: multi-select keywords → live gradient preview via `buildGradientCss`,
-   with the **aesthetic score (0–100)** shown beside it. "Add to drop" saves the
-   composed gradient.
+2. **Compose (word-matching sort)**: the author matches keywords to their color
+   pairings and arranges them into an ordered row — a drag-to-reorder "word match"
+   interaction where each chip shows the keyword *name* and its palette swatches
+   side by side. Reordering the chips reorders `composeStops`, so the gradient
+   preview (via `buildGradientCss`) and the **aesthetic score (0–100)** both update
+   live on every rearrange. Reorder is manual only; the score is advisory. "Add to
+   drop" saves the currently-arranged composed gradient.
 3. **Drop**: title + short description (date defaults to today, editable). The
    composed gradients collect here. "Save drop" writes a `CuratedDrop` to the store.
 
@@ -115,9 +121,11 @@ Tumblr blog view is the next slice, not this one.
 
 ## Testing
 
-- `keywordCompose.test.ts`: `composeStops` preserves order and spaces evenly;
-  `composeGradient` picks the shape; `scoreComposition` returns the same number as
-  `scorePalette` on the equivalent OKLCH colors (proves reuse, not reimplementation).
+- `keywordCompose.test.ts`: `composeStops` preserves the given order and spaces
+  evenly; reordering the input bindings changes the stop order (proves the
+  word-matching sort drives composition); `composeGradient` picks the shape;
+  `scoreComposition` returns the same number as `scorePalette` on the equivalent
+  OKLCH colors (proves reuse, not reimplementation).
 - Store tests: CRUD for bindings and drops; the persist migration defaults both
   arrays to `[]`.
 - A component test for the authoring flow: add a binding → compose → score shows →
