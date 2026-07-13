@@ -143,13 +143,28 @@
      per-tile animation-delay (set inline, ordered by render index) and then
      releases the transform so drag-reorder FLIP transforms (useFlipReorder)
      are not overridden by a forwards fill. */
-  animation: tile-enter 320ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  animation: tile-rise 320ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+
+/* Tile-only rise + fade. Both endpoints are explicit so opacity interpolates
+   reliably alongside the compositor-accelerated transform (a from-only
+   keyframe left opacity's endpoint implicit and it stopped fading). Kept
+   separate from tile-enter because the undo toast reuses that keyframe and is
+   centered with its own transform. */
+@keyframes tile-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 @keyframes tile-enter {
   from {
     opacity: 0;
-    transform: translateY(12px) scale(0.98);
   }
 }
 
