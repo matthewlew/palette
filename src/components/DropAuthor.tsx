@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import type { GradientType } from '../lib/gradient'
+import { buildGradientCss } from '../lib/gradient'
+import { composeGradient, scoreComposition } from '../lib/keywordCompose'
+import type { KeywordBinding } from '../store/types'
 import styles from './DropAuthor.module.css'
 
 const SHAPES: GradientType[] = ['linear', 'radial', 'angular', 'square', 'fan']
@@ -17,6 +20,30 @@ export function DropAuthor() {
   const [keyword, setKeyword] = useState('')
   const [colorsRaw, setColorsRaw] = useState('')
   const [shape, setShape] = useState<GradientType>('linear')
+
+  const [matchIds, setMatchIds] = useState<string[]>([])
+  const byId = (id: string) => keywordBindings.find((b) => b.id === id)
+  const matched: KeywordBinding[] = matchIds.map(byId).filter(Boolean) as KeywordBinding[]
+
+  function addToMatch(id: string) {
+    setMatchIds((ids) => (ids.includes(id) ? ids : [...ids, id]))
+  }
+  function removeFromMatch(id: string) {
+    setMatchIds((ids) => ids.filter((x) => x !== id))
+  }
+  function move(id: string, dir: 1 | -1) {
+    setMatchIds((ids) => {
+      const i = ids.indexOf(id)
+      const j = i + dir
+      if (i < 0 || j < 0 || j >= ids.length) return ids
+      const next = [...ids]
+      ;[next[i], next[j]] = [next[j], next[i]]
+      return next
+    })
+  }
+
+  const composedGradient = matched.length > 0 ? composeGradient(matched) : null
+  const score = matched.length >= 2 ? Math.round(scoreComposition(matched)) : null
 
   function add() {
     const colors = parseColors(colorsRaw)
@@ -49,6 +76,35 @@ export function DropAuthor() {
             </li>
           ))}
         </ul>
+      </section>
+      <section className={styles.panel}>
+        <h3 className={styles.panelTitle}>Compose — match words to colors</h3>
+        <div className={styles.pickRow}>
+          {keywordBindings.map((b) => (
+            <button key={b.id} type="button" data-testid={`match-add-${b.id}`} className={styles.pick} onClick={() => addToMatch(b.id)}>
+              + {b.keyword}
+            </button>
+          ))}
+        </div>
+        <div className={styles.matchRow}>
+          {matched.map((b) => (
+            <div key={b.id} data-testid={`match-chip-${b.id}`} data-kw-id={b.id} className={styles.chip}>
+              <button type="button" data-testid={`match-up-${b.id}`} className={styles.move} onClick={() => move(b.id, -1)} aria-label={`Move ${b.keyword} earlier`}>‹</button>
+              <span className={styles.chipName}>{b.keyword}</span>
+              <span className={styles.swatches}>
+                {b.colors.map((c, i) => (<span key={i} className={styles.swatch} style={{ background: c }} />))}
+              </span>
+              <button type="button" data-testid={`match-down-${b.id}`} className={styles.move} onClick={() => move(b.id, 1)} aria-label={`Move ${b.keyword} later`}>›</button>
+              <button type="button" className={styles.del} onClick={() => removeFromMatch(b.id)} aria-label={`Remove ${b.keyword}`}>×</button>
+            </div>
+          ))}
+        </div>
+        {composedGradient && (
+          <div data-testid="compose-preview" className={styles.preview} style={{ backgroundImage: buildGradientCss(composedGradient.type, composedGradient.stops, false) }} />
+        )}
+        {score !== null && (
+          <div data-testid="compose-score" className={styles.score}>Aesthetic score: {score}/100</div>
+        )}
       </section>
     </div>
   )
