@@ -555,9 +555,15 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   const activeTheme = THEMED_FEEDS.find((t) => t.id === activeThemeId) ?? THEMED_FEEDS[0]
 
   // Masonry uses measured row spans; grid layout is a plain uniform grid.
+  // `segment` and `collectionView` are included because the grid unmounts and
+  // remounts when you switch Yours <-> Daily Drops or enter/leave a board — and
+  // the freshly-mounted tiles need re-measuring, or they keep their default 8px
+  // grid slot and pile up (a "solitaire stack" of overlapping tiles).
   useMasonryRowSpans(gridRef, galleryLayout === 'masonry', [
     galleryLayout,
     filtered.map((g) => g.id).join(','),
+    segment,
+    collectionView,
   ])
 
   // Glide tiles to their new spots after a drag reorder (FLIP). Disabled under
