@@ -15,7 +15,6 @@ interface AppState {
   saved: Gradient[]
   activeColorSet: ColorSet
   noiseEnabled: boolean
-  pendingImport: Gradient[] | null
   toggleNoise: () => void
   setCurrentGradient: (gradient: Gradient) => void
   saveGradient: (gradient: Gradient) => void
@@ -29,6 +28,15 @@ interface AppState {
   /** The most recent undo, so redo can re-apply the deletion. */
   lastUndone: { gradient: Gradient; index: number } | null
   redoDelete: () => void
+  /** Ids of the gradients added by the most recent import (paste, share link,
+   * or JSON textarea). Not persisted — undo is a same-session affordance. */
+  lastImported: { ids: string[] } | null
+  importGradients: (gradients: Gradient[]) => void
+  undoImport: () => void
+  /** The gradient the Gallery viewer is currently showing, or null. Lets the
+   * app-level copy handler copy the open gradient instead of `current`. */
+  viewerGradient: Gradient | null
+  setViewerGradient: (gradient: Gradient | null) => void
   duplicateSavedGradient: (id: string) => void
   renameSavedGradient: (id: string, name: string) => void
   renameCurrentGradient: (name: string) => void
@@ -44,9 +52,6 @@ interface AppState {
   exitEditMode: () => void
   setMode: (mode: ViewMode) => void
   setActiveColorSet: (colorSet: ColorSet) => void
-  setPendingImport: (gradients: Gradient[]) => void
-  confirmImport: () => void
-  dismissImport: () => void
   galleryLayout: 'grid' | 'masonry'
   setGalleryLayout: (layout: 'grid' | 'masonry') => void
 }
@@ -59,7 +64,6 @@ export const useAppStore = create<AppState>()(
       saved: [],
       activeColorSet: DEFAULT_COLOR_SET,
       noiseEnabled: false,
-      pendingImport: null,
       toggleNoise: () => set({ noiseEnabled: !get().noiseEnabled }),
       setCurrentGradient: (gradient) => set({ current: gradient }),
       saveGradient: (gradient) => {
@@ -120,6 +124,25 @@ export const useAppStore = create<AppState>()(
         // Re-applies the deletion; removeSavedGradientById re-arms undo.
         get().removeSavedGradientById(undone.gradient.id)
       },
+      lastImported: null,
+      importGradients: (gradients) => {
+        const before = new Set(get().saved.map((g) => g.id))
+        gradients.forEach((g) => get().saveGradient(g))
+        // saveGradient assigns a fresh id to every stored copy, so diff the
+        // saved list to learn which ids actually landed (dedupe drops some).
+        const added = get()
+          .saved.filter((g) => !before.has(g.id))
+          .map((g) => g.id)
+        set({ lastImported: added.length > 0 ? { ids: added } : { ids: [] } })
+      },
+      undoImport: () => {
+        const last = get().lastImported
+        if (!last) return
+        const ids = new Set(last.ids)
+        set({ saved: get().saved.filter((g) => !ids.has(g.id)), lastImported: null })
+      },
+      viewerGradient: null,
+      setViewerGradient: (gradient) => set({ viewerGradient: gradient }),
       duplicateSavedGradient: (id) => {
         const saved = get().saved
         const index = saved.findIndex((g) => g.id === id)
@@ -184,14 +207,6 @@ export const useAppStore = create<AppState>()(
         set({ mode })
       },
       setActiveColorSet: (colorSet) => set({ activeColorSet: colorSet }),
-      setPendingImport: (gradients) => set({ pendingImport: gradients }),
-      confirmImport: () => {
-        const pending = get().pendingImport
-        if (!pending) return
-        pending.forEach((g) => get().saveGradient(g))
-        set({ pendingImport: null })
-      },
-      dismissImport: () => set({ pendingImport: null }),
       galleryLayout: 'masonry',
       setGalleryLayout: (layout) => set({ galleryLayout: layout }),
     }),

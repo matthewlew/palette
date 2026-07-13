@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAppStore } from './store/useAppStore'
 import { Hint } from './components/Hint'
 import { Feed, riffIntoFeed } from './components/Feed'
@@ -6,9 +6,10 @@ import { Gallery } from './components/Gallery'
 import { TabBar } from './components/TabBar'
 import { EditMode } from './components/EditMode'
 import { ShortcutHints, type ShortcutHintItem } from './components/ShortcutHints'
-import { ImportBanner } from './components/ImportBanner'
+import { UndoToast } from './components/UndoToast'
 import { BoardShare } from './components/BoardShare'
 import { decodeFromFragment, fromImportJson, importGradient } from './lib/gradientCodec'
+import { writeGradientToClipboard, readGradientsFromClipboard } from './lib/clipboard'
 import { titleColorAt } from './lib/titleColor'
 import { withViewTransition } from './lib/viewTransition'
 import { useIdleFade } from './hooks/useIdleFade'
@@ -33,43 +34,52 @@ export function App() {
   const mode = useAppStore((s) => s.mode)
   const current = useAppStore((s) => s.current)
   const saved = useAppStore((s) => s.saved)
-  const pendingImport = useAppStore((s) => s.pendingImport)
   const setCurrentGradient = useAppStore((s) => s.setCurrentGradient)
   const exitEditMode = useAppStore((s) => s.exitEditMode)
   const setMode = useAppStore((s) => s.setMode)
-  const setPendingImport = useAppStore((s) => s.setPendingImport)
-  const confirmImport = useAppStore((s) => s.confirmImport)
-  const dismissImport = useAppStore((s) => s.dismissImport)
+  const importGradients = useAppStore((s) => s.importGradients)
+  const undoImport = useAppStore((s) => s.undoImport)
   const chromeVisible = useIdleFade()
   const [toastText, setToastText] = useState<string | null>(null)
+  // Import toast carries an Undo; copy toast does not (undoable = has ids).
+  const [importToast, setImportToast] = useState<{ message: string; undoable: boolean } | null>(null)
+  const importToastTimer = useRef<number | null>(null)
 
+  function showImportToast(count: number) {
+    if (importToastTimer.current) clearTimeout(importToastTimer.current)
+    if (count === 0) {
+      setImportToast({ message: 'Already in your Gallery', undoable: false })
+    } else {
+      setImportToast({ message: `Added ${count} gradient${count === 1 ? '' : 's'} to Gallery`, undoable: true })
+    }
+    importToastTimer.current = window.setTimeout(() => setImportToast(null), 5000)
+  }
+
+  // Share-link import: decode #d=… on load, add straight to the Gallery.
   useEffect(() => {
     const payload = decodeFromFragment(window.location.hash)
     if (!payload) return
     const gradients: Gradient[] = payload.gradients.map(importGradient)
-    setPendingImport(gradients)
-  }, [setPendingImport])
+    importGradients(gradients)
+    const added = useAppStore.getState().lastImported?.ids.length ?? 0
+    showImportToast(added)
+    history.replaceState(null, '', window.location.pathname + window.location.search)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function handleImportJson(jsonText: string) {
     const payload = fromImportJson(jsonText)
     if (!payload) return
     const gradients: Gradient[] = payload.gradients.map(importGradient)
-    setPendingImport(gradients)
+    importGradients(gradients)
+    const added = useAppStore.getState().lastImported?.ids.length ?? 0
+    showImportToast(added)
   }
 
-  function handleDismissImport() {
-    dismissImport()
-    history.replaceState(null, '', window.location.pathname + window.location.search)
-  }
-
-  function handleConfirmImport() {
-    const count = pendingImport?.length ?? 0
-    confirmImport()
-    setToastText(`Imported ${count} gradient${count === 1 ? '' : 's'} to your Gallery!`)
-    setTimeout(() => {
-      setToastText(null)
-    }, 2500)
-    history.replaceState(null, '', window.location.pathname + window.location.search)
+  function handleUndoImport() {
+    undoImport()
+    if (importToastTimer.current) clearTimeout(importToastTimer.current)
+    setImportToast(null)
   }
 
   function handleRiff(gradient: Gradient) {
@@ -82,11 +92,43 @@ export function App() {
     })
   }
 
+  // App-wide Cmd/Ctrl+C copy and Cmd/Ctrl+V paste. Native clipboard events let
+  // us write multiple formats synchronously and read them back on paste.
+  useEffect(() => {
+    function onCopy(e: ClipboardEvent) {
+      const el = document.activeElement as HTMLElement | null
+      const inField = el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.isContentEditable
+      const hasSelection = (window.getSelection()?.toString().length ?? 0) > 0
+      if (inField || hasSelection) return // let native copy proceed
+      const state = useAppStore.getState()
+      const target = state.viewerGradient ?? state.current
+      if (!target) return
+      writeGradientToClipboard(e, target)
+      setToastText('Copied gradient')
+      window.setTimeout(() => setToastText(null), 2000)
+    }
+    function onPaste(e: ClipboardEvent) {
+      const el = document.activeElement as HTMLElement | null
+      const inField = el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.isContentEditable
+      if (inField) return // JSON import textarea keeps native paste
+      const gradients = readGradientsFromClipboard(e)
+      if (!gradients) return
+      e.preventDefault()
+      importGradients(gradients)
+      const added = useAppStore.getState().lastImported?.ids.length ?? 0
+      showImportToast(added)
+    }
+    document.addEventListener('copy', onCopy)
+    document.addEventListener('paste', onPaste)
+    return () => {
+      document.removeEventListener('copy', onCopy)
+      document.removeEventListener('paste', onPaste)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   return (
     <>
-      {pendingImport && (
-        <ImportBanner count={pendingImport.length} onConfirm={handleConfirmImport} onDismiss={handleDismissImport} />
-      )}
       {mode === 'edit' && current && (
         <EditMode
           gradient={current}
@@ -138,6 +180,12 @@ export function App() {
         }}
       />
       {toastText && <Hint text={toastText} visible={!!toastText} />}
+      {importToast && (
+        <UndoToast
+          message={importToast.message}
+          onUndo={importToast.undoable ? handleUndoImport : undefined}
+        />
+      )}
     </>
   )
 }

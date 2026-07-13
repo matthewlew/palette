@@ -96,6 +96,38 @@ export function renderGradientToCanvas(
       }
       break
     }
+    case 'fan': {
+      // Mirrors buildFanGradient: a 180° fan from the bottom-center. Palette is
+      // compressed into 0–50% of the cone; the last color holds across the
+      // off-screen lower half. CSS `from 270deg` maps to a canvas start angle
+      // of 270°−90° = 180° (π rad).
+      const cx = width / 2
+      const cy = height
+      const compressed = stops.map((s) => ({ hex: s.hex, position: Math.round(s.position * 0.5) }))
+      const withTail = [...compressed, { hex: stops[stops.length - 1].hex, position: 100 }]
+      const radius = Math.hypot(cx, cy)
+
+      if (ctx.createConicGradient) {
+        const grad = ctx.createConicGradient(Math.PI, cx, cy)
+        withTail.forEach((s) => grad.addColorStop(s.position / 100, s.hex))
+        ctx.fillStyle = grad
+        ctx.fillRect(0, 0, width, height)
+      } else {
+        const numWedges = 360
+        for (let i = 0; i < numWedges; i++) {
+          const angleStart = (i / numWedges) * 2 * Math.PI + Math.PI
+          const angleEnd = ((i + 1) / numWedges) * 2 * Math.PI + Math.PI
+          const color = sampleStops(withTail, i / numWedges)
+          ctx.beginPath()
+          ctx.moveTo(cx, cy)
+          ctx.arc(cx, cy, radius, angleStart, angleEnd)
+          ctx.closePath()
+          ctx.fillStyle = color
+          ctx.fill()
+        }
+      }
+      break
+    }
     case 'square': {
       const hexes = stops.map((s) => s.hex)
       // Flat background fill with outermost color
@@ -145,6 +177,18 @@ export function renderGradientToCanvas(
       break
     }
   }
+}
+
+/**
+ * Renders a gradient to an offscreen canvas and returns a PNG data URL. Used to
+ * embed a faithful raster of gradient types that SVG gradients can't express
+ * (angular/square/fan) when copying to the clipboard for Figma. Throws where
+ * canvas is unavailable (e.g. jsdom) — callers guard with try/catch.
+ */
+export function gradientToPngDataUrl(gradient: Gradient, size = 1024): string {
+  const canvas = document.createElement('canvas')
+  renderGradientToCanvas(canvas, gradient, size, size)
+  return canvas.toDataURL('image/png')
 }
 
 /**

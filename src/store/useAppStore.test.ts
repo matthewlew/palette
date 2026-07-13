@@ -188,29 +188,6 @@ describe('useAppStore', () => {
     useAppStore.getState().undoDelete()
     expect(useAppStore.getState().saved).toHaveLength(1)
   })
-
-  it('starts with no pending import', () => {
-    expect(useAppStore.getState().pendingImport).toBeNull()
-  })
-
-  it('setPendingImport stores gradients awaiting confirmation', () => {
-    useAppStore.getState().setPendingImport([sampleGradient])
-    expect(useAppStore.getState().pendingImport).toEqual([sampleGradient])
-  })
-
-  it('confirmImport saves every pending gradient and clears the pending state', () => {
-    useAppStore.getState().setPendingImport([sampleGradient])
-    useAppStore.getState().confirmImport()
-    expect(useAppStore.getState().saved).toHaveLength(1)
-    expect(useAppStore.getState().pendingImport).toBeNull()
-  })
-
-  it('dismissImport clears pending state without saving', () => {
-    useAppStore.getState().setPendingImport([sampleGradient])
-    useAppStore.getState().dismissImport()
-    expect(useAppStore.getState().saved).toHaveLength(0)
-    expect(useAppStore.getState().pendingImport).toBeNull()
-  })
 })
 
 describe('useAppStore activeColorSet', () => {
@@ -260,5 +237,60 @@ describe('persist migration', () => {
     expect(saved).toHaveLength(1)
     expect('smoothEnabled' in saved[0]).toBe(false)
     expect('flutedEnabled' in saved[0]).toBe(false)
+  })
+})
+
+function grad(id: string, name: string): Gradient {
+  return {
+    id,
+    type: 'linear',
+    name,
+    stops: [
+      { hex: '#111111', position: 0 },
+      { hex: '#eeeeee', position: 100 },
+    ],
+  }
+}
+
+describe('useAppStore import + undo', () => {
+  beforeEach(() => {
+    useAppStore.setState({ saved: [], lastImported: null })
+  })
+
+  it('importGradients adds gradients and records their new ids', () => {
+    // Distinct signatures so both survive saveGradient's dedupe (grad() alone
+    // keys only on stops/type, which are identical across ids).
+    const two = { ...grad('b', 'Two'), stops: [
+      { hex: '#222222', position: 0 },
+      { hex: '#dddddd', position: 100 },
+    ] }
+    useAppStore.getState().importGradients([grad('a', 'One'), two])
+    const { saved, lastImported } = useAppStore.getState()
+    expect(saved).toHaveLength(2)
+    expect(lastImported?.ids).toHaveLength(2)
+    expect(saved.map((g) => g.id).sort()).toEqual([...lastImported!.ids].sort())
+  })
+
+  it('undoImport removes exactly the gradients just imported', () => {
+    useAppStore.setState({ saved: [grad('keep', 'Keep')] })
+    // Distinct signature so it isn't deduped against the seeded 'Keep'.
+    const fresh = { ...grad('x', 'New'), stops: [
+      { hex: '#333333', position: 0 },
+      { hex: '#cccccc', position: 100 },
+    ] }
+    useAppStore.getState().importGradients([fresh])
+    expect(useAppStore.getState().saved).toHaveLength(2)
+    useAppStore.getState().undoImport()
+    const { saved, lastImported } = useAppStore.getState()
+    expect(saved.map((g) => g.name)).toEqual(['Keep'])
+    expect(lastImported).toBeNull()
+  })
+
+  it('records only ids that were actually added (dedupe by signature)', () => {
+    useAppStore.getState().importGradients([grad('dup', 'Dup')])
+    useAppStore.getState().importGradients([grad('dup2', 'Dup Again')])
+    const { saved, lastImported } = useAppStore.getState()
+    expect(saved).toHaveLength(1)
+    expect(lastImported?.ids ?? []).toHaveLength(0)
   })
 })
