@@ -2,6 +2,11 @@ import { describe, it, expect, vi } from 'vitest'
 import { writeGradientToClipboard, readGradientsFromClipboard } from './clipboard'
 import type { Gradient } from '../store/types'
 
+// jsdom has no canvas; stub the raster helper so the conic-embed path is testable.
+vi.mock('./canvasExport', () => ({
+  gradientToPngDataUrl: vi.fn(() => 'data:image/png;base64,ZmFrZVBORw=='),
+}))
+
 function fakeEvent(initial: Record<string, string> = {}) {
   const store = new Map<string, string>(Object.entries(initial))
   const preventDefault = vi.fn()
@@ -45,6 +50,26 @@ describe('writeGradientToClipboard', () => {
     const { event, store } = fakeEvent()
     writeGradientToClipboard(event, gradient)
     expect(store.has('text/html')).toBe(false)
+  })
+
+  it('embeds a PNG raster (not a linear gradient) for conic/layered types', () => {
+    const { event, store } = fakeEvent()
+    writeGradientToClipboard(event, { ...gradient, type: 'angular' })
+    const svg = store.get('text/plain')!
+    expect(svg).toContain('<image')
+    expect(svg).toContain('data:image/png;base64,')
+    // Payload still embedded, so it round-trips back into Palette.
+    expect(svg).toContain('<metadata>')
+    expect(svg).not.toContain('<linearGradient')
+  })
+
+  it('round-trips a conic gradient copy back into Palette', () => {
+    const { event: writeEv, store } = fakeEvent()
+    writeGradientToClipboard(writeEv, { ...gradient, type: 'fan', name: 'Fanned' })
+    const { event: readEv } = fakeEvent({ 'text/plain': store.get('text/plain')! })
+    const result = readGradientsFromClipboard(readEv)
+    expect(result![0].type).toBe('fan')
+    expect(result![0].name).toBe('Fanned')
   })
 })
 

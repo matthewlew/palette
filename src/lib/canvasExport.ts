@@ -148,6 +148,18 @@ export function renderGradientToCanvas(
 }
 
 /**
+ * Renders a gradient to an offscreen canvas and returns a PNG data URL. Used to
+ * embed a faithful raster of gradient types that SVG gradients can't express
+ * (angular/square/fan) when copying to the clipboard for Figma. Throws where
+ * canvas is unavailable (e.g. jsdom) — callers guard with try/catch.
+ */
+export function gradientToPngDataUrl(gradient: Gradient, size = 1024): string {
+  const canvas = document.createElement('canvas')
+  renderGradientToCanvas(canvas, gradient, size, size)
+  return canvas.toDataURL('image/png')
+}
+
+/**
  * Triggers the device download/share flow for a gradient.
  * On modern mobile/iOS Safari, triggers navigator.share() with the image file.
  * Falls back to anchor tag download on desktop browsers.
