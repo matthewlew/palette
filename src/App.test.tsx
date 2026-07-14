@@ -98,7 +98,11 @@ describe('App', () => {
 })
 
 describe('App import flow', () => {
-  it('shows the import banner when the URL hash contains a valid share payload on load', () => {
+  beforeEach(() => {
+    useAppStore.setState({ saved: [], lastImported: null })
+  })
+
+  it('auto-adds gradients from a share link on load and shows an undo toast', () => {
     const payload = {
       kind: 'gradient' as const,
       gradients: [
@@ -112,13 +116,100 @@ describe('App import flow', () => {
         },
       ],
     }
-    const fragment = encodeToFragment(payload)
-    window.location.hash = `#${fragment}`
-
+    window.location.hash = `#${encodeToFragment(payload)}`
     render(<App />)
-    expect(screen.getByTestId('import-banner')).toBeInTheDocument()
-
+    expect(screen.getByTestId('undo-toast')).toBeInTheDocument()
+    expect(screen.getByText(/added 1 gradient to gallery/i)).toBeInTheDocument()
+    expect(screen.queryByTestId('import-banner')).not.toBeInTheDocument()
     window.location.hash = ''
+  })
+
+  it('undo removes the just-imported gradient', () => {
+    const payload = {
+      kind: 'board' as const,
+      gradients: [
+        {
+          type: 'linear' as const,
+          stops: [
+            { hex: '#00ff00', position: 0 },
+            { hex: '#000000', position: 100 },
+          ],
+          name: 'UndoMe',
+        },
+      ],
+    }
+    window.location.hash = `#${encodeToFragment(payload)}`
+    render(<App />)
+    fireEvent.click(screen.getByTestId('undo-import'))
+    expect(screen.queryByTestId('undo-toast')).not.toBeInTheDocument()
+    window.location.hash = ''
+  })
+
+  function dispatchPaste(text: string) {
+    const ev = new Event('paste', { bubbles: true, cancelable: true }) as Event & {
+      clipboardData: { getData: (t: string) => string }
+    }
+    ev.clipboardData = { getData: (t: string) => (t === 'text/plain' ? text : '') }
+    act(() => {
+      document.dispatchEvent(ev)
+    })
+    return ev
+  }
+
+  const pastePayload = JSON.stringify({
+    kind: 'gradient',
+    gradients: [
+      {
+        type: 'linear',
+        stops: [
+          { hex: '#123456', position: 0 },
+          { hex: '#abcdef', position: 100 },
+        ],
+        name: 'Pasted',
+      },
+    ],
+  })
+
+  it('auto-adds a gradient pasted from the clipboard and shows an undo toast', () => {
+    render(<App />)
+    expect(useAppStore.getState().saved).toHaveLength(0)
+    dispatchPaste(pastePayload)
+    expect(useAppStore.getState().saved).toHaveLength(1)
+    expect(screen.getByTestId('undo-toast')).toBeInTheDocument()
+  })
+
+  it('ignores paste while a text field is focused (native paste wins)', () => {
+    render(<App />)
+    const input = document.createElement('textarea')
+    document.body.appendChild(input)
+    input.focus()
+    dispatchPaste(pastePayload)
+    expect(useAppStore.getState().saved).toHaveLength(0)
+    expect(screen.queryByTestId('undo-toast')).not.toBeInTheDocument()
+    input.remove()
+  })
+
+  it('ignores a paste that is not a Palette payload', () => {
+    render(<App />)
+    dispatchPaste('just some text')
+    expect(useAppStore.getState().saved).toHaveLength(0)
+    expect(screen.queryByTestId('undo-toast')).not.toBeInTheDocument()
+  })
+
+  it('copies the current gradient to the clipboard on the copy event', () => {
+    render(<App />)
+    const written = new Map<string, string>()
+    const ev = new Event('copy', { bubbles: true, cancelable: true }) as Event & {
+      clipboardData: { setData: (t: string, v: string) => void }
+    }
+    ev.clipboardData = { setData: (t: string, v: string) => written.set(t, v) }
+    act(() => {
+      document.dispatchEvent(ev)
+    })
+    // A current gradient exists in create mode, so JSON + SVG get written.
+    expect(written.get('text/plain')).toContain('"kind": "gradient"')
+    expect(written.get('image/svg+xml')).toContain('<svg')
+    expect(screen.getByText(/copied gradient/i)).toBeInTheDocument()
   })
 
   it('renders a thumbnail in the TabBar Gallery button once a gradient is saved', () => {
@@ -134,40 +225,4 @@ describe('App import flow', () => {
     expect(screen.getByTestId('tab-gallery-thumb')).toBeInTheDocument()
   })
 
-  it('renders a toast notification once the import is confirmed', () => {
-    vi.useFakeTimers()
-    const payload = {
-      kind: 'board' as const,
-      gradients: [
-        {
-          type: 'linear' as const,
-          stops: [
-            { hex: '#ff0000', position: 0 },
-            { hex: '#0000ff', position: 100 },
-          ],
-          name: 'ImportedTest',
-        },
-      ],
-    }
-    const fragment = encodeToFragment(payload)
-    window.location.hash = `#${fragment}`
-
-    render(<App />)
-    expect(screen.getByTestId('import-banner')).toBeInTheDocument()
-
-    // Confirm the import
-    fireEvent.click(screen.getByText('Add to board'))
-
-    // The toast notification should appear
-    expect(screen.getByText('Imported 1 gradient to your Gallery!')).toBeInTheDocument()
-
-    // Fast-forward timers to check if the toast fades out
-    act(() => {
-      vi.advanceTimersByTime(2500)
-    })
-    expect(screen.queryByText('Imported 1 gradient to your Gallery!')).not.toBeInTheDocument()
-
-    window.location.hash = ''
-    vi.useRealTimers()
-  })
 })

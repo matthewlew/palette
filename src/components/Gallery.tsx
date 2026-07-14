@@ -465,6 +465,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   const removeSavedGradientById = useAppStore((s) => s.removeSavedGradientById)
   const lastDeleted = useAppStore((s) => s.lastDeleted)
   const undoDelete = useAppStore((s) => s.undoDelete)
+  const setViewerGradient = useAppStore((s) => s.setViewerGradient)
   const redoDelete = useAppStore((s) => s.redoDelete)
   const setMode = useAppStore((s) => s.setMode)
   const galleryLayout = useAppStore((s) => s.galleryLayout)
@@ -482,6 +483,15 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   const dragIdRef = useRef<string | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
+
+  // Publish the open viewer gradient so the app-level Cmd+C copies it. Resolve
+  // the live copy from `saved` (the viewer reads `live` for the same reason) so
+  // a rename made in the viewer is reflected in what gets copied.
+  useEffect(() => {
+    const liveOpen = open ? saved.find((g) => g.id === open.id) ?? open : null
+    setViewerGradient(liveOpen)
+    return () => setViewerGradient(null)
+  }, [open, saved, setViewerGradient])
   const [undoVisible, setUndoVisible] = useState(false)
   const [segment, setSegment] = useState<'yours' | 'feed'>('yours')
   const [activeThemeId, setActiveThemeId] = useState<string>('banff')

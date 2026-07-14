@@ -75,7 +75,7 @@ function buildFanGradient(stops: GradientStop[], anchor: FanAnchor = 'bottom'): 
   return `conic-gradient(from ${from}deg at ${at}, ${stopsToCss(withTail)})`
 }
 
-function applyReversed(stops: GradientStop[], reversed: boolean): GradientStop[] {
+export function applyReversed(stops: GradientStop[], reversed: boolean): GradientStop[] {
   if (!reversed) return stops
   // Swap which color sits at each position, but keep positions themselves
   // fixed — CSS gradient rendering is driven by position, not array order,
