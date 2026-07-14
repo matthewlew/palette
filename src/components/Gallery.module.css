@@ -9,23 +9,16 @@
   padding: max(var(--space-md), env(safe-area-inset-top)) var(--space-lg) calc(90px + env(safe-area-inset-bottom));
 }
 
+/* Chips wrap onto extra rows at every width — the old mobile horizontal
+   scroll hid filters off-screen. Wrapping keeps every tag visible. */
 .chips {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-sm);
   padding: 2px 0 var(--space-md);
-  overflow-x: auto;
   scrollbar-width: none;
   flex-shrink: 0;
-}
-
-/* Desktop never scrolls sideways: the filter chips wrap onto extra rows
-   instead. The horizontal swipe strip is a touch affordance only. */
-@media (min-width: 768px) {
-  .chips {
-    flex-wrap: wrap;
-    overflow-x: visible;
-  }
 }
 
 .chip,
@@ -236,6 +229,67 @@
   cursor: pointer;
 }
 
+.onboarding {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 56px 24px;
+  text-align: center;
+}
+
+.onboardingTitle {
+  color: rgba(255, 255, 255, 0.95);
+  font-family: var(--heading);
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.onboardingSub {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.onboardingChoices {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  max-width: 520px;
+}
+
+.onboardingChoice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.9);
+  font-family: var(--heading);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, transform 150ms ease;
+}
+
+.onboardingChoice:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.onboardingSwatch {
+  width: 72px;
+  height: 72px;
+  border-radius: 12px;
+  background-size: cover;
+  background-position: center;
+}
+
 .viewer {
   position: fixed;
   inset: 0;
@@ -243,7 +297,12 @@
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  view-transition-name: riff-gradient;
+  /* Same name as the edit-mode preview (EditMode.module.css) so riffing from
+     the viewer into edit MORPHS the gradient (fullscreen → the preview area
+     above the sheet) as one continuous element. A distinct name here made the
+     two gradients cross-fade instead — a visible flash even though it's the
+     same palette on both sides. */
+  view-transition-name: palette-card;
 }
 
 /* Undo toast for deletions: sits above the tab switcher, same dark pill
@@ -459,9 +518,13 @@
   inset: 0;
   background: rgba(0, 0, 0, 0.4);
   display: flex;
-  align-items: center;
+  /* Anchored to the bottom of the thumbnail rather than centered, so Delete
+     sits away from where the eye/cursor lands on the tile — reduces the odds
+     of an accidental delete. */
+  align-items: flex-end;
   justify-content: center;
   gap: var(--space-sm);
+  padding-bottom: 12px;
   opacity: 0;
   transition: opacity 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
   pointer-events: none;
@@ -507,6 +570,251 @@
 .tileHoverBtn:active,
 .tileHoverBtnActive:active {
   transform: scale(0.95);
+}
+
+/* Segments Control */
+.titleArea {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+}
+
+.segmentControl {
+  display: inline-flex;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  padding: 3px;
+  align-items: center;
+}
+
+.segmentBtn,
+.segmentBtnActive {
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all 180ms ease;
+  font-family: var(--sans);
+}
+
+.segmentBtn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.segmentBtnActive {
+  background: rgba(255, 255, 255, 0.95);
+  color: #111;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Theme selector slider */
+.themeSelector {
+  display: flex;
+  gap: var(--space-sm);
+  overflow-x: auto;
+  padding: var(--space-xs) 0 var(--space-md);
+  margin-bottom: var(--space-md);
+  scrollbar-width: none;
+}
+
+.themeSelector::-webkit-scrollbar {
+  display: none;
+}
+
+.themeTab,
+.themeTabActive {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 200ms ease;
+  font-family: var(--sans);
+}
+
+.themeTab:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.themeTabActive {
+  background: color-mix(in srgb, var(--theme-color) 15%, rgba(255, 255, 255, 0.05));
+  border-color: var(--theme-color);
+  color: #fff;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--theme-color) 20%, transparent);
+}
+
+.themeTabEmoji {
+  font-size: 16px;
+}
+
+/* Theme Hero banner */
+.themeHero {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--theme-color) 12%, #18181f),
+    #101014
+  );
+  border: 1px solid color-mix(in srgb, var(--theme-color) 20%, rgba(255, 255, 255, 0.08));
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  border-radius: 16px;
+  padding: var(--space-xl);
+  margin-bottom: var(--space-xl);
+  text-align: left;
+}
+
+.themeHeroBadge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--theme-color) 20%, transparent);
+  color: var(--theme-color);
+  margin-bottom: var(--space-md);
+}
+
+.themeHeroTitle {
+  font-size: 28px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 var(--space-xs);
+  font-family: var(--heading);
+}
+
+.themeHeroSubtitle {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--theme-color);
+  margin: 0 0 var(--space-md);
+  font-family: var(--sans);
+}
+
+.themeHeroDescription {
+  font-size: 13px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+  max-width: 600px;
+  font-family: var(--sans);
+}
+
+/* Tile description */
+.tileDesc {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 4px;
+  display: block;
+  white-space: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.4;
+}
+
+/* Immersive details card for viewer */
+.viewerDetailsCard {
+  composes: glass-surface from global;
+  position: absolute;
+  bottom: 86px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(350px, calc(100vw - 32px));
+  border-radius: 12px;
+  padding: var(--space-md);
+  z-index: 2;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  text-align: left;
+  animation: slideUp 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 15px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.viewerDetailsNote {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.9);
+  font-family: var(--sans);
+}
+
+.viewerDetailsStops {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  padding-top: 8px;
+}
+
+.viewerDetailsStopsTitle {
+  margin: 0 0 2px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 700;
+}
+
+.viewerStopsList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.viewerStopItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.viewerStopDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.viewerStopHex {
+  font-family: var(--mono);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.viewerStopLabel {
+  font-family: var(--sans);
+  color: #fff;
+  font-weight: 500;
 }
 
 /* Drag-to-reorder affordances (desktop, native HTML5 DnD). Only tiles in the

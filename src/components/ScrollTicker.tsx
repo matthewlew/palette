@@ -13,6 +13,11 @@ interface ScrollTickerProps {
    * passes the palette's name, since a saved gradient reads by name, not by
    * its spot in the list. */
   label?: string
+  /** Total number of items in a finite list (the Gallery). When set, ticks
+   * are capped to `[0, total-1]` so the timeline reflects the real count
+   * instead of a phantom ±WINDOW range. The Create feed is unbounded and
+   * omits this. */
+  total?: number
 }
 
 /** Decorative timeline on the right edge of the feed: tick marks scroll past
@@ -22,7 +27,7 @@ interface ScrollTickerProps {
  * Ticks live at fixed offsets inside a single translated strip so that only
  * one element animates per step — animating each tick individually restarts
  * 21 transitions per step, which reads as jank on mobile. */
-export function ScrollTicker({ index, label }: ScrollTickerProps) {
+export function ScrollTicker({ index, label, total }: ScrollTickerProps) {
   const [visible, setVisible] = useState(false)
   const isFirstRender = useRef(true)
 
@@ -38,7 +43,9 @@ export function ScrollTicker({ index, label }: ScrollTickerProps) {
     return () => clearTimeout(timer)
   }, [index])
 
-  const tickIndices = Array.from({ length: WINDOW * 2 + 1 }, (_, i) => index - WINDOW + i).filter((t) => t >= 0)
+  const tickIndices = Array.from({ length: WINDOW * 2 + 1 }, (_, i) => index - WINDOW + i).filter(
+    (t) => t >= 0 && (total === undefined || t < total),
+  )
 
   return (
     <div data-testid="scroll-ticker" aria-hidden="true" className={styles.ticker} style={{ opacity: visible ? 1 : 0 }}>

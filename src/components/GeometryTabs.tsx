@@ -10,6 +10,8 @@ interface GeometryTabsProps {
   onToggleRepeat?: () => void
   hardStops?: boolean
   onToggleHardStops?: () => void
+  /** Re-tapping the active Fan tab rotates its anchor edge. */
+  onRotateFan?: () => void
 }
 
 const TABS: { type: GradientType; label: string }[] = [
@@ -37,6 +39,7 @@ export function GeometryTabs({
   onToggleRepeat,
   hardStops = false,
   onToggleHardStops,
+  onRotateFan,
 }: GeometryTabsProps) {
   const tabsRef = useRef<HTMLDivElement>(null)
 
@@ -51,7 +54,13 @@ export function GeometryTabs({
 
   function handleTap(tabType: GradientType) {
     if (tabType === type) {
-      onToggleReversed()
+      // Re-tapping the active tab flips color order — except Fan, where it
+      // rotates the cone to the next edge (bottom → top → left → right).
+      if (tabType === 'fan' && onRotateFan) {
+        onRotateFan()
+      } else {
+        onToggleReversed()
+      }
     } else {
       onSelectType(tabType)
     }

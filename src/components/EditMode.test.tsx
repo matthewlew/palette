@@ -2,8 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { EditMode } from './EditMode'
 import { useAppStore } from '../store/useAppStore'
-import { DEFAULT_COLOR_SET } from '../lib/colorSets'
-import { oklchToHex } from '../lib/oklch'
 import type { Gradient } from '../store/types'
 
 const gradient: Gradient = {
@@ -28,12 +26,16 @@ afterEach(() => {
 })
 
 describe('EditMode', () => {
-  it('renders the preview, geometry tabs, block stack, and swatch tray', () => {
+  it('renders the preview, geometry tabs, flow handles, and color controls', () => {
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
     expect(screen.getByTestId('edit-mode-preview')).toBeInTheDocument()
     expect(screen.getByText('Linear')).toBeInTheDocument()
     expect(screen.getAllByTestId('flow-handle')).toHaveLength(3)
-    expect(screen.getAllByTestId('swatch').length).toBe(78)
+    // The swatch tray is gone; explicit color comes from the Add color button
+    // and the (hidden) native color input.
+    expect(screen.queryAllByTestId('swatch')).toHaveLength(0)
+    expect(screen.getByTestId('add-color')).toBeInTheDocument()
+    expect(screen.getByTestId('color-input')).toBeInTheDocument()
   })
 
   it('shows the scroll-position ticker when editing from the Create feed', () => {
@@ -135,27 +137,20 @@ describe('EditMode', () => {
     expect(useAppStore.getState().current!.reversed).toBe(false)
   })
 
-  it('tapping an already-selected swatch removes a stop, re-equalizing positions', () => {
-    vi.useFakeTimers()
-    const swatchHex = oklchToHex(DEFAULT_COLOR_SET.colors[5].value)
-    const gradientWithSwatchStop: Gradient = {
-      id: 'g4',
-      type: 'linear',
-      stops: [
-        { hex: '#ff0000', position: 0 },
-        { hex: swatchHex, position: 50 },
-        { hex: '#0000ff', position: 100 },
-      ],
-      reversed: false,
-    }
-    render(<EditMode gradient={gradientWithSwatchStop} onExit={vi.fn()} />)
-    const selectedSwatch = screen.getAllByTestId('swatch')[5]
-    fireEvent.pointerDown(selectedSwatch)
-    fireEvent.pointerUp(document)
+  it('tapping a stop opens the color picker and recoloring updates it in place', () => {
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    const handles = screen.getAllByTestId('flow-handle')
+    // Tap the middle stop (#00ff00 at 50%) — a pointerdown/up within the tap
+    // threshold, not a drag.
+    fireEvent.pointerDown(handles[1], { clientX: 10, clientY: 10 })
+    fireEvent.pointerUp(handles[1], { clientX: 10, clientY: 10 })
+    fireEvent.change(screen.getByTestId('color-input'), { target: { value: '#123456' } })
+
     const updated = useAppStore.getState().current!
-    expect(updated.stops).toHaveLength(2)
-    expect(updated.stops.map((s) => s.position)).toEqual([0, 100])
-    vi.useRealTimers()
+    // In-place recolor: count and positions untouched, only the tapped hex.
+    expect(updated.stops).toHaveLength(3)
+    expect(updated.stops.map((s) => s.position)).toEqual([0, 50, 100])
+    expect(updated.stops[1].hex).toBe('#123456')
   })
 
   it('has no Done button; has a back chevron that calls onExit', () => {
@@ -186,14 +181,14 @@ describe('EditMode', () => {
     expect(saveButton.textContent).toBe('✓ Saved')
   })
 
-  it('tapping an unselected swatch appends a new stop', () => {
-    vi.useFakeTimers()
+  it('Add color opens the picker and appends a new stop with the chosen color', () => {
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
-    const swatch = screen.getAllByTestId('swatch')[5]
-    fireEvent.pointerDown(swatch)
-    fireEvent.pointerUp(document)
-    expect(useAppStore.getState().current!.stops).toHaveLength(4)
-    vi.useRealTimers()
+    fireEvent.click(screen.getByTestId('add-color'))
+    fireEvent.change(screen.getByTestId('color-input'), { target: { value: '#abcdef' } })
+
+    const updated = useAppStore.getState().current!
+    expect(updated.stops).toHaveLength(4)
+    expect(updated.stops.some((s) => s.hex === '#abcdef')).toBe(true)
   })
 
   it('renders an order control showing the ACTIVE order, cycling Original -> Lightness -> Chroma -> Hue -> Original', () => {
@@ -306,21 +301,9 @@ describe('EditMode', () => {
     expect(handles.map((h) => h.getAttribute('aria-valuenow'))).toEqual(['0', '50', '100'])
   })
 
-  it('drag-adding a swatch onto the flow track (non-wheel type) inserts using the largest-gap heuristic', () => {
-    vi.useFakeTimers()
-    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
-    const swatch = screen.getAllByTestId('swatch')[10]
-    fireEvent.pointerDown(swatch, { clientX: 0, clientY: 0 })
-    vi.advanceTimersByTime(150)
-    fireEvent.pointerUp(document, { clientX: 0, clientY: 0 })
-    const updated = useAppStore.getState().current!
-    expect(updated.stops).toHaveLength(4)
-    vi.useRealTimers()
-  })
-
   it('shows the edit hint on mount and dismisses it on pointerdown anywhere in edit mode', () => {
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
-    expect(screen.getByText('Tap a swatch to edit')).toBeInTheDocument()
+    expect(screen.getByText('Tap a color to recolor')).toBeInTheDocument()
 
     fireEvent.pointerDown(screen.getByTestId('edit-mode'))
 
@@ -330,7 +313,7 @@ describe('EditMode', () => {
   it('auto-dismisses the edit hint after 4 seconds', () => {
     vi.useFakeTimers()
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
-    expect(screen.getByText('Tap a swatch to edit')).toBeInTheDocument()
+    expect(screen.getByText('Tap a color to recolor')).toBeInTheDocument()
 
     vi.advanceTimersByTime(4000)
 
@@ -367,10 +350,11 @@ describe('EditMode', () => {
     expect(movedStop.position).toBe(100)
   })
 
-  it('wraps geometry tabs, controller, and swatch tray in a bottom sheet container', () => {
+  it('wraps geometry tabs, flow editor, and color controls in a bottom sheet container', () => {
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
     const sheet = screen.getByTestId('edit-sheet')
     expect(sheet).toContainElement(screen.getByTestId('flow-editor'))
+    expect(sheet).toContainElement(screen.getByTestId('add-color'))
   })
 
   it('renders a grabber handle at the top of the sheet that exits edit mode when tapped', () => {
@@ -446,28 +430,22 @@ describe('EditMode', () => {
     expect(sheet.style.height).toBe('')
   })
 
-  it('tapping a stop handle selects it, and tapping a swatch replaces its color in-place', () => {
+  it('tapping a stop handle selects it and recolors it in place via the color picker', () => {
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
     const handle = screen.getAllByTestId('flow-handle')[0]
     expect(handle).toBeInTheDocument()
 
-    // Tap the handle
+    // Tap the handle — selects it (active class) and arms the color picker.
     fireEvent.pointerDown(handle, { clientX: 0, clientY: 0 })
     fireEvent.pointerUp(handle, { clientX: 0, clientY: 0 })
-
-    // Check if it is selected (has active class)
     expect(handle.className).toContain('handleActive')
 
-    // Tap a swatch (e.g. index 5)
-    const swatch = screen.getAllByTestId('swatch')[5]
-    fireEvent.pointerDown(swatch, { clientX: 0, clientY: 0 })
-    fireEvent.pointerUp(swatch, { clientX: 0, clientY: 0 })
-
-    // Verify that the color of the first stop has been updated to match the swatch's color
+    // Committing a color from the (hidden) native picker recolors this stop.
+    fireEvent.change(screen.getByTestId('color-input'), { target: { value: '#00ffee' } })
     const updated = useAppStore.getState().current!
-    expect(updated.stops[0].hex).not.toBe('#ff0000') // Initially #ff0000
-    
-    // Tapping again outside (on the sheet background) should clear the selection
+    expect(updated.stops[0].hex).toBe('#00ffee') // Initially #ff0000
+
+    // Tapping the sheet background clears the selection.
     const sheet = screen.getByTestId('edit-sheet')
     fireEvent.pointerDown(sheet)
     expect(handle.className).not.toContain('handleActive')

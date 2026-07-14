@@ -35,9 +35,8 @@ describe('App', () => {
     render(<App />)
 
     fireEvent.click(screen.getByTestId('like-button'))
-    // ^Gallery: the Save pill's label ("Remove from Gallery") also matches
-    // a bare /Gallery/ once the gradient is saved.
-    fireEvent.click(screen.getByRole('button', { name: /^Gallery/ }))
+    // The single bottom control is the back-to-Gallery button while creating.
+    fireEvent.click(screen.getByTestId('tab-gallery'))
 
     expect(screen.getAllByTestId('gallery-tile')).toHaveLength(1)
   })

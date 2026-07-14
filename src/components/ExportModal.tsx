@@ -71,6 +71,7 @@ export function ExportModal({ gradient, onClose }: ExportModalProps) {
     : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
         repeat: gradient.repeatEnabled,
         hard: gradient.hardStops,
+        fanAnchor: gradient.fanAnchor,
       })
 
   async function handleExport(preset: ExportPreset) {

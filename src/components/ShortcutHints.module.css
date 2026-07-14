@@ -60,8 +60,10 @@
   }
 }
 
-/* No keyboard, no hints: touch-only devices. */
-@media (pointer: coarse) {
+/* No keyboard, no hints. Touch-only devices report a coarse pointer; narrow
+   viewports are phones regardless of what the pointer media query reports
+   (emulators and hybrid/touch laptops don't always signal coarse). */
+@media (pointer: coarse), (max-width: 767px) {
   .strip {
     display: none;
   }

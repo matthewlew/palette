@@ -7,14 +7,21 @@ import { useMasonryRowSpans } from '../hooks/useMasonryRowSpans'
 import { useFlipReorder } from '../hooks/useFlipReorder'
 import { useAppStore } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
-import { titleColorAt } from '../lib/titleColor'
+import { titleColorAt, paletteInkOn } from '../lib/titleColor'
 import { TurrellSquare } from './TurrellSquare'
 import { BoardShare } from './BoardShare'
 import { PaletteTitle } from './PaletteTitle'
 import { ScrollTicker } from './ScrollTicker'
+import { CollectionsRow } from './CollectionsRow'
+import { DropAuthor } from './DropAuthor'
+import { THEMED_FEEDS } from '../lib/themedFeed'
 import styles from './Gallery.module.css'
 
 const TYPE_CHIPS: GradientType[] = ['linear', 'radial', 'angular', 'square', 'fan']
+
+// The dark app surface the tile captions sit on (matches --surface in
+// index.css); tile ink is chosen to read against it.
+const GALLERY_SURFACE = '#101014'
 
 function formatDate(timestamp?: number): string | null {
   if (!timestamp) return null
@@ -34,6 +41,7 @@ function tileBackground(gradient: Gradient): string | undefined {
     : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
         repeat: gradient.repeatEnabled,
         hard: gradient.hardStops,
+        fanAnchor: gradient.fanAnchor,
       })
 }
 
@@ -56,21 +64,29 @@ function Tile({
   onOpen: (gradient: Gradient) => void
   galleryLayout: 'grid' | 'masonry'
   onRiff: (gradient: Gradient) => void
-  onDelete: (id: string) => void
-  enterDelayMs: number
-  draggable: boolean
-  isDragging: boolean
-  isDragOver: boolean
-  onDragStartTile: (id: string) => void
-  onDragEnterTile: (id: string) => void
-  onDropTile: (id: string) => void
-  onDragEndTile: () => void
+  onDelete?: (id: string) => void
+  enterDelayMs?: number
+  // Drag-to-reorder within the "All" grid. Optional so board-detail and
+  // feed tiles can render without it. dragStart also sets the gradient id on
+  // the dataTransfer, which is what a collection cover reads on drop, so
+  // drag-to-board rides on the same gesture.
+  draggable?: boolean
+  isDragging?: boolean
+  isDragOver?: boolean
+  onDragStartTile?: (id: string) => void
+  onDragEnterTile?: (id: string) => void
+  onDropTile?: (id: string) => void
+  onDragEndTile?: () => void
 }) {
   // Deterministic standard ratio per gradient (from its id) so the masonry
   // mixes squares, portraits, and landscapes instead of all-portrait tiles.
   const RATIOS = ['1 / 1', '4 / 5', '3 / 4', '2 / 3', '4 / 3', '3 / 2']
   const charCodeSum = gradient.id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0)
   const aspectRatio = RATIOS[charCodeSum % RATIOS.length]
+
+  // Caption ink echoes the gradient's own color, kept legible on the dark
+  // surface (see paletteInkOn), instead of a flat white for every tile.
+  const tileInk = paletteInkOn(gradient, GALLERY_SURFACE)
 
   return (
     // A div with button semantics, not a real <button>: the hover overlay's
@@ -88,18 +104,19 @@ function Tile({
       ]
         .filter(Boolean)
         .join(' ')}
-      style={{ animationDelay: `${enterDelayMs}ms` }}
+      style={{ animationDelay: `${enterDelayMs ?? 0}ms` }}
       aria-label={`${gradient.name ?? 'Untitled'}, ${gradient.type} gradient`}
       draggable={draggable}
       onDragStart={(e) => {
         if (e.dataTransfer) {
           e.dataTransfer.effectAllowed = 'move'
-          // Firefox requires data to be set for a drag to start.
+          // Firefox requires data to be set for a drag to start. This id is
+          // also what a collection cover reads on drop (drag-to-board).
           e.dataTransfer.setData('text/plain', gradient.id)
         }
-        onDragStartTile(gradient.id)
+        onDragStartTile?.(gradient.id)
       }}
-      onDragEnter={() => onDragEnterTile(gradient.id)}
+      onDragEnter={() => onDragEnterTile?.(gradient.id)}
       onDragOver={(e) => {
         if (!draggable) return
         e.preventDefault()
@@ -107,7 +124,7 @@ function Tile({
       }}
       onDrop={(e) => {
         e.preventDefault()
-        onDropTile(gradient.id)
+        onDropTile?.(gradient.id)
       }}
       onDragEnd={onDragEndTile}
       onClick={() => onOpen(gradient)}
@@ -129,34 +146,41 @@ function Tile({
         {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} blurPx={6} />}
         {/* Clicks anywhere except the Edit button bubble to the tile and
             open the viewer. */}
-        <div className={styles.tileHoverOverlay}>
-          <button
-            type="button"
-            className={styles.tileHoverBtnActive}
-            onClick={(e) => {
-              e.stopPropagation()
-              onRiff(gradient)
-            }}
-          >
-            Edit
-          </button>
-          <button
-            type="button"
-            aria-label={`Delete ${gradient.name ?? 'Untitled'}`}
-            className={styles.tileHoverBtn}
-            onClick={(e) => {
-              e.stopPropagation()
-              onDelete(gradient.id)
-            }}
-          >
-            Delete
-          </button>
-        </div>
+        {onDelete && (
+          <div className={styles.tileHoverOverlay}>
+            <button
+              type="button"
+              className={styles.tileHoverBtnActive}
+              onClick={(e) => {
+                e.stopPropagation()
+                onRiff(gradient)
+              }}
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              aria-label={`Delete ${gradient.name ?? 'Untitled'}`}
+              className={styles.tileHoverBtn}
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete(gradient.id)
+              }}
+            >
+              Delete
+            </button>
+          </div>
+        )}
       </div>
       <div className={styles.tileMeta}>
-        <span className={styles.tileName}>{gradient.name ?? 'Untitled'}</span>
+        <span className={styles.tileName} style={{ color: tileInk }}>
+          {gradient.name ?? 'Untitled'}
+        </span>
+        {gradient.note && <span className={styles.tileDesc}>{gradient.note}</span>}
         {gradient.createdAt && (
-          <span className={styles.tileDate}>{formatDate(gradient.createdAt)}</span>
+          <span className={styles.tileDate} style={{ color: tileInk, opacity: 0.6 }}>
+            {formatDate(gradient.createdAt)}
+          </span>
         )}
       </div>
     </div>
@@ -183,6 +207,8 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport }: View
   const saved = useAppStore((s) => s.saved)
   const renameSavedGradient = useAppStore((s) => s.renameSavedGradient)
   const removeSavedGradientById = useAppStore((s) => s.removeSavedGradientById)
+  const toggleSaveGradient = useAppStore((s) => s.toggleSaveGradient)
+  const isSaved = useAppStore((s) => s.isGradientSaved(gradient))
   const touchStartYRef = useRef<number | null>(null)
   const wheelAccumRef = useRef(0)
   const wheelResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -312,7 +338,7 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport }: View
       {/* Same scroll ticker as the Create feed, but labelled with the
           palette's name instead of a position number — the marks track where
           you are as you scroll between saved gradients. */}
-      <ScrollTicker index={index} label={live.name ?? 'Untitled'} />
+      <ScrollTicker index={index} label={live.name ?? 'Untitled'} total={items.length} />
       {/* Wrapper stops the trigger/menu clicks from bubbling to the
           close-on-tap backdrop, which would otherwise dismiss the viewer
           before the share menu could act. */}
@@ -342,18 +368,59 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport }: View
           Saved on {formatDate(live.createdAt)}
         </span>
       )}
+      {(live.note || live.stops.some((s) => s.label)) && (
+        <div className={styles.viewerDetailsCard} onClick={(e) => e.stopPropagation()}>
+          {live.note && <p className={styles.viewerDetailsNote}>{live.note}</p>}
+          {live.stops.some((s) => s.label) && (
+            <div className={styles.viewerDetailsStops}>
+              <h4 className={styles.viewerDetailsStopsTitle}>Color Stop Moods</h4>
+              <div className={styles.viewerStopsList}>
+                {live.stops.map((stop, i) => (
+                  <div key={i} className={styles.viewerStopItem}>
+                    <span
+                      className={styles.viewerStopDot}
+                      style={{ backgroundColor: stop.hex }}
+                    />
+                    <span className={styles.viewerStopHex}>{stop.hex.toUpperCase()}</span>
+                    {stop.label && <span className={styles.viewerStopLabel}>{stop.label}</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       <div className={styles.viewerActionsBar} onClick={(e) => e.stopPropagation()}>
-        <button
-          type="button"
-          className="ghost-chip ghost-pill"
-          style={{ color: actionColor }}
-          onClick={() => {
-            removeSavedGradientById(gradient.id)
-            onClose()
-          }}
-        >
-          Delete
-        </button>
+        {!isSaved ? (
+          <button
+            type="button"
+            className="ghost-chip ghost-pill ghost-chip-active"
+            style={{ color: '#fff', backgroundColor: 'rgba(255, 255, 255, 0.2)' }}
+            onClick={() => toggleSaveGradient(live)}
+          >
+            Save to Gallery
+          </button>
+        ) : (
+          <span
+            className="ghost-chip ghost-pill"
+            style={{ color: 'rgba(255, 255, 255, 0.5)' }}
+          >
+            ✓ Saved
+          </span>
+        )}
+        {isSaved && (
+          <button
+            type="button"
+            className="ghost-chip ghost-pill"
+            style={{ color: actionColor }}
+            onClick={() => {
+              removeSavedGradientById(gradient.id)
+              onClose()
+            }}
+          >
+            Delete
+          </button>
+        )}
         <button
           type="button"
           className="ghost-chip ghost-pill"
@@ -367,12 +434,33 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport }: View
   )
 }
 
+// First-run onboarding: instead of dead filters, offer the shapes so a user
+// with an empty Gallery gets straight into the create flow by picking a type.
+// A fixed, appealing preview palette for the onboarding shape swatches.
+const ONBOARDING_STOPS = [
+  { hex: '#ff7a59', position: 0 },
+  { hex: '#7c5cff', position: 50 },
+  { hex: '#3ad0ff', position: 100 },
+]
+
+const ONBOARDING_TYPES: { type: GradientType; label: string }[] = [
+  { type: 'linear', label: 'Linear' },
+  { type: 'radial', label: 'Radial' },
+  { type: 'angular', label: 'Angular' },
+  { type: 'square', label: 'Turrell' },
+  { type: 'fan', label: 'Fan' },
+]
+
 interface GalleryProps {
   onRiff: (gradient: Gradient) => void
   onImport?: (jsonText: string) => void
+  onStartType?: (type: GradientType) => void
+  /** Fired when the full-screen viewer opens/closes so the shell can hide the
+   * global ＋ Create nav (the viewer has its own Delete/Edit actions). */
+  onViewerOpenChange?: (open: boolean) => void
 }
 
-export function Gallery({ onRiff, onImport }: GalleryProps) {
+export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: GalleryProps) {
   const saved = useAppStore((s) => s.saved)
   const removeSavedGradientById = useAppStore((s) => s.removeSavedGradientById)
   const lastDeleted = useAppStore((s) => s.lastDeleted)
@@ -382,8 +470,14 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
   const setMode = useAppStore((s) => s.setMode)
   const galleryLayout = useAppStore((s) => s.galleryLayout)
   const setGalleryLayout = useAppStore((s) => s.setGalleryLayout)
+  const collections = useAppStore((s) => s.collections)
+  const createCollection = useAppStore((s) => s.createCollection)
+  const setActiveCollection = useAppStore((s) => s.setActiveCollection)
+  const addToCollection = useAppStore((s) => s.addToCollection)
+  const removeFromCollection = useAppStore((s) => s.removeFromCollection)
   const [typeFilter, setTypeFilter] = useState<GradientType | null>(null)
   const [hueFilter, setHueFilter] = useState<string | null>(null)
+  const [collectionView, setCollectionView] = useState<string | null>(null)
   const [open, setOpen] = useState<Gradient | null>(null)
   const reorderSaved = useAppStore((s) => s.reorderSaved)
   const dragIdRef = useRef<string | null>(null)
@@ -399,6 +493,10 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
     return () => setViewerGradient(null)
   }, [open, saved, setViewerGradient])
   const [undoVisible, setUndoVisible] = useState(false)
+  const [segment, setSegment] = useState<'yours' | 'feed'>('yours')
+  const [activeThemeId, setActiveThemeId] = useState<string>('banff')
+  const [authoring, setAuthoring] = useState(false)
+  const curatedDrops = useAppStore((s) => s.curatedDrops)
   const galleryHint = useHint('gallery')
 
   // Every delete surfaces an Undo toast for a few seconds. The deleted
@@ -440,8 +538,21 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Let the shell duck the global ＋ Create nav out while the viewer is open,
+  // so it never overlaps the viewer's own Delete/Edit actions.
+  useEffect(() => {
+    onViewerOpenChange?.(open !== null)
+  }, [open, onViewerOpenChange])
+
   const filtered = saved.filter((gradient) => matchesFilters(gradient, typeFilter, hueFilter))
   const hasFilters = typeFilter !== null || hueFilter !== null
+
+  // Lookup + active-collection membership for the collections layer.
+  const gradientsById = Object.fromEntries(saved.map((g) => [g.id, g])) as Record<string, Gradient>
+  const activeCol = collectionView ? collections.find((c) => c.id === collectionView) ?? null : null
+  const members = activeCol
+    ? activeCol.gradientIds.map((id) => gradientsById[id]).filter(Boolean) as Gradient[]
+    : []
 
   // Entering the Gallery loads tiles in reading order: each tile's delay is
   // its index in the rendered list, so the grid arrives top-left → bottom-right
@@ -451,11 +562,18 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
   const enterDelayFor = (index: number) => Math.min(index * ENTER_STEP_MS, ENTER_DELAY_CAP_MS)
 
   const gridRef = useRef<HTMLDivElement>(null)
+  const activeTheme = THEMED_FEEDS.find((t) => t.id === activeThemeId) ?? THEMED_FEEDS[0]
 
   // Masonry uses measured row spans; grid layout is a plain uniform grid.
+  // `segment` and `collectionView` are included because the grid unmounts and
+  // remounts when you switch Yours <-> Daily Drops or enter/leave a board — and
+  // the freshly-mounted tiles need re-measuring, or they keep their default 8px
+  // grid slot and pile up (a "solitaire stack" of overlapping tiles).
   useMasonryRowSpans(gridRef, galleryLayout === 'masonry', [
     galleryLayout,
     filtered.map((g) => g.id).join(','),
+    segment,
+    collectionView,
   ])
 
   // Glide tiles to their new spots after a drag reorder (FLIP). Disabled under
@@ -540,40 +658,61 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
   return (
     <div data-testid="gallery" className={styles.container}>
       <div className={styles.header}>
-        <h2 className={styles.title}>
-          Gallery <span className={styles.titleCount}>({saved.length})</span>
-        </h2>
-        <div className={styles.headerActions}>
-          <div className={styles.toggleGroup}>
+        <div className={styles.titleArea}>
+          <h2 className={styles.title}>Gallery</h2>
+          <div className={styles.segmentControl}>
             <button
               type="button"
-              className={galleryLayout === 'grid' ? styles.toggleBtnActive : styles.toggleBtn}
-              onClick={() => setGalleryLayout('grid')}
-              aria-label="Show grid layout"
-              title="Grid layout"
+              className={segment === 'yours' ? styles.segmentBtnActive : styles.segmentBtn}
+              onClick={() => {
+                setSegment('yours')
+                setCollectionView(null)
+              }}
             >
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect x="3" y="3" width="7" height="7" />
-                <rect x="14" y="3" width="7" height="7" />
-                <rect x="14" y="14" width="7" height="7" />
-                <rect x="3" y="14" width="7" height="7" />
-              </svg>
+              Yours ({saved.length})
             </button>
             <button
               type="button"
-              className={galleryLayout === 'masonry' ? styles.toggleBtnActive : styles.toggleBtn}
-              onClick={() => setGalleryLayout('masonry')}
-              aria-label="Show Pinterest masonry layout"
-              title="Pinterest masonry layout"
+              className={segment === 'feed' ? styles.segmentBtnActive : styles.segmentBtn}
+              onClick={() => setSegment('feed')}
             >
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect x="3" y="3" width="7" height="9" />
-                <rect x="14" y="3" width="7" height="5" />
-                <rect x="14" y="12" width="7" height="9" />
-                <rect x="3" y="16" width="7" height="5" />
-              </svg>
+              Daily Drops
             </button>
           </div>
+        </div>
+        <div className={styles.headerActions}>
+          {segment === 'yours' && (
+            <div className={styles.toggleGroup}>
+              <button
+                type="button"
+                className={galleryLayout === 'grid' ? styles.toggleBtnActive : styles.toggleBtn}
+                onClick={() => setGalleryLayout('grid')}
+                aria-label="Show grid layout"
+                title="Grid layout"
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="3" y="3" width="7" height="7" />
+                  <rect x="14" y="3" width="7" height="7" />
+                  <rect x="14" y="14" width="7" height="7" />
+                  <rect x="3" y="14" width="7" height="7" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                className={galleryLayout === 'masonry' ? styles.toggleBtnActive : styles.toggleBtn}
+                onClick={() => setGalleryLayout('masonry')}
+                aria-label="Show Pinterest masonry layout"
+                title="Pinterest masonry layout"
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="3" y="3" width="7" height="9" />
+                  <rect x="14" y="3" width="7" height="5" />
+                  <rect x="14" y="12" width="7" height="9" />
+                  <rect x="3" y="16" width="7" height="5" />
+                </svg>
+              </button>
+            </div>
+          )}
           <BoardShare
             saved={saved}
             onImport={onImport ?? (() => {})}
@@ -582,99 +721,267 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
         </div>
       </div>
 
-      <div className={styles.chips}>
-        <button
-          type="button"
-          className={!hasFilters ? styles.chipOn : styles.chip}
-          onClick={() => {
-            setTypeFilter(null)
-            setHueFilter(null)
-          }}
-        >
-          All <span className={styles.chipCount}>{saved.length}</span>
-        </button>
-        {TYPE_CHIPS.map((type) => {
-          const count = saved.filter((gradient) => gradient.type === type).length
-          return (
-            <button
-              key={type}
-              type="button"
-              className={typeFilter === type ? styles.chipOn : styles.chip}
-              onClick={() => setTypeFilter(typeFilter === type ? null : type)}
-            >
-              {type[0].toUpperCase() + type.slice(1)}{' '}
-              <span className={styles.chipCount}>{count}</span>
-            </button>
-          )
-        })}
-        {HUE_FAMILIES.map((family) => {
-          const count = saved.filter((gradient) => gradientHueFamily(gradient.stops) === family.key).length
-          return (
-            <button
-              key={family.key}
-              type="button"
-              aria-label={`Filter by ${family.label} (${count} matches)`}
-              className={hueFilter === family.key ? styles.hueChipOn : styles.hueChip}
-              onClick={() => setHueFilter(hueFilter === family.key ? null : family.key)}
-            >
-              <span className={styles.hueDot} style={{ background: family.swatchHex }} />
-              <span className={styles.hueCount}>{count}</span>
-            </button>
-          )
-        })}
-      </div>
-
-      {filtered.length === 0 ? (
-        <div className={styles.empty}>
-          {hasFilters && saved.length > 0 ? (
+      {segment === 'feed' ? (
+        <>
+          <button
+            type="button"
+            data-testid="drop-author-toggle"
+            className={styles.emptyAction}
+            onClick={() => setAuthoring((v) => !v)}
+          >
+            {authoring ? 'Close author' : 'Author a drop'}
+          </button>
+          {authoring ? (
             <>
-              <p className={styles.emptyText}>No matches here.</p>
-              <button
-                type="button"
-                className={styles.emptyAction}
-                onClick={() => {
-                  setTypeFilter(null)
-                  setHueFilter(null)
-                }}
-              >
-                Clear filters
-              </button>
+              <DropAuthor />
+              <div data-testid="curated-drops">
+                {curatedDrops.map((d) => (
+                  <article key={d.id} className={styles.themeHero} data-testid={`curated-drop-${d.id}`}>
+                    <div className={styles.themeHeroBadge}>{d.date}</div>
+                    <h3 className={styles.themeHeroTitle}>{d.title}</h3>
+                    <p className={styles.themeHeroDescription}>{d.description}</p>
+                    <div className={galleryLayout === 'masonry' ? styles.masonryGrid : styles.grid}>
+                      {d.gradients.map((g) => (
+                        <span
+                          key={g.id}
+                          className={styles.tilePreview}
+                          style={{
+                            backgroundImage: buildGradientCss(g.type, g.stops, false),
+                            aspectRatio: '4 / 5',
+                            display: 'block',
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </article>
+                ))}
+              </div>
             </>
           ) : (
             <>
-              <p className={styles.emptyText}>Make something — your pins land here.</p>
-              <button type="button" className={styles.emptyAction} onClick={() => setMode('create')}>
-                Create
-              </button>
+              <div className={styles.themeSelector}>
+                {THEMED_FEEDS.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={activeThemeId === t.id ? styles.themeTabActive : styles.themeTab}
+                    onClick={() => setActiveThemeId(t.id)}
+                    style={
+                      activeThemeId === t.id
+                        ? ({ '--theme-color': t.themeColor } as React.CSSProperties)
+                        : undefined
+                    }
+                  >
+                    <span className={styles.themeTabEmoji}>{t.emoji}</span>
+                    <span className={styles.themeTabName}>{t.name}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div
+                className={styles.themeHero}
+                style={{ '--theme-color': activeTheme.themeColor } as React.CSSProperties}
+              >
+                <div className={styles.themeHeroBadge}>Today’s themed drops</div>
+                <h3 className={styles.themeHeroTitle}>{activeTheme.name}</h3>
+                <p className={styles.themeHeroSubtitle}>{activeTheme.subtitle}</p>
+                <p className={styles.themeHeroDescription}>{activeTheme.description}</p>
+              </div>
+
+              <div
+                data-testid="gallery-grid"
+                ref={gridRef}
+                onKeyDown={handleGridKeyDown}
+                className={galleryLayout === 'masonry' ? styles.masonryGrid : styles.grid}
+              >
+                {activeTheme.gradients.map((g) => (
+                  <Tile
+                    key={g.id}
+                    gradient={g}
+                    onOpen={setOpen}
+                    galleryLayout={galleryLayout}
+                    onRiff={onRiff}
+                  />
+                ))}
+              </div>
             </>
           )}
+        </>
+      ) : saved.length === 0 ? (
+        <div className={styles.onboarding}>
+          <p className={styles.onboardingTitle}>Create a gradient</p>
+          <p className={styles.onboardingSub}>Pick a shape to start — your saves land here.</p>
+          <div className={styles.onboardingChoices}>
+            {ONBOARDING_TYPES.map(({ type, label }) => (
+              <button
+                key={type}
+                type="button"
+                className={styles.onboardingChoice}
+                onClick={() => onStartType?.(type)}
+              >
+                <span
+                  className={styles.onboardingSwatch}
+                  aria-hidden="true"
+                  style={{
+                    backgroundImage: buildGradientCss(
+                      type === 'square' ? 'linear' : type,
+                      ONBOARDING_STOPS,
+                      false
+                    ),
+                  }}
+                />
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : activeCol ? (
+        <div data-testid="collection-detail">
+          <div className={styles.header}>
+            <button
+              type="button"
+              className={styles.emptyAction}
+              onClick={() => setCollectionView(null)}
+            >
+              ← Collections
+            </button>
+            <h2 className={styles.title}>
+              {activeCol.name} <span className={styles.titleCount}>({members.length})</span>
+            </h2>
+            <button
+              type="button"
+              data-testid="collection-open-in-feed"
+              className={styles.emptyAction}
+              onClick={() => {
+                setActiveCollection(activeCol.id)
+                setMode('create')
+              }}
+            >
+              Open in feed
+            </button>
+          </div>
+          <div className={galleryLayout === 'masonry' ? styles.masonryGrid : styles.grid}>
+            {members.map((g) => (
+              <Tile
+                key={g.id}
+                gradient={g}
+                onOpen={setOpen}
+                galleryLayout={galleryLayout}
+                onRiff={onRiff}
+                onDelete={(id) => removeFromCollection(activeCol.id, id)}
+                enterDelayMs={0}
+              />
+            ))}
+          </div>
         </div>
       ) : (
-        <div
-          ref={gridRef}
-          key={`${typeFilter ?? 'all'}-${hueFilter ?? 'all'}`}
-          onKeyDown={handleGridKeyDown}
-          className={galleryLayout === 'masonry' ? styles.masonryGrid : styles.grid}
-        >
-          {filtered.map((gradient, index) => (
-            <Tile
-              key={gradient.id}
-              gradient={gradient}
-              onOpen={setOpen}
-              galleryLayout={galleryLayout}
-              onRiff={onRiff}
-              onDelete={removeSavedGradientById}
-              enterDelayMs={enterDelayFor(index)}
-              draggable={!hasFilters}
-              isDragging={draggingId === gradient.id}
-              isDragOver={dragOverId === gradient.id}
-              onDragStartTile={handleDragStartTile}
-              onDragEnterTile={handleDragEnterTile}
-              onDropTile={handleDropTile}
-              onDragEndTile={clearDrag}
-            />
-          ))}
-        </div>
+        <>
+          <CollectionsRow
+            collections={collections}
+            gradientsById={gradientsById}
+            onOpen={(id) => setCollectionView(id)}
+            onCreateFromDrop={(gradientId) => {
+              const id = createCollection()
+              addToCollection(id, gradientId)
+              setCollectionView(id)
+            }}
+            onDropGradient={addToCollection}
+          />
+          <div className={styles.chips}>
+            <button
+              type="button"
+              className={!hasFilters ? styles.chipOn : styles.chip}
+              onClick={() => {
+                setTypeFilter(null)
+                setHueFilter(null)
+              }}
+            >
+              All <span className={styles.chipCount}>{saved.length}</span>
+            </button>
+            {TYPE_CHIPS.map((type) => {
+              const count = saved.filter((gradient) => gradient.type === type).length
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  className={typeFilter === type ? styles.chipOn : styles.chip}
+                  onClick={() => setTypeFilter(typeFilter === type ? null : type)}
+                >
+                  {type[0].toUpperCase() + type.slice(1)}{' '}
+                  <span className={styles.chipCount}>{count}</span>
+                </button>
+              )
+            })}
+            {HUE_FAMILIES.map((family) => {
+              const count = saved.filter((gradient) => gradientHueFamily(gradient.stops) === family.key).length
+              return (
+                <button
+                  key={family.key}
+                  type="button"
+                  aria-label={`Filter by ${family.label} (${count} matches)`}
+                  className={hueFilter === family.key ? styles.hueChipOn : styles.hueChip}
+                  onClick={() => setHueFilter(hueFilter === family.key ? null : family.key)}
+                >
+                  <span className={styles.hueDot} style={{ background: family.swatchHex }} />
+                  <span className={styles.hueCount}>{count}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          {filtered.length === 0 ? (
+            <div className={styles.empty}>
+              {hasFilters && saved.length > 0 ? (
+                <>
+                  <p className={styles.emptyText}>No matches here.</p>
+                  <button
+                    type="button"
+                    className={styles.emptyAction}
+                    onClick={() => {
+                      setTypeFilter(null)
+                      setHueFilter(null)
+                    }}
+                  >
+                    Clear filters
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className={styles.emptyText}>Make something — your pins land here.</p>
+                  <button type="button" className={styles.emptyAction} onClick={() => setMode('create')}>
+                    Create
+                  </button>
+                </>
+              )}
+            </div>
+          ) : (
+            <div
+              ref={gridRef}
+              key={`${typeFilter ?? 'all'}-${hueFilter ?? 'all'}`}
+              onKeyDown={handleGridKeyDown}
+              className={galleryLayout === 'masonry' ? styles.masonryGrid : styles.grid}
+            >
+              {filtered.map((gradient, index) => (
+                <Tile
+                  key={gradient.id}
+                  gradient={gradient}
+                  onOpen={setOpen}
+                  galleryLayout={galleryLayout}
+                  onRiff={onRiff}
+                  onDelete={removeSavedGradientById}
+                  enterDelayMs={enterDelayFor(index)}
+                  draggable={!hasFilters}
+                  isDragging={draggingId === gradient.id}
+                  isDragOver={dragOverId === gradient.id}
+                  onDragStartTile={handleDragStartTile}
+                  onDragEnterTile={handleDragEnterTile}
+                  onDropTile={handleDropTile}
+                  onDragEndTile={clearDrag}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {undoVisible && lastDeleted && (
@@ -696,7 +1003,7 @@ export function Gallery({ onRiff, onImport }: GalleryProps) {
       {open && (
         <Viewer
           gradient={open}
-          items={filtered}
+          items={segment === 'feed' ? activeTheme.gradients : filtered}
           onNavigate={setOpen}
           onClose={() => setOpen(null)}
           onRiff={onRiff}

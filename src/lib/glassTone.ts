@@ -15,6 +15,7 @@ export function glassToneAt(gradient: Gradient, x: number, y: number): GlassTone
   const hex = gradientColorAt(gradient.type, gradient.stops, x, y, gradient.reversed, {
     repeat: gradient.repeatEnabled,
     hard: gradient.hardStops,
+    fanAnchor: gradient.fanAnchor,
   })
   return hexToOklch(hex).l > BRIGHT_BACKDROP_L ? 'dark' : 'light'
 }

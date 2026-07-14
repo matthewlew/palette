@@ -1,0 +1,107 @@
+.row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 4px 2px 10px;
+  scrollbar-width: none;
+  /* The Gallery is a flex column; without this the row collapses under the
+     72px covers (siblings like .chips set flex-shrink:0 and stay put), so the
+     covers overflow and get hidden behind the filter chips. */
+  flex-shrink: 0;
+}
+.row::-webkit-scrollbar {
+  display: none;
+}
+
+.cover {
+  position: relative;
+  flex: 0 0 auto;
+  width: 72px;
+  height: 72px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background-color: #26262c;
+  background-size: cover;
+  background-position: center;
+  cursor: pointer;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* 2x2 mosaic of the board's newest members, filling the cover behind the
+   count/name overlays. Empty cells fall back to the cover's dark surface. */
+.coverGrid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 1px;
+}
+
+.coverCell {
+  background-color: #26262c;
+  background-size: cover;
+  background-position: center;
+}
+
+.count {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+
+.name {
+  position: absolute;
+  left: 6px;
+  bottom: 4px;
+  right: 26px;
+  font-size: 10px;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dropNew {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 72px;
+  height: 72px;
+  border-radius: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(255, 255, 255, 0.5);
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.dropNewArmed {
+  border-color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  transform: scale(1.04);
+}
+
+.dropPlus {
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.dropLabel {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}

@@ -33,6 +33,12 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().current).toEqual(sampleGradient)
   })
 
+  it('starts with no collections and no active collection', () => {
+    const state = useAppStore.getState()
+    expect(state.collections).toEqual([])
+    expect(state.activeCollectionId).toBeNull()
+  })
+
   it('saves a gradient to the drawer', () => {
     useAppStore.getState().saveGradient(sampleGradient)
     expect(useAppStore.getState().saved).toHaveLength(1)
@@ -237,6 +243,123 @@ describe('persist migration', () => {
     expect(saved).toHaveLength(1)
     expect('smoothEnabled' in saved[0]).toBe(false)
     expect('flutedEnabled' in saved[0]).toBe(false)
+  })
+})
+
+describe('collections CRUD', () => {
+  it('creates a collection with a default name, neutral levers, and returns its id', () => {
+    const id = useAppStore.getState().createCollection()
+    const cols = useAppStore.getState().collections
+    expect(cols).toHaveLength(1)
+    expect(cols[0].id).toBe(id)
+    expect(cols[0].name).toBe('New Collection')
+    expect(cols[0].gradientIds).toEqual([])
+    expect(cols[0].levers).toEqual({ temp: 50, depth: 50, char: 50 })
+  })
+
+  it('creates a collection with a provided name', () => {
+    useAppStore.getState().createCollection('Kiln Studies')
+    expect(useAppStore.getState().collections[0].name).toBe('Kiln Studies')
+  })
+
+  it('renames a collection (trimmed, ignores empty)', () => {
+    const id = useAppStore.getState().createCollection()
+    useAppStore.getState().renameCollection(id, '  Cool Porch  ')
+    expect(useAppStore.getState().collections[0].name).toBe('Cool Porch')
+    useAppStore.getState().renameCollection(id, '   ')
+    expect(useAppStore.getState().collections[0].name).toBe('Cool Porch')
+  })
+
+  it('deletes a collection and clears it as active when it was active', () => {
+    const id = useAppStore.getState().createCollection()
+    useAppStore.getState().setActiveCollection(id)
+    useAppStore.getState().deleteCollection(id)
+    expect(useAppStore.getState().collections).toEqual([])
+    expect(useAppStore.getState().activeCollectionId).toBeNull()
+  })
+})
+
+describe('collection membership', () => {
+  it('adds a gradient id once (no duplicates)', () => {
+    const id = useAppStore.getState().createCollection()
+    useAppStore.getState().addToCollection(id, 'g-abc')
+    useAppStore.getState().addToCollection(id, 'g-abc')
+    expect(useAppStore.getState().collections[0].gradientIds).toEqual(['g-abc'])
+  })
+
+  it('removes a gradient id from a collection', () => {
+    const id = useAppStore.getState().createCollection()
+    useAppStore.getState().addToCollection(id, 'g-abc')
+    useAppStore.getState().addToCollection(id, 'g-def')
+    useAppStore.getState().removeFromCollection(id, 'g-abc')
+    expect(useAppStore.getState().collections[0].gradientIds).toEqual(['g-def'])
+  })
+})
+
+describe('active collection + levers', () => {
+  it('sets and clears the active collection', () => {
+    const id = useAppStore.getState().createCollection()
+    useAppStore.getState().setActiveCollection(id)
+    expect(useAppStore.getState().activeCollectionId).toBe(id)
+    useAppStore.getState().setActiveCollection(null)
+    expect(useAppStore.getState().activeCollectionId).toBeNull()
+  })
+
+  it("updates a collection's levers", () => {
+    const id = useAppStore.getState().createCollection()
+    useAppStore.getState().setCollectionLevers(id, { temp: 20, depth: 80, char: 65 })
+    expect(useAppStore.getState().collections[0].levers).toEqual({ temp: 20, depth: 80, char: 65 })
+  })
+})
+
+describe('collection membership on delete', () => {
+  it('prunes a deleted gradient id from every collection', () => {
+    const store = useAppStore.getState()
+    store.saveGradient({ id: 'seed', type: 'linear', stops: [
+      { hex: '#111111', position: 0 }, { hex: '#eeeeee', position: 100 },
+    ] })
+    const savedId = useAppStore.getState().saved[0].id
+    const cid = store.createCollection('Board')
+    store.addToCollection(cid, savedId)
+    useAppStore.getState().removeSavedGradientById(savedId)
+    expect(useAppStore.getState().collections[0].gradientIds).toEqual([])
+  })
+})
+
+describe('keyword vocabulary + curated drops', () => {
+  beforeEach(() => {
+    useAppStore.setState({ keywordBindings: [], curatedDrops: [] })
+  })
+
+  it('adds a keyword binding and returns its id', () => {
+    const id = useAppStore.getState().addKeywordBinding({
+      keyword: 'glacier',
+      colors: ['#005e6b', '#e3ecec'],
+    })
+    const bindings = useAppStore.getState().keywordBindings
+    expect(bindings).toHaveLength(1)
+    expect(bindings[0].id).toBe(id)
+    expect(bindings[0].keyword).toBe('glacier')
+    expect(bindings[0].colors).toEqual(['#005e6b', '#e3ecec'])
+  })
+
+  it('updates and deletes a keyword binding', () => {
+    const id = useAppStore.getState().addKeywordBinding({ keyword: 'pine', colors: ['#142b1f'] })
+    useAppStore.getState().updateKeywordBinding(id, { note: 'spruce canopy' })
+    expect(useAppStore.getState().keywordBindings[0].note).toBe('spruce canopy')
+    useAppStore.getState().deleteKeywordBinding(id)
+    expect(useAppStore.getState().keywordBindings).toHaveLength(0)
+  })
+
+  it('creates, updates, and deletes a curated drop', () => {
+    const id = useAppStore.getState().createCuratedDrop({
+      title: 'Banff', description: 'Rockies.', date: '2026-07-13', gradients: [],
+    })
+    expect(useAppStore.getState().curatedDrops).toHaveLength(1)
+    useAppStore.getState().updateCuratedDrop(id, { title: 'Banff NP' })
+    expect(useAppStore.getState().curatedDrops[0].title).toBe('Banff NP')
+    useAppStore.getState().deleteCuratedDrop(id)
+    expect(useAppStore.getState().curatedDrops).toHaveLength(0)
   })
 })
 

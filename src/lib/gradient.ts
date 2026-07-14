@@ -13,6 +13,22 @@ export const SELECTABLE_GEOMETRY: GradientType[] = ['linear', 'radial', 'angular
 export interface GradientStop {
   hex: string
   position: number // 0-100
+  label?: string
+}
+
+/** Which edge the fan's 180° cone rises from. The pivot sits at the middle of
+ * that edge and the visible semicircle faces inward. */
+export type FanAnchor = 'bottom' | 'top' | 'left' | 'right'
+
+export const FAN_ANCHORS: FanAnchor[] = ['bottom', 'top', 'left', 'right']
+
+/** Per-anchor geometry: `at`/`from` feed the CSS conic-gradient, and px/py are
+ * the same pivot in normalized coords for gradientColorAt's angle sampling. */
+const FAN_ANCHOR_CONFIG: Record<FanAnchor, { at: string; from: number; px: number; py: number }> = {
+  bottom: { at: '50% 100%', from: 270, px: 0.5, py: 1 },
+  top: { at: '50% 0%', from: 90, px: 0.5, py: 0 },
+  left: { at: '0% 50%', from: 0, px: 0, py: 0.5 },
+  right: { at: '100% 50%', from: 180, px: 1, py: 0.5 },
 }
 
 function assertStops(stops: GradientStop[]): void {
@@ -47,15 +63,16 @@ function buildAngularGradient(stops: GradientStop[]): string {
   return `conic-gradient(${stopsToCss(withSeam)})`
 }
 
-function buildFanGradient(stops: GradientStop[]): string {
-  // A 180° fan rising from the bottom-center, like a sunburst (the Edward
+function buildFanGradient(stops: GradientStop[], anchor: FanAnchor = 'bottom'): string {
+  // A 180° fan rising from the middle of one edge, like a sunburst (the Edward
   // Sharpe "Up from Below" cover): the palette is compressed into the visible
-  // upper semicircle — 0–50% of the cone, which sweeps 270°→90° over the top
-  // from the left horizon to the right — and the last color holds across the
-  // off-screen lower half so no seam shows in the fan.
+  // inward-facing semicircle — 0–50% of the cone — and the last color holds
+  // across the off-screen half so no seam shows. The pivot and start angle
+  // rotate with the chosen anchor edge.
+  const { at, from } = FAN_ANCHOR_CONFIG[anchor]
   const compressed = stops.map((s) => ({ hex: s.hex, position: Math.round(s.position * 0.5) }))
   const withTail = [...compressed, { hex: stops[stops.length - 1].hex, position: 100 }]
-  return `conic-gradient(from 270deg at 50% 100%, ${stopsToCss(withTail)})`
+  return `conic-gradient(from ${from}deg at ${at}, ${stopsToCss(withTail)})`
 }
 
 export function applyReversed(stops: GradientStop[], reversed: boolean): GradientStop[] {
@@ -126,6 +143,8 @@ export interface GradientFilters {
   repeat?: boolean
   /** Renders solid color bands with hard cuts instead of smooth blends. */
   hard?: boolean
+  /** Which edge a fan gradient rises from (ignored by other types). */
+  fanAnchor?: FanAnchor
 }
 
 export function buildGradientCss(
@@ -162,7 +181,7 @@ export function buildGradientCss(
     case 'repeat':
       return buildRepeatGradient(orderedStops)
     case 'fan':
-      return buildFanGradient(orderedStops)
+      return buildFanGradient(orderedStops, filters.fanAnchor)
   }
 }
 
@@ -245,11 +264,12 @@ export function gradientColorAt(
     }
     case 'fan': {
       // Same compressed sequence buildFanGradient renders, sampled by the
-      // angle (clockwise from straight up) about the bottom-center pivot.
+      // angle (clockwise from straight up) about the anchor-edge pivot.
+      const { from, px, py } = FAN_ANCHOR_CONFIG[filters.fanAnchor ?? 'bottom']
       const compressed = orderedStops.map((s) => ({ hex: s.hex, position: Math.round(s.position * 0.5) }))
       const withTail = [...compressed, { hex: orderedStops[orderedStops.length - 1].hex, position: 100 }]
-      const deg = ((Math.atan2(x - 0.5, -(y - 1)) * 180) / Math.PI + 360) % 360
-      const t = ((deg - 270 + 360) % 360) / 360
+      const deg = ((Math.atan2(x - px, -(y - py)) * 180) / Math.PI + 360) % 360
+      const t = ((deg - from + 360) % 360) / 360
       return sampleStops(withTail, t)
     }
   }

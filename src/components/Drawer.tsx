@@ -54,6 +54,7 @@ export function Drawer({ saved, onSelect, hidden = false }: DrawerProps) {
                     : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
                         repeat: gradient.repeatEnabled,
                         hard: gradient.hardStops,
+                        fanAnchor: gradient.fanAnchor,
                       }),
               }}
             >

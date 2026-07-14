@@ -34,6 +34,10 @@ export function makeGradient(type: GradientType, colorSet: ColorSet): Gradient {
 
 
 const STEP_PX = 60
+// Horizontal travel (wheel delta / touch drag) per one shape step, so a
+// deliberate sideways swipe flips the geometry once rather than racing through
+// the whole list.
+const SHAPE_STEP_PX = 80
 
 // Session state that must survive Feed unmounting/remounting when the app
 // swaps between explore mode (<Feed/>) and edit mode (<EditMode/>). Module-
@@ -59,6 +63,15 @@ export function resetFeedSession() {
  * responsible for setCurrentGradient + switching mode to 'create'; on
  * remount Feed's init effect restores history[index], which is exactly the
  * appended gradient. */
+/** Onboarding: start a fresh Create session locked to a chosen shape. Unlike
+ * riff (which appends and jumps into edit), this resets the rolodex so the
+ * empty-Gallery user lands on a clean feed of that gradient type. */
+export function startFeedWithType(gradient: Gradient) {
+  feedSession.history = [gradient]
+  feedSession.index = 0
+  feedSession.lockedType = gradient.type
+}
+
 export function riffIntoFeed(gradient: Gradient) {
   feedSession.history = [...feedSession.history, gradient]
   feedSession.index = feedSession.history.length - 1
@@ -95,6 +108,16 @@ export function Feed({ chromeVisible = true }: FeedProps) {
   const velocityRef = useRef(0)
   const lastMoveTimeRef = useRef<number | null>(null)
   const momentumFrameIdRef = useRef<number | null>(null)
+  // Horizontal-scroll → shape-flip state. Wheel deltas accumulate (reset on a
+  // pause) so one trackpad swipe steps once; touch locks to an axis per gesture
+  // so a sideways swipe flips shapes without also scrubbing the rolodex.
+  const wheelXAccumRef = useRef(0)
+  const wheelXResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastTouchXRef = useRef<number | null>(null)
+  const touchStartXRef = useRef(0)
+  const touchStartYRef = useRef(0)
+  const touchAxisRef = useRef<'none' | 'h' | 'v'>('none')
+  const touchShapeAccumRef = useRef(0)
 
   // The gradient "shape" (geometry type) is locked once per Feed session so
   // that scrubbing through the rolodex only varies colors/stops, never the
@@ -180,7 +203,8 @@ export function Feed({ chromeVisible = true }: FeedProps) {
 
     if (newIndex >= history.length) {
       // Forward past the end of history: generate a brand-new gradient,
-      // keeping the same locked shape for this Feed session.
+      // keeping the same locked shape for this Feed session. Each tick is a
+      // completely new gradient, not a nudge from the previous one.
       const fresh = makeGradient(feedSession.lockedType!, activeColorSet)
       history.push(fresh)
     }
@@ -190,6 +214,23 @@ export function Feed({ chromeVisible = true }: FeedProps) {
     const next = history[newIndex]
     setDisplayed(next)
     setCurrentGradient(next)
+    tickHaptic()
+  }
+
+  // Flip the current gradient's shape to the next/previous selectable geometry
+  // in place, keeping its colors — the sideways counterpart to goTo's vertical
+  // scrub. Shared by the ←/→ keys, horizontal wheel, and horizontal swipe.
+  function cycleShape(dir: 1 | -1) {
+    const currentGrad = feedSession.history[feedSession.index]
+    if (!currentGrad) return
+    const currentIndex = Math.max(0, SELECTABLE_GEOMETRY.indexOf(currentGrad.type))
+    const len = SELECTABLE_GEOMETRY.length
+    const nextType = SELECTABLE_GEOMETRY[(currentIndex + dir + len) % len]
+    const updated = { ...currentGrad, type: nextType }
+    feedSession.history[feedSession.index] = updated
+    feedSession.lockedType = nextType
+    setDisplayed(updated)
+    setCurrentGradient(updated)
     tickHaptic()
   }
 
@@ -245,15 +286,29 @@ export function Feed({ chromeVisible = true }: FeedProps) {
       scrollHintDismissRef.current()
       e.preventDefault()
       
-      let dy = e.deltaY
-      if (e.deltaMode === 1) {
-        // DOM_DELTA_LINE
-        dy *= 20
-      } else if (e.deltaMode === 2) {
-        // DOM_DELTA_PAGE
-        dy *= 800
+      const scale = e.deltaMode === 1 ? 20 : e.deltaMode === 2 ? 800 : 1
+      const dy = e.deltaY * scale
+      const dx = e.deltaX * scale
+
+      // Horizontal-dominant wheel flips the shape (like ←/→) instead of
+      // scrubbing. Accumulate per swipe segment, reset on a direction flip or a
+      // pause, so one flick steps once.
+      if (Math.abs(dx) > Math.abs(dy)) {
+        if (Math.sign(dx) !== Math.sign(wheelXAccumRef.current)) wheelXAccumRef.current = 0
+        wheelXAccumRef.current += dx
+        if (wheelXResetTimerRef.current) clearTimeout(wheelXResetTimerRef.current)
+        if (Math.abs(wheelXAccumRef.current) >= SHAPE_STEP_PX) {
+          cycleShape(wheelXAccumRef.current > 0 ? 1 : -1)
+          wheelXAccumRef.current = 0
+        } else {
+          wheelXResetTimerRef.current = setTimeout(() => {
+            wheelXAccumRef.current = 0
+          }, 200)
+        }
+        return
       }
-      
+
+      wheelXAccumRef.current = 0
       accumulatedDeltaRef.current += dy
       consumeAccumulatedDelta()
     }
@@ -263,18 +318,54 @@ export function Feed({ chromeVisible = true }: FeedProps) {
       // Build the iOS haptic actuator while we still hold user activation,
       // so the first tick of this scroll gesture can actually buzz.
       primeHaptics()
-      lastTouchYRef.current = e.touches[0]?.clientY ?? null
+      const touch = e.touches[0]
+      lastTouchYRef.current = touch?.clientY ?? null
+      lastTouchXRef.current = touch?.clientX ?? null
+      touchStartXRef.current = touch?.clientX ?? 0
+      touchStartYRef.current = touch?.clientY ?? 0
+      touchAxisRef.current = 'none'
+      touchShapeAccumRef.current = 0
       lastMoveTimeRef.current = performance.now()
       velocityRef.current = 0
     }
 
     function handleTouchMove(e: TouchEvent) {
       scrollHintDismissRef.current()
-      e.preventDefault()
       const touchY = e.touches[0]?.clientY
+      const touchX = e.touches[0]?.clientX
+      if (touchY == null) return
+
+      // Lock the gesture to whichever axis it commits to first: sideways flips
+      // the shape, up/down scrubs the rolodex — never both at once.
+      if (touchAxisRef.current === 'none' && touchX != null) {
+        const dxTotal = Math.abs(touchX - touchStartXRef.current)
+        const dyTotal = Math.abs(touchY - touchStartYRef.current)
+        if (Math.max(dxTotal, dyTotal) > 8) {
+          touchAxisRef.current = dxTotal > dyTotal ? 'h' : 'v'
+        }
+      }
+
+      if (touchAxisRef.current === 'h' && touchX != null) {
+        e.preventDefault()
+        const prevX = lastTouchXRef.current ?? touchX
+        lastTouchXRef.current = touchX
+        touchShapeAccumRef.current += touchX - prevX
+        // Swipe left (negative) advances to the next shape, matching ArrowRight.
+        while (touchShapeAccumRef.current <= -SHAPE_STEP_PX) {
+          touchShapeAccumRef.current += SHAPE_STEP_PX
+          cycleShape(1)
+        }
+        while (touchShapeAccumRef.current >= SHAPE_STEP_PX) {
+          touchShapeAccumRef.current -= SHAPE_STEP_PX
+          cycleShape(-1)
+        }
+        return
+      }
+
+      e.preventDefault()
       const now = performance.now()
-      if (touchY == null || lastTouchYRef.current == null) {
-        lastTouchYRef.current = touchY ?? null
+      if (lastTouchYRef.current == null) {
+        lastTouchYRef.current = touchY
         lastMoveTimeRef.current = now
         return
       }
@@ -381,22 +472,7 @@ export function Feed({ chromeVisible = true }: FeedProps) {
         withViewTransition(useAppStore.getState().enterEditMode)
       } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
         e.preventDefault()
-        const currentGrad = feedSession.history[feedSession.index]
-        if (currentGrad) {
-          const currentType = currentGrad.type
-          // indexOf can be -1 for a legacy type not in the list; start the
-          // step from 0 so ←/→ still reaches a valid selectable geometry.
-          const currentIndex = Math.max(0, SELECTABLE_GEOMETRY.indexOf(currentType))
-          const len = SELECTABLE_GEOMETRY.length
-          const nextIndex =
-            e.key === 'ArrowRight' ? (currentIndex + 1) % len : (currentIndex - 1 + len) % len
-          const nextType = SELECTABLE_GEOMETRY[nextIndex]
-          const updated = { ...currentGrad, type: nextType }
-          feedSession.history[feedSession.index] = updated
-          feedSession.lockedType = nextType
-          setDisplayed(updated)
-          setCurrentGradient(updated)
-        }
+        cycleShape(e.key === 'ArrowRight' ? 1 : -1)
       } else if (e.key === 'f' || e.key === 'F') {
         e.preventDefault()
         const currentGrad = feedSession.history[feedSession.index]
@@ -418,6 +494,7 @@ export function Feed({ chromeVisible = true }: FeedProps) {
 
     return () => {
       cancelMomentum()
+      if (wheelXResetTimerRef.current) clearTimeout(wheelXResetTimerRef.current)
       el.removeEventListener('wheel', handleWheel)
       el.removeEventListener('touchstart', handleTouchStart)
       el.removeEventListener('touchmove', handleTouchMove)

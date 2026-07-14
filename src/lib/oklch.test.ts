@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { oklchToSrgb, srgbToOklch, oklchToHex, hexToOklch, blendOklchHex, isLightColor } from './oklch'
+import {
+  oklchToSrgb,
+  srgbToOklch,
+  oklchToHex,
+  hexToOklch,
+  blendOklchHex,
+  isLightColor,
+} from './oklch'
 
 describe('oklch <-> srgb conversion', () => {
   it('round-trips a mid-lightness teal within tolerance', () => {

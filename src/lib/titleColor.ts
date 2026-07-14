@@ -1,5 +1,5 @@
 import { gradientColorAt } from './gradient'
-import { hexToSrgb } from './oklch'
+import { hexToSrgb, hexToOklch, oklchToHex } from './oklch'
 import type { Gradient } from '../store/types'
 
 /** WCAG AA for normal text. The title is small enough that anything lower
@@ -35,6 +35,7 @@ export function titleColorAt(gradient: Gradient, x: number, y: number): string {
   const backdrop = gradientColorAt(gradient.type, gradient.stops, x, y, gradient.reversed, {
     repeat: gradient.repeatEnabled,
     hard: gradient.hardStops,
+    fanAnchor: gradient.fanAnchor,
   })
 
   let best: string | null = null
@@ -49,6 +50,29 @@ export function titleColorAt(gradient: Gradient, x: number, y: number): string {
   if (best && bestRatio >= MIN_TITLE_CONTRAST) return best
 
   return contrastRatio('#ffffff', backdrop) >= contrastRatio('#000000', backdrop)
+    ? '#ffffff'
+    : '#000000'
+}
+
+/** Ink for a gradient's label rendered on a solid surface (the Gallery tile
+ * captions sit on the dark app surface, not on the gradient). Echoes the
+ * palette by starting from its most vivid stop; if that stop is too low in
+ * contrast against the surface, it's lightened in OKLCH — hue and chroma held
+ * so it still reads as that color — until it clears WCAG AA. White/black is
+ * only the last-resort fallback (e.g. a fully desaturated palette). */
+export function paletteInkOn(gradient: Gradient, surfaceHex: string): string {
+  const vivid = gradient.stops.reduce((a, b) =>
+    hexToOklch(b.hex).c > hexToOklch(a.hex).c ? b : a
+  ).hex
+  if (contrastRatio(vivid, surfaceHex) >= MIN_TITLE_CONTRAST) return vivid
+
+  const { c, h, l } = hexToOklch(vivid)
+  // The tile surface is dark, so raising lightness is what buys contrast.
+  for (let step = l; step <= 0.98; step += 0.04) {
+    const candidate = oklchToHex({ l: step, c, h })
+    if (contrastRatio(candidate, surfaceHex) >= MIN_TITLE_CONTRAST) return candidate
+  }
+  return contrastRatio('#ffffff', surfaceHex) >= contrastRatio('#000000', surfaceHex)
     ? '#ffffff'
     : '#000000'
 }

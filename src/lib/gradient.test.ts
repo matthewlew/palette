@@ -41,6 +41,26 @@ describe('buildGradientCss', () => {
     expect(gradientColorAt('fan', stops, 0.5, 0)).toBe('#00ff00')
   })
 
+  it('rotates the fan pivot and start angle to the chosen anchor edge', () => {
+    expect(buildGradientCss('fan', stops, false, { fanAnchor: 'top' })).toContain(
+      'conic-gradient(from 90deg at 50% 0%,'
+    )
+    expect(buildGradientCss('fan', stops, false, { fanAnchor: 'left' })).toContain(
+      'conic-gradient(from 0deg at 0% 50%,'
+    )
+    expect(buildGradientCss('fan', stops, false, { fanAnchor: 'right' })).toContain(
+      'conic-gradient(from 180deg at 100% 50%,'
+    )
+  })
+
+  it('samples the fan about the anchor-edge pivot', () => {
+    // Top anchor (pivot 50% 0%): the two lower-corner horizons hit the ends
+    // and straight-down hits the middle, mirroring the bottom-anchor case.
+    expect(gradientColorAt('fan', stops, 1, 0, false, { fanAnchor: 'top' })).toBe('#ff0000')
+    expect(gradientColorAt('fan', stops, 0, 0, false, { fanAnchor: 'top' })).toBe('#0000ff')
+    expect(gradientColorAt('fan', stops, 0.5, 1, false, { fanAnchor: 'top' })).toBe('#00ff00')
+  })
+
   it('builds a nested conic-gradient with hard stops sized to the stop count for square type', () => {
     const css = buildGradientCss('square', stops)
     expect(css).toContain('conic-gradient(from 0deg')

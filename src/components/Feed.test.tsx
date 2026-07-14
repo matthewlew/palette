@@ -34,6 +34,7 @@ describe('Feed', () => {
     const first = useAppStore.getState().current
     const container = screen.getByTestId('feed-container')
 
+    // Each forward step generates a brand-new gradient.
     const generateSpy = vi.spyOn(paletteLib, 'generateGradientStops')
 
     fireEvent.wheel(container, { deltaY: STEP_PX })
@@ -228,6 +229,7 @@ describe('Feed', () => {
     const first = useAppStore.getState().current
     const container = screen.getByTestId('feed-container')
 
+    // Each forward step generates a brand-new gradient.
     const generateSpy = vi.spyOn(paletteLib, 'generateGradientStops')
 
     fireEvent.touchStart(container, { touches: [{ clientY: 400 }] })
@@ -312,6 +314,8 @@ describe('Feed', () => {
     })
     vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {})
 
+    // Every forward step generates a brand-new gradient (initial mount plus
+    // each subsequent step).
     const generateSpy = vi.spyOn(paletteLib, 'generateGradientStops')
 
     render(<Feed />)
@@ -334,7 +338,7 @@ describe('Feed', () => {
       iterations++
     }
 
-    expect(generateSpy.mock.calls.length).toBeGreaterThanOrEqual(7) // 8 total steps - 1 initial mount
+    expect(generateSpy.mock.calls.length).toBeGreaterThanOrEqual(7) // ~8 forward steps
 
     nowSpy.mockRestore()
     rafSpy.mockRestore()
