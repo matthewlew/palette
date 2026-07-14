@@ -24,6 +24,23 @@
   overflow: hidden;
 }
 
+/* 2x2 mosaic of the board's newest members, filling the cover behind the
+   count/name overlays. Empty cells fall back to the cover's dark surface. */
+.coverGrid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 1px;
+}
+
+.coverCell {
+  background-color: #26262c;
+  background-size: cover;
+  background-position: center;
+}
+
 .count {
   position: absolute;
   bottom: 4px;

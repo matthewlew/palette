@@ -33,6 +33,19 @@ describe('CollectionsRow', () => {
     expect(screen.getByTestId('collection-count-c1')).toHaveTextContent('2')
   })
 
+  it('renders a 2x2 mosaic cover (4 cells) snapshotting the board', () => {
+    render(
+      <CollectionsRow
+        collections={[col('c1', 'Kiln', ['g1', 'g2'])]}
+        gradientsById={{ g1: grad('g1'), g2: grad('g2') }}
+        onOpen={vi.fn()}
+        onCreateFromDrop={vi.fn()}
+      />
+    )
+    // Always 4 cells; the two members fill two, the rest are empty slots.
+    expect(screen.getByTestId('collection-cover-grid-c1').children).toHaveLength(4)
+  })
+
   it('calls onOpen with the id when a cover is clicked', () => {
     const onOpen = vi.fn()
     render(
