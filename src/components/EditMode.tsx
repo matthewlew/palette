@@ -87,6 +87,10 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   // Duck the floating chrome (title, save, share, noise) out while scrubbing
   // the rolodex, matching the create feed and the bottom tab bar.
   const scrolling = useScrolling()
+  // Also duck it while a canvas handle is being dragged, so a drag near the
+  // bottom edge never collides with the Save/grain/Order FABs.
+  const [handleDragging, setHandleDragging] = useState(false)
+  const chromeHidden = scrolling || handleDragging
 
   // Per-corner palette-derived foregrounds (same strategy as the title) so
   // every floating control reads as an extension of the gradient.
@@ -650,15 +654,15 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         <PaletteTitle
           name={gradient.name ?? namePalette(gradient.stops.map((s) => s.hex))}
           onRename={renameCurrentGradient}
-          hidden={scrolling}
+          hidden={chromeHidden}
           color={titleColor}
         />
-        <GrainButton enabled={noiseEnabled} onToggle={toggleNoise} hidden={scrolling} color={cornerColor} />
+        <GrainButton enabled={noiseEnabled} onToggle={toggleNoise} hidden={chromeHidden} color={cornerColor} />
         <button
           type="button"
           data-testid="sort-fab"
           aria-label={`Stop order: ${activeOrder}. Tap to change`}
-          className={[styles.sortFab, 'ghost-chip', 'ghost-pill', scrolling && styles.hidden].filter(Boolean).join(' ')}
+          className={[styles.sortFab, 'ghost-chip', 'ghost-pill', chromeHidden && styles.hidden].filter(Boolean).join(' ')}
           style={{ color: sortColor }}
           onClick={handleSortCycle}
           onPointerDown={(e) => e.stopPropagation()}
@@ -672,7 +676,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         <LikeButton
           liked={isGradientSaved}
           onToggle={() => toggleSaveGradient(gradient)}
-          hidden={scrolling}
+          hidden={chromeHidden}
           color={cornerColor}
         />
         <CanvasHandles
@@ -684,6 +688,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           cursor={canvasCursor}
           size={canvasSize}
           onReorder={(next) => commit(next)}
+          onDraggingChange={setHandleDragging}
         />
       </div>
       <div
