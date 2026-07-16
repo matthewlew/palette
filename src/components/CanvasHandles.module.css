@@ -1,0 +1,50 @@
+.overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.dot {
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  margin: -24px 0 0 -24px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: grab;
+  pointer-events: auto;
+  touch-action: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dot:active {
+  cursor: grabbing;
+}
+
+.dotInner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 120ms ease, transform 120ms ease;
+  transform: scale(0.6);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.dotVisible .dotInner {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.dotOnLight .dotInner {
+  background: #111;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+}
+
+.dotOnDark .dotInner {
+  background: #fff;
+  border: 2px solid rgba(0, 0, 0, 0.3);
+}
