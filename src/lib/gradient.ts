@@ -24,7 +24,7 @@ export const FAN_ANCHORS: FanAnchor[] = ['bottom', 'top', 'left', 'right']
 
 /** Per-anchor geometry: `at`/`from` feed the CSS conic-gradient, and px/py are
  * the same pivot in normalized coords for gradientColorAt's angle sampling. */
-const FAN_ANCHOR_CONFIG: Record<FanAnchor, { at: string; from: number; px: number; py: number }> = {
+export const FAN_ANCHOR_CONFIG: Record<FanAnchor, { at: string; from: number; px: number; py: number }> = {
   bottom: { at: '50% 100%', from: 270, px: 0.5, py: 1 },
   top: { at: '50% 0%', from: 90, px: 0.5, py: 0 },
   left: { at: '0% 50%', from: 0, px: 0, py: 0.5 },
