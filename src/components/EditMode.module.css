@@ -171,3 +171,25 @@
 /* Save now lives on the gradient itself (shared LikeButton pill in the
    bottom-right corner, same as the create feed) — the sheet no longer has
    its own Save button. */
+
+.directionToggle {
+  display: flex;
+  gap: 6px;
+  padding: 0 var(--space-xs) 8px;
+}
+
+.directionBtn,
+.directionBtnActive {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(128, 128, 128, 0.3);
+  background: transparent;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.directionBtnActive {
+  background: rgba(128, 128, 128, 0.18);
+  border-color: rgba(128, 128, 128, 0.5);
+}

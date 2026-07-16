@@ -514,3 +514,35 @@ describe('EditMode', () => {
     expect(updated.reversed).toBe(false)
   })
 })
+
+describe('EditMode canvas handles', () => {
+  it('mounts CanvasHandles over the preview canvas', () => {
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    expect(screen.getByTestId('canvas-handles')).toBeInTheDocument()
+  })
+
+  it('shows the direction toggle for radial, not for linear', () => {
+    const { rerender } = render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    expect(screen.queryByTestId('direction-toggle')).not.toBeInTheDocument()
+    rerender(<EditMode gradient={{ ...gradient, type: 'radial' }} onExit={vi.fn()} />)
+    expect(screen.getByTestId('direction-toggle')).toBeInTheDocument()
+  })
+
+  it('reordering via a canvas handle updates the live gradient stop order', () => {
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    const preview = screen.getByTestId('edit-mode-preview')
+    // Give the preview a real layout box so getBoundingClientRect-derived
+    // cursor/size math is well-defined in jsdom.
+    vi.spyOn(preview, 'getBoundingClientRect').mockReturnValue({
+      x: 0, y: 0, left: 0, top: 0, width: 200, height: 200, right: 200, bottom: 200, toJSON() {},
+    } as DOMRect)
+    fireEvent.pointerMove(preview, { clientX: 100, clientY: 0 })
+    const firstHandle = screen.getAllByTestId(/^canvas-handle-(?!visible)/)[0]
+    fireEvent.pointerDown(firstHandle, { pointerId: 1, clientX: 100, clientY: 0 })
+    fireEvent.pointerMove(firstHandle, { pointerId: 1, clientX: 100, clientY: 200 })
+    fireEvent.pointerUp(firstHandle, { pointerId: 1, clientX: 100, clientY: 200 })
+    // The originally-first stop's hex should no longer be at position 0.
+    const stops = useAppStore.getState().current!.stops
+    expect(stops[0].hex).not.toBe(gradient.stops[0].hex)
+  })
+})

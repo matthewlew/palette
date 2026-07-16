@@ -29,6 +29,8 @@ import { feedSession, makeGradient } from './Feed'
 import { decayVelocity, shouldStartMomentum } from '../lib/momentum'
 import { tickHaptic, primeHaptics } from '../lib/haptics'
 import type { Gradient } from '../store/types'
+import { CanvasHandles } from './CanvasHandles'
+import type { SpokeDir, SquareCorner } from '../lib/stopAnchor'
 import styles from './EditMode.module.css'
 
 // 'original' restores the order the stops had before any sorting (the saved
@@ -73,6 +75,10 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   const onExitRef = useRef(onExit)
   onExitRef.current = onExit
   const [activeStopId, setActiveStopId] = useState<string | null>(null)
+  const [spoke, setSpoke] = useState<SpokeDir>('up')
+  const [corner, setCorner] = useState<SquareCorner>('tl')
+  const [canvasCursor, setCanvasCursor] = useState<{ x: number; y: number } | null>(null)
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 })
   // Hidden native color input, driven programmatically: tapping a stop (or the
   // Add color button) seeds and opens it, replacing the removed swatch tray.
   const colorInputRef = useRef<HTMLInputElement>(null)
@@ -578,6 +584,17 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     onExit()
   }
 
+  function handlePreviewPointerMove(e: React.PointerEvent) {
+    const rect = previewRef.current?.getBoundingClientRect()
+    if (!rect) return
+    setCanvasSize({ width: rect.width, height: rect.height })
+    setCanvasCursor({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+  }
+
+  function handlePreviewPointerLeave() {
+    setCanvasCursor(null)
+  }
+
   function handleMoveStop(id: string, position: number) {
     const nextStops = moveStop(editableStops, id, position)
     setEditableStops(nextStops)
@@ -624,6 +641,8 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         }}
         onPointerDown={handlePreviewPointerDown}
         onPointerUp={handlePreviewPointerUp}
+        onPointerMove={handlePreviewPointerMove}
+        onPointerLeave={handlePreviewPointerLeave}
       >
         {!fromGallery && <ScrollTicker index={tickerIndex} />}
         {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} />}
@@ -656,6 +675,16 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           hidden={scrolling}
           color={cornerColor}
         />
+        <CanvasHandles
+          stops={editableStops}
+          type={gradient.type}
+          spoke={spoke}
+          corner={corner}
+          fanAnchor={gradient.fanAnchor}
+          cursor={canvasCursor}
+          size={canvasSize}
+          onReorder={(next) => commit(next)}
+        />
       </div>
       <div
         data-testid="edit-sheet"
@@ -684,6 +713,33 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           onToggleHardStops={handleToggleHardStops}
           onRotateFan={handleRotateFan}
         />
+        {(gradient.type === 'radial' || gradient.type === 'square') && (
+          <div data-testid="direction-toggle" className={styles.directionToggle}>
+            {gradient.type === 'radial'
+              ? (['up', 'down', 'left', 'right'] as const).map((dir) => (
+                  <button
+                    key={dir}
+                    type="button"
+                    aria-pressed={spoke === dir}
+                    className={spoke === dir ? styles.directionBtnActive : styles.directionBtn}
+                    onClick={() => setSpoke(dir)}
+                  >
+                    {dir === 'up' ? '↑' : dir === 'down' ? '↓' : dir === 'left' ? '←' : '→'}
+                  </button>
+                ))
+              : (['tl', 'tr', 'bl', 'br'] as const).map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    aria-pressed={corner === c}
+                    className={corner === c ? styles.directionBtnActive : styles.directionBtn}
+                    onClick={() => setCorner(c)}
+                  >
+                    {c === 'tl' ? '↖' : c === 'tr' ? '↗' : c === 'bl' ? '↙' : '↘'}
+                  </button>
+                ))}
+          </div>
+        )}
         <div className={styles.blockArea}>
           <FlowEditor
             stops={editableStops}
