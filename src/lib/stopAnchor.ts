@@ -65,9 +65,11 @@ export function stopAnchor(
       return { x: 0.5 + v.dx * 2 * r, y: 0.5 + v.dy * 2 * r }
     }
     case 'angular': {
+      // Evenly spread by index to match buildAngularGradient (i/n around the
+      // full circle). The pixel placement (a circle vs the canvas's aspect) is
+      // handled by the caller; here we only fix the angle.
       const count = positions.length
-      const scale = count > 1 ? count / (count + 1) : 1
-      const theta = p * scale * 2 * Math.PI
+      const theta = (index / count) * 2 * Math.PI
       return {
         x: 0.5 + ANGULAR_RADIUS * Math.sin(theta),
         y: 0.5 - ANGULAR_RADIUS * Math.cos(theta),

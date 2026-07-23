@@ -48,20 +48,18 @@ describe('stopAnchor', () => {
     expect(right.x).toBeCloseTo(0.75); expect(right.y).toBeCloseTo(0.5)
   })
 
-  it('angular: sits at mid-radius, sweeping clockwise from the top', () => {
-    const top = stopAnchor('angular', [0], 0)
-    expect(top.x).toBeCloseTo(0.5, 5)
-    expect(top.y).toBeCloseTo(0.5 - 0.32, 5)
-    const quarter = stopAnchor('angular', [25], 0)
-    expect(quarter.x).toBeCloseTo(0.5 + 0.32, 5)
-    expect(quarter.y).toBeCloseTo(0.5, 5)
-  })
-
-  it('angular: scales positions by count/(count+1) when count > 1 so first and last stops do not overlap at 0/360deg', () => {
-    const lastOfFive = stopAnchor('angular', [0, 25, 50, 75, 100], 4)
-    // p=1, scale=5/6 => theta = 300deg. sin(300deg) = -sqrt(3)/2, cos(300deg) = 0.5
-    expect(lastOfFive.x).toBeCloseTo(0.5 + 0.32 * Math.sin((5 / 6) * 2 * Math.PI), 4)
-    expect(lastOfFive.y).toBeCloseTo(0.5 - 0.32 * Math.cos((5 / 6) * 2 * Math.PI), 4)
+  it('angular: spreads stops evenly by index around the circle, clockwise from the top', () => {
+    // 4 stops -> 0deg (top), 90deg (right), 180deg (bottom), 270deg (left);
+    // index, not position, drives the angle so N colors read as N equal wedges.
+    const positions = [0, 25, 50, 75]
+    const top = stopAnchor('angular', positions, 0)
+    expect(top.x).toBeCloseTo(0.5, 5); expect(top.y).toBeCloseTo(0.5 - 0.32, 5)
+    const right = stopAnchor('angular', positions, 1)
+    expect(right.x).toBeCloseTo(0.5 + 0.32, 5); expect(right.y).toBeCloseTo(0.5, 5)
+    const bottom = stopAnchor('angular', positions, 2)
+    expect(bottom.x).toBeCloseTo(0.5, 5); expect(bottom.y).toBeCloseTo(0.5 + 0.32, 5)
+    const left = stopAnchor('angular', positions, 3)
+    expect(left.x).toBeCloseTo(0.5 - 0.32, 5); expect(left.y).toBeCloseTo(0.5, 5)
   })
 
   it('fan: sits at mid-radius from the anchor pivot, sweeping the 180deg cone', () => {

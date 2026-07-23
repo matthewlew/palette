@@ -20,9 +20,10 @@ describe('buildGradientCss', () => {
 
   it('builds a conic-gradient string for angular type that blends the seam back to the first color', () => {
     const css = buildGradientCss('angular', stops)
-    // 3 stops (0%,50%,100%) compressed by 3/4 -> (0%,38%,75%), then the first
-    // color repeated at 100% closes the seam instead of a hard 360deg->0deg cut.
-    expect(css).toBe('conic-gradient(#ff0000 0%, #00ff00 38%, #0000ff 75%, #ff0000 100%)')
+    // 3 stops spread evenly by index (i/n) -> 0%,33%,67%, then the first color
+    // repeated at 100% wraps the seam smoothly — every wedge is 360/3 wide,
+    // instead of a hard 360deg->0deg cut.
+    expect(css).toBe('conic-gradient(#ff0000 0%, #00ff00 33%, #0000ff 67%, #ff0000 100%)')
   })
 
   it('builds a bottom-centered 180° fan (conic from 270deg) for fan type', () => {

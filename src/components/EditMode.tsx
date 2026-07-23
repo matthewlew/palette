@@ -550,7 +550,14 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     if (target.mode === 'recolor') {
       recolorStop(target.id, hex)
     } else {
-      commit(addStop(editableStops, hex))
+      // The native color input fires change events continuously while the user
+      // drags inside the picker. Append exactly one stop on the first event,
+      // then live-recolor that same stop for the rest of the interaction, so a
+      // single pick can't spam a pile of near-identical stops.
+      const next = addStop(editableStops, hex)
+      const added = next[next.length - 1]
+      commit(next)
+      colorTargetRef.current = { mode: 'recolor', id: added.id }
     }
   }
 

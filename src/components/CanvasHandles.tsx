@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { GradientType } from '../lib/gradient'
+import { FAN_ANCHOR_CONFIG } from '../lib/gradient'
 import type { EditableStop } from '../lib/stopOrdering'
 import { stopAnchor, type StopAnchorOpts } from '../lib/stopAnchor'
 import { anchorWithinThreshold, type PixelPoint } from '../lib/canvasReorder'
@@ -8,6 +9,11 @@ import { isLightColor } from '../lib/oklch'
 import styles from './CanvasHandles.module.css'
 
 const EMPHASIS_THRESHOLD_PX = 24
+// Angular/fan radii, as a fraction of the canvas's shorter side (so their
+// handle rings stay circular on non-square canvases instead of stretching into
+// ellipses). Must match stopAnchor's ANGULAR_RADIUS / FAN_RADIUS.
+const ANGULAR_RADIUS = 0.32
+const FAN_RADIUS = 0.35
 // Hold briefly before a drag engages, so a quick swipe reads as scrolling,
 // not an accidental reorder (same feel as useDragReorder's start delay).
 const DRAG_ARM_DELAY_MS = 150
@@ -86,6 +92,30 @@ export function CanvasHandles({
     ? ['up', 'down', 'left', 'right']
     : [spoke ?? 'up']
 
+  // Angular and fan are circular geometries. Their normalized anchors trace a
+  // circle around a reference point (canvas center for angular; the pivot edge
+  // for fan); scaling x by width and y by height independently would squash
+  // that circle into an ellipse on a non-square canvas, so the handles would
+  // drift off the color they mark. Scale the offset from the reference by the
+  // shorter side uniformly to keep it circular.
+  const minSide = Math.min(size.width, size.height)
+  const fanCfg = FAN_ANCHOR_CONFIG[fanAnchor ?? 'bottom']
+  function toPixel(a: { x: number; y: number }): PixelPoint {
+    if (type === 'angular') {
+      return {
+        x: size.width / 2 + (a.x - 0.5) * minSide,
+        y: size.height / 2 + (a.y - 0.5) * minSide,
+      }
+    }
+    if (type === 'fan') {
+      return {
+        x: fanCfg.px * size.width + (a.x - fanCfg.px) * minSide,
+        y: fanCfg.py * size.height + (a.y - fanCfg.py) * minSide,
+      }
+    }
+    return { x: a.x * size.width, y: a.y * size.height }
+  }
+
   interface HandleItem {
     key: string
     stopId: string
@@ -103,7 +133,7 @@ export function CanvasHandles({
         stopId: stop.id,
         stopIndex: i,
         spoke: sp,
-        anchor: { x: a.x * size.width, y: a.y * size.height },
+        anchor: toPixel(a),
       })
     })
   })
@@ -215,30 +245,24 @@ export function CanvasHandles({
       return { x: cx, y: pt.y }
     }
     if (type === 'angular') {
-      const ANGULAR_RADIUS = 0.32
+      // Snap to the same true circle (radius scaled by the shorter side) the
+      // handles sit on, so a drag rides the ring rather than an ellipse.
       const dx = pt.x - cx
       const dy = pt.y - cy
       const dist = Math.hypot(dx, dy)
       if (dist < 0.001) return item.anchor
-      return {
-        x: cx + ANGULAR_RADIUS * size.width * (dx / dist),
-        y: cy + ANGULAR_RADIUS * size.height * (dy / dist),
-      }
+      const r = ANGULAR_RADIUS * minSide
+      return { x: cx + r * (dx / dist), y: cy + r * (dy / dist) }
     }
     if (type === 'fan') {
-      const FAN_RADIUS = 0.36
-      let pivotX = cx, pivotY = size.height
-      if (fanAnchor === 'top') { pivotX = cx; pivotY = 0 }
-      else if (fanAnchor === 'left') { pivotX = 0; pivotY = cy }
-      else if (fanAnchor === 'right') { pivotX = size.width; pivotY = cy }
+      const pivotX = fanCfg.px * size.width
+      const pivotY = fanCfg.py * size.height
       const dx = pt.x - pivotX
       const dy = pt.y - pivotY
       const dist = Math.hypot(dx, dy)
       if (dist < 0.001) return item.anchor
-      return {
-        x: pivotX + FAN_RADIUS * size.width * (dx / dist),
-        y: pivotY + FAN_RADIUS * size.height * (dy / dist),
-      }
+      const r = FAN_RADIUS * minSide
+      return { x: pivotX + r * (dx / dist), y: pivotY + r * (dy / dist) }
     }
     return pt
   }
@@ -257,10 +281,10 @@ export function CanvasHandles({
             <div
               className={styles.trackGuideCircle}
               style={{
-                left: `${size.width * (0.5 - 0.32)}px`,
-                top: `${size.height * 0.5 - size.width * 0.32}px`,
-                width: `${size.width * 0.64}px`,
-                height: `${size.width * 0.64}px`,
+                left: `${size.width * 0.5 - ANGULAR_RADIUS * minSide}px`,
+                top: `${size.height * 0.5 - ANGULAR_RADIUS * minSide}px`,
+                width: `${2 * ANGULAR_RADIUS * minSide}px`,
+                height: `${2 * ANGULAR_RADIUS * minSide}px`,
               }}
             />
           )}
