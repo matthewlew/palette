@@ -521,11 +521,14 @@ describe('EditMode canvas handles', () => {
     expect(screen.getByTestId('canvas-handles')).toBeInTheDocument()
   })
 
-  it('shows the direction toggle for radial, not for linear', () => {
+  it('renders 4 handle dots per stop for radial, and no direction toggle arrow buttons are needed', () => {
     const { rerender } = render(<EditMode gradient={gradient} onExit={vi.fn()} />)
     expect(screen.queryByTestId('direction-toggle')).not.toBeInTheDocument()
     rerender(<EditMode gradient={{ ...gradient, type: 'radial' }} onExit={vi.fn()} />)
-    expect(screen.getByTestId('direction-toggle')).toBeInTheDocument()
+    expect(screen.queryByTestId('direction-toggle')).not.toBeInTheDocument()
+    // For 2 stops in radial, there should be 2 * 4 = 8 handle buttons rendered
+    const handles = screen.getAllByTestId(/^canvas-handle-(?!visible|near)/)
+    expect(handles.length).toBe(gradient.stops.length * 4)
   })
 
   it('reordering via a canvas handle updates the live gradient stop order', () => {
@@ -555,7 +558,7 @@ describe('EditMode canvas handles', () => {
     }
   })
 
-  it('hides the bottom FABs while a handle drag is active, restores them after', () => {
+  it('hides all non-handle UI (FABs, sheet, back button) while a handle drag is active, restores them after', () => {
     vi.useFakeTimers()
     try {
       render(<EditMode gradient={gradient} onExit={vi.fn()} />)
@@ -564,16 +567,26 @@ describe('EditMode canvas handles', () => {
         x: 0, y: 0, left: 0, top: 0, width: 200, height: 200, right: 200, bottom: 200, toJSON() {},
       } as DOMRect)
       const sortFab = screen.getByTestId('sort-fab')
+      const sheet = screen.getByTestId('edit-sheet')
+      const backButton = screen.getByTestId('edit-mode-back')
       expect(sortFab.className).not.toMatch(/hidden/)
+      expect(sheet.className).not.toMatch(/hidden/)
+      expect(backButton.className).not.toMatch(/hidden/)
+
       const firstHandle = screen.getAllByTestId(/^canvas-handle-(?!visible|near)/)[0]
       fireEvent.pointerDown(firstHandle, { pointerId: 1, clientX: 100, clientY: 0 })
       act(() => {
         vi.advanceTimersByTime(200)
       })
-      // Drag armed: the FABs duck out of the way.
+      // Drag armed: all surrounding UI ducks out of the way.
       expect(sortFab.className).toMatch(/hidden/)
+      expect(sheet.className).toMatch(/hidden/)
+      expect(backButton.className).toMatch(/hidden/)
+
       fireEvent.pointerUp(firstHandle, { pointerId: 1, clientX: 100, clientY: 0 })
       expect(sortFab.className).not.toMatch(/hidden/)
+      expect(sheet.className).not.toMatch(/hidden/)
+      expect(backButton.className).not.toMatch(/hidden/)
     } finally {
       vi.useRealTimers()
     }

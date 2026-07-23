@@ -43,6 +43,56 @@
   }
 }
 
+.tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: color-mix(in srgb, currentColor 68%, transparent);
+  font-family: var(--heading, sans-serif);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tab:hover {
+  color: currentColor;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.tabOn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 18px;
+  border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 18%, rgba(20, 20, 24, 0.45));
+  color: currentColor;
+  font-family: var(--heading, sans-serif);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tabContent {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /* The single context control: ＋ Create in the Gallery, ← Gallery while
    creating. One pill, so the two states morph in place. */
 .action {

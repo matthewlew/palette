@@ -25,16 +25,17 @@ describe('stopAnchor', () => {
     expect(stopAnchor('radial', [100], 0, { spoke: 'right' })).toEqual({ x: 1, y: 0.5 })
   })
 
-  it('square: defaults to the top-left corner along the diagonal', () => {
-    expect(stopAnchor('square', [0, 100], 0)).toEqual({ x: 0.5, y: 0.5 })
-    expect(stopAnchor('square', [0, 100], 1)).toEqual({ x: 0, y: 0 })
+  it('square: last stop (innermost layer) anchors at the center, first walks to the edge', () => {
+    // TurrellSquare nests by position — higher position renders innermost.
+    expect(stopAnchor('square', [0, 100], 1)).toEqual({ x: 0.5, y: 0.5 })
+    expect(stopAnchor('square', [0, 100], 0)).toEqual({ x: 0.5, y: 0 })
   })
 
-  it('square: honors all four corners at p=1', () => {
-    expect(stopAnchor('square', [100], 0, { corner: 'tl' })).toEqual({ x: 0, y: 0 })
-    expect(stopAnchor('square', [100], 0, { corner: 'tr' })).toEqual({ x: 1, y: 0 })
-    expect(stopAnchor('square', [100], 0, { corner: 'bl' })).toEqual({ x: 0, y: 1 })
-    expect(stopAnchor('square', [100], 0, { corner: 'br' })).toEqual({ x: 1, y: 1 })
+  it('square: honors all four spokes for the outermost stop (p=0)', () => {
+    expect(stopAnchor('square', [0], 0, { spoke: 'up' })).toEqual({ x: 0.5, y: 0 })
+    expect(stopAnchor('square', [0], 0, { spoke: 'down' })).toEqual({ x: 0.5, y: 1 })
+    expect(stopAnchor('square', [0], 0, { spoke: 'left' })).toEqual({ x: 0, y: 0.5 })
+    expect(stopAnchor('square', [0], 0, { spoke: 'right' })).toEqual({ x: 1, y: 0.5 })
   })
 
   it('angular: sits at mid-radius, sweeping clockwise from the top', () => {
@@ -44,6 +45,13 @@ describe('stopAnchor', () => {
     const quarter = stopAnchor('angular', [25], 0)
     expect(quarter.x).toBeCloseTo(0.5 + 0.32, 5)
     expect(quarter.y).toBeCloseTo(0.5, 5)
+  })
+
+  it('angular: scales positions by count/(count+1) when count > 1 so first and last stops do not overlap at 0/360deg', () => {
+    const lastOfFive = stopAnchor('angular', [0, 25, 50, 75, 100], 4)
+    // p=1, scale=5/6 => theta = 300deg. sin(300deg) = -sqrt(3)/2, cos(300deg) = 0.5
+    expect(lastOfFive.x).toBeCloseTo(0.5 + 0.32 * Math.sin((5 / 6) * 2 * Math.PI), 4)
+    expect(lastOfFive.y).toBeCloseTo(0.5 - 0.32 * Math.cos((5 / 6) * 2 * Math.PI), 4)
   })
 
   it('fan: sits at mid-radius from the anchor pivot, sweeping the 180deg cone', () => {

@@ -13,6 +13,7 @@
   left: 16px;
   z-index: 1;
   width: 44px;
+  transition: opacity 200ms ease;
 }
 
 /* Optically center the chevron: nudge left so its visual mass sits centered. */
@@ -46,6 +47,13 @@
   border-radius: 16px 16px 0 0;
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.12);
   view-transition-name: edit-sheet;
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.sheet.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(16px);
 }
 
 .sheetHandle {
@@ -99,6 +107,7 @@
   bottom: 16px;
   left: 16px;
   z-index: 3;
+  transition: opacity 200ms ease;
 }
 
 @media (min-width: 768px) {

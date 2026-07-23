@@ -30,7 +30,7 @@ import { decayVelocity, shouldStartMomentum } from '../lib/momentum'
 import { tickHaptic, primeHaptics } from '../lib/haptics'
 import type { Gradient } from '../store/types'
 import { CanvasHandles } from './CanvasHandles'
-import type { SpokeDir, SquareCorner } from '../lib/stopAnchor'
+import { useAnimatedStops } from '../hooks/useAnimatedStops'
 import styles from './EditMode.module.css'
 
 // 'original' restores the order the stops had before any sorting (the saved
@@ -75,8 +75,9 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   const onExitRef = useRef(onExit)
   onExitRef.current = onExit
   const [activeStopId, setActiveStopId] = useState<string | null>(null)
-  const [spoke, setSpoke] = useState<SpokeDir>('up')
-  const [corner, setCorner] = useState<SquareCorner>('tl')
+  // Crossfades the preview's colors when a canvas-handle swap reorders them,
+  // so the color blocks visibly trade places instead of hard-jumping.
+  const animatedStops = useAnimatedStops(toGradientStops(editableStops))
   const [canvasCursor, setCanvasCursor] = useState<{ x: number; y: number } | null>(null)
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 })
   // Hidden native color input, driven programmatically: tapping a stop (or the
@@ -90,6 +91,9 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   // Also duck it while a canvas handle is being dragged, so a drag near the
   // bottom edge never collides with the Save/grain/Order FABs.
   const [handleDragging, setHandleDragging] = useState(false)
+  const isDraggingRef = useRef(false)
+  const lastHandleDragEndRef = useRef(0)
+  const pendingGradientRef = useRef<Gradient | null>(null)
   const chromeHidden = scrolling || handleDragging
 
   // Per-corner palette-derived foregrounds (same strategy as the title) so
@@ -455,11 +459,17 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
       unsortedOrderRef.current = nextStops.map((s) => s.id)
       setActiveOrder('original')
     }
-    setCurrentGradient({
+    const nextGrad: Gradient = {
       ...gradient,
       ...overrides,
       stops: equalized,
-    })
+    }
+    if (isDraggingRef.current) {
+      pendingGradientRef.current = nextGrad
+    } else {
+      pendingGradientRef.current = null
+      setCurrentGradient(nextGrad)
+    }
   }
 
   // Switching geometry type or toggling reversed must not disturb the stop
@@ -572,6 +582,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   const PREVIEW_TAP_THRESHOLD_PX = 10
 
   function handlePreviewPointerDown(e: React.PointerEvent) {
+    if ((e.target as HTMLElement).closest('button, [data-testid="palette-title"], [data-testid="canvas-handles"], [data-testid="turrell-square"]')) return
     previewPointerStartRef.current = { x: e.clientX, y: e.clientY }
     editHint.dismiss()
   }
@@ -579,11 +590,12 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   function handlePreviewPointerUp(e: React.PointerEvent) {
     const start = previewPointerStartRef.current
     previewPointerStartRef.current = null
-    if ((e.target as HTMLElement).closest('button, [data-testid="palette-title"]')) return
+    if (isDraggingRef.current || Date.now() - lastHandleDragEndRef.current < 350) return
+    if ((e.target as HTMLElement).closest('button, [data-testid="palette-title"], [data-testid="canvas-handles"], [data-testid="turrell-square"]')) return
     if (start) {
       const dx = e.clientX - start.x
       const dy = e.clientY - start.y
-      if (Math.sqrt(dx * dx + dy * dy) > PREVIEW_TAP_THRESHOLD_PX) return
+      if (Math.hypot(dx, dy) > PREVIEW_TAP_THRESHOLD_PX) return
     }
     onExit()
   }
@@ -614,7 +626,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         type="button"
         data-testid="edit-mode-back"
         aria-label="Back"
-        className={[styles.backButton, 'ghost-chip', scrolling && styles.hidden].filter(Boolean).join(' ')}
+        className={[styles.backButton, 'ghost-chip', chromeHidden && styles.hidden].filter(Boolean).join(' ')}
         style={{ color: backColor }}
         onClick={onExit}
       >
@@ -626,7 +638,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         saved={saved}
         current={gradient}
         onImport={onImport}
-        chromeVisible={!scrolling}
+        chromeVisible={!chromeHidden}
         color={shareColor}
       />
       <div
@@ -637,7 +649,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           backgroundImage:
             gradient.type === 'square'
               ? undefined
-              : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
+              : buildGradientCss(gradient.type, animatedStops, gradient.reversed, {
                   repeat: gradient.repeatEnabled,
                   hard: gradient.hardStops,
                   fanAnchor: gradient.fanAnchor,
@@ -648,8 +660,8 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         onPointerMove={handlePreviewPointerMove}
         onPointerLeave={handlePreviewPointerLeave}
       >
-        {!fromGallery && <ScrollTicker index={tickerIndex} />}
-        {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} />}
+        {!fromGallery && <ScrollTicker index={tickerIndex} hidden={chromeHidden} />}
+        {gradient.type === 'square' && <TurrellSquare stops={animatedStops} reversed={gradient.reversed} />}
         <NoiseOverlay visible={noiseEnabled} />
         <PaletteTitle
           name={gradient.name ?? namePalette(gradient.stops.map((s) => s.hex))}
@@ -682,19 +694,32 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         <CanvasHandles
           stops={editableStops}
           type={gradient.type}
-          spoke={spoke}
-          corner={corner}
+          spoke="up"
           fanAnchor={gradient.fanAnchor}
           cursor={canvasCursor}
           size={canvasSize}
           onReorder={(next) => commit(next)}
-          onDraggingChange={setHandleDragging}
+          onDraggingChange={(dragging) => {
+            const wasDragging = isDraggingRef.current
+            isDraggingRef.current = dragging
+            // Only stamp the cooldown on a genuine drag→release transition.
+            // CanvasHandles also reports `false` on mount; stamping then would
+            // suppress tap-to-exit for 350ms right after entering edit mode.
+            if (!dragging && wasDragging) {
+              lastHandleDragEndRef.current = Date.now()
+            }
+            setHandleDragging(dragging)
+            if (!dragging && pendingGradientRef.current) {
+              setCurrentGradient(pendingGradientRef.current)
+              pendingGradientRef.current = null
+            }
+          }}
         />
       </div>
       <div
         data-testid="edit-sheet"
         ref={sheetRef}
-        className={styles.sheet}
+        className={[styles.sheet, chromeHidden && styles.hidden].filter(Boolean).join(' ')}
         onPointerDown={(e) => {
           if (e.target === e.currentTarget) {
             setActiveStopId(null)
@@ -718,33 +743,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           onToggleHardStops={handleToggleHardStops}
           onRotateFan={handleRotateFan}
         />
-        {(gradient.type === 'radial' || gradient.type === 'square') && (
-          <div data-testid="direction-toggle" className={styles.directionToggle}>
-            {gradient.type === 'radial'
-              ? (['up', 'down', 'left', 'right'] as const).map((dir) => (
-                  <button
-                    key={dir}
-                    type="button"
-                    aria-pressed={spoke === dir}
-                    className={spoke === dir ? styles.directionBtnActive : styles.directionBtn}
-                    onClick={() => setSpoke(dir)}
-                  >
-                    {dir === 'up' ? '↑' : dir === 'down' ? '↓' : dir === 'left' ? '←' : '→'}
-                  </button>
-                ))
-              : (['tl', 'tr', 'bl', 'br'] as const).map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    aria-pressed={corner === c}
-                    className={corner === c ? styles.directionBtnActive : styles.directionBtn}
-                    onClick={() => setCorner(c)}
-                  >
-                    {c === 'tl' ? '↖' : c === 'tr' ? '↗' : c === 'bl' ? '↙' : '↘'}
-                  </button>
-                ))}
-          </div>
-        )}
+
         <div className={styles.blockArea}>
           <FlowEditor
             stops={editableStops}
@@ -779,7 +778,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           onChange={(e) => handleColorPicked(e.target.value)}
         />
       </div>
-      {editHint.visible && <Hint text="Tap a color to recolor" visible={editHint.visible} />}
+      {!chromeHidden && editHint.visible && <Hint text="Tap a color to recolor" visible={editHint.visible && !chromeHidden} />}
     </div>
   )
 }

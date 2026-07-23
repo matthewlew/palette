@@ -2,11 +2,11 @@ import type { FanAnchor, GradientType } from './gradient'
 import { FAN_ANCHOR_CONFIG } from './gradient'
 
 export type SpokeDir = 'up' | 'down' | 'left' | 'right'
-export type SquareCorner = 'tl' | 'tr' | 'bl' | 'br'
 
 export interface StopAnchorOpts {
+  /** Which vertical/horizontal spoke the radial and square handles run along.
+   * Cosmetic: those gradients are symmetric, so this only moves the dots. */
   spoke?: SpokeDir
-  corner?: SquareCorner
   fanAnchor?: FanAnchor
 }
 
@@ -20,13 +20,6 @@ const SPOKE_VECTOR: Record<SpokeDir, { dx: number; dy: number }> = {
   down: { dx: 0, dy: 0.5 },
   left: { dx: -0.5, dy: 0 },
   right: { dx: 0.5, dy: 0 },
-}
-
-const CORNER_VECTOR: Record<SquareCorner, { dx: number; dy: number }> = {
-  tl: { dx: -0.5, dy: -0.5 },
-  tr: { dx: 0.5, dy: -0.5 },
-  bl: { dx: -0.5, dy: 0.5 },
-  br: { dx: 0.5, dy: 0.5 },
 }
 
 const ANGULAR_RADIUS = 0.32
@@ -57,11 +50,17 @@ export function stopAnchor(
       return { x: 0.5 + v.dx * p, y: 0.5 + v.dy * p }
     }
     case 'square': {
-      const v = CORNER_VECTOR[opts.corner ?? 'tl']
-      return { x: 0.5 + v.dx * p, y: 0.5 + v.dy * p }
+      // TurrellSquare nests by position: the LAST stop renders innermost, so
+      // its handle sits at the center and earlier stops walk out toward the
+      // chosen edge (inverted p), matching where each color is visible.
+      const v = SPOKE_VECTOR[opts.spoke ?? 'up']
+      const d = 1 - p
+      return { x: 0.5 + v.dx * d, y: 0.5 + v.dy * d }
     }
     case 'angular': {
-      const theta = p * 2 * Math.PI
+      const count = positions.length
+      const scale = count > 1 ? count / (count + 1) : 1
+      const theta = p * scale * 2 * Math.PI
       return {
         x: 0.5 + ANGULAR_RADIUS * Math.sin(theta),
         y: 0.5 - ANGULAR_RADIUS * Math.cos(theta),
