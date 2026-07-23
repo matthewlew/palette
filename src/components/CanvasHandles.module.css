@@ -55,14 +55,15 @@
   transform: scale(1.4);
 }
 
+/* The dot is filled with its own stop color (set inline); the ring is the only
+   thing that separates it from the matching gradient underneath, so it contrasts
+   against the fill: a dark ring on light colors, a light ring on dark ones. */
 .dotOnLight .dotInner {
-  background: #111;
-  border: 2px solid rgba(255, 255, 255, 0.8);
+  border: 2px solid rgba(0, 0, 0, 0.6);
 }
 
 .dotOnDark .dotInner {
-  background: #fff;
-  border: 2px solid rgba(0, 0, 0, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.9);
 }
 
 .trackGuideVertical {

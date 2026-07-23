@@ -548,7 +548,7 @@ describe('EditMode canvas handles', () => {
       act(() => {
         vi.advanceTimersByTime(200)
       })
-      fireEvent.pointerMove(firstHandle, { pointerId: 1, clientX: 100, clientY: 200 })
+      fireEvent.pointerMove(firstHandle, { pointerId: 1, buttons: 1, clientX: 100, clientY: 200 })
       fireEvent.pointerUp(firstHandle, { pointerId: 1, clientX: 100, clientY: 200 })
       // The originally-first stop's hex should no longer be at position 0.
       const stops = useAppStore.getState().current!.stops

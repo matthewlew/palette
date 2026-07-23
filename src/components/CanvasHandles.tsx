@@ -58,6 +58,28 @@ export function CanvasHandles({
     }
   }, [])
 
+  // Safety net: end any drag on a pointerup/cancel anywhere, or when the window
+  // loses focus or is hidden. Pointer capture can be lost (release outside the
+  // window, tab switch) without the element ever seeing pointerup, which would
+  // otherwise leave the handle stuck in its dragging state.
+  useEffect(() => {
+    const end = () => endDrag()
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') endDrag()
+    }
+    window.addEventListener('pointerup', end)
+    window.addEventListener('pointercancel', end)
+    window.addEventListener('blur', end)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.removeEventListener('pointerup', end)
+      window.removeEventListener('pointercancel', end)
+      window.removeEventListener('blur', end)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const positions = stops.map((s) => s.position)
   const isFourSpoke = type === 'radial' || type === 'square'
   const activeSpokes: readonly StopAnchorOpts['spoke'][] = isFourSpoke
@@ -113,6 +135,12 @@ export function CanvasHandles({
   }
 
   function handlePointerMove(e: React.PointerEvent) {
+    // If the primary button is no longer held (e.g. released outside the window,
+    // so we never saw the pointerup), don't stay stuck in a drag — bail out.
+    if (e.buttons === 0 && (draggingId || pendingRef.current)) {
+      endDrag()
+      return
+    }
     const p = toCanvasPoint(e)
     if (pendingRef.current) {
       const moved = Math.hypot(p.x - pendingRef.current.startX, p.y - pendingRef.current.startY)
@@ -153,8 +181,7 @@ export function CanvasHandles({
     }
   }
 
-  function handlePointerUp(e: React.PointerEvent) {
-    e.stopPropagation()
+  function endDrag() {
     if (pendingRef.current) {
       clearTimeout(pendingRef.current.timer)
       pendingRef.current = null
@@ -162,6 +189,11 @@ export function CanvasHandles({
     setDraggingId(null)
     setDraggingSpoke(null)
     setDragPoint(null)
+  }
+
+  function handlePointerUp(e: React.PointerEvent) {
+    e.stopPropagation()
+    endDrag()
   }
 
   function projectToTrack(
@@ -271,6 +303,7 @@ export function CanvasHandles({
               data-testid={revealed ? (near ? 'canvas-handle-near' : 'canvas-handle-visible') : undefined}
               data-stop-id={stop.id}
               className={styles.dotInner}
+              style={{ backgroundColor: stop.hex }}
             />
           </button>
         )

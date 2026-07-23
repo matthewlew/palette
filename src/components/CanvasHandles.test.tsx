@@ -58,7 +58,7 @@ describe('CanvasHandles drag-to-reorder', () => {
     render(<CanvasHandles stops={stops} type="linear" cursor={{ x: 100, y: 0 }} size={size} onReorder={onReorder} />)
     const dot = screen.getByTestId('canvas-handle-a')
     armDrag(dot, 100, 0)
-    fireEvent.pointerMove(dot, { pointerId: 1, clientX: 100, clientY: 200 })
+    fireEvent.pointerMove(dot, { pointerId: 1, buttons: 1, clientX: 100, clientY: 200 })
     expect(onReorder).toHaveBeenCalledWith([
       { id: 'b', hex: '#00ff00', position: 50 },
       { id: 'c', hex: '#0000ff', position: 100 },
@@ -74,7 +74,7 @@ describe('CanvasHandles drag-to-reorder', () => {
     render(<CanvasHandles stops={stops} type="linear" cursor={{ x: 100, y: 0 }} size={size} onReorder={onReorder} />)
     const dot = screen.getByTestId('canvas-handle-a')
     armDrag(dot, 100, 0)
-    fireEvent.pointerMove(dot, { pointerId: 1, clientX: 100, clientY: 2 })
+    fireEvent.pointerMove(dot, { pointerId: 1, buttons: 1, clientX: 100, clientY: 2 })
     expect(onReorder).not.toHaveBeenCalled()
   })
 })
@@ -86,12 +86,12 @@ describe('CanvasHandles scroll-vs-drag intent', () => {
     const dot = screen.getByTestId('canvas-handle-a')
     fireEvent.pointerDown(dot, { pointerId: 1, clientX: 100, clientY: 0 })
     // Swipe away immediately — well past the 8px cancel slop, before 150ms.
-    fireEvent.pointerMove(dot, { pointerId: 1, clientX: 100, clientY: 60 })
+    fireEvent.pointerMove(dot, { pointerId: 1, buttons: 1, clientX: 100, clientY: 60 })
     act(() => {
       vi.advanceTimersByTime(200)
     })
     // The hold timer was cancelled by the swipe: further movement is inert.
-    fireEvent.pointerMove(dot, { pointerId: 1, clientX: 100, clientY: 200 })
+    fireEvent.pointerMove(dot, { pointerId: 1, buttons: 1, clientX: 100, clientY: 200 })
     expect(onReorder).not.toHaveBeenCalled()
   })
 
@@ -100,12 +100,56 @@ describe('CanvasHandles scroll-vs-drag intent', () => {
     render(<CanvasHandles stops={stops} type="linear" cursor={{ x: 100, y: 0 }} size={size} onReorder={onReorder} />)
     const dot = screen.getByTestId('canvas-handle-a')
     fireEvent.pointerDown(dot, { pointerId: 1, clientX: 100, clientY: 0 })
-    fireEvent.pointerMove(dot, { pointerId: 1, clientX: 100, clientY: 4 })
+    fireEvent.pointerMove(dot, { pointerId: 1, buttons: 1, clientX: 100, clientY: 4 })
     act(() => {
       vi.advanceTimersByTime(200)
     })
-    fireEvent.pointerMove(dot, { pointerId: 1, clientX: 100, clientY: 200 })
+    fireEvent.pointerMove(dot, { pointerId: 1, buttons: 1, clientX: 100, clientY: 200 })
     expect(onReorder).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('CanvasHandles stuck-drag recovery', () => {
+  it('ends the drag when the next move arrives with no button held (released off-window)', () => {
+    const onDraggingChange = vi.fn()
+    render(
+      <CanvasHandles
+        stops={stops}
+        type="linear"
+        cursor={{ x: 100, y: 0 }}
+        size={size}
+        onReorder={vi.fn()}
+        onDraggingChange={onDraggingChange}
+      />,
+    )
+    const dot = screen.getByTestId('canvas-handle-a')
+    armDrag(dot, 100, 0)
+    expect(onDraggingChange).toHaveBeenLastCalledWith(true)
+    // Pointer re-enters the window with the button no longer pressed — we never
+    // saw the pointerup, so the drag must not stay stuck.
+    fireEvent.pointerMove(dot, { pointerId: 1, buttons: 0, clientX: 100, clientY: 40 })
+    expect(onDraggingChange).toHaveBeenLastCalledWith(false)
+  })
+
+  it('ends the drag on a window-level pointerup when capture was lost off-element', () => {
+    const onDraggingChange = vi.fn()
+    render(
+      <CanvasHandles
+        stops={stops}
+        type="linear"
+        cursor={{ x: 100, y: 0 }}
+        size={size}
+        onReorder={vi.fn()}
+        onDraggingChange={onDraggingChange}
+      />,
+    )
+    const dot = screen.getByTestId('canvas-handle-a')
+    armDrag(dot, 100, 0)
+    expect(onDraggingChange).toHaveBeenLastCalledWith(true)
+    act(() => {
+      fireEvent.pointerUp(window)
+    })
+    expect(onDraggingChange).toHaveBeenLastCalledWith(false)
   })
 })
 
