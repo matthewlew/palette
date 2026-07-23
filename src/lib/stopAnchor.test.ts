@@ -25,17 +25,27 @@ describe('stopAnchor', () => {
     expect(stopAnchor('radial', [100], 0, { spoke: 'right' })).toEqual({ x: 1, y: 0.5 })
   })
 
-  it('square: last stop (innermost layer) anchors at the center, first walks to the edge', () => {
+  it('square: each stop anchors at the middle of its color ring along the spoke', () => {
     // TurrellSquare nests by position — higher position renders innermost.
-    expect(stopAnchor('square', [0, 100], 1)).toEqual({ x: 0.5, y: 0.5 })
-    expect(stopAnchor('square', [0, 100], 0)).toEqual({ x: 0.5, y: 0 })
+    // Edges at half(p)=0.5-0.4p: outer ring [0.5,0.1] -> mid 0.3 -> y 0.2;
+    // inner ring [0.1,0] -> mid 0.05 -> y 0.45.
+    const outer = stopAnchor('square', [0, 100], 0)
+    expect(outer.x).toBeCloseTo(0.5)
+    expect(outer.y).toBeCloseTo(0.2)
+    const inner = stopAnchor('square', [0, 100], 1)
+    expect(inner.x).toBeCloseTo(0.5)
+    expect(inner.y).toBeCloseTo(0.45)
   })
 
-  it('square: honors all four spokes for the outermost stop (p=0)', () => {
-    expect(stopAnchor('square', [0], 0, { spoke: 'up' })).toEqual({ x: 0.5, y: 0 })
-    expect(stopAnchor('square', [0], 0, { spoke: 'down' })).toEqual({ x: 0.5, y: 1 })
-    expect(stopAnchor('square', [0], 0, { spoke: 'left' })).toEqual({ x: 0, y: 0.5 })
-    expect(stopAnchor('square', [0], 0, { spoke: 'right' })).toEqual({ x: 1, y: 0.5 })
+  it('square: honors all four spokes for a single stop (ring [0.5,0] -> mid 0.25)', () => {
+    const up = stopAnchor('square', [0], 0, { spoke: 'up' })
+    expect(up.x).toBeCloseTo(0.5); expect(up.y).toBeCloseTo(0.25)
+    const down = stopAnchor('square', [0], 0, { spoke: 'down' })
+    expect(down.x).toBeCloseTo(0.5); expect(down.y).toBeCloseTo(0.75)
+    const left = stopAnchor('square', [0], 0, { spoke: 'left' })
+    expect(left.x).toBeCloseTo(0.25); expect(left.y).toBeCloseTo(0.5)
+    const right = stopAnchor('square', [0], 0, { spoke: 'right' })
+    expect(right.x).toBeCloseTo(0.75); expect(right.y).toBeCloseTo(0.5)
   })
 
   it('angular: sits at mid-radius, sweeping clockwise from the top', () => {

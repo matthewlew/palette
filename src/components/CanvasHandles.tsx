@@ -178,8 +178,9 @@ export function CanvasHandles({
       }
     }
     if (type === 'linear' || type === 'mirror') {
-      const LINEAR_X = 0.16
-      return { x: LINEAR_X * size.width, y: pt.y }
+      // Handles live on the center line (matching stopAnchor's x=0.5); a drag
+      // slides vertically and stays centered.
+      return { x: cx, y: pt.y }
     }
     if (type === 'angular') {
       const ANGULAR_RADIUS = 0.32
@@ -219,9 +220,6 @@ export function CanvasHandles({
               <div className={styles.trackGuideVertical} style={{ left: `${size.width * 0.5}px` }} />
               <div className={styles.trackGuideHorizontal} style={{ top: `${size.height * 0.5}px` }} />
             </>
-          )}
-          {(type === 'linear' || type === 'mirror') && (
-            <div className={styles.trackGuideVertical} style={{ left: `${size.width * 0.16}px` }} />
           )}
           {type === 'angular' && (
             <div
@@ -266,13 +264,14 @@ export function CanvasHandles({
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerUp}
           >
-            {revealed && (
-              <span
-                data-testid={near ? 'canvas-handle-near' : 'canvas-handle-visible'}
-                data-stop-id={stop.id}
-                className={styles.dotInner}
-              />
-            )}
+            {/* Always mounted so opacity dissolves both in and out on hover
+                (unmounting would make it pop). The testid is only present when
+                revealed, preserving the "hidden until hover" contract. */}
+            <span
+              data-testid={revealed ? (near ? 'canvas-handle-near' : 'canvas-handle-visible') : undefined}
+              data-stop-id={stop.id}
+              className={styles.dotInner}
+            />
           </button>
         )
       })}

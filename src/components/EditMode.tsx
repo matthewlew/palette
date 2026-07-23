@@ -223,6 +223,23 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     }
   }
 
+  // Measure the canvas up front (and on resize) so handles mount already at
+  // their anchors and dissolve in on hover, instead of sliding in from the
+  // corner the first time the pointer moves and size is first read.
+  useEffect(() => {
+    const el = previewRef.current
+    if (!el) return
+    const measure = () => {
+      const rect = el.getBoundingClientRect()
+      setCanvasSize({ width: rect.width, height: rect.height })
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
   useEffect(() => {
     const el = previewRef.current
     if (!el) return
