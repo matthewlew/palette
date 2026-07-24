@@ -26,6 +26,14 @@ describe('buildGradientCss', () => {
     expect(css).toBe('conic-gradient(#ff0000 0%, #00ff00 33%, #0000ff 67%, #ff0000 100%)')
   })
 
+  it('renders angular hard as solid wedges (crisp double-stop boundaries)', () => {
+    const css = buildGradientCss('angular', stops, false, { hard: true })
+    // 3 colors -> three equal wedges, each cutting to the next at its boundary.
+    expect(css).toBe(
+      'conic-gradient(#ff0000 0% 33%, #00ff00 33% 67%, #0000ff 67% 100%)',
+    )
+  })
+
   it('builds a bottom-centered 180° fan (conic from 270deg) for fan type', () => {
     const css = buildGradientCss('fan', stops)
     // Palette compressed into the visible top semicircle (0-50%), last color

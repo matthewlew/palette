@@ -97,7 +97,13 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
     >
-      {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} />}
+      {gradient.type === 'square' && (
+        <TurrellSquare
+          stops={gradient.stops}
+          reversed={gradient.reversed}
+          blurPx={gradient.hardStops ? 0 : undefined}
+        />
+      )}
       <NoiseOverlay visible={noiseEnabled} />
       <PaletteTitle
         name={gradient.name ?? namePalette(gradient.stops.map((s) => s.hex))}

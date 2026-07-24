@@ -26,6 +26,8 @@ interface CanvasHandlesProps {
   type: GradientType
   spoke?: StopAnchorOpts['spoke']
   fanAnchor?: StopAnchorOpts['fanAnchor']
+  /** Repeat ×2 is on, so handles map into the first (half-size) cycle. */
+  repeat?: boolean
   /** Cursor position in pixels relative to the canvas, or null when the
    * pointer is outside/absent. Measured by the parent. */
   cursor: PixelPoint | null
@@ -42,6 +44,7 @@ export function CanvasHandles({
   type,
   spoke,
   fanAnchor,
+  repeat,
   cursor,
   size,
   onReorder,
@@ -127,7 +130,7 @@ export function CanvasHandles({
   const items: HandleItem[] = []
   stops.forEach((stop, i) => {
     activeSpokes.forEach((sp) => {
-      const a = stopAnchor(type, positions, i, { spoke: sp, fanAnchor })
+      const a = stopAnchor(type, positions, i, { spoke: sp, fanAnchor, repeat })
       items.push({
         key: isFourSpoke ? `${stop.id}-${sp}` : stop.id,
         stopId: stop.id,

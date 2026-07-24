@@ -66,7 +66,13 @@ export function GeometryTabs({
     }
   }
 
-  const filtersDisabled = FILTERS_UNSUPPORTED.includes(type)
+  // Repeat rebuilds an even position sequence, meaningless for the types that
+  // author their own sequence or are already solid blocks.
+  const repeatDisabled = FILTERS_UNSUPPORTED.includes(type)
+  // Hard applies more broadly: angular cuts crisp wedges, and Turrell (square)
+  // reads its `hard` as "no blur" (crisp nested squares). Only the types that
+  // build their own hard-coded sequence can't honor it.
+  const hardDisabled = type === 'mirror' || type === 'repeat'
 
   return (
     <div ref={tabsRef} className={styles.tabs} onWheel={handleWheel}>
@@ -86,7 +92,7 @@ export function GeometryTabs({
         type="button"
         data-testid="filter-repeat"
         aria-pressed={repeatEnabled}
-        disabled={filtersDisabled}
+        disabled={repeatDisabled}
         className={repeatEnabled ? styles.tabActive : styles.tab}
         onClick={onToggleRepeat}
       >
@@ -96,7 +102,7 @@ export function GeometryTabs({
         type="button"
         data-testid="filter-hard"
         aria-pressed={hardStops}
-        disabled={filtersDisabled}
+        disabled={hardDisabled}
         className={hardStops ? styles.tabActive : styles.tab}
         onClick={onToggleHardStops}
       >

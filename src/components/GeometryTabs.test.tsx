@@ -35,8 +35,14 @@ describe('GeometryTabs', () => {
     expect(onToggleHardStops).toHaveBeenCalledTimes(1)
   })
 
-  it('disables the filter chips for types that ignore them (square, mirror)', () => {
+  it('disables Repeat for square/mirror, but keeps Hard available on square (Turrell reads it as crisp)', () => {
     render(<GeometryTabs type="square" onSelectType={vi.fn()} onToggleReversed={vi.fn()} />)
+    expect(screen.getByTestId('filter-repeat')).toBeDisabled()
+    expect(screen.getByTestId('filter-hard')).not.toBeDisabled()
+  })
+
+  it('disables both filter chips for mirror (it authors its own sequence)', () => {
+    render(<GeometryTabs type="mirror" onSelectType={vi.fn()} onToggleReversed={vi.fn()} />)
     expect(screen.getByTestId('filter-repeat')).toBeDisabled()
     expect(screen.getByTestId('filter-hard')).toBeDisabled()
   })

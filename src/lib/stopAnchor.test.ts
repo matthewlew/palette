@@ -68,4 +68,20 @@ describe('stopAnchor', () => {
     expect(start.x).toBeCloseTo(0.5 - 0.35, 4)
     expect(start.y).toBeCloseTo(1, 4)
   })
+
+  it('repeat maps a linear handle into the first (half-size) cycle', () => {
+    // Without repeat, position 100 sits at the bottom (y=1); with repeat it
+    // rides the first cycle, so the same stop lands at the halfway point.
+    expect(stopAnchor('linear', [0, 100], 1).y).toBeCloseTo(1, 5)
+    expect(stopAnchor('linear', [0, 100], 1, { repeat: true }).y).toBeCloseTo(0.5, 5)
+  })
+
+  it('repeat squeezes the angular sweep into the first half-circle', () => {
+    // 4 stops normally span the full circle (index 2 -> 180deg, bottom); with
+    // repeat they span a semicircle (index 2 -> 90deg, right).
+    const full = stopAnchor('angular', [0, 25, 50, 75], 2)
+    expect(full.x).toBeCloseTo(0.5, 5); expect(full.y).toBeCloseTo(0.5 + 0.32, 5)
+    const repeated = stopAnchor('angular', [0, 25, 50, 75], 2, { repeat: true })
+    expect(repeated.x).toBeCloseTo(0.5 + 0.32, 5); expect(repeated.y).toBeCloseTo(0.5, 5)
+  })
 })

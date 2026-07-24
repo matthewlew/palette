@@ -8,6 +8,10 @@ export interface StopAnchorOpts {
    * Cosmetic: those gradients are symmetric, so this only moves the dots. */
   spoke?: SpokeDir
   fanAnchor?: FanAnchor
+  /** Repeat ×2 packs two cycles of the palette into the same area, so each
+   * color's block is half-size. Map handles into the first cycle so they land
+   * on the (smaller) blocks instead of spanning the whole area. */
+  repeat?: boolean
 }
 
 export interface AnchorPoint {
@@ -38,7 +42,10 @@ export function stopAnchor(
   index: number,
   opts: StopAnchorOpts = {},
 ): AnchorPoint {
-  const p = positions[index] / 100
+  // Repeat packs the palette into the first half of the axis (a second cycle
+  // fills the rest), so a repeated handle rides the first cycle at half offset.
+  const cycle = opts.repeat ? 0.5 : 1
+  const p = (positions[index] / 100) * cycle
 
   switch (type) {
     case 'linear':
@@ -69,7 +76,9 @@ export function stopAnchor(
       // full circle). The pixel placement (a circle vs the canvas's aspect) is
       // handled by the caller; here we only fix the angle.
       const count = positions.length
-      const theta = (index / count) * 2 * Math.PI
+      // Repeat squeezes the sweep into the first half-circle (the second cycle
+      // fills the rest), so handles ride that first semicircle.
+      const theta = (index / count) * 2 * Math.PI * cycle
       return {
         x: 0.5 + ANGULAR_RADIUS * Math.sin(theta),
         y: 0.5 - ANGULAR_RADIUS * Math.cos(theta),

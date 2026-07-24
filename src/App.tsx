@@ -22,14 +22,6 @@ const CREATE_SHORTCUTS: ShortcutHintItem[] = [
   { keys: ['E'], label: 'Edit' },
 ]
 
-const EDIT_SHORTCUTS: ShortcutHintItem[] = [
-  { keys: ['↑', '↓'], label: 'Browse' },
-  { keys: ['←', '→'], label: 'Style' },
-  { keys: ['S'], label: 'Save' },
-  { keys: ['F'], label: 'Flip' },
-  { keys: ['Esc'], label: 'Back' },
-]
-
 export function App() {
   const mode = useAppStore((s) => s.mode)
   const current = useAppStore((s) => s.current)
@@ -149,14 +141,14 @@ export function App() {
         </>
       )}
       {mode === 'gallery' && <Gallery onRiff={handleRiff} onImport={handleImportJson} />}
-      {mode !== 'gallery' && (
+      {/* Edit mode renders its own shortcut hints inside the panel. */}
+      {mode === 'create' && (
         <ShortcutHints
-          items={mode === 'edit' ? EDIT_SHORTCUTS : CREATE_SHORTCUTS}
-          placement={mode === 'edit' ? 'top' : 'bottom'}
-          visible={mode === 'edit' || chromeVisible}
-          // Same foreground strategy as the title, sampled where the strip
-          // actually sits (top-left in edit, bottom-left in create).
-          color={current ? titleColorAt(current, 0.08, mode === 'edit' ? 0.12 : 0.9) : '#ffffff'}
+          items={CREATE_SHORTCUTS}
+          placement="bottom"
+          visible={chromeVisible}
+          // Same foreground strategy as the title, sampled where the strip sits.
+          color={current ? titleColorAt(current, 0.08, 0.9) : '#ffffff'}
         />
       )}
       <TabBar

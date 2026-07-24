@@ -53,13 +53,20 @@ function buildSquareGradient(stops: GradientStop[]): string {
   return `conic-gradient(from 0deg, ${segments.join(', ')})`
 }
 
-function buildAngularGradient(stops: GradientStop[]): string {
-  // Spread the colors evenly around the full circle by index (i/n), then repeat
-  // the first color at 100% so the final segment wraps back to it. Every
-  // segment — including the seam — is 360/n wide, so N colors read as N equal
+function buildAngularGradient(stops: GradientStop[], hard = false): string {
+  // Spread the colors evenly around the full circle by index (i/n). Every
+  // wedge — including the seam — is 360/n wide, so N colors read as N equal
   // wedges instead of the uneven distribution a compress-to-leave-room-for-the-
   // seam scheme produces.
   const n = stops.length
+  if (hard) {
+    // Solid wedges, each color filling its 360/n slice with a crisp edge at the
+    // boundary (a double stop). The last wedge cuts straight to the first.
+    const segments = stops.map(
+      (s, i) => `${s.hex} ${Math.round((i / n) * 100)}% ${Math.round(((i + 1) / n) * 100)}%`,
+    )
+    return `conic-gradient(${segments.join(', ')})`
+  }
   const spread = stops.map((s, i) => ({ hex: s.hex, position: Math.round((i / n) * 100) }))
   const withSeam = [...spread, { hex: stops[0].hex, position: 100 }]
   return `conic-gradient(${stopsToCss(withSeam)})`
@@ -166,7 +173,9 @@ export function buildGradientCss(
     // Repeat first: it rebuilds an even position sequence from hex order, so
     // hardening must run on the already-repeated stops for bands to stay even.
     if (filters.repeat) orderedStops = repeatedStops(orderedStops)
-    if (filters.hard) orderedStops = hardenStops(orderedStops)
+    // Angular hardens internally (its wedges are index-based, not position-
+    // based, so a position-doubling harden here would be discarded).
+    if (filters.hard && type !== 'angular') orderedStops = hardenStops(orderedStops)
   }
 
   switch (type) {
@@ -175,7 +184,7 @@ export function buildGradientCss(
     case 'radial':
       return `radial-gradient(circle, ${stopsToCss(orderedStops)})`
     case 'angular':
-      return buildAngularGradient(orderedStops)
+      return buildAngularGradient(orderedStops, filters.hard)
     case 'square':
       return buildSquareGradient(orderedStops)
     case 'mirror':

@@ -9,8 +9,9 @@ interface ShortcutHintsProps {
   items: ShortcutHintItem[]
   visible?: boolean
   /** 'bottom' sits above the tab bar (Create feed); 'top' tucks under the
-   * back button (Edit mode, where the bottom sheet owns the lower half). */
-  placement?: 'bottom' | 'top'
+   * back button; 'inline' renders in normal flow (e.g. inside the edit panel
+   * itself, rather than floating on the canvas). */
+  placement?: 'bottom' | 'top' | 'inline'
   /** Palette-derived foreground color (same strategy as the title), so the
    * hints sit subtly on the gradient instead of floating on a glass pill. */
   color?: string
@@ -24,7 +25,14 @@ interface ShortcutHintsProps {
 export function ShortcutHints({ items, visible = true, placement = 'bottom', color = '#ffffff' }: ShortcutHintsProps) {
   return (
     <div
-      className={`${styles.strip} ${placement === 'top' ? styles.top : ''} ${visible ? '' : styles.hidden}`}
+      className={[
+        styles.strip,
+        placement === 'top' && styles.top,
+        placement === 'inline' && styles.inline,
+        visible ? '' : styles.hidden,
+      ]
+        .filter(Boolean)
+        .join(' ')}
       style={{ color }}
       aria-label="Keyboard shortcuts"
     >

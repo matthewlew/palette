@@ -17,6 +17,7 @@ import { Hint } from './Hint'
 import { GrainButton } from './GrainButton'
 import { NoiseOverlay } from './NoiseOverlay'
 import { GeometryTabs } from './GeometryTabs'
+import { ShortcutHints, type ShortcutHintItem } from './ShortcutHints'
 import { PaletteTitle } from './PaletteTitle'
 import { BoardShare } from './BoardShare'
 import { namePalette } from '../lib/naming'
@@ -43,6 +44,14 @@ const ORDER_LABELS: Record<OrderKey, string> = {
   chroma: 'Chroma',
   hue: 'Hue',
 }
+
+const EDIT_SHORTCUTS: ShortcutHintItem[] = [
+  { keys: ['↑', '↓'], label: 'Browse' },
+  { keys: ['←', '→'], label: 'Style' },
+  { keys: ['S'], label: 'Save' },
+  { keys: ['F'], label: 'Flip' },
+  { keys: ['Esc'], label: 'Back' },
+]
 
 interface EditModeProps {
   gradient: Gradient
@@ -689,8 +698,18 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         onPointerMove={handlePreviewPointerMove}
         onPointerLeave={handlePreviewPointerLeave}
       >
-        {!fromGallery && <ScrollTicker index={tickerIndex} hidden={chromeHidden} />}
-        {gradient.type === 'square' && <TurrellSquare stops={animatedStops} reversed={gradient.reversed} />}
+        {/* The tick scroller stays put while scrolling — it's the one bit of
+            chrome that should remain when everything else ducks away — but it
+            still hides during a handle drag so it doesn't sit under the dots. */}
+        {!fromGallery && <ScrollTicker index={tickerIndex} hidden={handleDragging} />}
+        {/* Turrell reads "Hard" as crisp: no blur between the nested squares. */}
+        {gradient.type === 'square' && (
+          <TurrellSquare
+            stops={animatedStops}
+            reversed={gradient.reversed}
+            blurPx={gradient.hardStops ? 0 : undefined}
+          />
+        )}
         <NoiseOverlay visible={noiseEnabled} />
         <PaletteTitle
           name={gradient.name ?? namePalette(gradient.stops.map((s) => s.hex))}
@@ -725,6 +744,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           type={gradient.type}
           spoke="up"
           fanAnchor={gradient.fanAnchor}
+          repeat={gradient.repeatEnabled}
           cursor={canvasCursor}
           size={canvasSize}
           onReorder={(next) => commit(next)}
@@ -794,6 +814,9 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           </button>
           <span className={styles.stopHint}>Tap a color to recolor · drag down to remove</span>
         </div>
+        {/* Keyboard hints live in the panel (desktop only, hidden on touch via
+            the component's own media query) rather than floating on the canvas. */}
+        <ShortcutHints items={EDIT_SHORTCUTS} placement="inline" color={cornerColor} />
         {/* Off-screen native picker, opened programmatically from a stop tap or
             the Add color button — the explicit-color path that replaces the
             swatch tray. */}
