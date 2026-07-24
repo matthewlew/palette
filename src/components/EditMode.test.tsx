@@ -513,6 +513,30 @@ describe('EditMode', () => {
     updated = useAppStore.getState().current!
     expect(updated.reversed).toBe(false)
   })
+
+  it('still cycles shapes with arrows when a control button holds focus', () => {
+    const custom: Gradient = {
+      id: 'g6b',
+      type: 'linear',
+      stops: [
+        { hex: '#ff0000', position: 0 },
+        { hex: '#0000ff', position: 100 },
+      ],
+      reversed: false,
+    }
+    useAppStore.setState({ current: custom })
+    render(<EditMode gradient={custom} onExit={vi.fn()} />)
+
+    // A geometry tab (or any control button) is focused after tapping it.
+    const button = screen.getByRole('button', { name: 'Radial' })
+    button.focus()
+    fireEvent.keyDown(button, { key: 'ArrowRight' })
+    expect(useAppStore.getState().current!.type).toBe('radial')
+
+    // Space, however, is left to the focused button so it can activate.
+    fireEvent.keyDown(button, { key: ' ' })
+    expect(useAppStore.getState().current!.type).toBe('radial')
+  })
 })
 
 describe('EditMode canvas handles', () => {

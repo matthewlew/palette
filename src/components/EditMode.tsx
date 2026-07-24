@@ -401,9 +401,12 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         return
       }
 
+      // A focused control button (geometry tabs, Add color, Save…) shouldn't
+      // swallow the navigation shortcuts — after tapping one, ←/→/↑/↓/F must
+      // still work. Only Space/Enter are left to the button so it can activate.
+      const onButton = target?.tagName === 'BUTTON'
       if (
         inTextField ||
-        target?.tagName === 'BUTTON' ||
         // Modifier combos (⌘S, ⌘Z…) belong to the browser or other handlers.
         e.metaKey ||
         e.ctrlKey ||
@@ -424,7 +427,9 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         if (feedSession.index > 0) {
           goTo(feedSession.index - 1)
         }
-      } else if (e.key === ' ' || e.key === 's' || e.key === 'S') {
+      } else if (e.key === 's' || e.key === 'S' || (e.key === ' ' && !onButton)) {
+        // Space saves only when a button isn't focused — otherwise let Space
+        // activate that button. 's' always saves (buttons don't type it).
         e.preventDefault()
         const state = useAppStore.getState()
         if (state.current) state.toggleSaveGradient(state.current)
