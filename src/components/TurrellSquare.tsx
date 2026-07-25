@@ -19,7 +19,11 @@ export function TurrellSquare({ stops, reversed = false, blurPx }: TurrellSquare
     // random color at the screen border until a resize forces a repaint) can
     // peek out past the outermost layer — a solid matching backdrop makes any
     // such gap invisible.
-    <div data-testid="turrell-square" className={styles.container} style={{ backgroundColor: hexes[0] }}>
+    <div 
+      data-testid="turrell-square" 
+      className={styles.container} 
+      style={{ position: 'absolute', inset: 0, overflow: 'hidden', backgroundColor: hexes[0] }}
+    >
       {stops.map((stop, i) => {
         // Outermost layer (position 0) is largest (100%); each subsequent
         // layer shrinks toward the center in proportion to the stop's actual

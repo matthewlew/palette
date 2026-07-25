@@ -99,7 +99,7 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
             : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
                 repeat: gradient.repeatEnabled,
                 hard: gradient.hardStops,
-                fanAnchor: gradient.fanAnchor,
+                fanAnchor: gradient.fanAnchor, angle: gradient.angle,
               }),
         touchAction: 'manipulation',
       }}

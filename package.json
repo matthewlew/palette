@@ -13,6 +13,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.110.8",
     "bad-words": "^4.1.5",
+    "jszip": "^3.10.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "zustand": "^5.0.14"

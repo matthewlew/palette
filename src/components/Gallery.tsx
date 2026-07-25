@@ -7,13 +7,17 @@ import { useMasonryRowSpans } from '../hooks/useMasonryRowSpans'
 import { useFlipReorder } from '../hooks/useFlipReorder'
 import { useAppStore } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
+import { namePalette } from '../lib/naming'
 import { titleColorAt, paletteInkOn } from '../lib/titleColor'
 import { TurrellSquare } from './TurrellSquare'
 import { BoardShare } from './BoardShare'
 import { PaletteTitle } from './PaletteTitle'
+import { NoiseOverlay } from './NoiseOverlay'
 import { ScrollTicker } from './ScrollTicker'
 import { CollectionsRow } from './CollectionsRow'
 import { SearchBar } from './SearchBar'
+import JSZip from 'jszip'
+import { renderVignetteToCanvas } from '../lib/vignette'
 import styles from './Gallery.module.css'
 
 const TYPE_CHIPS: GradientType[] = ['linear', 'radial', 'angular', 'square', 'fan']
@@ -41,16 +45,17 @@ function tileBackground(gradient: Gradient): string | undefined {
         repeat: gradient.repeatEnabled,
         hard: gradient.hardStops,
         fanAnchor: gradient.fanAnchor,
+        angle: gradient.angle,
       })
 }
 
 function Tile({
   gradient,
+  index,
   onOpen,
   galleryLayout,
   onRiff,
   onDelete,
-  enterDelayMs,
   draggable,
   isDragging,
   isDragOver,
@@ -60,11 +65,11 @@ function Tile({
   onDragEndTile,
 }: {
   gradient: Gradient
+  index: number
   onOpen: (gradient: Gradient) => void
   galleryLayout: 'grid' | 'masonry'
   onRiff: (gradient: Gradient) => void
   onDelete?: (id: string) => void
-  enterDelayMs?: number
   // Drag-to-reorder within the "All" grid. Optional so board-detail and
   // feed tiles can render without it. dragStart also sets the gradient id on
   // the dataTransfer, which is what a collection cover reads on drop, so
@@ -103,8 +108,8 @@ function Tile({
       ]
         .filter(Boolean)
         .join(' ')}
-      style={{ animationDelay: `${enterDelayMs ?? 0}ms` }}
-      aria-label={`${gradient.name ?? 'Untitled'}, ${gradient.type} gradient`}
+      style={{ animationDelay: `${index * 35}ms` }}
+      aria-label={`${gradient.name ?? namePalette(gradient.stops.map(s => s.hex))}, ${gradient.type} gradient`}
       draggable={draggable}
       onDragStart={(e) => {
         if (e.dataTransfer) {
@@ -159,7 +164,7 @@ function Tile({
             </button>
             <button
               type="button"
-              aria-label={`Delete ${gradient.name ?? 'Untitled'}`}
+              aria-label={`Delete ${gradient.name ?? namePalette(gradient.stops.map(s => s.hex))}`}
               className={styles.tileHoverBtn}
               onClick={(e) => {
                 e.stopPropagation()
@@ -173,7 +178,7 @@ function Tile({
       </div>
       <div className={styles.tileMeta}>
         <span className={styles.tileName} style={{ color: tileInk }}>
-          {gradient.name ?? 'Untitled'}
+          {gradient.name ?? namePalette(gradient.stops.map(s => s.hex))}
         </span>
         {gradient.note && <span className={styles.tileDesc}>{gradient.note}</span>}
         {gradient.createdAt && (
@@ -205,6 +210,7 @@ const TOUCH_STEP_PX = 60
 function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport }: ViewerProps) {
   const saved = useAppStore((s) => s.saved)
   const renameSavedGradient = useAppStore((s) => s.renameSavedGradient)
+  const noiseEnabled = useAppStore((s) => s.noiseEnabled)
   const removeSavedGradientById = useAppStore((s) => s.removeSavedGradientById)
   const toggleSaveGradient = useAppStore((s) => s.toggleSaveGradient)
   const isSaved = useAppStore((s) => s.isGradientSaved(gradient))
@@ -325,6 +331,7 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport }: View
           <TurrellSquare stops={live.stops} reversed={live.reversed} />
         </div>
       )}
+      <NoiseOverlay visible={noiseEnabled} />
       <button
         type="button"
         className={`${styles.viewerClose} ghost-chip`}
@@ -337,7 +344,7 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport }: View
       {/* Same scroll ticker as the Create feed, but labelled with the
           palette's name instead of a position number — the marks track where
           you are as you scroll between saved gradients. */}
-      <ScrollTicker index={index} label={live.name ?? 'Untitled'} total={items.length} />
+      <ScrollTicker index={index} label={live.name ?? namePalette(live.stops.map(s => s.hex))} total={items.length} />
       {/* Wrapper stops the trigger/menu clicks from bubbling to the
           close-on-tap backdrop, which would otherwise dismiss the viewer
           before the share menu could act. */}
@@ -357,7 +364,7 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport }: View
           bubbling to the close-on-tap backdrop. */}
       <div style={{ display: 'contents' }} onClick={(e) => e.stopPropagation()}>
         <PaletteTitle
-          name={live.name ?? 'Untitled'}
+          name={live.name ?? namePalette(live.stops.map(s => s.hex))}
           color={titleColor}
           onRename={(name) => renameSavedGradient(gradient.id, name)}
         />
@@ -478,11 +485,43 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   const [hueFilter, setHueFilter] = useState<string | null>(null)
   const [collectionView, setCollectionView] = useState<string | null>(null)
   const [open, setOpen] = useState<Gradient | null>(null)
+  const [exporting, setExporting] = useState(false)
   const reorderSaved = useAppStore((s) => s.reorderSaved)
   const dragIdRef = useRef<string | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   const [searchResults, setSearchResults] = useState<Gradient[] | null>(null)
+
+  async function handleExportAll() {
+    if (exporting || saved.length === 0) return
+    setExporting(true)
+    try {
+      const zip = new JSZip()
+      for (const gradient of saved) {
+        const canvas = document.createElement('canvas')
+        await renderVignetteToCanvas(canvas, gradient, 1080, 1350, 'post')
+        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+        if (blob) {
+          const slug = (gradient.name ?? 'gradient').toLowerCase().replace(/\s+/g, '-')
+          const filename = `${slug}-post.png`
+          zip.file(filename, blob)
+        }
+      }
+      const zipBlob = await zip.generateAsync({ type: 'blob' })
+      const dataUrl = URL.createObjectURL(zipBlob)
+      const a = document.createElement('a')
+      a.href = dataUrl
+      a.download = 'palettes-ig-posts.zip'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(dataUrl), 1000)
+    } catch (e) {
+      console.error('Batch export failed', e)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   // Publish the open viewer gradient so the app-level Cmd+C copies it. Resolve
   // the live copy from `saved` (the viewer reads `live` for the same reason) so
@@ -549,13 +588,6 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   const members = activeCol
     ? activeCol.gradientIds.map((id) => gradientsById[id]).filter(Boolean) as Gradient[]
     : []
-
-  // Entering the Gallery loads tiles in reading order: each tile's delay is
-  // its index in the rendered list, so the grid arrives top-left → bottom-right
-  // like it's loading in. Tiny steps, capped, so it reads as a ripple.
-  const ENTER_STEP_MS = 35
-  const ENTER_DELAY_CAP_MS = 400
-  const enterDelayFor = (index: number) => Math.min(index * ENTER_STEP_MS, ENTER_DELAY_CAP_MS)
 
   const gridRef = useRef<HTMLDivElement>(null)
 
@@ -658,6 +690,14 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
           </h2>
         </div>
         <div className={styles.headerActions}>
+          <button
+            type="button"
+            className={styles.exportAllButton}
+            onClick={handleExportAll}
+            disabled={exporting || saved.length === 0}
+          >
+            {exporting ? 'Zipping...' : 'Export Posts'}
+          </button>
           <div className={styles.toggleGroup}>
             <button
               type="button"
@@ -706,14 +746,14 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
             </div>
           ) : (
             <div className={galleryLayout === 'masonry' ? styles.masonryGrid : styles.grid}>
-              {searchResults.map((g) => (
+              {searchResults.map((g, i) => (
                 <Tile
                   key={g.id}
                   gradient={g}
+                  index={i}
                   onOpen={setOpen}
                   galleryLayout={galleryLayout}
                   onRiff={onRiff}
-                  enterDelayMs={0}
                 />
               ))}
             </div>
@@ -738,7 +778,8 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
                     backgroundImage: buildGradientCss(
                       type === 'square' ? 'linear' : type,
                       ONBOARDING_STOPS,
-                      false
+                      false,
+                      { angle: 90 }
                     ),
                   }}
                 />
@@ -773,15 +814,15 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
             </button>
           </div>
           <div className={galleryLayout === 'masonry' ? styles.masonryGrid : styles.grid}>
-            {members.map((g) => (
+            {members.map((g, i) => (
               <Tile
                 key={g.id}
                 gradient={g}
+                index={i}
                 onOpen={setOpen}
                 galleryLayout={galleryLayout}
                 onRiff={onRiff}
                 onDelete={(id) => removeFromCollection(activeCol.id, id)}
-                enterDelayMs={0}
               />
             ))}
           </div>
@@ -877,11 +918,11 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
                 <Tile
                   key={gradient.id}
                   gradient={gradient}
+                  index={index}
                   onOpen={setOpen}
                   galleryLayout={galleryLayout}
                   onRiff={onRiff}
                   onDelete={removeSavedGradientById}
-                  enterDelayMs={enterDelayFor(index)}
                   draggable={!hasFilters}
                   isDragging={draggingId === gradient.id}
                   isDragOver={dragOverId === gradient.id}
@@ -899,7 +940,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
       {undoVisible && lastDeleted && (
         <div data-testid="undo-toast" className={styles.undoToast} role="status">
           <span className={styles.undoText}>
-            Deleted “{lastDeleted.gradient.name ?? 'Untitled'}”
+            Deleted “{lastDeleted.gradient.name ?? namePalette(lastDeleted.gradient.stops.map(s => s.hex))}”
           </span>
           <button
             type="button"

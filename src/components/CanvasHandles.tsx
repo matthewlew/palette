@@ -39,6 +39,7 @@ interface CanvasHandlesProps {
   onDraggingChange?: (dragging: boolean) => void
   /** If true, instantly hide the handles without transitioning opacity out. */
   hidden?: boolean
+  angle?: number
 }
 
 export function CanvasHandles({
@@ -52,6 +53,7 @@ export function CanvasHandles({
   onReorder,
   onDraggingChange,
   hidden = false,
+  angle,
 }: CanvasHandlesProps) {
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [draggingSpoke, setDraggingSpoke] = useState<StopAnchorOpts['spoke'] | null>(null)
@@ -93,7 +95,7 @@ export function CanvasHandles({
   }, [])
 
   const positions = stops.map((s) => s.position)
-  const isFourSpoke = type === 'radial' || type === 'square'
+  const isFourSpoke = (type === 'radial' && angle === undefined) || type === 'square'
   const activeSpokes: readonly StopAnchorOpts['spoke'][] = isFourSpoke
     ? ['up', 'down', 'left', 'right']
     : [spoke ?? 'up']
@@ -133,7 +135,7 @@ export function CanvasHandles({
   const items: HandleItem[] = []
   stops.forEach((stop, i) => {
     activeSpokes.forEach((sp) => {
-      const a = stopAnchor(type, positions, i, { spoke: sp, fanAnchor, repeat })
+      const a = stopAnchor(type, positions, i, { spoke: sp, fanAnchor, repeat, angle })
       items.push({
         key: isFourSpoke ? `${stop.id}-${sp}` : stop.id,
         stopId: stop.id,

@@ -3,12 +3,14 @@ import { encodeToFragment, toExportJson, toSharePayloadGradient } from '../lib/g
 import { toCuratedEntryJson } from '../lib/curated'
 import { useCopyFeedback } from '../hooks/useCopyFeedback'
 import type { Gradient } from '../store/types'
+import { renderVignetteToCanvas } from '../lib/vignette'
+import { shareOrDownloadCanvas } from '../lib/canvasExport'
 import { ExportModal } from './ExportModal'
 import styles from './BoardShare.module.css'
 
 interface BoardShareProps {
   saved: Gradient[]
-  /** The gradient currently on screen — source for "Copy as curated entry". */
+  /** The gradient currently on screen — source for sharing. */
   current?: Gradient | null
   onImport: (jsonText: string) => void
   chromeVisible?: boolean
@@ -20,15 +22,16 @@ interface BoardShareProps {
   position?: 'fixed' | 'inline' | 'viewer'
 }
 
-function getShareLink(gradients: Gradient[]): string {
-  const fragment = encodeToFragment({ kind: 'board', gradients: gradients.map(toSharePayloadGradient) })
-  return `${window.location.origin}${window.location.pathname}#${fragment}`
-}
-
 function getSingleShareLink(gradient: Gradient): string {
   const fragment = encodeToFragment({ kind: 'gradient', gradients: [toSharePayloadGradient(gradient)] })
   return `${window.location.origin}${window.location.pathname}#${fragment}`
 }
+
+// Board-level share link (reserved for future multi-gradient sharing)
+// function getShareLink(gradients: Gradient[]): string {
+//   const fragment = encodeToFragment({ kind: 'board', gradients: gradients.map(toSharePayloadGradient) })
+//   return `${window.location.origin}${window.location.pathname}#${fragment}`
+// }
 
 export function BoardShare({
   saved,
@@ -39,12 +42,13 @@ export function BoardShare({
   position = 'fixed',
 }: BoardShareProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const [showMore, setShowMore] = useState(false)
   const [jsonModal, setJsonModal] = useState<'export-board' | 'export-single' | 'import' | null>(null)
   const [importDraft, setImportDraft] = useState('')
   const [exportOpen, setExportOpen] = useState(false)
+  const [sharing, setSharing] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
-  const shareFeedback = useCopyFeedback()
-  const shareSingleFeedback = useCopyFeedback()
+  const linkFeedback = useCopyFeedback()
   const jsonFeedback = useCopyFeedback()
   const jsonSingleFeedback = useCopyFeedback()
   const curatedFeedback = useCopyFeedback()
@@ -54,6 +58,7 @@ export function BoardShare({
     function handleClickOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setIsOpen(false)
+        setShowMore(false)
       }
     }
     if (isOpen) {
@@ -68,46 +73,38 @@ export function BoardShare({
   useEffect(() => {
     if (!chromeVisible) {
       setIsOpen(false)
+      setShowMore(false)
     }
   }, [chromeVisible])
 
-  async function handleShareBoard() {
-    if (saved.length === 0) return
-    const link = getShareLink(saved)
-    const shareData = {
-      title: 'Palette Board',
-      text: `Check out my palette board with ${saved.length} gradients!`,
-      url: link,
+  /** Primary action: render a poster image and hand it to the OS share sheet. */
+  async function handleShareAsImage() {
+    if (!current || sharing) return
+    setSharing(true)
+    setIsOpen(false)
+    try {
+      const canvas = document.createElement('canvas')
+      await renderVignetteToCanvas(canvas, current, 1080, 1350, 'post')
+      const slug = (current.name ?? 'gradient').toLowerCase().replace(/\s+/g, '-')
+      await shareOrDownloadCanvas(canvas, `${slug}-post.png`, current.name ?? 'Gradient')
+    } catch (e) {
+      console.error('Share as image failed', e)
+    } finally {
+      setSharing(false)
     }
-
-    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
-      try {
-        await navigator.share(shareData)
-        setIsOpen(false)
-        return
-      } catch (err) {
-        if ((err as Error).name !== 'AbortError') {
-          console.error('Error sharing:', err)
-        }
-      }
-    }
-
-    // Fallback: Copy link
-    shareFeedback.copy(link)
   }
 
-  async function handleShareSingle() {
+  /** Secondary action: copy link or invoke share sheet with a URL. */
+  async function handleCopyLink() {
     if (!current) return
     const link = getSingleShareLink(current)
-    const shareData = {
-      title: current.name ?? 'Gradient',
-      text: `Check out this gradient: ${current.name ?? ''}`,
-      url: link,
-    }
 
-    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+    if (navigator.share && navigator.canShare?.({ url: link })) {
       try {
-        await navigator.share(shareData)
+        await navigator.share({
+          title: current.name ?? 'Gradient',
+          url: link,
+        })
         setIsOpen(false)
         return
       } catch (err) {
@@ -116,9 +113,7 @@ export function BoardShare({
         }
       }
     }
-
-    // Fallback: Copy link
-    shareSingleFeedback.copy(link)
+    linkFeedback.copy(link)
   }
 
   function handleCopyJson() {
@@ -133,19 +128,15 @@ export function BoardShare({
     }
   }
 
-  function handleImportClick() {
-    setIsOpen(false)
-    setJsonModal('import')
-    setImportDraft('')
-  }
-
-  const hasSaved = saved.length > 0
   const positionClass =
     position === 'inline'
       ? styles.inline
       : position === 'viewer'
       ? styles.viewer
       : styles.fixed
+
+  const hasCurrent = current !== null
+  const isCurator = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('curator')
 
   return (
     <div
@@ -156,7 +147,7 @@ export function BoardShare({
         type="button"
         className={color ? `${styles.triggerBase} ghost-chip` : styles.triggerButton}
         style={color ? { color } : undefined}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => { setIsOpen(!isOpen); setShowMore(false) }}
         aria-label="Share options"
         aria-expanded={isOpen}
       >
@@ -178,92 +169,97 @@ export function BoardShare({
 
       {isOpen && (
         <div className={styles.dropdown} data-testid="share-dropdown">
+          {/* ───── Primary: Share as Image ───── */}
           <button
             type="button"
             className={styles.menuItem}
-            onClick={handleShareBoard}
-            disabled={!hasSaved}
+            onClick={handleShareAsImage}
+            disabled={!hasCurrent || sharing}
           >
             <span className={styles.menuItemText}>
-              {shareFeedback.copied ? 'Link Copied!' : 'Share Board Link'}
+              {sharing ? 'Generating…' : 'Share as Image'}
             </span>
-            <span className={styles.menuItemHint}>Rich preview link anyone can open</span>
+            <span className={styles.menuItemHint}>Poster with gradient + name</span>
           </button>
 
-          {current && (
+          {/* ───── Secondary: Copy / Share Link ───── */}
+          {hasCurrent && (
             <button
               type="button"
               className={styles.menuItem}
-              onClick={handleShareSingle}
+              onClick={handleCopyLink}
             >
               <span className={styles.menuItemText}>
-                {shareSingleFeedback.copied ? 'Link Copied!' : 'Share Gradient Link'}
+                {linkFeedback.copied ? '✓ Link Copied!' : 'Copy Link'}
               </span>
-              <span className={styles.menuItemHint}>Rich link to this single gradient</span>
+              <span className={styles.menuItemHint}>Opens this gradient in the app</span>
             </button>
           )}
 
+          {/* ───── Divider ───── */}
+          <div className={styles.divider} />
+
+          {/* ───── More options toggle ───── */}
           <button
             type="button"
             className={styles.menuItem}
-            onClick={() => {
-              setIsOpen(false)
-              setJsonModal('export-board')
-            }}
-            disabled={!hasSaved}
+            onClick={() => setShowMore(!showMore)}
           >
-            <span className={styles.menuItemText}>Export Board JSON…</span>
-            <span className={styles.menuItemHint}>Raw collection backup data</span>
+            <span className={styles.menuItemText}>
+              {showMore ? 'Less options' : 'More options •••'}
+            </span>
           </button>
 
-          {current && (
-            <button
-              type="button"
-              className={styles.menuItem}
-              onClick={() => {
-                setIsOpen(false)
-                setJsonModal('export-single')
-              }}
-            >
-              <span className={styles.menuItemText}>Export Gradient JSON…</span>
-              <span className={styles.menuItemHint}>Raw single gradient data</span>
-            </button>
-          )}
+          {/* ───── Overflow submenu ───── */}
+          {showMore && (
+            <>
+              <button
+                type="button"
+                className={styles.menuItem}
+                onClick={() => { setIsOpen(false); setExportOpen(true) }}
+                disabled={!hasCurrent}
+              >
+                <span className={styles.menuItemText}>Export Image…</span>
+                <span className={styles.menuItemHint}>Wallpaper, Story, OG sizes</span>
+              </button>
 
-          <button
-            type="button"
-            className={styles.menuItem}
-            onClick={handleImportClick}
-          >
-            <span className={styles.menuItemText}>Import JSON…</span>
-            <span className={styles.menuItemHint}>Paste a board or gradient export</span>
-          </button>
+              <button
+                type="button"
+                className={styles.menuItem}
+                onClick={() => { setIsOpen(false); setJsonModal('export-board') }}
+                disabled={saved.length === 0}
+              >
+                <span className={styles.menuItemText}>Export Board JSON…</span>
+                <span className={styles.menuItemHint}>Backup your full collection</span>
+              </button>
 
-          <button
-            type="button"
-            className={styles.menuItem}
-            onClick={() => {
-              setIsOpen(false)
-              setExportOpen(true)
-            }}
-            disabled={!current}
-          >
-            <span className={styles.menuItemText}>Export Image…</span>
-            <span className={styles.menuItemHint}>Save wallpaper or story size</span>
-          </button>
+              <button
+                type="button"
+                className={styles.menuItem}
+                onClick={() => {
+                  setIsOpen(false)
+                  setJsonModal('import')
+                  setImportDraft('')
+                }}
+              >
+                <span className={styles.menuItemText}>Import JSON…</span>
+                <span className={styles.menuItemHint}>Paste a board or gradient export</span>
+              </button>
 
-          {typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('curator') && (
-            <button
-              type="button"
-              className={styles.menuItem}
-              onClick={() => current && curatedFeedback.copy(toCuratedEntryJson(current))}
-              disabled={!current}
-            >
-              <span className={styles.menuItemText}>
-                {curatedFeedback.copied ? '✓ Copied' : 'Copy as curated entry'}
-              </span>
-              <span className={styles.menuItemHint}>Ready to paste into curated.json</span>
-            </button>
+              {isCurator && (
+                <button
+                  type="button"
+                  className={styles.menuItem}
+                  onClick={() => current && curatedFeedback.copy(toCuratedEntryJson(current))}
+                  disabled={!hasCurrent}
+                >
+                  <span className={styles.menuItemText}>
+                    {curatedFeedback.copied ? '✓ Copied' : 'Copy as curated entry'}
+                  </span>
+                  <span className={styles.menuItemHint}>Ready to paste into curated.json</span>
+                </button>
+              )}
+            </>
           )}
         </div>
       )}

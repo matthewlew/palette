@@ -1,8 +1,11 @@
 import { useState } from 'react'
+import { useAppStore } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
 import { buildGradientCss } from '../lib/gradient'
 import { downloadVignettePng, type VignetteShape } from '../lib/vignette'
 import { TurrellSquare } from './TurrellSquare'
+import { titleColorAt } from '../lib/titleColor'
+import { namePalette } from '../lib/naming'
 import styles from './ExportModal.module.css'
 
 interface ExportModalProps {
@@ -58,6 +61,7 @@ const PRESETS: ExportPreset[] = [
 
 export function ExportModal({ gradient, onClose }: ExportModalProps) {
   const [exportingId, setExportingId] = useState<string | null>(null)
+  const saveGradient = useAppStore((s) => s.saveGradient)
 
   const isSquare = gradient.type === 'square'
   const backgroundStyle = isSquare
@@ -65,13 +69,14 @@ export function ExportModal({ gradient, onClose }: ExportModalProps) {
     : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
         repeat: gradient.repeatEnabled,
         hard: gradient.hardStops,
-        fanAnchor: gradient.fanAnchor,
+        fanAnchor: gradient.fanAnchor, angle: gradient.angle,
       })
 
   async function handleExport(preset: ExportPreset) {
     if (exportingId) return
     setExportingId(preset.id)
     try {
+      saveGradient(gradient)
       // Small timeout to let UI update and render the exporting state
       await new Promise((resolve) => setTimeout(resolve, 100))
       const targetShape: VignetteShape = preset.id === 'post' ? 'post' : 'full'
@@ -83,11 +88,29 @@ export function ExportModal({ gradient, onClose }: ExportModalProps) {
     }
   }
 
+  const titleColor = titleColorAt(gradient, 0.06, 0.5)
+
   const gradientLayer = (
     <div
       style={{ position: 'absolute', inset: 0, backgroundImage: backgroundStyle }}
     >
       {isSquare && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} blurPx={8} />}
+      <div 
+        style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-start',
+          paddingLeft: '6%',
+          color: titleColor,
+          fontFamily: 'var(--heading, system-ui, sans-serif)',
+          fontWeight: 600,
+          fontSize: '9px', // scaled down for preview
+        }}
+      >
+        {gradient.name ?? namePalette(gradient.stops.map(s => s.hex))}
+      </div>
     </div>
   )
 
@@ -106,7 +129,7 @@ export function ExportModal({ gradient, onClose }: ExportModalProps) {
           ✕
         </button>
         <h3 className={styles.title}>Export Image</h3>
-        <p className={styles.subtitle}>Save &ldquo;{gradient.name ?? 'Untitled'}&rdquo; as a high-resolution PNG</p>
+        <p className={styles.subtitle}>Save &ldquo;{gradient.name ?? namePalette(gradient.stops.map(s => s.hex))}&rdquo; as a high-resolution PNG</p>
 
         <div className={styles.content}>
           {/* Gradient Preview Card */}
@@ -114,7 +137,7 @@ export function ExportModal({ gradient, onClose }: ExportModalProps) {
             <div className={styles.previewCard}>
               {gradientLayer}
             </div>
-            <span className={styles.previewName}>{gradient.name ?? 'Untitled'}</span>
+            <span className={styles.previewName}>{gradient.name ?? namePalette(gradient.stops.map(s => s.hex))}</span>
             <span className={styles.previewMeta}>
               {gradient.type[0].toUpperCase() + gradient.type.slice(1)} Gradient
             </span>

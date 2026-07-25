@@ -16,8 +16,9 @@ export interface Gradient {
   // bands instead of a smooth blend.
   repeatEnabled?: boolean
   hardStops?: boolean
-  /** Which edge a fan gradient rises from; defaults to 'bottom'. */
   fanAnchor?: FanAnchor
+  /** Rotation angle in degrees (0-360) */
+  angle?: number
   createdAt?: number
   note?: string
 }

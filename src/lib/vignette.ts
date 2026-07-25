@@ -1,7 +1,7 @@
 import type { Gradient } from '../store/types'
 import { renderGradientToCanvas, shareOrDownloadCanvas } from './canvasExport'
 import { titleColorAt } from './titleColor'
-import { NOISE_DATA_URL } from '../components/NoiseOverlay'
+import { namePalette } from './naming'
 
 export type VignetteShape = 'full' | 'circle' | 'oval' | 'diamond' | 'poster' | 'post'
 
@@ -25,24 +25,17 @@ const POSTER_MUTED = '#8d8894'
  * background, or (for 'poster') inset with a border and titled like a
  * minimalist print. 'full' delegates to the plain full-bleed render.
  */
-async function drawNoise(ctx: CanvasRenderingContext2D, width: number, height: number) {
-  ctx.save()
-  ctx.globalCompositeOperation = 'overlay'
-  ctx.globalAlpha = 0.35
-  const img = new Image()
-  img.src = NOISE_DATA_URL
-  await new Promise((resolve) => {
-    img.onload = () => {
-      const pattern = ctx.createPattern(img, 'repeat')
-      if (pattern) {
-        ctx.fillStyle = pattern
-        ctx.fillRect(0, 0, width, height)
-      }
-      resolve(null)
-    }
-    img.onerror = resolve
-  })
-  ctx.restore()
+function applyNoise(ctx: CanvasRenderingContext2D, width: number, height: number) {
+  const imgData = ctx.getImageData(0, 0, width, height)
+  const data = imgData.data
+  // Simple monochrome grain: +/- ~12 to RGB channels
+  for (let i = 0; i < data.length; i += 4) {
+    const noise = (Math.random() - 0.5) * 24
+    data[i] = Math.min(255, Math.max(0, data[i] + noise))
+    data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + noise))
+    data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + noise))
+  }
+  ctx.putImageData(imgData, 0, 0)
 }
 
 export async function renderVignetteToCanvas(
@@ -55,7 +48,7 @@ export async function renderVignetteToCanvas(
   if (shape === 'full') {
     renderGradientToCanvas(canvas, gradient, width, height)
     const ctx = canvas.getContext('2d')
-    if (ctx) await drawNoise(ctx, width, height)
+    if (ctx) applyNoise(ctx, width, height)
     return
   }
 
@@ -65,8 +58,6 @@ export async function renderVignetteToCanvas(
   source.width = width
   source.height = height
   renderGradientToCanvas(source, gradient, width, height)
-  const sourceCtx = source.getContext('2d')
-  if (sourceCtx) await drawNoise(sourceCtx, width, height)
 
   canvas.width = width
   canvas.height = height
@@ -90,7 +81,7 @@ export async function renderVignetteToCanvas(
     ctx.fillRect(margin, margin + 1, width - margin * 2, artHeight)
     ctx.drawImage(source, margin, margin, width - margin * 2, artHeight)
 
-    const title = gradient.name ?? 'Untitled'
+    const title = gradient.name ?? namePalette(gradient.stops.map(s => s.hex))
     const meta = `${gradient.type.toUpperCase()} GRADIENT · ${gradient.stops.length} COLORS`
     const titleSize = unit * 0.045
     const metaSize = unit * 0.02
@@ -103,24 +94,26 @@ export async function renderVignetteToCanvas(
     ctx.fillStyle = POSTER_MUTED
     ctx.font = `400 ${metaSize}px system-ui, 'Segoe UI', Roboto, sans-serif`
     ctx.fillText(meta, margin, margin + artHeight + band * 0.42 + titleSize * 0.95)
+    applyNoise(ctx, width, height)
     return
   }
   
   if (shape === 'post') {
     ctx.drawImage(source, 0, 0, width, height)
     
-    const title = gradient.name ?? 'Untitled'
-    const fontSize = width * 0.045
+    const title = gradient.name ?? namePalette(gradient.stops.map(s => s.hex))
+    const fontSize = width * 0.028
     ctx.font = `600 ${fontSize}px system-ui, 'Segoe UI', Roboto, sans-serif`
     ctx.textBaseline = 'middle'
     
-    const textWidth = ctx.measureText(title).width
-    const x = (width - textWidth) / 2
+    // Left aligned with a 6% margin
+    const x = width * 0.06
     const y = height / 2
     
-    ctx.fillStyle = titleColorAt(gradient, 0.5, 0.5)
+    ctx.fillStyle = titleColorAt(gradient, 0.06, 0.5)
     ctx.textAlign = 'left'
     ctx.fillText(title, x, y)
+    applyNoise(ctx, width, height)
     return
   }
 
@@ -143,6 +136,7 @@ export async function renderVignetteToCanvas(
   ctx.clip()
   ctx.drawImage(source, 0, 0, width, height)
   ctx.restore()
+  applyNoise(ctx, width, height)
 }
 
 /** Renders the chosen vignette and hands it to the share/download flow. */

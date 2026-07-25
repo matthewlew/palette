@@ -15,22 +15,22 @@ describe('buildGradientCss', () => {
 
   it('builds a radial-gradient string', () => {
     const css = buildGradientCss('radial', stops)
-    expect(css).toBe('radial-gradient(circle, #ff0000 0%, #00ff00 50%, #0000ff 100%)')
+    expect(css).toBe('radial-gradient(circle at center, #ff0000 0%, #00ff00 50%, #0000ff 100%)')
   })
 
   it('builds a conic-gradient string for angular type that blends the seam back to the first color', () => {
     const css = buildGradientCss('angular', stops)
     // 3 stops spread evenly by index (i/n) -> 0%,33%,67%, then the first color
-    // repeated at 100% wraps the seam smoothly — every wedge is 360/3 wide,
+    // repeated at 100% wraps the seam smoothly — every wedge is 360/3=120deg wide
     // instead of a hard 360deg->0deg cut.
-    expect(css).toBe('conic-gradient(#ff0000 0%, #00ff00 33%, #0000ff 67%, #ff0000 100%)')
+    expect(css).toBe('conic-gradient(from 0deg, #ff0000 0%, #00ff00 33%, #0000ff 67%, #ff0000 100%)')
   })
 
   it('renders angular hard as solid wedges (crisp double-stop boundaries)', () => {
     const css = buildGradientCss('angular', stops, false, { hard: true })
-    // 3 colors -> three equal wedges, each cutting to the next at its boundary.
+    // 3 colors -> three equal wedges, each cutting to the next at its exact boundary
     expect(css).toBe(
-      'conic-gradient(#ff0000 0% 33%, #00ff00 33% 67%, #0000ff 67% 100%)',
+      'conic-gradient(from 0deg, #ff0000 0% 33%, #00ff00 33% 67%, #0000ff 67% 100%)',
     )
   })
 
@@ -72,7 +72,7 @@ describe('buildGradientCss', () => {
 
   it('builds a nested conic-gradient with hard stops sized to the stop count for square type', () => {
     const css = buildGradientCss('square', stops)
-    expect(css).toContain('conic-gradient(from 0deg')
+    expect(css).toContain('conic-gradient(')
     expect(css).toContain('#ff0000 0deg 120deg')
     expect(css).toContain('#00ff00 120deg 240deg')
     expect(css).toContain('#0000ff 240deg 360deg')

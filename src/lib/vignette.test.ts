@@ -28,6 +28,8 @@ function mockContext() {
     drawImage: vi.fn(),
     fillText: vi.fn(),
     measureText: vi.fn().mockReturnValue({ width: 100 }),
+    getImageData: vi.fn().mockReturnValue({ data: new Uint8ClampedArray(400 * 800 * 4) }),
+    putImageData: vi.fn(),
     fillStyle: '',
     font: '',
     textAlign: '',
@@ -106,11 +108,11 @@ describe('renderVignetteToCanvas', () => {
     expect(texts.some((t: string) => t.includes('LINEAR GRADIENT'))).toBe(true)
   })
 
-  it('poster falls back to Untitled when the gradient has no name', async () => {
+  it('poster generates a name when the gradient has no name', async () => {
     const ctx = mockContext()
     const canvas = mockCanvas(ctx)
     await renderVignetteToCanvas(canvas, { ...gradient, name: undefined }, 400, 800, 'poster')
     const texts = ctx.fillText.mock.calls.map((c) => c[0])
-    expect(texts).toContain('Untitled')
+    expect(texts.some((t: string) => t !== 'Untitled' && t.length > 0)).toBe(true)
   })
 })

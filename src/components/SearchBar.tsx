@@ -24,11 +24,16 @@ export function SearchBar({ onResults }: SearchBarProps) {
     setLoading(true)
     debounceTimer.current = window.setTimeout(async () => {
       try {
-        const { data, error } = await supabase
+        let queryBuilder = supabase
           .from('palettes')
           .select('*')
-          .textSearch('display_name', query, { type: 'websearch', config: 'english' })
-          .limit(20)
+          
+        const words = query.trim().split(/\s+/)
+        for (const word of words) {
+          queryBuilder = queryBuilder.ilike('display_name', `%${word}%`)
+        }
+        
+        const { data, error } = await queryBuilder.limit(20)
 
         if (error) throw error
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { useAppStore } from '../store/useAppStore'
-import { buildGradientCss, FAN_ANCHORS, SELECTABLE_GEOMETRY, type GradientType } from '../lib/gradient'
+import { buildGradientCss, SELECTABLE_GEOMETRY, type GradientType } from '../lib/gradient'
 import {
   toEditableStops,
   equalizePositions,
@@ -50,6 +50,7 @@ const EDIT_SHORTCUTS: ShortcutHintItem[] = [
   { keys: ['←', '→'], label: 'Style' },
   { keys: ['S'], label: 'Save' },
   { keys: ['F'], label: 'Flip' },
+  { keys: ['R'], label: 'Rotate' },
   { keys: ['Esc'], label: 'Back' },
 ]
 
@@ -103,7 +104,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   const isDraggingRef = useRef(false)
   const lastHandleDragEndRef = useRef(0)
   const pendingGradientRef = useRef<Gradient | null>(null)
-  const chromeHidden = scrolling || handleDragging
+  const chromeHidden = false
 
   // Per-corner palette-derived foregrounds (same strategy as the title) so
   // every floating control reads as an extension of the gradient.
@@ -129,6 +130,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     setActiveOrder('original')
     setTickerIndex(feedSession.index)
     feedSession.lockedType = gradient.type
+    feedSession.lockedAngle = gradient.angle
     setActiveStopId(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gradient.id, gradient.type])
@@ -207,7 +209,11 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     if (newIndex < 0) return
 
     if (newIndex >= history.length) {
-      const fresh = makeGradient(feedSession.lockedType ?? gradient.type, activeColorSet)
+      const typeToUse = feedSession.lockedType ?? gradient.type
+      const fresh = {
+        ...makeGradient(typeToUse, activeColorSet),
+        angle: feedSession.lockedAngle ?? (typeToUse === 'radial' ? undefined : 0)
+      }
       history.push(fresh)
     }
 
@@ -470,6 +476,18 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
             stops: toGradientStops(editableStopsRef.current),
           })
         }
+      } else if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault()
+        const currentGrad = useAppStore.getState().current
+        if (currentGrad) {
+          const newAngle = ((currentGrad.angle ?? 0) + 45) % 360
+          setCurrentGradient({
+            ...currentGrad,
+            angle: newAngle,
+            stops: toGradientStops(editableStopsRef.current),
+          })
+          feedSession.lockedAngle = newAngle
+        }
       }
     }
 
@@ -507,7 +525,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   // positions the user has already dragged into place — only handle removal/
   // addition/sorting re-equalizes, since those change stop count or order.
   function commitPreservingPositions(
-    overrides: Partial<Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops' | 'fanAnchor'>>
+    overrides: Partial<Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops' | 'fanAnchor' | 'angle'>>
   ) {
     setCurrentGradient({
       ...gradient,
@@ -540,12 +558,25 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     commitPreservingPositions({ hardStops: !gradient.hardStops })
   }
 
+  function handleRotateAngle() {
+    let newAngle: number | undefined
+    if (gradient.type === 'radial') {
+      if (gradient.angle === undefined) newAngle = 0
+      else if (gradient.angle === 315) newAngle = undefined
+      else newAngle = (gradient.angle + 45) % 360
+    } else {
+      newAngle = ((gradient.angle ?? 0) + 45) % 360
+    }
+    commitPreservingPositions({ angle: newAngle })
+    feedSession.lockedAngle = newAngle
+  }
+
   // Re-tapping the active Fan tab rotates which edge the cone rises from,
-  // cycling bottom → top → left → right.
+  // by jumping 90 degrees.
   function handleRotateFan() {
-    const currentIndex = FAN_ANCHORS.indexOf(gradient.fanAnchor ?? 'bottom')
-    const next = FAN_ANCHORS[(currentIndex + 1) % FAN_ANCHORS.length]
-    commitPreservingPositions({ fanAnchor: next })
+    const newAngle = ((gradient.angle ?? 0) + 90) % 360
+    commitPreservingPositions({ angle: newAngle })
+    feedSession.lockedAngle = newAngle
   }
 
   // Recolor a stop in place — positions are left untouched, unlike commit(),
@@ -691,6 +722,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
                   repeat: gradient.repeatEnabled,
                   hard: gradient.hardStops,
                   fanAnchor: gradient.fanAnchor,
+                  angle: gradient.angle,
                 }),
         }}
         onPointerDown={handlePreviewPointerDown}
@@ -745,6 +777,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           spoke="up"
           fanAnchor={gradient.fanAnchor}
           repeat={gradient.repeatEnabled}
+          angle={gradient.angle}
           cursor={canvasCursor}
           size={canvasSize}
           hidden={scrolling}
@@ -791,6 +824,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           onToggleRepeat={handleToggleRepeat}
           onToggleHardStops={handleToggleHardStops}
           onRotateFan={handleRotateFan}
+          onRotate={handleRotateAngle}
         />
 
         <div className={styles.blockArea}>

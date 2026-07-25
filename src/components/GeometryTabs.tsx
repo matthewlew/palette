@@ -13,6 +13,7 @@ interface GeometryTabsProps {
   onToggleHardStops?: () => void
   /** Re-tapping the active Fan tab rotates its anchor edge. */
   onRotateFan?: () => void
+  onRotate?: () => void
 }
 
 const TABS: { type: GradientType; label: string }[] = [
@@ -40,6 +41,7 @@ export function GeometryTabs({
   onToggleRepeat,
   onToggleHardStops,
   onRotateFan,
+  onRotate,
 }: GeometryTabsProps) {
   const tabsRef = useRef<HTMLDivElement>(null)
 
@@ -91,7 +93,8 @@ export function GeometryTabs({
                 backgroundImage: tab.type !== 'square' ? buildGradientCss(tab.type, stops, gradient.reversed, {
                   repeat: gradient.repeatEnabled,
                   hard: gradient.hardStops,
-                  fanAnchor: gradient.fanAnchor
+                  fanAnchor: gradient.fanAnchor,
+                  angle: gradient.angle,
                 }) : undefined
               }}
             >
@@ -127,6 +130,14 @@ export function GeometryTabs({
         onClick={onToggleHardStops}
       >
         Hard
+      </button>
+      <button
+        type="button"
+        data-testid="filter-rotate"
+        className={styles.filter}
+        onClick={onRotate}
+      >
+        Rotate
       </button>
     </div>
   )

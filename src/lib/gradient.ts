@@ -22,13 +22,43 @@ export type FanAnchor = 'bottom' | 'top' | 'left' | 'right'
 
 export const FAN_ANCHORS: FanAnchor[] = ['bottom', 'top', 'left', 'right']
 
-/** Per-anchor geometry: `at`/`from` feed the CSS conic-gradient, and px/py are
- * the same pivot in normalized coords for gradientColorAt's angle sampling. */
-export const FAN_ANCHOR_CONFIG: Record<FanAnchor, { at: string; from: number; px: number; py: number }> = {
-  bottom: { at: '50% 100%', from: 270, px: 0.5, py: 1 },
-  top: { at: '50% 0%', from: 90, px: 0.5, py: 0 },
-  left: { at: '0% 50%', from: 0, px: 0, py: 0.5 },
-  right: { at: '100% 50%', from: 180, px: 1, py: 0.5 },
+export function getFanConfig(angle: number) {
+  // Map 0-360 degrees to one of 8 positions (steps of 45)
+  const step = (Math.round(angle / 45) * 45) % 360
+  switch (step) {
+    case 0: return { at: '50% 100%', from: 270, span: 0.5, px: 0.5, py: 1 } // bottom
+    case 45: return { at: '0% 100%', from: 0, span: 0.25, px: 0, py: 1 } // bottom-left
+    case 90: return { at: '0% 50%', from: 0, span: 0.5, px: 0, py: 0.5 } // left
+    case 135: return { at: '0% 0%', from: 90, span: 0.25, px: 0, py: 0 } // top-left
+    case 180: return { at: '50% 0%', from: 90, span: 0.5, px: 0.5, py: 0 } // top
+    case 225: return { at: '100% 0%', from: 180, span: 0.25, px: 1, py: 0 } // top-right
+    case 270: return { at: '100% 50%', from: 180, span: 0.5, px: 1, py: 0.5 } // right
+    case 315: return { at: '100% 100%', from: 270, span: 0.25, px: 1, py: 1 } // bottom-right
+    default: return { at: '50% 100%', from: 270, span: 0.5, px: 0.5, py: 1 }
+  }
+}
+
+export const FAN_ANCHOR_CONFIG: Record<FanAnchor, { at: string; from: number; span: number; px: number; py: number }> = {
+  bottom: { at: '50% 100%', from: 270, span: 0.5, px: 0.5, py: 1 },
+  top: { at: '50% 0%', from: 90, span: 0.5, px: 0.5, py: 0 },
+  left: { at: '0% 50%', from: 0, span: 0.5, px: 0, py: 0.5 },
+  right: { at: '100% 50%', from: 180, span: 0.5, px: 1, py: 0.5 },
+}
+
+export function getRadialConfig(angle?: number) {
+  if (angle == null) return { css: 'center', px: 0.5, py: 0.5 }
+  const step = (Math.round(angle / 45) * 45) % 360
+  switch (step) {
+    case 0: return { css: 'top', px: 0.5, py: 0 }
+    case 45: return { css: 'top right', px: 1, py: 0 }
+    case 90: return { css: 'right', px: 1, py: 0.5 }
+    case 135: return { css: 'bottom right', px: 1, py: 1 }
+    case 180: return { css: 'bottom', px: 0.5, py: 1 }
+    case 225: return { css: 'bottom left', px: 0, py: 1 }
+    case 270: return { css: 'left', px: 0, py: 0.5 }
+    case 315: return { css: 'top left', px: 0, py: 0 }
+    default: return { css: 'center', px: 0.5, py: 0.5 }
+  }
 }
 
 function assertStops(stops: GradientStop[]): void {
@@ -50,10 +80,10 @@ function buildSquareGradient(stops: GradientStop[]): string {
     const end = (i + 1) * degreesPerSegment
     return `${stop.hex} ${start}deg ${end}deg`
   })
-  return `conic-gradient(from 0deg, ${segments.join(', ')})`
+  return `conic-gradient(${segments.join(', ')})`
 }
 
-function buildAngularGradient(stops: GradientStop[], hard = false): string {
+function buildAngularGradient(stops: GradientStop[], hard = false, angle = 0): string {
   // Spread the colors evenly around the full circle by index (i/n). Every
   // wedge — including the seam — is 360/n wide, so N colors read as N equal
   // wedges instead of the uneven distribution a compress-to-leave-room-for-the-
@@ -65,21 +95,18 @@ function buildAngularGradient(stops: GradientStop[], hard = false): string {
     const segments = stops.map(
       (s, i) => `${s.hex} ${Math.round((i / n) * 100)}% ${Math.round(((i + 1) / n) * 100)}%`,
     )
-    return `conic-gradient(${segments.join(', ')})`
+    return `conic-gradient(from ${angle}deg, ${segments.join(', ')})`
   }
   const spread = stops.map((s, i) => ({ hex: s.hex, position: Math.round((i / n) * 100) }))
   const withSeam = [...spread, { hex: stops[0].hex, position: 100 }]
-  return `conic-gradient(${stopsToCss(withSeam)})`
+  return `conic-gradient(from ${angle}deg, ${stopsToCss(withSeam)})`
 }
 
-function buildFanGradient(stops: GradientStop[], anchor: FanAnchor = 'bottom'): string {
-  // A 180° fan rising from the middle of one edge, like a sunburst (the Edward
-  // Sharpe "Up from Below" cover): the palette is compressed into the visible
-  // inward-facing semicircle — 0–50% of the cone — and the last color holds
-  // across the off-screen half so no seam shows. The pivot and start angle
-  // rotate with the chosen anchor edge.
-  const { at, from } = FAN_ANCHOR_CONFIG[anchor]
-  const compressed = stops.map((s) => ({ hex: s.hex, position: Math.round(s.position * 0.5) }))
+function buildFanGradient(stops: GradientStop[], anchor: FanAnchor = 'bottom', angle?: number): string {
+  // A fan rising from an edge or corner. The palette is compressed into the visible
+  // sector (180° for sides, 90° for corners) and the last color holds across the rest.
+  const { at, from, span } = angle != null ? getFanConfig(angle) : FAN_ANCHOR_CONFIG[anchor]
+  const compressed = stops.map((s) => ({ hex: s.hex, position: Math.round(s.position * span) }))
   const withTail = [...compressed, { hex: stops[stops.length - 1].hex, position: 100 }]
   return `conic-gradient(from ${from}deg at ${at}, ${stopsToCss(withTail)})`
 }
@@ -101,21 +128,21 @@ export function positionedStops(hexes: string[]): GradientStop[] {
   }))
 }
 
-function buildMirrorGradient(stops: GradientStop[]): string {
+function buildMirrorGradient(stops: GradientStop[], angle = 0): string {
   const forward = stops.map((s) => s.hex)
   // A true palindrome: reflect back to the start without duplicating the
   // last color at the axis of symmetry: [A,B,C] -> [A,B,C,B,A].
   const mirrored = [...forward, ...forward.slice(0, -1).reverse()]
-  return `linear-gradient(180deg, ${stopsToCss(positionedStops(mirrored))})`
+  return `linear-gradient(${180 + angle}deg, ${stopsToCss(positionedStops(mirrored))})`
 }
 
-function buildRepeatGradient(stops: GradientStop[]): string {
+function buildRepeatGradient(stops: GradientStop[], angle = 0): string {
   // No synthetic midpoint at the seam: an OKLCH-blended seam color can land
   // on a hue that exists nowhere in the palette. Letting CSS interpolate the
   // last color straight into the first keeps the blend between real stops.
   const hexes = stops.map((s) => s.hex)
   const sequence = [...hexes, ...hexes]
-  return `linear-gradient(180deg, ${stopsToCss(positionedStops(sequence))})`
+  return `linear-gradient(${180 + angle}deg, ${stopsToCss(positionedStops(sequence))})`
 }
 
 /** Cycles the stop sequence twice across the gradient — a "2x repeat"
@@ -154,6 +181,8 @@ export interface GradientFilters {
   hard?: boolean
   /** Which edge a fan gradient rises from (ignored by other types). */
   fanAnchor?: FanAnchor
+  /** Rotation angle in degrees. */
+  angle?: number
 }
 
 export function buildGradientCss(
@@ -178,21 +207,24 @@ export function buildGradientCss(
     if (filters.hard && type !== 'angular') orderedStops = hardenStops(orderedStops)
   }
 
+  const angle = filters.angle ?? 0
   switch (type) {
     case 'linear':
-      return `linear-gradient(180deg, ${stopsToCss(orderedStops)})`
-    case 'radial':
-      return `radial-gradient(circle, ${stopsToCss(orderedStops)})`
+      return `linear-gradient(${180 + angle}deg, ${stopsToCss(orderedStops)})`
+    case 'radial': {
+      const { css } = getRadialConfig(filters.angle)
+      return `radial-gradient(circle at ${css}, ${stopsToCss(orderedStops)})`
+    }
     case 'angular':
-      return buildAngularGradient(orderedStops, filters.hard)
+      return buildAngularGradient(orderedStops, filters.hard, angle)
     case 'square':
       return buildSquareGradient(orderedStops)
     case 'mirror':
-      return buildMirrorGradient(orderedStops)
+      return buildMirrorGradient(orderedStops, angle)
     case 'repeat':
-      return buildRepeatGradient(orderedStops)
+      return buildRepeatGradient(orderedStops, angle)
     case 'fan':
-      return buildFanGradient(orderedStops, filters.fanAnchor)
+      return buildFanGradient(orderedStops, filters?.fanAnchor, filters?.angle)
   }
 }
 

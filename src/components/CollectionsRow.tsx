@@ -36,6 +36,7 @@ function cellBackground(g: Gradient): string {
     repeat: g.repeatEnabled,
     hard: g.hardStops,
     fanAnchor: g.fanAnchor,
+    angle: g.angle,
   })
 }
 

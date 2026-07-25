@@ -12,7 +12,15 @@ import { namePalette } from '../lib/naming'
 
 function gradientSignature(gradient: Gradient): string {
   const sortedStops = [...gradient.stops].sort((a, b) => a.position - b.position)
-  return `${gradient.type}:${sortedStops.map((s) => `${s.hex}@${s.position}`).join(',')}`
+  const stopsSig = sortedStops.map((s) => `${s.hex}@${s.position}`).join(',')
+  const mods = [
+    gradient.reversed ? 'rev' : '',
+    gradient.repeatEnabled ? 'rep' : '',
+    gradient.hardStops ? 'hard' : '',
+    gradient.angle ? `ang${gradient.angle}` : '',
+    gradient.fanAnchor ? `fan${gradient.fanAnchor}` : ''
+  ].filter(Boolean).join('-')
+  return `${gradient.type}:${stopsSig}${mods ? `:${mods}` : ''}`
 }
 
 interface AppState {
@@ -46,6 +54,7 @@ interface AppState {
   duplicateSavedGradient: (id: string) => void
   renameSavedGradient: (id: string, name: string) => void
   renameCurrentGradient: (name: string) => void
+  rotateCurrentGradient: (degrees: number) => void
   /** Moves the saved gradient `fromId` to occupy `toId`'s current position,
    * shifting the others. Persisted via the `saved` array. No-op if either id
    * is missing or the ids are equal. */
@@ -195,6 +204,12 @@ export const useAppStore = create<AppState>()(
           current: { ...current, name: trimmed },
           saved: get().saved.map((g) => (gradientSignature(g) === signature ? { ...g, name: trimmed } : g)),
         })
+      },
+      rotateCurrentGradient: (degrees) => {
+        const current = get().current
+        if (!current) return
+        const newAngle = ((current.angle ?? 0) + degrees) % 360
+        set({ current: { ...current, angle: newAngle } })
       },
       reorderSaved: (fromId, toId) => {
         if (fromId === toId) return

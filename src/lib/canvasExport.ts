@@ -4,7 +4,25 @@ import {
   hardenStops,
   positionedStops,
   sampleStops,
+  getFanConfig,
+  FAN_ANCHOR_CONFIG,
+  getRadialConfig,
 } from './gradient'
+
+function getLinearGradientCoords(angle: number = 0, width: number, height: number) {
+  const step = (Math.round((180 + angle) / 45) * 45) % 360
+  switch (step) {
+    case 0: return { x0: 0, y0: height, x1: 0, y1: 0 } // to top
+    case 45: return { x0: 0, y0: height, x1: width, y1: 0 } // to top right
+    case 90: return { x0: 0, y0: 0, x1: width, y1: 0 } // to right
+    case 135: return { x0: 0, y0: 0, x1: width, y1: height } // to bottom right
+    case 180: return { x0: 0, y0: 0, x1: 0, y1: height } // to bottom
+    case 225: return { x0: width, y0: 0, x1: 0, y1: height } // to bottom left
+    case 270: return { x0: width, y0: 0, x1: 0, y1: 0 } // to left
+    case 315: return { x0: width, y0: height, x1: 0, y1: 0 } // to top left
+    default: return { x0: 0, y0: 0, x1: 0, y1: height } // fallback to bottom
+  }
+}
 
 /**
  * Renders the base gradient to a canvas context at specified width and height.
@@ -27,6 +45,8 @@ export function renderGradientToCanvas(
     reversed = false,
     repeatEnabled = false,
     hardStops = false,
+    angle,
+    fanAnchor,
   } = gradient
 
   let stops = [...gradient.stops].sort((a, b) => a.position - b.position)
@@ -49,16 +69,18 @@ export function renderGradientToCanvas(
 
   switch (type) {
     case 'linear': {
-      const grad = ctx.createLinearGradient(0, 0, 0, height)
+      const coords = getLinearGradientCoords(angle, width, height)
+      const grad = ctx.createLinearGradient(coords.x0, coords.y0, coords.x1, coords.y1)
       stops.forEach((s) => grad.addColorStop(s.position / 100, s.hex))
       ctx.fillStyle = grad
       ctx.fillRect(0, 0, width, height)
       break
     }
     case 'radial': {
-      const cx = width / 2
-      const cy = height / 2
-      const r = Math.hypot(cx, cy)
+      const config = getRadialConfig(angle)
+      const cx = width * config.px
+      const cy = height * config.py
+      const r = Math.hypot(Math.max(cx, width - cx), Math.max(cy, height - cy))
       const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r)
       stops.forEach((s) => grad.addColorStop(s.position / 100, s.hex))
       ctx.fillStyle = grad
@@ -71,9 +93,10 @@ export function renderGradientToCanvas(
       const scaleFactor = stops.length / (stops.length + 1)
       const compressed = stops.map((s) => ({ hex: s.hex, position: Math.round(s.position * scaleFactor) }))
       const withSeam = [...compressed, { hex: stops[0].hex, position: 100 }]
+      const startAngle = (((angle ?? 0) - 90) * Math.PI) / 180
 
       if (ctx.createConicGradient) {
-        const grad = ctx.createConicGradient(-Math.PI / 2, cx, cy)
+        const grad = ctx.createConicGradient(startAngle, cx, cy)
         withSeam.forEach((s) => grad.addColorStop(s.position / 100, s.hex))
         ctx.fillStyle = grad
         ctx.fillRect(0, 0, width, height)
@@ -81,8 +104,8 @@ export function renderGradientToCanvas(
         // Fallback: draw fine angular wedges
         const numWedges = 360
         for (let i = 0; i < numWedges; i++) {
-          const angleStart = (i / numWedges) * 2 * Math.PI - Math.PI / 2
-          const angleEnd = ((i + 1) / numWedges) * 2 * Math.PI - Math.PI / 2
+          const angleStart = (i / numWedges) * 2 * Math.PI + startAngle
+          const angleEnd = ((i + 1) / numWedges) * 2 * Math.PI + startAngle
           const t = i / numWedges
           const color = sampleStops(withSeam, t)
 
@@ -97,26 +120,24 @@ export function renderGradientToCanvas(
       break
     }
     case 'fan': {
-      // Mirrors buildFanGradient: a 180° fan from the bottom-center. Palette is
-      // compressed into 0–50% of the cone; the last color holds across the
-      // off-screen lower half. CSS `from 270deg` maps to a canvas start angle
-      // of 270°−90° = 180° (π rad).
-      const cx = width / 2
-      const cy = height
-      const compressed = stops.map((s) => ({ hex: s.hex, position: Math.round(s.position * 0.5) }))
+      const config = typeof gradient.angle === 'number' ? getFanConfig(gradient.angle) : FAN_ANCHOR_CONFIG[fanAnchor ?? 'bottom']
+      const cx = width * config.px
+      const cy = height * config.py
+      const compressed = stops.map((s) => ({ hex: s.hex, position: Math.round(s.position * config.span) }))
       const withTail = [...compressed, { hex: stops[stops.length - 1].hex, position: 100 }]
-      const radius = Math.hypot(cx, cy)
+      const radius = Math.hypot(width, height)
+      const startAngle = ((config.from - 90) * Math.PI) / 180
 
       if (ctx.createConicGradient) {
-        const grad = ctx.createConicGradient(Math.PI, cx, cy)
+        const grad = ctx.createConicGradient(startAngle, cx, cy)
         withTail.forEach((s) => grad.addColorStop(s.position / 100, s.hex))
         ctx.fillStyle = grad
         ctx.fillRect(0, 0, width, height)
       } else {
         const numWedges = 360
         for (let i = 0; i < numWedges; i++) {
-          const angleStart = (i / numWedges) * 2 * Math.PI + Math.PI
-          const angleEnd = ((i + 1) / numWedges) * 2 * Math.PI + Math.PI
+          const angleStart = (i / numWedges) * 2 * Math.PI + startAngle
+          const angleEnd = ((i + 1) / numWedges) * 2 * Math.PI + startAngle
           const color = sampleStops(withTail, i / numWedges)
           ctx.beginPath()
           ctx.moveTo(cx, cy)
@@ -148,10 +169,18 @@ export function renderGradientToCanvas(
 
         ctx.save()
         if (blurRadius > 0) {
-          ctx.filter = `blur(${blurRadius}px)`
+          // Safari often ignores ctx.filter = 'blur()' on large canvases.
+          // Drawing the shadow of an offscreen rect perfectly emulates it.
+          ctx.shadowColor = hexes[i]
+          ctx.shadowBlur = blurRadius
+          ctx.shadowOffsetX = width * 2
+          ctx.shadowOffsetY = 0
+          ctx.fillStyle = hexes[i]
+          ctx.fillRect(rx - width * 2, ry, sizeX, sizeY)
+        } else {
+          ctx.fillStyle = hexes[i]
+          ctx.fillRect(rx, ry, sizeX, sizeY)
         }
-        ctx.fillStyle = hexes[i]
-        ctx.fillRect(rx, ry, sizeX, sizeY)
         ctx.restore()
       }
       break
@@ -160,7 +189,8 @@ export function renderGradientToCanvas(
       const forward = stops.map((s) => s.hex)
       const mirrored = [...forward, ...forward.slice(0, -1).reverse()]
       const ordered = positionedStops(mirrored)
-      const grad = ctx.createLinearGradient(0, 0, 0, height)
+      const coords = getLinearGradientCoords(angle, width, height)
+      const grad = ctx.createLinearGradient(coords.x0, coords.y0, coords.x1, coords.y1)
       ordered.forEach((s) => grad.addColorStop(s.position / 100, s.hex))
       ctx.fillStyle = grad
       ctx.fillRect(0, 0, width, height)
@@ -170,7 +200,8 @@ export function renderGradientToCanvas(
       const hexes = stops.map((s) => s.hex)
       const sequence = [...hexes, ...hexes]
       const ordered = positionedStops(sequence)
-      const grad = ctx.createLinearGradient(0, 0, 0, height)
+      const coords = getLinearGradientCoords(angle, width, height)
+      const grad = ctx.createLinearGradient(coords.x0, coords.y0, coords.x1, coords.y1)
       ordered.forEach((s) => grad.addColorStop(s.position / 100, s.hex))
       ctx.fillStyle = grad
       ctx.fillRect(0, 0, width, height)

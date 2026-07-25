@@ -29,6 +29,8 @@ function thumbStyle(gradient: Gradient): React.CSSProperties | undefined {
         backgroundImage: buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
           repeat: gradient.repeatEnabled,
           hard: gradient.hardStops,
+          fanAnchor: gradient.fanAnchor,
+          angle: gradient.angle,
         }),
       }
 }

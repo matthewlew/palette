@@ -2,10 +2,13 @@ import { useState } from 'react'
 import { buildGradientCss } from '../lib/gradient'
 import { gradientMetric } from '../lib/sortColors'
 import { encodeToFragment, toSharePayloadGradient } from '../lib/gradientCodec'
+import { namePalette } from '../lib/naming'
 import { useCopyFeedback } from '../hooks/useCopyFeedback'
 import { useAppStore } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
 import { TurrellSquare } from './TurrellSquare'
+import { renderVignetteToCanvas } from '../lib/vignette'
+import JSZip from 'jszip'
 import styles from './SavedBrowser.module.css'
 
 export type SavedSortKey = 'saved' | 'recent' | 'name' | 'hue'
@@ -82,6 +85,7 @@ function SavedCard({ gradient, onSelect }: { gradient: Gradient; onSelect: (g: G
                   repeat: gradient.repeatEnabled,
                   hard: gradient.hardStops,
                   fanAnchor: gradient.fanAnchor,
+                  angle: gradient.angle,
                 }),
         }}
         onClick={() => onSelect(gradient)}
@@ -115,7 +119,7 @@ function SavedCard({ gradient, onSelect }: { gradient: Gradient; onSelect: (g: G
             setEditing(true)
           }}
         >
-          {gradient.name ?? 'Untitled'}
+          {gradient.name ?? namePalette(gradient.stops.map((s) => s.hex))}
         </button>
       )}
       <div className={styles.cardActions}>
@@ -150,7 +154,40 @@ function SavedCard({ gradient, onSelect }: { gradient: Gradient; onSelect: (g: G
 
 export function SavedBrowser({ saved, onSelect, onClose }: SavedBrowserProps) {
   const [sortKey, setSortKey] = useState<SavedSortKey>('saved')
+  const [exporting, setExporting] = useState(false)
   const sorted = sortSaved(saved, sortKey)
+
+  async function handleExportAll() {
+    if (exporting || saved.length === 0) return
+    setExporting(true)
+    try {
+      const zip = new JSZip()
+      for (const gradient of saved) {
+        const canvas = document.createElement('canvas')
+        await renderVignetteToCanvas(canvas, gradient, 1080, 1350, 'post')
+        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+        if (blob) {
+          const name = gradient.name ?? namePalette(gradient.stops.map(s => s.hex))
+          const slug = name.toLowerCase().replace(/\s+/g, '-')
+          const filename = `${slug}-post.png`
+          zip.file(filename, blob)
+        }
+      }
+      const zipBlob = await zip.generateAsync({ type: 'blob' })
+      const dataUrl = URL.createObjectURL(zipBlob)
+      const a = document.createElement('a')
+      a.href = dataUrl
+      a.download = 'palettes-ig-posts.zip'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(dataUrl), 1000)
+    } catch (e) {
+      console.error('Batch export failed', e)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   return (
     <>
@@ -160,21 +197,31 @@ export function SavedBrowser({ saved, onSelect, onClose }: SavedBrowserProps) {
           <h2 className={styles.title}>
             Saved <span className={styles.count}>{saved.length}</span>
           </h2>
-          <label className={styles.sortLabel}>
-            Sort
-            <select
-              className={styles.sortSelect}
-              aria-label="Sort saved palettes"
-              value={sortKey}
-              onChange={(e) => setSortKey(e.target.value as SavedSortKey)}
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <button 
+              type="button" 
+              onClick={handleExportAll} 
+              disabled={exporting || saved.length === 0}
+              className={styles.exportAllButton}
             >
-              {SORT_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </label>
+              {exporting ? 'Generating ZIP...' : 'Export All as Posts'}
+            </button>
+            <label className={styles.sortLabel}>
+              Sort
+              <select
+                className={styles.sortSelect}
+                aria-label="Sort saved palettes"
+                value={sortKey}
+                onChange={(e) => setSortKey(e.target.value as SavedSortKey)}
+              >
+                {SORT_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
         </div>
         {sorted.length === 0 ? (
           <p className={styles.empty}>Nothing saved yet — tap the heart on a gradient you like.</p>

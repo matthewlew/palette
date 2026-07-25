@@ -32,6 +32,7 @@ export function makeGradient(type: GradientType, colorSet: ColorSet): Gradient {
     hardStops: false,
     repeatEnabled: false,
     fanAnchor: 'bottom',
+    angle: type === 'radial' ? undefined : 0,
   }
 }
 
@@ -47,16 +48,18 @@ const SHAPE_STEP_PX = 80
 // level state persists across component remounts within the same page load
 // since ES modules are singletons — this is standard practice for exactly
 // this kind of "survive unmount" requirement.
-export const feedSession: { history: Gradient[]; index: number; lockedType: GradientType | null } = {
+export const feedSession: { history: Gradient[]; index: number; lockedType: GradientType | null; lockedAngle: number | undefined } = {
   history: [],
   index: 0,
   lockedType: null,
+  lockedAngle: undefined,
 }
 
 export function resetFeedSession() {
   feedSession.history = []
   feedSession.index = 0
   feedSession.lockedType = null
+  feedSession.lockedAngle = undefined
 }
 
 /** Riff: seed the Create rolodex with a gradient picked in the Gallery.
@@ -73,12 +76,14 @@ export function startFeedWithType(gradient: Gradient) {
   feedSession.history = [gradient]
   feedSession.index = 0
   feedSession.lockedType = gradient.type
+  feedSession.lockedAngle = gradient.angle
 }
 
 export function riffIntoFeed(gradient: Gradient) {
   feedSession.history = [...feedSession.history, gradient]
   feedSession.index = feedSession.history.length - 1
   feedSession.lockedType = gradient.type
+  feedSession.lockedAngle = gradient.angle
 }
 
 interface FeedProps {
@@ -155,7 +160,13 @@ export function Feed({ chromeVisible = true }: FeedProps) {
       feedSession.lockedType = current ? current.type : pickRandomType()
     }
     if (feedSession.history.length === 0) {
-      const initial = current ?? makeGradient(feedSession.lockedType, activeColorSet)
+      let typeToUse = feedSession.lockedType
+      if (!typeToUse) {
+        typeToUse = pickRandomType()
+        feedSession.lockedType = typeToUse
+      }
+      let angleToUse = feedSession.lockedAngle ?? (typeToUse === 'radial' ? undefined : 0)
+      const initial = current ?? { ...makeGradient(typeToUse, activeColorSet), angle: angleToUse }
       feedSession.history = [initial]
       feedSession.index = 0
       setDisplayed(initial)
@@ -214,7 +225,8 @@ export function Feed({ chromeVisible = true }: FeedProps) {
       // Forward past the end of history: generate a brand-new gradient,
       // keeping the same locked shape for this Feed session. Each tick is a
       // completely new gradient, not a nudge from the previous one.
-      const fresh = makeGradient(feedSession.lockedType!, activeColorSet)
+      const typeToUse = feedSession.lockedType!
+      const fresh = { ...makeGradient(typeToUse, activeColorSet), angle: feedSession.lockedAngle ?? (typeToUse === 'radial' ? undefined : 0) }
       history.push(fresh)
     }
 
