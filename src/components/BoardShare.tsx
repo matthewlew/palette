@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { encodeToFragment, toExportJson, toSharePayloadGradient } from '../lib/gradientCodec'
-import { publishPalette } from '../lib/publishPalette'
+import { publishPalette, publishGradient } from '../lib/publishPalette'
 import { previewShareUrl } from '../lib/shareLink'
 import { toCuratedEntryJson } from '../lib/curated'
 import { useCopyFeedback } from '../hooks/useCopyFeedback'
@@ -84,6 +84,9 @@ export function BoardShare({
     if (!current || sharing) return
     setSharing(true)
     setIsOpen(false)
+    // Exporting an image also registers the gradient in the shared gallery so
+    // it's searchable later; fire-and-forget so it never blocks the export.
+    publishGradient(current).catch((err) => console.error('Publish on share failed', err))
     try {
       const canvas = document.createElement('canvas')
       await renderVignetteToCanvas(canvas, current, 1080, 1350, 'post')

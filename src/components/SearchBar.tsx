@@ -39,9 +39,12 @@ export function SearchBar({ onResults }: SearchBarProps) {
 
         if (data) {
           const gradients: Gradient[] = data.map(row => {
+            // Use persisted stop offsets when present so uneven spacing renders
+            // accurately; fall back to even spacing for older rows.
+            const offsets: number[] | null = Array.isArray(row.offsets) ? row.offsets : null
             const stops = row.colors.map((hex: string, i: number) => ({
               hex,
-              position: row.colors.length === 1 ? 0 : Math.round((i / (row.colors.length - 1)) * 100),
+              position: offsets?.[i] ?? (row.colors.length === 1 ? 0 : Math.round((i / (row.colors.length - 1)) * 100)),
               id: `stop-${i}`
             }));
 
@@ -50,6 +53,9 @@ export function SearchBar({ onResults }: SearchBarProps) {
               name: row.display_name,
               type: row.shape as GradientType,
               stops,
+              // Restore rotation / radial-origin so the preview matches what was
+              // saved (previously dropped, so rotated gradients rendered wrong).
+              angle: row.angle ?? 0,
               fanAnchor: 'bottom',
               reversed: false,
               hardStops: false,

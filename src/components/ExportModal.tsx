@@ -3,6 +3,7 @@ import { useAppStore } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
 import { buildGradientCss } from '../lib/gradient'
 import { downloadVignettePng, type VignetteShape } from '../lib/vignette'
+import { publishGradient } from '../lib/publishPalette'
 import { TurrellSquare } from './TurrellSquare'
 import { titleColorAt } from '../lib/titleColor'
 import { namePalette } from '../lib/naming'
@@ -77,6 +78,9 @@ export function ExportModal({ gradient, onClose }: ExportModalProps) {
     setExportingId(preset.id)
     try {
       saveGradient(gradient)
+      // Also register it in the shared gallery so it's searchable later;
+      // fire-and-forget so it never blocks the export.
+      publishGradient(gradient).catch((err) => console.error('Publish on export failed', err))
       // Small timeout to let UI update and render the exporting state
       await new Promise((resolve) => setTimeout(resolve, 100))
       const targetShape: VignetteShape = preset.id === 'post' ? 'post' : 'full'
