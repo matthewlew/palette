@@ -17,7 +17,8 @@ const NOISE_SVG =
   `<rect width='100%' height='100%' filter='url(%23n)'/>` +
   `</svg>`
 
-const NOISE_URL = `url("data:image/svg+xml,${NOISE_SVG.replace(/#/g, '%23')}")`
+export const NOISE_DATA_URL = `data:image/svg+xml,${NOISE_SVG.replace(/#/g, '%23')}`
+const NOISE_URL = `url("${NOISE_DATA_URL}")`
 
 interface NoiseOverlayProps {
   visible: boolean

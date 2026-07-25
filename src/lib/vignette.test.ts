@@ -27,6 +27,7 @@ function mockContext() {
     clip: vi.fn(),
     drawImage: vi.fn(),
     fillText: vi.fn(),
+    measureText: vi.fn().mockReturnValue({ width: 100 }),
     fillStyle: '',
     font: '',
     textAlign: '',
@@ -50,19 +51,19 @@ beforeEach(() => {
 })
 
 describe('renderVignetteToCanvas', () => {
-  it('exposes the five shapes with full first', () => {
-    expect(VIGNETTE_SHAPES.map((s) => s.id)).toEqual(['full', 'circle', 'oval', 'diamond', 'poster'])
+  it('exposes the six shapes with full first', () => {
+    expect(VIGNETTE_SHAPES.map((s) => s.id)).toEqual(['full', 'circle', 'oval', 'diamond', 'poster', 'post'])
   })
 
-  it('full shape renders the plain gradient (no paper fill or clipping)', () => {
+  it('full shape renders the plain gradient (no paper fill or clipping)', async () => {
     const ctx = mockContext()
     const canvas = mockCanvas(ctx)
-    renderVignetteToCanvas(canvas, gradient, 400, 800, 'full')
+    await renderVignetteToCanvas(canvas, gradient, 400, 800, 'full')
     expect(ctx.createLinearGradient).toHaveBeenCalled()
     expect(ctx.clip).not.toHaveBeenCalled()
   })
 
-  it('circle clips an arc and composites the gradient over paper', () => {
+  it('circle clips an arc and composites the gradient over paper', async () => {
     const ctx = mockContext()
     const canvas = mockCanvas(ctx)
     const fillStyles: string[] = []
@@ -70,34 +71,34 @@ describe('renderVignetteToCanvas', () => {
       set: (v: string) => fillStyles.push(v),
       get: () => fillStyles[fillStyles.length - 1],
     })
-    renderVignetteToCanvas(canvas, gradient, 400, 800, 'circle')
+    await renderVignetteToCanvas(canvas, gradient, 400, 800, 'circle')
     expect(fillStyles[0]).toBe(VIGNETTE_PAPER)
     expect(ctx.arc).toHaveBeenCalledWith(200, 400, 200 * 0.78, 0, Math.PI * 2)
     expect(ctx.clip).toHaveBeenCalled()
     expect(ctx.drawImage).toHaveBeenCalled()
   })
 
-  it('oval clips an ellipse scaled to both axes', () => {
+  it('oval clips an ellipse scaled to both axes', async () => {
     const ctx = mockContext()
     const canvas = mockCanvas(ctx)
-    renderVignetteToCanvas(canvas, gradient, 400, 800, 'oval')
+    await renderVignetteToCanvas(canvas, gradient, 400, 800, 'oval')
     expect(ctx.ellipse).toHaveBeenCalledWith(200, 400, 200 * 0.78, 400 * 0.78, 0, 0, Math.PI * 2)
   })
 
-  it('diamond clips a four-point polygon', () => {
+  it('diamond clips a four-point polygon', async () => {
     const ctx = mockContext()
     const canvas = mockCanvas(ctx)
-    renderVignetteToCanvas(canvas, gradient, 400, 800, 'diamond')
+    await renderVignetteToCanvas(canvas, gradient, 400, 800, 'diamond')
     expect(ctx.moveTo).toHaveBeenCalledTimes(1)
     expect(ctx.lineTo).toHaveBeenCalledTimes(3)
     expect(ctx.closePath).toHaveBeenCalled()
     expect(ctx.clip).toHaveBeenCalled()
   })
 
-  it('poster inset-draws the gradient and titles it with name and meta', () => {
+  it('poster inset-draws the gradient and titles it with name and meta', async () => {
     const ctx = mockContext()
     const canvas = mockCanvas(ctx)
-    renderVignetteToCanvas(canvas, gradient, 400, 800, 'poster')
+    await renderVignetteToCanvas(canvas, gradient, 400, 800, 'poster')
     expect(ctx.clip).not.toHaveBeenCalled()
     expect(ctx.drawImage).toHaveBeenCalled()
     const texts = ctx.fillText.mock.calls.map((c) => c[0])
@@ -105,10 +106,10 @@ describe('renderVignetteToCanvas', () => {
     expect(texts.some((t: string) => t.includes('LINEAR GRADIENT'))).toBe(true)
   })
 
-  it('poster falls back to Untitled when the gradient has no name', () => {
+  it('poster falls back to Untitled when the gradient has no name', async () => {
     const ctx = mockContext()
     const canvas = mockCanvas(ctx)
-    renderVignetteToCanvas(canvas, { ...gradient, name: undefined }, 400, 800, 'poster')
+    await renderVignetteToCanvas(canvas, { ...gradient, name: undefined }, 400, 800, 'poster')
     const texts = ctx.fillText.mock.calls.map((c) => c[0])
     expect(texts).toContain('Untitled')
   })

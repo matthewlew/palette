@@ -16,6 +16,7 @@
 .hidden {
   opacity: 0;
   pointer-events: none;
+  transition-duration: 0s;
 }
 
 /* Plain text, no glass blob: the color (set inline, see lib/titleColor) is

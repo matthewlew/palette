@@ -1,13 +1,21 @@
 import { supabase } from './supabase'
 import { namePalette } from './naming'
+import { isProfane } from './profanity'
 
 export function generateSlug(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
 }
 
-export async function publishPalette(hexes: string[], shape: string, angle: number = 0) {
-  // 1. Generate the base name using your existing engine
-  let displayName = namePalette(hexes)
+export async function publishPalette(hexes: string[], shape: string, angle: number = 0, providedName?: string) {
+  // 1. Use the provided name or generate one using the engine
+  let baseName = providedName?.trim() || namePalette(hexes)
+  
+  // If the provided name contains profanity, fallback to the generated one
+  if (isProfane(baseName)) {
+    baseName = namePalette(hexes)
+  }
+
+  let displayName = baseName
   let slug = generateSlug(displayName)
 
   let isSaved = false
@@ -34,7 +42,7 @@ export async function publishPalette(hexes: string[], shape: string, angle: numb
     if (error.code === '23505') { 
       attemptNumber++
       // Update the name and slug to include the new number
-      displayName = `${namePalette(hexes)} ${attemptNumber}`
+      displayName = `${baseName} ${attemptNumber}`
       slug = generateSlug(displayName)
     } else {
       // Some other database error occurred

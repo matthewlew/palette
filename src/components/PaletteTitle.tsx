@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { isProfane } from '../lib/profanity'
 import styles from './PaletteTitle.module.css'
 
 interface PaletteTitleProps {
@@ -27,10 +28,18 @@ export function PaletteTitle({ name, onRename, hidden = false, color = '#ffffff'
   }, [editing])
 
   function commit() {
-    setEditing(false)
     const trimmed = draft.trim()
+    if (isProfane(trimmed)) {
+      alert("Let's keep names friendly! Please try a different name.")
+      setDraft(name)
+      return
+    }
+
+    setEditing(false)
     if (trimmed && trimmed !== name) {
       onRename(trimmed)
+    } else {
+      setDraft(name)
     }
   }
 

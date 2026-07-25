@@ -37,6 +37,8 @@ interface CanvasHandlesProps {
   /** Fired when a handle drag engages/releases, so the parent can duck
    * chrome (FABs) out of the way of a drag near the edges. */
   onDraggingChange?: (dragging: boolean) => void
+  /** If true, instantly hide the handles without transitioning opacity out. */
+  hidden?: boolean
 }
 
 export function CanvasHandles({
@@ -49,6 +51,7 @@ export function CanvasHandles({
   size,
   onReorder,
   onDraggingChange,
+  hidden = false,
 }: CanvasHandlesProps) {
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [draggingSpoke, setDraggingSpoke] = useState<StopAnchorOpts['spoke'] | null>(null)
@@ -271,7 +274,7 @@ export function CanvasHandles({
   }
 
   return (
-    <div ref={overlayRef} className={styles.overlay} data-testid="canvas-handles">
+    <div ref={overlayRef} className={[styles.overlay, hidden && styles.hidden].filter(Boolean).join(' ')} data-testid="canvas-handles">
       {hovering && size.width > 0 && (
         <>
           {isFourSpoke && (

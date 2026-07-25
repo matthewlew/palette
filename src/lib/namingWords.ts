@@ -158,7 +158,7 @@ export const PLACE_THINGS: PlaceThing[] = [
 // palette feels, weathers, or catches light), not color words. Short and
 // plain: words someone would actually put in front of a paint name.
 export const MODIFIERS: Record<Mood, string[]> = {
-  muted: ['Quiet', 'Faded', 'Dusty', 'Worn', 'Pale', 'Still', 'Smoky', 'Soft', 'Ashen', 'Misty', 'Dim', 'Cool'],
-  soft: ['Morning', 'Tender', 'Mellow', 'Milky', 'Hazy', 'Drowsy', 'Gentle', 'Warm', 'Sleepy', 'Calm', 'Light'],
-  vivid: ['Electric', 'Loud', 'Bold', 'Bright', 'Wild', 'Ripe', 'Burning', 'Neon', 'Hot', 'Molten', 'Fresh'],
+  muted: ['Quiet', 'Faded', 'Dusty', 'Worn', 'Pale', 'Still', 'Smoky', 'Soft', 'Ashen', 'Misty', 'Dim', 'Cool', 'Washed', 'Shadowed', 'Subtle', 'Weathered'],
+  soft: ['Morning', 'Tender', 'Mellow', 'Milky', 'Hazy', 'Drowsy', 'Gentle', 'Warm', 'Sleepy', 'Calm', 'Light', 'Dreamy', 'Velvety', 'Powdered', 'Feathered', 'Gossamer'],
+  vivid: ['Electric', 'Loud', 'Bold', 'Bright', 'Wild', 'Ripe', 'Burning', 'Neon', 'Hot', 'Molten', 'Fresh', 'Vibrant', 'Striking', 'Luminous', 'Radiant', 'Intense'],
 }

@@ -141,6 +141,10 @@
   border-radius: 2px;
 }
 
+.previewShapePost {
+  inset: 0;
+}
+
 .posterCaption {
   position: absolute;
   left: 8%;
@@ -224,6 +228,13 @@
   border-radius: 2px;
   background:
     linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9)) 50% 25% / 70% 45% no-repeat,
+    rgba(255, 255, 255, 0.25);
+}
+
+.shapeGlyphPost {
+  border-radius: 2px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9)) 50% 50% / 60% 12% no-repeat,
     rgba(255, 255, 255, 0.25);
 }
 

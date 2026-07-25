@@ -747,6 +747,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           repeat={gradient.repeatEnabled}
           cursor={canvasCursor}
           size={canvasSize}
+          hidden={scrolling}
           onReorder={(next) => commit(next)}
           onDraggingChange={(dragging) => {
             const wasDragging = isDraggingRef.current
@@ -783,12 +784,11 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           onClick={onExit}
         />
         <GeometryTabs
-          type={gradient.type}
+          gradient={gradient}
+          stops={animatedStops}
           onSelectType={handleSelectType}
           onToggleReversed={handleToggleReversed}
-          repeatEnabled={gradient.repeatEnabled}
           onToggleRepeat={handleToggleRepeat}
-          hardStops={gradient.hardStops}
           onToggleHardStops={handleToggleHardStops}
           onRotateFan={handleRotateFan}
         />

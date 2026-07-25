@@ -18,6 +18,36 @@
    variables keep it legible on the sheet in both color schemes. */
 .tab {
   flex: 0 0 auto;
+  width: 88px;
+  padding: 6px;
+  padding-bottom: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.18));
+  background: transparent;
+  color: var(--text, rgba(255, 255, 255, 0.7));
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.tab:hover:not(:disabled) {
+  color: var(--text-h, #fff);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.tabActive {
+  composes: tab;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--text-h, #fff);
+  color: var(--text-h, #fff);
+  font-weight: 600;
+}
+
+.filter {
+  flex: 0 0 auto;
   min-height: 44px;
   padding: 0 16px;
   border-radius: 999px;
@@ -30,24 +60,26 @@
   transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
 }
 
-.tab:hover:not(:disabled) {
+.filter:hover:not(:disabled) {
   color: var(--text-h, #fff);
 }
 
-.tabActive {
-  composes: tab;
+.filterActive {
+  composes: filter;
   background: var(--text-h, #fff);
   border-color: var(--text-h, #fff);
   color: var(--bg, #111);
   font-weight: 600;
 }
 
-.tabActive:hover:not(:disabled) {
+.filterActive:hover:not(:disabled) {
   color: var(--bg, #111);
 }
 
 .tab:disabled,
-.tabActive:disabled {
+.tabActive:disabled,
+.filter:disabled,
+.filterActive:disabled {
   opacity: 0.35;
   cursor: not-allowed;
 }
@@ -58,4 +90,24 @@
   width: 1px;
   margin: 4px 2px;
   background: var(--border, rgba(255, 255, 255, 0.18));
+}
+
+.tabInner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.previewBox {
+  width: 74px;
+  height: 74px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+  /* The preview uses absolute sizing/positioning internally for TurrellSquare */
+  position: relative;
+  /* Prevent the preview itself from squishing */
+  flex-shrink: 0;
 }
