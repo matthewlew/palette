@@ -7,4 +7,5 @@
   opacity: 0.35;
   mix-blend-mode: overlay;
   z-index: 4;
+  border-radius: inherit;
 }

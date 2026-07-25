@@ -20,17 +20,24 @@ export function useMasonryRowSpans(
 ) {
   useLayoutEffect(() => {
     const container = containerRef.current
-    if (!container || !enabled) return
-
-    const rowGapPx = parseFloat(getComputedStyle(container).rowGap) || 0
     const children = Array.from(container.children) as HTMLElement[]
 
+    if (!enabled) {
+      for (const child of children) {
+        child.style.removeProperty('grid-row-end')
+      }
+      return
+    }
+
+    
+
     const apply = () => {
+      const rowGapPx = parseFloat(getComputedStyle(container).rowGap) || 0
       for (const child of children) {
         const height = child.offsetHeight
         const span = Math.max(
           1,
-          Math.round((height + rowGapPx) / (ROW_UNIT_PX + rowGapPx)),
+          Math.ceil((height + rowGapPx) / (ROW_UNIT_PX + rowGapPx)),
         )
         child.style.gridRowEnd = `span ${span}`
       }
@@ -42,6 +49,7 @@ export function useMasonryRowSpans(
     if (typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(apply)
     children.forEach((child) => observer.observe(child))
+    observer.observe(container)
     return () => observer.disconnect()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps)

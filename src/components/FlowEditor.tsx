@@ -10,11 +10,12 @@ interface FlowEditorProps {
   onMove: (id: string, position: number) => void
   onTapStop: (id: string) => void
   onRemoveStop?: (id: string) => void
+  onAddStopAt?: (position: number) => void
   containerRef?: RefObject<HTMLDivElement>
   activeStopId?: string | null
 }
 
-export function FlowEditor({ stops, onMove, onTapStop, onRemoveStop, containerRef, activeStopId }: FlowEditorProps) {
+export function FlowEditor({ stops, onMove, onTapStop, onRemoveStop, onAddStopAt, containerRef, activeStopId }: FlowEditorProps) {
   const internalRef = useRef<HTMLDivElement>(null)
   const trackRef = containerRef ?? (internalRef as RefObject<HTMLDivElement>)
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null)
@@ -40,6 +41,12 @@ export function FlowEditor({ stops, onMove, onTapStop, onRemoveStop, containerRe
     const target = e.target as Element
     if (typeof target.setPointerCapture === 'function') {
       target.setPointerCapture(e.pointerId)
+    }
+  }
+
+  function handleTrackPointerDown(e: React.PointerEvent) {
+    if (e.target === trackRef.current && onAddStopAt) {
+      onAddStopAt(positionFromClientX(e.clientX))
     }
   }
 
@@ -88,6 +95,7 @@ export function FlowEditor({ stops, onMove, onTapStop, onRemoveStop, containerRe
       data-testid="flow-editor"
       className={styles.track}
       style={{ backgroundImage: gradientCss }}
+      onPointerDown={handleTrackPointerDown}
       onPointerMove={handlePointerMove}
     >
       {stops.map((stop) => (

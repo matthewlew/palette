@@ -8,7 +8,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
-    setupFiles: './src/setupTests.ts',
+    setupFiles: ["src/setupTests.ts"],
     // Nested git worktrees under .claude/worktrees and .worktrees hold stale
     // checkouts of this repo; without excluding them vitest runs their old test
     // copies too, which balloons runs and can hang on since-fixed code.

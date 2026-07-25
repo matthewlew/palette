@@ -1,16 +1,9 @@
 .tabs {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-items: stretch;
   gap: 8px;
-  overflow-x: auto;
-  /* Taller strip = a bigger, more forgiving grab area for the horizontal
-     swipe; pan-x hands the gesture to native momentum scrolling instead of
-     fighting it, and -webkit-overflow-scrolling keeps it smooth on iOS. */
   padding: 12px;
-  scrollbar-width: none;
-  touch-action: pan-x;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-x: contain;
 }
 
 /* Same design-system pill as the other toggle chips (gallery filters, tab
@@ -18,7 +11,7 @@
    variables keep it legible on the sheet in both color schemes. */
 .tab {
   flex: 0 0 auto;
-  width: 88px;
+  width: 100%;
   padding: 6px;
   padding-bottom: 10px;
   border-radius: 12px;
@@ -48,8 +41,9 @@
 
 .filter {
   flex: 0 0 auto;
+  width: 100%;
   min-height: 44px;
-  padding: 0 16px;
+  padding: 0 4px;
   border-radius: 999px;
   border: 1px solid var(--border, rgba(255, 255, 255, 0.18));
   background: transparent;
@@ -84,13 +78,6 @@
   cursor: not-allowed;
 }
 
-.divider {
-  flex: 0 0 auto;
-  align-self: stretch;
-  width: 1px;
-  margin: 4px 2px;
-  background: var(--border, rgba(255, 255, 255, 0.18));
-}
 
 .tabInner {
   display: flex;
@@ -101,8 +88,8 @@
 }
 
 .previewBox {
-  width: 74px;
-  height: 74px;
+  width: 100%;
+  aspect-ratio: 1;
   border-radius: 8px;
   overflow: hidden;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);

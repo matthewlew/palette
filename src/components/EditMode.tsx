@@ -429,7 +429,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         e.ctrlKey ||
         e.altKey ||
         // Focused flow-editor stops own the arrow keys (they're sliders).
-        target?.closest?.('[role="slider"]')
+        (target instanceof Element && target.closest('[role="slider"]'))
       ) {
         return
       }
@@ -601,9 +601,27 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     }
   }
 
-  function handleAddColor() {
-    const seed = editableStops[editableStops.length - 1]?.hex ?? '#ffffff'
-    colorTargetRef.current = { mode: 'add' }
+  function handleAddColorAt(position: number) {
+    if (editableStops.length >= 8) return
+    // Sample color from nearest stop (or interpolate in the future)
+    const sorted = [...editableStops].sort((a, b) => a.position - b.position)
+    let seed = '#ffffff'
+    for (let i = 0; i < sorted.length; i++) {
+      if (sorted[i].position >= position) {
+        seed = sorted[Math.max(0, i - 1)].hex
+        break
+      }
+      if (i === sorted.length - 1) {
+        seed = sorted[i].hex
+      }
+    }
+    
+    const newStop = { id: Math.random().toString(36).slice(2), hex: seed, position }
+    const next = [...editableStops, newStop]
+    setEditableStops(next)
+    setActiveStopId(newStop.id)
+    colorTargetRef.current = { mode: 'recolor', id: newStop.id }
+    
     const input = colorInputRef.current
     if (input) {
       input.value = seed
@@ -734,6 +752,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           <TurrellSquare
             stops={animatedStops}
             reversed={gradient.reversed}
+            repeatEnabled={gradient.repeatEnabled}
             blurPx={gradient.hardStops ? 0 : undefined}
           />
         )}
@@ -745,18 +764,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           color={titleColor}
         />
         <GrainButton enabled={noiseEnabled} onToggle={toggleNoise} hidden={chromeHidden} color={cornerColor} />
-        <button
-          type="button"
-          data-testid="sort-fab"
-          aria-label={`Stop order: ${activeOrder}. Tap to change`}
-          className={[styles.sortFab, 'ghost-chip', 'ghost-pill', chromeHidden && styles.hidden].filter(Boolean).join(' ')}
-          style={{ color: sortColor }}
-          onClick={handleSortCycle}
-          onPointerDown={(e) => e.stopPropagation()}
-          onPointerUp={(e) => e.stopPropagation()}
-        >
-          Order: {ORDER_LABELS[activeOrder]}
-        </button>
+
         {/* Save lives on the gradient itself (bottom-right, above grain) on
             every screen size — the same spot and pill as the create feed —
             instead of a full-width button inside the sheet. */}
@@ -828,6 +836,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
             onMove={handleMoveStop}
             onTapStop={handleTapStop}
             onRemoveStop={handleRemove}
+            onAddStopAt={handleAddColorAt}
             containerRef={blockContainerRef}
             activeStopId={activeStopId}
           />
@@ -835,13 +844,14 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         <div className={styles.stopActions}>
           <button
             type="button"
-            data-testid="add-color"
-            className={styles.addColor}
-            onClick={handleAddColor}
+            data-testid="sort-button"
+            aria-label={`Stop order: ${activeOrder}. Tap to change`}
+            className={styles.sortButton}
+            onClick={handleSortCycle}
           >
-            + Add color
+            Order: {ORDER_LABELS[activeOrder]}
           </button>
-          <span className={styles.stopHint}>Tap a color to recolor · drag down to remove</span>
+          <span className={styles.stopHint}>Tap a blank spot to add · drag down to remove</span>
         </div>
         {/* Keyboard hints live in the panel (desktop only, hidden on touch via
             the component's own media query) rather than floating on the canvas. */}

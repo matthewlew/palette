@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { buildGradientCss } from '../lib/gradient'
 import type { GradientType } from '../lib/gradient'
-import { gradientHueFamily, HUE_FAMILIES } from '../lib/hueFilter'
+import { useCommunityGradients } from '../hooks/useCommunityGradients'
 import { useHint } from '../hooks/useHint'
 import { useMasonryRowSpans } from '../hooks/useMasonryRowSpans'
 import { useFlipReorder } from '../hooks/useFlipReorder'
@@ -32,9 +32,8 @@ function formatDate(timestamp?: number): string | null {
   return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
-function matchesFilters(gradient: Gradient, type: GradientType | null, hue: string | null): boolean {
+function matchesFilters(gradient: Gradient, type: GradientType | null): boolean {
   if (type && gradient.type !== type) return false
-  if (hue && gradientHueFamily(gradient.stops) !== hue) return false
   return true
 }
 
@@ -82,6 +81,8 @@ function Tile({
   onDropTile?: (id: string) => void
   onDragEndTile?: () => void
 }) {
+  const noiseEnabled = useAppStore((s) => s.noiseEnabled)
+
   // Deterministic standard ratio per gradient (from its id) so the masonry
   // mixes squares, portraits, and landscapes instead of all-portrait tiles.
   const RATIOS = ['1 / 1', '4 / 5', '3 / 4', '2 / 3', '4 / 3', '3 / 2']
@@ -147,7 +148,8 @@ function Tile({
           viewTransitionName: `palette-card-${gradient.id}`,
         }}
       >
-        {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} blurPx={6} />}
+        {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={6} />}
+        <NoiseOverlay visible={noiseEnabled} />
         {/* Clicks anywhere except the Edit button bubble to the tile and
             open the viewer. */}
         {onDelete && (
@@ -482,7 +484,11 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   const addToCollection = useAppStore((s) => s.addToCollection)
   const removeFromCollection = useAppStore((s) => s.removeFromCollection)
   const [typeFilter, setTypeFilter] = useState<GradientType | null>(null)
-  const [hueFilter, setHueFilter] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'saves' | 'community'>(
+    useAppStore.getState().saved.length === 0 ? 'community' : 'saves'
+  )
+  const { gradients: communityGradients, loading: communityLoading, deleteGradient: deleteCommunityGradient } = useCommunityGradients()
+  const isAdmin = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('admin') === 'true'
   const [collectionView, setCollectionView] = useState<string | null>(null)
   const [open, setOpen] = useState<Gradient | null>(null)
   const [exporting, setExporting] = useState(false)
@@ -579,8 +585,10 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
     onViewerOpenChange?.(open !== null)
   }, [open, onViewerOpenChange])
 
-  const filtered = saved.filter((gradient) => matchesFilters(gradient, typeFilter, hueFilter))
-  const hasFilters = typeFilter !== null || hueFilter !== null
+  const filtered = saved.filter((gradient) => matchesFilters(gradient, typeFilter))
+  const filteredCommunity = communityGradients.filter((gradient) => matchesFilters(gradient, typeFilter))
+  const currentViewGradients = activeTab === 'community' ? filteredCommunity : filtered
+  const hasFilters = typeFilter !== null
 
   // Lookup + active-collection membership for the collections layer.
   const gradientsById = Object.fromEntries(saved.map((g) => [g.id, g])) as Record<string, Gradient>
@@ -598,13 +606,14 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   // of overlapping tiles).
   useMasonryRowSpans(gridRef, galleryLayout === 'masonry', [
     galleryLayout,
-    filtered.map((g) => g.id).join(','),
+    currentViewGradients.map((g) => g.id).join(','),
     collectionView,
+    activeTab,
   ])
 
   // Glide tiles to their new spots after a drag reorder (FLIP). Disabled under
   // reduced-motion. Keyed on the current order so it runs only on reorder.
-  const orderKey = filtered.map((g) => g.id).join(',')
+  const orderKey = `${currentViewGradients.map((g) => g.id).join(',')}-${activeTab}`
   const prefersReducedMotion =
     typeof window !== 'undefined' &&
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
@@ -685,11 +694,25 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
     <div data-testid="gallery" className={styles.container}>
       <div className={styles.header}>
         <div className={styles.titleArea}>
-          <h2 className={styles.title}>
-            Gallery <span className={styles.titleCount}>({saved.length})</span>
-          </h2>
+          <div className={styles.toggleGroup}>
+            <button
+              type="button"
+              className={activeTab === 'saves' ? styles.toggleBtnActiveTab : styles.toggleBtnTab}
+              onClick={() => setActiveTab('saves')}
+            >
+              Yours <span className={styles.titleCount}>({saved.length})</span>
+            </button>
+            <button
+              type="button"
+              className={activeTab === 'community' ? styles.toggleBtnActiveTab : styles.toggleBtnTab}
+              onClick={() => setActiveTab('community')}
+            >
+              Community
+            </button>
+          </div>
         </div>
         <div className={styles.headerActions}>
+          <SearchBar onResults={setSearchResults} />
           <button
             type="button"
             className={styles.exportAllButton}
@@ -736,8 +759,6 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
         </div>
       </div>
 
-      <SearchBar onResults={setSearchResults} />
-
       {searchResults ? (
         <div data-testid="search-results">
           {searchResults.length === 0 ? (
@@ -759,7 +780,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
             </div>
           )}
         </div>
-      ) : saved.length === 0 ? (
+      ) : activeTab === 'saves' && saved.length === 0 ? (
         <div className={styles.onboarding}>
           <p className={styles.onboardingTitle}>Create a gradient</p>
           <p className={styles.onboardingSub}>Pick a shape to start — your saves land here.</p>
@@ -829,7 +850,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
         </div>
       ) : (
         <>
-          <CollectionsRow
+          {activeTab === 'saves' && <CollectionsRow
             collections={collections}
             gradientsById={gradientsById}
             onOpen={(id) => setCollectionView(id)}
@@ -839,20 +860,17 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
               setCollectionView(id)
             }}
             onDropGradient={addToCollection}
-          />
+          />}
           <div className={styles.chips}>
             <button
               type="button"
               className={!hasFilters ? styles.chipOn : styles.chip}
-              onClick={() => {
-                setTypeFilter(null)
-                setHueFilter(null)
-              }}
+              onClick={() => setTypeFilter(null)}
             >
-              All <span className={styles.chipCount}>{saved.length}</span>
+              All <span className={styles.chipCount}>{activeTab === 'community' ? communityGradients.length : saved.length}</span>
             </button>
             {TYPE_CHIPS.map((type) => {
-              const count = saved.filter((gradient) => gradient.type === type).length
+              const count = (activeTab === 'community' ? communityGradients : saved).filter((gradient) => gradient.type === type).length
               return (
                 <button
                   key={type}
@@ -865,56 +883,40 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
                 </button>
               )
             })}
-            {HUE_FAMILIES.map((family) => {
-              const count = saved.filter((gradient) => gradientHueFamily(gradient.stops) === family.key).length
-              return (
-                <button
-                  key={family.key}
-                  type="button"
-                  aria-label={`Filter by ${family.label} (${count} matches)`}
-                  className={hueFilter === family.key ? styles.hueChipOn : styles.hueChip}
-                  onClick={() => setHueFilter(hueFilter === family.key ? null : family.key)}
-                >
-                  <span className={styles.hueDot} style={{ background: family.swatchHex }} />
-                  <span className={styles.hueCount}>{count}</span>
-                </button>
-              )
-            })}
           </div>
 
-          {filtered.length === 0 ? (
+          {currentViewGradients.length === 0 ? (
             <div className={styles.empty}>
-              {hasFilters && saved.length > 0 ? (
+              {activeTab === 'community' && communityLoading ? (
+                <p className={styles.emptyText}>Loading community gradients...</p>
+              ) : hasFilters && (activeTab === 'community' ? communityGradients.length > 0 : saved.length > 0) ? (
                 <>
                   <p className={styles.emptyText}>No matches here.</p>
                   <button
                     type="button"
                     className={styles.emptyAction}
-                    onClick={() => {
-                      setTypeFilter(null)
-                      setHueFilter(null)
-                    }}
+                    onClick={() => setTypeFilter(null)}
                   >
                     Clear filters
                   </button>
                 </>
-              ) : (
+              ) : activeTab === 'saves' ? (
                 <>
                   <p className={styles.emptyText}>Make something — your pins land here.</p>
                   <button type="button" className={styles.emptyAction} onClick={() => setMode('create')}>
                     Create
                   </button>
                 </>
-              )}
+              ) : null}
             </div>
           ) : (
             <div
               ref={gridRef}
-              key={`${typeFilter ?? 'all'}-${hueFilter ?? 'all'}`}
+              key={`${typeFilter ?? 'all'}-${activeTab}`}
               onKeyDown={handleGridKeyDown}
               className={galleryLayout === 'masonry' ? styles.masonryGrid : styles.grid}
             >
-              {filtered.map((gradient, index) => (
+              {currentViewGradients.map((gradient, index) => (
                 <Tile
                   key={gradient.id}
                   gradient={gradient}
@@ -922,8 +924,8 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
                   onOpen={setOpen}
                   galleryLayout={galleryLayout}
                   onRiff={onRiff}
-                  onDelete={removeSavedGradientById}
-                  draggable={!hasFilters}
+                  onDelete={activeTab === 'saves' ? removeSavedGradientById : (isAdmin ? deleteCommunityGradient : undefined)}
+                  draggable={!hasFilters && activeTab === 'saves'}
                   isDragging={draggingId === gradient.id}
                   isDragOver={dragOverId === gradient.id}
                   onDragStartTile={handleDragStartTile}
@@ -956,7 +958,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
       {open && (
         <Viewer
           gradient={open}
-          items={filtered}
+          items={currentViewGradients}
           onNavigate={setOpen}
           onClose={() => setOpen(null)}
           onRiff={onRiff}

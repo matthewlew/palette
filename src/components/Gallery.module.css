@@ -146,6 +146,9 @@
   border-radius: 16px;
   overflow: hidden;
   background-color: #26262c;
+  isolation: isolate;
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  mask-image: radial-gradient(white, black);
   background-size: cover;
   background-position: center;
 }
@@ -469,6 +472,34 @@
   transform: scale(0.92);
 }
 
+.toggleBtnTab,
+.toggleBtnActiveTab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  border-radius: 999px;
+  padding: 0 14px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 150ms ease, color 150ms ease;
+  font-family: var(--heading);
+}
+
+.toggleBtnTab:hover {
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.toggleBtnActiveTab {
+  background: rgba(255, 255, 255, 0.9);
+  color: #111;
+}
+
 /* Reading-order masonry: a CSS grid with a small row unit (grid-auto-rows),
    where useMasonryRowSpans measures each tile and sets its row span. Tiles
    flow left-to-right, top-to-bottom, so visual order == saved-array order
@@ -528,10 +559,12 @@
   -webkit-backdrop-filter: blur(4px);
 }
 
-.tile:hover .tileHoverOverlay,
-.masonryTile:hover .tileHoverOverlay {
-  opacity: 1;
-  pointer-events: auto;
+@media (hover: hover) {
+  .tile:hover .tileHoverOverlay,
+  .masonryTile:hover .tileHoverOverlay {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 .tileHoverBtn,

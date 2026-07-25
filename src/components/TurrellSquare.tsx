@@ -1,50 +1,55 @@
 import type { GradientStop } from '../lib/gradient'
+import { repeatedStops } from '../lib/gradient'
 import styles from './TurrellSquare.module.css'
 
 interface TurrellSquareProps {
   stops: GradientStop[]
   reversed?: boolean
   blurPx?: number
+  repeatEnabled?: boolean
 }
 
-export function TurrellSquare({ stops, reversed = false, blurPx }: TurrellSquareProps) {
-  // Layer depth (outermost -> innermost) always follows stop position order
-  // (stops arrive pre-sorted by position); reversed only swaps which color
-  // fills which depth, it never reorders the depths/sizes themselves.
+export function TurrellSquare({ stops: initialStops, reversed = false, blurPx, repeatEnabled = false }: TurrellSquareProps) {
+  const stops = repeatEnabled ? repeatedStops(initialStops) : initialStops
+
+  // To match radial gradients, position 0 is the center (innermost) and position 100 
+  // is the edge (outermost). reversed swaps which color fills which stop.
   const hexes = reversed ? [...stops].map((s) => s.hex).reverse() : stops.map((s) => s.hex)
 
+  // Map stops to their visual layer properties. Position 0 = 20% size, Position 100 = 100% size.
+  const layers = stops.map((stop, i) => {
+    const scalePercent = stops.length <= 1 ? 100 : 20 + (stop.position / 100) * 80
+    return {
+      id: i,
+      hex: hexes[i],
+      scalePercent
+    }
+  })
+
+  // To prevent smaller inner layers from being covered by larger outer layers, we must
+  // render them in DOM order from largest to smallest (descending scalePercent).
+  const sortedLayers = [...layers].sort((a, b) => b.scalePercent - a.scalePercent)
+  const outerHex = sortedLayers.length > 0 ? sortedLayers[0].hex : 'transparent'
+
   return (
-    // The container is painted in the outermost layer's color: the blurred
-    // layers are composited on the GPU, and stale texture edges (visible as a
-    // random color at the screen border until a resize forces a repaint) can
-    // peek out past the outermost layer — a solid matching backdrop makes any
-    // such gap invisible.
+    // The container is painted in the outermost layer's color to prevent stale 
+    // texture gaps at the edges when the blurred layers are GPU composited.
     <div 
       data-testid="turrell-square" 
       className={styles.container} 
-      style={{ position: 'absolute', inset: 0, overflow: 'hidden', backgroundColor: hexes[0] }}
+      style={{ position: 'absolute', inset: 0, overflow: 'hidden', backgroundColor: outerHex }}
     >
-      {stops.map((stop, i) => {
-        // Outermost layer (position 0) is largest (100%); each subsequent
-        // layer shrinks toward the center in proportion to the stop's actual
-        // position (not just its index), so dragging a flow-editor handle
-        // changes the nesting depth, not only the color. The innermost stop
-        // (position 100) reaches a 20%-of-container floor, producing the
-        // nested-squares Turrell look.
-        const scalePercent = stops.length <= 1 ? 100 : 100 - (stop.position / 100) * 80
-        // The blur filter samples transparency past a layer's edge, so the
-        // outermost layer must extend beyond the container (by 4x the blur
-        // radius) for the blurred edge to land outside the overflow clip
-        // instead of showing a halo of the page background.
+      {sortedLayers.map((layer, index) => {
+        const isOutermost = index === 0
         const bleedPx = (blurPx ?? 24) * 4
-        const size = i === 0 ? `calc(100% + ${bleedPx}px)` : `${scalePercent}%`
+        const size = isOutermost ? `calc(100% + ${bleedPx}px)` : `${layer.scalePercent}%`
         return (
           <div
-            key={i}
+            key={layer.id}
             data-testid="turrell-layer"
             className={styles.layer}
             style={{
-              backgroundColor: hexes[i],
+              backgroundColor: layer.hex,
               width: size,
               height: size,
               filter: blurPx != null ? `blur(${blurPx}px)` : undefined,

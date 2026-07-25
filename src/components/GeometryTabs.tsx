@@ -31,7 +31,7 @@ const TABS: { type: GradientType; label: string }[] = [
 // silently no-op. 'repeat' is unreachable from the TABS list above (it's no
 // longer user-selectable, replaced by the Repeat x2 chip) but can still
 // arrive here on a gradient loaded from a pre-filter-chip save.
-const FILTERS_UNSUPPORTED: GradientType[] = ['square', 'mirror', 'repeat']
+const FILTERS_UNSUPPORTED: GradientType[] = ['mirror', 'repeat']
 
 export function GeometryTabs({
   gradient,
@@ -102,7 +102,7 @@ export function GeometryTabs({
                 <TurrellSquare 
                   stops={stops} 
                   reversed={gradient.reversed} 
-                  blurPx={gradient.hardStops ? 0 : undefined} 
+                  repeatEnabled={gradient.repeatEnabled} blurPx={gradient.hardStops ? 0 : 4} 
                 />
               )}
             </div>
@@ -110,7 +110,6 @@ export function GeometryTabs({
           </div>
         </button>
       ))}
-      <span className={styles.divider} aria-hidden="true" />
       <button
         type="button"
         data-testid="filter-repeat"

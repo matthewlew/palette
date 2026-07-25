@@ -111,6 +111,7 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
         <TurrellSquare
           stops={gradient.stops}
           reversed={gradient.reversed}
+          repeatEnabled={gradient.repeatEnabled}
           blurPx={gradient.hardStops ? 0 : undefined}
         />
       )}

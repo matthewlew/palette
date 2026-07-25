@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import { generateGradientStops } from '../lib/palette'
 import { GradientPage } from './GradientPage'
-import { SELECTABLE_GEOMETRY, type GradientType } from '../lib/gradient'
+import { SELECTABLE_GEOMETRY, type GradientType, nextRotationAngle } from '../lib/gradient'
 import type { Gradient } from '../store/types'
 import type { ColorSet } from '../lib/colorSets'
 import { withViewTransition } from '../lib/viewTransition'
@@ -11,6 +11,7 @@ import { tickHaptic, primeHaptics } from '../lib/haptics'
 import { Hint } from './Hint'
 import { useHint } from '../hooks/useHint'
 import { ScrollTicker } from './ScrollTicker'
+import { ShortcutHints } from './ShortcutHints'
 import styles from './Feed.module.css'
 
 // The feed generates these at random. Mirror is selectable via the tabs but
@@ -48,11 +49,22 @@ const SHAPE_STEP_PX = 80
 // level state persists across component remounts within the same page load
 // since ES modules are singletons — this is standard practice for exactly
 // this kind of "survive unmount" requirement.
-export const feedSession: { history: Gradient[]; index: number; lockedType: GradientType | null; lockedAngle: number | undefined } = {
+export const feedSession: { 
+  history: Gradient[]; 
+  index: number; 
+  lockedType: GradientType | null; 
+  lockedAngle: number | undefined;
+  lockedHardStops: boolean | undefined;
+  lockedRepeatEnabled: boolean | undefined;
+  lockedReversed: boolean | undefined;
+} = {
   history: [],
   index: 0,
   lockedType: null,
   lockedAngle: undefined,
+  lockedHardStops: undefined,
+  lockedRepeatEnabled: undefined,
+  lockedReversed: undefined,
 }
 
 export function resetFeedSession() {
@@ -60,6 +72,9 @@ export function resetFeedSession() {
   feedSession.index = 0
   feedSession.lockedType = null
   feedSession.lockedAngle = undefined
+  feedSession.lockedHardStops = undefined
+  feedSession.lockedRepeatEnabled = undefined
+  feedSession.lockedReversed = undefined
 }
 
 /** Riff: seed the Create rolodex with a gradient picked in the Gallery.
@@ -77,6 +92,9 @@ export function startFeedWithType(gradient: Gradient) {
   feedSession.index = 0
   feedSession.lockedType = gradient.type
   feedSession.lockedAngle = gradient.angle
+  feedSession.lockedHardStops = gradient.hardStops
+  feedSession.lockedRepeatEnabled = gradient.repeatEnabled
+  feedSession.lockedReversed = gradient.reversed
 }
 
 export function riffIntoFeed(gradient: Gradient) {
@@ -84,6 +102,9 @@ export function riffIntoFeed(gradient: Gradient) {
   feedSession.index = feedSession.history.length - 1
   feedSession.lockedType = gradient.type
   feedSession.lockedAngle = gradient.angle
+  feedSession.lockedHardStops = gradient.hardStops
+  feedSession.lockedRepeatEnabled = gradient.repeatEnabled
+  feedSession.lockedReversed = gradient.reversed
 }
 
 interface FeedProps {
@@ -166,7 +187,13 @@ export function Feed({ chromeVisible = true }: FeedProps) {
         feedSession.lockedType = typeToUse
       }
       let angleToUse = feedSession.lockedAngle ?? (typeToUse === 'radial' ? undefined : 0)
-      const initial = current ?? { ...makeGradient(typeToUse, activeColorSet), angle: angleToUse }
+      const initial = current ?? { 
+        ...makeGradient(typeToUse, activeColorSet), 
+        angle: angleToUse,
+        hardStops: feedSession.lockedHardStops,
+        repeatEnabled: feedSession.lockedRepeatEnabled,
+        reversed: feedSession.lockedReversed
+      }
       feedSession.history = [initial]
       feedSession.index = 0
       setDisplayed(initial)
@@ -182,6 +209,10 @@ export function Feed({ chromeVisible = true }: FeedProps) {
       if (current && feedSession.history[feedSession.index] !== current) {
         feedSession.history[feedSession.index] = current
         feedSession.lockedType = current.type
+        feedSession.lockedAngle = current.angle
+        feedSession.lockedHardStops = current.hardStops
+        feedSession.lockedRepeatEnabled = current.repeatEnabled
+        feedSession.lockedReversed = current.reversed
       }
       setDisplayed(feedSession.history[feedSession.index])
       setTickerIndex(feedSession.index)
@@ -207,6 +238,10 @@ export function Feed({ chromeVisible = true }: FeedProps) {
       setDisplayed(current)
     }
     feedSession.lockedType = current.type
+    feedSession.lockedAngle = current.angle
+    feedSession.lockedHardStops = current.hardStops
+    feedSession.lockedRepeatEnabled = current.repeatEnabled
+    feedSession.lockedReversed = current.reversed
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current])
 
@@ -226,7 +261,13 @@ export function Feed({ chromeVisible = true }: FeedProps) {
       // keeping the same locked shape for this Feed session. Each tick is a
       // completely new gradient, not a nudge from the previous one.
       const typeToUse = feedSession.lockedType!
-      const fresh = { ...makeGradient(typeToUse, activeColorSet), angle: feedSession.lockedAngle ?? (typeToUse === 'radial' ? undefined : 0) }
+      const fresh: Gradient = { 
+        ...makeGradient(typeToUse, activeColorSet), 
+        angle: feedSession.lockedAngle ?? (typeToUse === 'radial' ? undefined : 0),
+        hardStops: feedSession.lockedHardStops,
+        repeatEnabled: feedSession.lockedRepeatEnabled,
+        reversed: feedSession.lockedReversed
+      }
       history.push(fresh)
     }
 
@@ -458,11 +499,13 @@ export function Feed({ chromeVisible = true }: FeedProps) {
 
     function handleKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement
-      if (
+      const inTextField = 
         target?.tagName === 'INPUT' ||
         target?.tagName === 'TEXTAREA' ||
-        target?.tagName === 'BUTTON' ||
-        target?.isContentEditable ||
+        target?.isContentEditable
+        
+      if (
+        inTextField ||
         // Modifier combos (⌘S, ⌘Z…) belong to the browser or other handlers.
         e.metaKey ||
         e.ctrlKey ||
@@ -472,6 +515,8 @@ export function Feed({ chromeVisible = true }: FeedProps) {
       ) {
         return
       }
+
+      const onButton = target?.tagName === 'BUTTON'
 
       // ArrowDown/Up scrub the feed, matching the vertical scroll and the
       // tick marks; PageDown/Up mirror them. Flip moved to F.
@@ -483,12 +528,12 @@ export function Feed({ chromeVisible = true }: FeedProps) {
         if (feedSession.index > 0) {
           goTo(feedSession.index - 1)
         }
-      } else if (e.key === ' ' || e.key === 's' || e.key === 'S') {
+      } else if ((e.key === ' ' && !onButton) || e.key === 's' || e.key === 'S') {
         e.preventDefault()
         const state = useAppStore.getState()
         const shown = feedSession.history[feedSession.index]
         if (shown) state.toggleSaveGradient(shown)
-      } else if (e.key === 'Enter' || e.key === 'e' || e.key === 'E') {
+      } else if ((e.key === 'Enter' && !onButton) || e.key === 'e' || e.key === 'E') {
         e.preventDefault()
         withViewTransition(useAppStore.getState().enterEditMode)
       } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
@@ -502,6 +547,18 @@ export function Feed({ chromeVisible = true }: FeedProps) {
           feedSession.history[feedSession.index] = updated
           setDisplayed(updated)
           setCurrentGradient(updated)
+          feedSession.lockedReversed = updated.reversed
+        }
+      } else if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault()
+        const currentGrad = feedSession.history[feedSession.index]
+        if (currentGrad) {
+          const newAngle = nextRotationAngle(currentGrad.type, currentGrad.angle)
+          const updated = { ...currentGrad, angle: newAngle }
+          feedSession.history[feedSession.index] = updated
+          setDisplayed(updated)
+          setCurrentGradient(updated)
+          feedSession.lockedAngle = newAngle
         }
       }
     }
@@ -548,6 +605,16 @@ export function Feed({ chromeVisible = true }: FeedProps) {
       {!scrollHint.visible && !likeHint.visible && galleryHint.visible && hasSaved && (
         <Hint text="Saved to your Gallery" visible />
       )}
+      <ShortcutHints items={FEED_SHORTCUTS} visible={chromeVisible} placement="bottom" />
     </div>
   )
 }
+
+const FEED_SHORTCUTS = [
+  { keys: ['↑', '↓'], label: 'Browse' },
+  { keys: ['←', '→'], label: 'Style' },
+  { keys: ['S'], label: 'Save' },
+  { keys: ['E'], label: 'Edit' },
+  { keys: ['F'], label: 'Flip' },
+  { keys: ['R'], label: 'Rotate' }
+]

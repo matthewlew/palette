@@ -15,18 +15,22 @@ describe('TurrellSquare', () => {
     expect(screen.getAllByTestId('turrell-layer')).toHaveLength(3)
   })
 
-  it('renders the outermost layer as the first stop by default', () => {
+  it('renders the outermost layer as the last stop by default', () => {
     render(<TurrellSquare stops={stops} />)
     const layers = screen.getAllByTestId('turrell-layer')
-    expect(layers[0].style.backgroundColor).toBe('rgb(255, 0, 0)')
-    expect(layers[2].style.backgroundColor).toBe('rgb(0, 0, 255)')
+    // DOM renders largest (pos 100) first, so layers[0] is blue.
+    expect(layers[0].style.backgroundColor).toBe('rgb(0, 0, 255)')
+    // Smallest (pos 0) is rendered last, so layers[2] is red.
+    expect(layers[2].style.backgroundColor).toBe('rgb(255, 0, 0)')
   })
 
-  it('reverses layer order when reversed=true', () => {
+  it('reverses colors when reversed=true', () => {
     render(<TurrellSquare stops={stops} reversed />)
     const layers = screen.getAllByTestId('turrell-layer')
-    expect(layers[0].style.backgroundColor).toBe('rgb(0, 0, 255)')
-    expect(layers[2].style.backgroundColor).toBe('rgb(255, 0, 0)')
+    // Outermost layer (pos 100) gets hexes[0] when reversed.
+    expect(layers[0].style.backgroundColor).toBe('rgb(255, 0, 0)')
+    // Innermost layer (pos 0) gets hexes[2] when reversed.
+    expect(layers[2].style.backgroundColor).toBe('rgb(0, 0, 255)')
   })
 
   it('renders layers with monotonically decreasing, square (width === height) sizes from outermost to innermost', () => {
@@ -51,7 +55,7 @@ describe('TurrellSquare', () => {
     for (let i = 1; i < sizes.length; i++) {
       expect(sizes[i]).toBeLessThan(sizes[i - 1])
     }
-    expect(sizes[sizes.length - 1]).toBe(20)
+    expect(sizes[sizes.length - 1]).toBe(20) // Position 0 is 20%
   })
 
   it('handles a single stop without dividing by zero, rendering it beyond full size', () => {
@@ -71,14 +75,14 @@ describe('TurrellSquare', () => {
     ]
     render(<TurrellSquare stops={skewed} />)
     const layers = screen.getAllByTestId('turrell-layer')
-    // layers[0] bleeds past 100% so it isn't comparable in raw percent; check
-    // layers 1 and 2 against the position-derived formula directly.
-    expect(layers[1].style.width).toBe(`${100 - (20 / 100) * 80}%`)
-    expect(layers[2].style.width).toBe(`${100 - (90 / 100) * 80}%`)
-    // The two close-together positions (10, 20) should be much nearer in
-    // size to each other than to the far-away stop at 90.
-    const gapNear = Math.abs(parseFloat(layers[1].style.width) - (100 - (10 / 100) * 80))
-    const gapFar = Math.abs(parseFloat(layers[2].style.width) - (100 - (10 / 100) * 80))
+    // DOM rendering: pos 90 (layers[0]), pos 20 (layers[1]), pos 10 (layers[2])
+    // layers[0] bleeds past 100% so check layers 1 and 2 directly.
+    expect(layers[1].style.width).toBe(`${20 + (20 / 100) * 80}%`) // 36%
+    expect(layers[2].style.width).toBe(`${20 + (10 / 100) * 80}%`) // 28%
+    
+    const gapNear = Math.abs(parseFloat(layers[1].style.width) - parseFloat(layers[2].style.width))
+    // Virtual size for layers[0] without bleed would be 92%.
+    const gapFar = Math.abs(92 - parseFloat(layers[1].style.width))
     expect(gapNear).toBeLessThan(gapFar)
   })
 
@@ -96,8 +100,8 @@ describe('TurrellSquare', () => {
     const reversedSizes = layers.map((l) => l.style.width)
     // Sizes (depth structure) are unaffected by reversed — only colors change.
     expect(reversedSizes).toEqual(forwardSizes)
-    expect(layers[0].style.backgroundColor).toBe('rgb(0, 0, 255)')
-    expect(layers[2].style.backgroundColor).toBe('rgb(255, 0, 0)')
+    expect(layers[0].style.backgroundColor).toBe('rgb(255, 0, 0)') // 90 was blue, now red
+    expect(layers[2].style.backgroundColor).toBe('rgb(0, 0, 255)') // 10 was red, now blue
   })
 
   it('applies a custom blur radius when blurPx is provided', () => {

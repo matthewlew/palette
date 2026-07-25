@@ -144,32 +144,40 @@ export function positionedStops(hexes: string[]): GradientStop[] {
 }
 
 function buildMirrorGradient(stops: GradientStop[], angle = 0): string {
-  const forward = stops.map((s) => s.hex)
-  // A true palindrome: reflect back to the start without duplicating the
-  // last color at the axis of symmetry: [A,B,C] -> [A,B,C,B,A].
-  const mirrored = [...forward, ...forward.slice(0, -1).reverse()]
-  return `linear-gradient(${180 + angle}deg, ${stopsToCss(positionedStops(mirrored))})`
+  // Compress the user's positions into the first half (0% to 50%)
+  const forward = stops.map(s => ({
+    hex: s.hex,
+    position: s.position / 2
+  }))
+  
+  // The reverse half maps from 50% back to 100%, mirroring the original distances.
+  // We omit the last stop (pos=100) because it sits exactly at 50% and is already in `forward`.
+  const reverse = stops.slice(0, -1).reverse().map(s => ({
+    hex: s.hex,
+    position: 100 - (s.position / 2)
+  }))
+  
+  const mirrored = [...forward, ...reverse]
+  return `linear-gradient(${180 + angle}deg, ${stopsToCss(mirrored)})`
 }
 
 function buildRepeatGradient(stops: GradientStop[], angle = 0): string {
-  // No synthetic midpoint at the seam: an OKLCH-blended seam color can land
-  // on a hue that exists nowhere in the palette. Letting CSS interpolate the
-  // last color straight into the first keeps the blend between real stops.
-  const hexes = stops.map((s) => s.hex)
-  const sequence = [...hexes, ...hexes]
-  return `linear-gradient(${180 + angle}deg, ${stopsToCss(positionedStops(sequence))})`
+  return `linear-gradient(${180 + angle}deg, ${stopsToCss(repeatedStops(stops))})`
 }
 
 /** Cycles the stop sequence twice across the gradient — a "2x repeat"
- * filter, applicable on top of any geometry type. The doubled hex sequence
- * is redistributed evenly across the full range so every step (including
- * the hand-off from the last color of cycle 1 into the first color of
- * cycle 2) is the same width and blends smoothly — naively halving each
- * cycle's positions instead lands two different colors at exactly 50 and
- * produces a hard seam plus uneven steps. */
+ * filter. We insert a synthetic gap at the seam proportional to the average 
+ * stop distance so it blends smoothly instead of cutting hard. */
 export function repeatedStops(stops: GradientStop[]): GradientStop[] {
-  const hexes = stops.map((s) => s.hex)
-  return positionedStops([...hexes, ...hexes])
+  if (stops.length < 2) return stops
+  const averageGap = 100 / (stops.length - 1)
+  const scale = 100 / (100 + averageGap + 100)
+  
+  const first = stops.map((s) => ({ hex: s.hex, position: s.position * scale }))
+  const offset = (100 + averageGap) * scale
+  const second = stops.map((s) => ({ hex: s.hex, position: offset + s.position * scale }))
+  
+  return [...first, ...second]
 }
 
 /** Converts smooth blend points into hard color bands: each stop fills out

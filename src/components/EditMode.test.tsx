@@ -195,7 +195,7 @@ describe('EditMode', () => {
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
 
     const preview = screen.getByTestId('edit-mode-preview')
-    const fab = screen.getByTestId('sort-fab')
+    const fab = screen.getByTestId('sort-button')
     expect(preview).toContainElement(fab)
     expect(fab.textContent).toBe('Order: Original')
 
@@ -224,7 +224,7 @@ describe('EditMode', () => {
       reversed: false,
     }
     render(<EditMode gradient={darkFirst} onExit={vi.fn()} />)
-    const fab = screen.getByTestId('sort-fab')
+    const fab = screen.getByTestId('sort-button')
     fireEvent.click(fab) // lightness
     fireEvent.click(fab) // chroma
     fireEvent.click(fab) // hue
@@ -233,7 +233,7 @@ describe('EditMode', () => {
     expect(updated.stops.map((s) => s.hex)).toEqual(['#00ff00', '#0000ff', '#ff0000'])
   })
 
-  it('tapping the sort FAB sorts stops by the labeled key', () => {
+  it('tapping the sort button sorts stops by the labeled key', () => {
     const darkFirst: Gradient = {
       id: 'g-sort',
       type: 'linear',
@@ -245,7 +245,7 @@ describe('EditMode', () => {
       reversed: false,
     }
     render(<EditMode gradient={darkFirst} onExit={vi.fn()} />)
-    fireEvent.click(screen.getByTestId('sort-fab')) // applies lightness
+    fireEvent.click(screen.getByTestId('sort-button')) // applies lightness
     const updated = useAppStore.getState().current!
     expect(updated.stops.map((s) => s.hex)).toEqual(['#0000ff', '#ff0000', '#00ff00'])
   })
@@ -262,7 +262,7 @@ describe('EditMode', () => {
       reversed: false,
     }
     render(<EditMode gradient={darkFirst} onExit={vi.fn()} />)
-    fireEvent.click(screen.getByTestId('sort-fab'))
+    fireEvent.click(screen.getByTestId('sort-button'))
     const updated = useAppStore.getState().current!
     expect(updated.stops.map((s) => s.hex)).toEqual(['#0000ff', '#ff0000', '#00ff00'])
   })
@@ -279,7 +279,7 @@ describe('EditMode', () => {
       reversed: false,
     }
     render(<EditMode gradient={unequalPositions} onExit={vi.fn()} />)
-    fireEvent.click(screen.getByTestId('sort-fab'))
+    fireEvent.click(screen.getByTestId('sort-button'))
     const updated = useAppStore.getState().current!
     expect(updated.stops.map((s) => s.position)).toEqual([0, 50, 100])
   })
@@ -296,7 +296,7 @@ describe('EditMode', () => {
       reversed: false,
     }
     render(<EditMode gradient={unequalPositions} onExit={vi.fn()} />)
-    fireEvent.click(screen.getByTestId('sort-fab'))
+    fireEvent.click(screen.getByTestId('sort-button'))
     const handles = screen.getAllByRole('slider')
     expect(handles.map((h) => h.getAttribute('aria-valuenow'))).toEqual(['0', '50', '100'])
   })
@@ -366,10 +366,10 @@ describe('EditMode', () => {
     expect(onExit).toHaveBeenCalledTimes(1)
   })
 
-  it('does not exit when tapping the sort FAB, and still cycles the sort', () => {
+  it('does not exit when tapping the sort button, and still cycles the sort', () => {
     const onExit = vi.fn()
     render(<EditMode gradient={gradient} onExit={onExit} />)
-    const fab = screen.getByTestId('sort-fab')
+    const fab = screen.getByTestId('sort-button')
     fireEvent.pointerDown(fab, { clientX: 20, clientY: 20 })
     fireEvent.pointerUp(fab, { clientX: 20, clientY: 20 })
     fireEvent.click(fab)
@@ -590,7 +590,7 @@ describe('EditMode canvas handles', () => {
       vi.spyOn(preview, 'getBoundingClientRect').mockReturnValue({
         x: 0, y: 0, left: 0, top: 0, width: 200, height: 200, right: 200, bottom: 200, toJSON() {},
       } as DOMRect)
-      const sortFab = screen.getByTestId('sort-fab')
+      const sortFab = screen.getByTestId('sort-button')
       const sheet = screen.getByTestId('edit-sheet')
       const backButton = screen.getByTestId('edit-mode-back')
       expect(sortFab.className).not.toMatch(/hidden/)

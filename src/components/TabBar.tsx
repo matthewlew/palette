@@ -82,7 +82,7 @@ export function TabBar({
                 >
                   {gradient.type === 'square' && (
                     <span className={styles.squareThumbInner}>
-                      <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} blurPx={2} />
+                      <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={2} />
                     </span>
                   )}
                 </span>

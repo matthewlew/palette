@@ -90,7 +90,7 @@ function SavedCard({ gradient, onSelect }: { gradient: Gradient; onSelect: (g: G
         }}
         onClick={() => onSelect(gradient)}
       >
-        {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} blurPx={6} />}
+        {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={6} />}
       </button>
       {editing ? (
         <input

@@ -107,14 +107,7 @@
   }
 }
 
-/* Position only — visual recipe is the global .ghost-chip/.ghost-pill. */
-.sortFab {
-  position: absolute;
-  bottom: 16px;
-  left: 16px;
-  z-index: 3;
-  transition: opacity 200ms ease;
-}
+
 
 @media (min-width: 768px) {
   .preview :global([data-testid='grain-button']) {
@@ -141,7 +134,7 @@
   padding: 8px 16px calc(12px + env(safe-area-inset-bottom));
 }
 
-.addColor {
+.sortButton {
   min-height: 40px;
   padding: 0 18px;
   border-radius: 999px;
@@ -155,7 +148,7 @@
   transition: background 150ms ease, border-color 150ms ease;
 }
 
-.addColor:hover {
+.sortButton:hover {
   background: var(--surface-2, rgba(128, 128, 128, 0.12));
   border-color: var(--text, rgba(128, 128, 128, 0.4));
 }
