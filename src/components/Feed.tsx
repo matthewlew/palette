@@ -29,6 +29,9 @@ export function makeGradient(type: GradientType, colorSet: ColorSet): Gradient {
     type,
     stops,
     reversed: false,
+    hardStops: false,
+    repeatEnabled: false,
+    fanAnchor: 'bottom',
   }
 }
 

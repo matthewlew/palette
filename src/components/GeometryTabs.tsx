@@ -1,14 +1,15 @@
 import { useRef } from 'react'
-import type { GradientType } from '../lib/gradient'
+import { buildGradientCss, type GradientType, type GradientStop } from '../lib/gradient'
+import type { Gradient } from '../store/types'
+import { TurrellSquare } from './TurrellSquare'
 import styles from './GeometryTabs.module.css'
 
 interface GeometryTabsProps {
-  type: GradientType
+  gradient: Gradient
+  stops: GradientStop[]
   onSelectType: (type: GradientType) => void
   onToggleReversed: () => void
-  repeatEnabled?: boolean
   onToggleRepeat?: () => void
-  hardStops?: boolean
   onToggleHardStops?: () => void
   /** Re-tapping the active Fan tab rotates its anchor edge. */
   onRotateFan?: () => void
@@ -32,12 +33,11 @@ const TABS: { type: GradientType; label: string }[] = [
 const FILTERS_UNSUPPORTED: GradientType[] = ['square', 'mirror', 'repeat']
 
 export function GeometryTabs({
-  type,
+  gradient,
+  stops,
   onSelectType,
   onToggleReversed,
-  repeatEnabled = false,
   onToggleRepeat,
-  hardStops = false,
   onToggleHardStops,
   onRotateFan,
 }: GeometryTabsProps) {
@@ -53,7 +53,7 @@ export function GeometryTabs({
   }
 
   function handleTap(tabType: GradientType) {
-    if (tabType === type) {
+    if (tabType === gradient.type) {
       // Re-tapping the active tab flips color order — except Fan, where it
       // rotates the cone to the next edge (bottom → top → left → right).
       if (tabType === 'fan' && onRotateFan) {
@@ -68,32 +68,52 @@ export function GeometryTabs({
 
   // Repeat rebuilds an even position sequence, meaningless for the types that
   // author their own sequence or are already solid blocks.
-  const repeatDisabled = FILTERS_UNSUPPORTED.includes(type)
+  const repeatDisabled = FILTERS_UNSUPPORTED.includes(gradient.type)
   // Hard applies more broadly: angular cuts crisp wedges, and Turrell (square)
   // reads its `hard` as "no blur" (crisp nested squares). Only the types that
   // build their own hard-coded sequence can't honor it.
-  const hardDisabled = type === 'mirror' || type === 'repeat'
+  const hardDisabled = gradient.type === 'mirror' || gradient.type === 'repeat'
 
   return (
-    <div ref={tabsRef} className={styles.tabs} onWheel={handleWheel}>
+    <div data-noscroll-hide="true" ref={tabsRef} className={styles.tabs} onWheel={handleWheel}>
       {TABS.map((tab) => (
         <button
           key={tab.type}
           type="button"
-          aria-pressed={tab.type === type}
-          className={tab.type === type ? styles.tabActive : styles.tab}
+          aria-pressed={tab.type === gradient.type}
+          className={tab.type === gradient.type ? styles.tabActive : styles.tab}
           onClick={() => handleTap(tab.type)}
         >
-          {tab.label}
+          <div className={styles.tabInner}>
+            <div 
+              className={styles.previewBox}
+              style={{
+                backgroundImage: tab.type !== 'square' ? buildGradientCss(tab.type, stops, gradient.reversed, {
+                  repeat: gradient.repeatEnabled,
+                  hard: gradient.hardStops,
+                  fanAnchor: gradient.fanAnchor
+                }) : undefined
+              }}
+            >
+              {tab.type === 'square' && (
+                <TurrellSquare 
+                  stops={stops} 
+                  reversed={gradient.reversed} 
+                  blurPx={gradient.hardStops ? 0 : undefined} 
+                />
+              )}
+            </div>
+            <span>{tab.label}</span>
+          </div>
         </button>
       ))}
       <span className={styles.divider} aria-hidden="true" />
       <button
         type="button"
         data-testid="filter-repeat"
-        aria-pressed={repeatEnabled}
+        aria-pressed={gradient.repeatEnabled}
         disabled={repeatDisabled}
-        className={repeatEnabled ? styles.tabActive : styles.tab}
+        className={gradient.repeatEnabled ? styles.filterActive : styles.filter}
         onClick={onToggleRepeat}
       >
         Repeat ×2
@@ -101,9 +121,9 @@ export function GeometryTabs({
       <button
         type="button"
         data-testid="filter-hard"
-        aria-pressed={hardStops}
+        aria-pressed={gradient.hardStops}
         disabled={hardDisabled}
-        className={hardStops ? styles.tabActive : styles.tab}
+        className={gradient.hardStops ? styles.filterActive : styles.filter}
         onClick={onToggleHardStops}
       >
         Hard

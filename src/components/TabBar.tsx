@@ -2,6 +2,7 @@ import type { ViewMode } from '../store/types'
 import type { Gradient } from '../store/types'
 import { buildGradientCss } from '../lib/gradient'
 import { TurrellSquare } from './TurrellSquare'
+import { useScrolling } from '../hooks/useScrolling'
 import styles from './TabBar.module.css'
 
 interface TabBarProps {
@@ -43,12 +44,14 @@ export function TabBar({
   // Newest renders last (on top), slightly offset so the older saves peek
   // out behind it as a stack.
   const stack = recentGradients.slice(-STACK_SIZE)
+  const scrolling = useScrolling()
+  const isHidden = hidden || (panelOpen && scrolling)
 
   return (
     <nav
       data-testid="tab-bar"
       aria-label="Main"
-      className={[styles.bar, hidden && styles.hidden, panelOpen && styles.overCanvas]
+      className={[styles.bar, isHidden && styles.hidden, panelOpen && styles.overCanvas]
         .filter(Boolean)
         .join(' ')}
     >

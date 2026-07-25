@@ -45,7 +45,7 @@ export function SearchBar({ onResults }: SearchBarProps) {
               name: row.display_name,
               type: row.shape as GradientType,
               stops,
-              fanAnchor: 'center',
+              fanAnchor: 'bottom',
               reversed: false,
               hardStops: false,
               repeatEnabled: false,

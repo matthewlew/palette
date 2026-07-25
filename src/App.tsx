@@ -87,7 +87,7 @@ export function App() {
             name: data.display_name,
             type: data.shape as GradientType,
             stops,
-            fanAnchor: 'center',
+            fanAnchor: 'bottom',
             reversed: false,
             hardStops: false,
             repeatEnabled: false,
