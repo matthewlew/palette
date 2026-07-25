@@ -45,8 +45,9 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
 
     if (!wasSaved) {
       const hexes = gradient.stops.map(s => s.hex)
+      const offsets = gradient.stops.map(s => s.position)
       try {
-        const result = await publishPalette(hexes, gradient.type, 0, gradient.name)
+        const result = await publishPalette(hexes, gradient.type, gradient.angle ?? 0, gradient.name, offsets)
         if (result?.displayName) {
           renameCurrentGradient(result.displayName)
         }

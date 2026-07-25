@@ -6,7 +6,15 @@ export function generateSlug(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
 }
 
-export async function publishPalette(hexes: string[], shape: string, angle: number = 0, providedName?: string) {
+export async function publishPalette(
+  hexes: string[],
+  shape: string,
+  angle: number = 0,
+  providedName?: string,
+  /** Stop offset positions (0-100), aligned to `hexes`. Persisted so uneven
+   * stop spacing reproduces exactly on load; omit for evenly-spaced stops. */
+  offsets?: number[],
+) {
   // 1. Use the provided name or generate one using the engine
   let baseName = providedName?.trim() || namePalette(hexes)
   
@@ -28,7 +36,8 @@ export async function publishPalette(hexes: string[], shape: string, angle: numb
       display_name: displayName,
       colors: hexes,
       shape: shape,
-      angle: angle
+      angle: angle,
+      offsets: offsets ?? null
     })
 
     if (!error) {

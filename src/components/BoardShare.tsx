@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { encodeToFragment, toExportJson, toSharePayloadGradient } from '../lib/gradientCodec'
+import { publishPalette } from '../lib/publishPalette'
+import { previewShareUrl } from '../lib/shareLink'
 import { toCuratedEntryJson } from '../lib/curated'
 import { useCopyFeedback } from '../hooks/useCopyFeedback'
 import type { Gradient } from '../store/types'
@@ -94,10 +96,24 @@ export function BoardShare({
     }
   }
 
-  /** Secondary action: copy link or invoke share sheet with a URL. */
+  /** Secondary action: copy link or invoke share sheet with a URL.
+   *
+   * Publishes the gradient so it gets a canonical slug, then shares the
+   * Edge-Function preview URL — that URL gives iMessage / IG DMs a rich card
+   * (name + generated image) and 302s the recipient into the app. If the
+   * publish fails (offline / Supabase down) we fall back to the self-contained
+   * fragment link, which still opens the gradient but without a rich preview. */
   async function handleCopyLink() {
     if (!current) return
-    const link = getSingleShareLink(current)
+    let link = getSingleShareLink(current)
+    try {
+      const hexes = current.stops.map((s) => s.hex)
+      const offsets = current.stops.map((s) => s.position)
+      const result = await publishPalette(hexes, current.type, current.angle ?? 0, current.name, offsets)
+      if (result?.slug) link = previewShareUrl(result.slug)
+    } catch (err) {
+      console.error('Publish for share link failed; using fragment link', err)
+    }
 
     if (navigator.share && navigator.canShare?.({ url: link })) {
       try {

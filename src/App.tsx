@@ -77,9 +77,13 @@ export function App() {
             console.error('Failed to load gradient by slug', error)
             return
           }
+          // Prefer the persisted stop offsets so uneven spacing reproduces
+          // exactly; fall back to even spacing for older rows saved before
+          // the `offsets` column existed.
+          const offsets: number[] | null = Array.isArray(data.offsets) ? data.offsets : null
           const stops = data.colors.map((hex: string, i: number) => ({
             hex,
-            position: data.colors.length === 1 ? 0 : Math.round((i / (data.colors.length - 1)) * 100),
+            position: offsets?.[i] ?? (data.colors.length === 1 ? 0 : Math.round((i / (data.colors.length - 1)) * 100)),
             id: `stop-${i}`
           }))
           const gradient: Gradient = {
@@ -87,6 +91,7 @@ export function App() {
             name: data.display_name,
             type: data.shape as GradientType,
             stops,
+            angle: data.angle ?? 0,
             fanAnchor: 'bottom',
             reversed: false,
             hardStops: false,
