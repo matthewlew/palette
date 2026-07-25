@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { useAppStore } from '../store/useAppStore'
-import { buildGradientCss, SELECTABLE_GEOMETRY, type GradientType } from '../lib/gradient'
+import { buildGradientCss, nextRotationAngle, SELECTABLE_GEOMETRY, type GradientType } from '../lib/gradient'
 import {
   toEditableStops,
   equalizePositions,
@@ -482,7 +482,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         e.preventDefault()
         const currentGrad = useAppStore.getState().current
         if (currentGrad) {
-          const newAngle = ((currentGrad.angle ?? 0) + 45) % 360
+          const newAngle = nextRotationAngle(currentGrad.type, currentGrad.angle)
           setCurrentGradient({
             ...currentGrad,
             angle: newAngle,
@@ -561,14 +561,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   }
 
   function handleRotateAngle() {
-    let newAngle: number | undefined
-    if (gradient.type === 'radial') {
-      if (gradient.angle === undefined) newAngle = 0
-      else if (gradient.angle === 315) newAngle = undefined
-      else newAngle = (gradient.angle + 45) % 360
-    } else {
-      newAngle = ((gradient.angle ?? 0) + 45) % 360
-    }
+    const newAngle = nextRotationAngle(gradient.type, gradient.angle)
     commitPreservingPositions({ angle: newAngle })
     feedSession.lockedAngle = newAngle
   }

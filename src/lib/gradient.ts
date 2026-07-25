@@ -45,6 +45,21 @@ export const FAN_ANCHOR_CONFIG: Record<FanAnchor, { at: string; from: number; sp
   right: { at: '100% 50%', from: 180, span: 0.5, px: 1, py: 0.5 },
 }
 
+/**
+ * The next angle for a 45° rotate step. Radial reads `angle` as its origin, and
+ * center (angle === undefined) is a real, selectable origin: the cycle runs
+ * center → 0 → 45 → … → 315 → center (9 positions). Every other type simply
+ * wraps 0–360.
+ */
+export function nextRotationAngle(type: GradientType, angle?: number): number | undefined {
+  if (type === 'radial') {
+    if (angle === undefined) return 0
+    if (angle === 315) return undefined
+    return (angle + 45) % 360
+  }
+  return ((angle ?? 0) + 45) % 360
+}
+
 export function getRadialConfig(angle?: number) {
   if (angle == null) return { css: 'center', px: 0.5, py: 0.5 }
   const step = (Math.round(angle / 45) * 45) % 360

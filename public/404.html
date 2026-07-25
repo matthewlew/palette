@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>palette</title>
+<script>
+  // GitHub Pages serves this for any missing /palette/* path. If it's a
+  // gradient preview URL (/palette/g/<slug>.html) that hasn't been prerendered
+  // yet — e.g. a gradient shared moments ago, before the preview-generation
+  // cron ran — send the visitor into the app at that slug so the link still
+  // works. (Crawlers won't get a rich card until the page is generated, but a
+  // human never hits a dead end.) Anything else falls back to the app home.
+  (function () {
+    var m = location.pathname.match(/\/palette\/g\/([a-z0-9-]+)(?:\.html)?\/?$/i)
+    var base = location.origin + '/palette/'
+    location.replace(m ? base + '#' + m[1] : base)
+  })()
+</script>
+</head><body>Opening palette… <a href="/palette/">Continue</a>.</body></html>

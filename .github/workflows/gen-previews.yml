@@ -1,0 +1,42 @@
+name: Generate gradient preview pages
+
+# Regenerates public/g/<slug>.html for every gradient in Supabase so shared
+# links get rich OG cards. Committing changes triggers the deploy workflow.
+# Runs on a schedule (new gradients get a page within ~15 min) and on demand.
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gen-previews
+  cancel-in-progress: true
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Generate preview pages
+        run: node scripts/gen-previews.mjs
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      - name: Commit any changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain public/g)" ]; then
+            git add public/g
+            git commit -m "chore: regenerate gradient preview pages"
+            git push
+          else
+            echo "No preview changes."
+          fi

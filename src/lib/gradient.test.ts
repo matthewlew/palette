@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildGradientCss, gradientColorAt, SELECTABLE_GEOMETRY, type GradientStop } from './gradient'
+import { buildGradientCss, gradientColorAt, nextRotationAngle, SELECTABLE_GEOMETRY, type GradientStop } from './gradient'
 
 const stops: GradientStop[] = [
   { hex: '#ff0000', position: 0 },
@@ -98,6 +98,22 @@ describe('buildGradientCss', () => {
 
   it('throws for fewer than 2 stops', () => {
     expect(() => buildGradientCss('linear', [stops[0]])).toThrow()
+  })
+})
+
+describe('nextRotationAngle', () => {
+  it('cycles radial origin through center (undefined) plus the 8 edges', () => {
+    // center -> top -> ... -> top-left -> back to center
+    expect(nextRotationAngle('radial', undefined)).toBe(0)
+    expect(nextRotationAngle('radial', 0)).toBe(45)
+    expect(nextRotationAngle('radial', 270)).toBe(315)
+    expect(nextRotationAngle('radial', 315)).toBeUndefined()
+  })
+
+  it('wraps other geometries 0-360 with no center state', () => {
+    expect(nextRotationAngle('linear', undefined)).toBe(45)
+    expect(nextRotationAngle('linear', 315)).toBe(0)
+    expect(nextRotationAngle('angular', 90)).toBe(135)
   })
 })
 
