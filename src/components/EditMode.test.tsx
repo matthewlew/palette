@@ -599,9 +599,11 @@ describe('EditMode canvas handles', () => {
 
       const firstHandle = screen.getAllByTestId(/^canvas-handle-(?!visible|near)/)[0]
       fireEvent.pointerDown(firstHandle, { pointerId: 1, clientX: 100, clientY: 0 })
+      // Wait out the hold delay, then move past the threshold to arm the drag.
       act(() => {
         vi.advanceTimersByTime(200)
       })
+      fireEvent.pointerMove(firstHandle, { pointerId: 1, buttons: 1, clientX: 100, clientY: 200 })
       // Drag armed: all surrounding UI ducks out of the way.
       expect(sortFab.className).toMatch(/hidden/)
       expect(sheet.className).toMatch(/hidden/)

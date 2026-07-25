@@ -65,31 +65,30 @@ describe('ExportModal Component', () => {
     vi.useRealTimers()
   })
 
-  it('lists all five vignette shapes with Full selected by default', () => {
-    render(<ExportModal gradient={sampleGradient} onClose={vi.fn()} />)
-    const group = screen.getByRole('radiogroup', { name: /vignette shape/i })
-    expect(group).toBeInTheDocument()
-    for (const label of ['Full', 'Circle', 'Oval', 'Diamond', 'Poster']) {
-      expect(screen.getByRole('radio', { name: `${label} vignette` })).toBeInTheDocument()
-    }
-    expect(screen.getByRole('radio', { name: 'Full vignette' })).toHaveAttribute('aria-checked', 'true')
-  })
-
-  it('exports with the selected vignette shape', async () => {
+  it('exports the Instagram Post preset as a captioned "post" vignette', async () => {
     const { downloadVignettePng } = await import('../lib/vignette')
     render(<ExportModal gradient={sampleGradient} onClose={vi.fn()} />)
 
-    fireEvent.click(screen.getByRole('radio', { name: 'Poster vignette' }))
-    expect(screen.getByRole('radio', { name: 'Poster vignette' })).toHaveAttribute('aria-checked', 'true')
-    // Poster preview shows the title caption
-    expect(screen.getByText(/linear gradient · 2 colors/i)).toBeInTheDocument()
-
     vi.useFakeTimers()
-    fireEvent.click(screen.getByRole('button', { name: /Instagram Story/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Instagram Post/i }))
     await act(async () => {
       vi.advanceTimersByTime(150)
     })
-    expect(downloadVignettePng).toHaveBeenCalledWith(sampleGradient, 1080, 1920, 'poster')
+    // The Post preset bakes the gradient name in, so it renders the 'post' shape.
+    expect(downloadVignettePng).toHaveBeenCalledWith(sampleGradient, 1080, 1350, 'post')
+    vi.useRealTimers()
+  })
+
+  it('exports the OG / landscape preset full-bleed at 1200×630', async () => {
+    const { downloadVignettePng } = await import('../lib/vignette')
+    render(<ExportModal gradient={sampleGradient} onClose={vi.fn()} />)
+
+    vi.useFakeTimers()
+    fireEvent.click(screen.getByRole('button', { name: /OG Image \/ Landscape/i }))
+    await act(async () => {
+      vi.advanceTimersByTime(150)
+    })
+    expect(downloadVignettePng).toHaveBeenCalledWith(sampleGradient, 1200, 630, 'full')
     vi.useRealTimers()
   })
 })

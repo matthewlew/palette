@@ -212,6 +212,9 @@ describe('Gallery JSON Import', () => {
     expect(shareTrigger).toBeInTheDocument()
     fireEvent.click(shareTrigger)
 
+    // Import JSON now lives under the "More options" overflow submenu.
+    fireEvent.click(screen.getByRole('button', { name: /more options/i }))
+
     // Click "Import JSON..." menu item
     const importBtn = screen.getByRole('button', { name: /import json/i })
     expect(importBtn).toBeInTheDocument()

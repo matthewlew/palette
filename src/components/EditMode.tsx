@@ -104,7 +104,9 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   const isDraggingRef = useRef(false)
   const lastHandleDragEndRef = useRef(0)
   const pendingGradientRef = useRef<Gradient | null>(null)
-  const chromeHidden = false
+  // Duck the floating chrome (FABs, sheet, back) while a canvas handle is being
+  // dragged, so a drag near the bottom edge never collides with them.
+  const chromeHidden = handleDragging
 
   // Per-corner palette-derived foregrounds (same strategy as the title) so
   // every floating control reads as an extension of the gradient.
