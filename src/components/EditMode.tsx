@@ -17,6 +17,7 @@ import { Hint } from './Hint'
 import { GrainButton } from './GrainButton'
 import { NoiseOverlay } from './NoiseOverlay'
 import { GeometryTabs } from './GeometryTabs'
+import { ShortcutHints, type ShortcutHintItem } from './ShortcutHints'
 import { PaletteTitle } from './PaletteTitle'
 import { BoardShare } from './BoardShare'
 import { namePalette } from '../lib/naming'
@@ -29,6 +30,8 @@ import { feedSession, makeGradient } from './Feed'
 import { decayVelocity, shouldStartMomentum } from '../lib/momentum'
 import { tickHaptic, primeHaptics } from '../lib/haptics'
 import type { Gradient } from '../store/types'
+import { CanvasHandles } from './CanvasHandles'
+import { useAnimatedStops } from '../hooks/useAnimatedStops'
 import styles from './EditMode.module.css'
 
 // 'original' restores the order the stops had before any sorting (the saved
@@ -41,6 +44,14 @@ const ORDER_LABELS: Record<OrderKey, string> = {
   chroma: 'Chroma',
   hue: 'Hue',
 }
+
+const EDIT_SHORTCUTS: ShortcutHintItem[] = [
+  { keys: ['↑', '↓'], label: 'Browse' },
+  { keys: ['←', '→'], label: 'Style' },
+  { keys: ['S'], label: 'Save' },
+  { keys: ['F'], label: 'Flip' },
+  { keys: ['Esc'], label: 'Back' },
+]
 
 interface EditModeProps {
   gradient: Gradient
@@ -73,6 +84,11 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   const onExitRef = useRef(onExit)
   onExitRef.current = onExit
   const [activeStopId, setActiveStopId] = useState<string | null>(null)
+  // Crossfades the preview's colors when a canvas-handle swap reorders them,
+  // so the color blocks visibly trade places instead of hard-jumping.
+  const animatedStops = useAnimatedStops(toGradientStops(editableStops))
+  const [canvasCursor, setCanvasCursor] = useState<{ x: number; y: number } | null>(null)
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 })
   // Hidden native color input, driven programmatically: tapping a stop (or the
   // Add color button) seeds and opens it, replacing the removed swatch tray.
   const colorInputRef = useRef<HTMLInputElement>(null)
@@ -81,6 +97,13 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   // Duck the floating chrome (title, save, share, noise) out while scrubbing
   // the rolodex, matching the create feed and the bottom tab bar.
   const scrolling = useScrolling()
+  // Also duck it while a canvas handle is being dragged, so a drag near the
+  // bottom edge never collides with the Save/grain/Order FABs.
+  const [handleDragging, setHandleDragging] = useState(false)
+  const isDraggingRef = useRef(false)
+  const lastHandleDragEndRef = useRef(0)
+  const pendingGradientRef = useRef<Gradient | null>(null)
+  const chromeHidden = scrolling || handleDragging
 
   // Per-corner palette-derived foregrounds (same strategy as the title) so
   // every floating control reads as an extension of the gradient.
@@ -208,6 +231,23 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
       goTo(feedSession.index - 1)
     }
   }
+
+  // Measure the canvas up front (and on resize) so handles mount already at
+  // their anchors and dissolve in on hover, instead of sliding in from the
+  // corner the first time the pointer moves and size is first read.
+  useEffect(() => {
+    const el = previewRef.current
+    if (!el) return
+    const measure = () => {
+      const rect = el.getBoundingClientRect()
+      setCanvasSize({ width: rect.width, height: rect.height })
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     const el = previewRef.current
@@ -370,9 +410,12 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         return
       }
 
+      // A focused control button (geometry tabs, Add color, Save…) shouldn't
+      // swallow the navigation shortcuts — after tapping one, ←/→/↑/↓/F must
+      // still work. Only Space/Enter are left to the button so it can activate.
+      const onButton = target?.tagName === 'BUTTON'
       if (
         inTextField ||
-        target?.tagName === 'BUTTON' ||
         // Modifier combos (⌘S, ⌘Z…) belong to the browser or other handlers.
         e.metaKey ||
         e.ctrlKey ||
@@ -393,7 +436,9 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         if (feedSession.index > 0) {
           goTo(feedSession.index - 1)
         }
-      } else if (e.key === ' ' || e.key === 's' || e.key === 'S') {
+      } else if (e.key === 's' || e.key === 'S' || (e.key === ' ' && !onButton)) {
+        // Space saves only when a button isn't focused — otherwise let Space
+        // activate that button. 's' always saves (buttons don't type it).
         e.preventDefault()
         const state = useAppStore.getState()
         if (state.current) state.toggleSaveGradient(state.current)
@@ -445,11 +490,17 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
       unsortedOrderRef.current = nextStops.map((s) => s.id)
       setActiveOrder('original')
     }
-    setCurrentGradient({
+    const nextGrad: Gradient = {
       ...gradient,
       ...overrides,
       stops: equalized,
-    })
+    }
+    if (isDraggingRef.current) {
+      pendingGradientRef.current = nextGrad
+    } else {
+      pendingGradientRef.current = null
+      setCurrentGradient(nextGrad)
+    }
   }
 
   // Switching geometry type or toggling reversed must not disturb the stop
@@ -513,7 +564,14 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     if (target.mode === 'recolor') {
       recolorStop(target.id, hex)
     } else {
-      commit(addStop(editableStops, hex))
+      // The native color input fires change events continuously while the user
+      // drags inside the picker. Append exactly one stop on the first event,
+      // then live-recolor that same stop for the rest of the interaction, so a
+      // single pick can't spam a pile of near-identical stops.
+      const next = addStop(editableStops, hex)
+      const added = next[next.length - 1]
+      commit(next)
+      colorTargetRef.current = { mode: 'recolor', id: added.id }
     }
   }
 
@@ -562,6 +620,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   const PREVIEW_TAP_THRESHOLD_PX = 10
 
   function handlePreviewPointerDown(e: React.PointerEvent) {
+    if ((e.target as HTMLElement).closest('button, [data-testid="palette-title"], [data-testid="canvas-handles"], [data-testid="turrell-square"]')) return
     previewPointerStartRef.current = { x: e.clientX, y: e.clientY }
     editHint.dismiss()
   }
@@ -569,13 +628,25 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   function handlePreviewPointerUp(e: React.PointerEvent) {
     const start = previewPointerStartRef.current
     previewPointerStartRef.current = null
-    if ((e.target as HTMLElement).closest('button, [data-testid="palette-title"]')) return
+    if (isDraggingRef.current || Date.now() - lastHandleDragEndRef.current < 350) return
+    if ((e.target as HTMLElement).closest('button, [data-testid="palette-title"], [data-testid="canvas-handles"], [data-testid="turrell-square"]')) return
     if (start) {
       const dx = e.clientX - start.x
       const dy = e.clientY - start.y
-      if (Math.sqrt(dx * dx + dy * dy) > PREVIEW_TAP_THRESHOLD_PX) return
+      if (Math.hypot(dx, dy) > PREVIEW_TAP_THRESHOLD_PX) return
     }
     onExit()
+  }
+
+  function handlePreviewPointerMove(e: React.PointerEvent) {
+    const rect = previewRef.current?.getBoundingClientRect()
+    if (!rect) return
+    setCanvasSize({ width: rect.width, height: rect.height })
+    setCanvasCursor({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+  }
+
+  function handlePreviewPointerLeave() {
+    setCanvasCursor(null)
   }
 
   function handleMoveStop(id: string, position: number) {
@@ -593,7 +664,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         type="button"
         data-testid="edit-mode-back"
         aria-label="Back"
-        className={[styles.backButton, 'ghost-chip', scrolling && styles.hidden].filter(Boolean).join(' ')}
+        className={[styles.backButton, 'ghost-chip', chromeHidden && styles.hidden].filter(Boolean).join(' ')}
         style={{ color: backColor }}
         onClick={onExit}
       >
@@ -605,7 +676,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         saved={saved}
         current={gradient}
         onImport={onImport}
-        chromeVisible={!scrolling}
+        chromeVisible={!chromeHidden}
         color={shareColor}
       />
       <div
@@ -616,7 +687,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           backgroundImage:
             gradient.type === 'square'
               ? undefined
-              : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
+              : buildGradientCss(gradient.type, animatedStops, gradient.reversed, {
                   repeat: gradient.repeatEnabled,
                   hard: gradient.hardStops,
                   fanAnchor: gradient.fanAnchor,
@@ -624,22 +695,34 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         }}
         onPointerDown={handlePreviewPointerDown}
         onPointerUp={handlePreviewPointerUp}
+        onPointerMove={handlePreviewPointerMove}
+        onPointerLeave={handlePreviewPointerLeave}
       >
-        {!fromGallery && <ScrollTicker index={tickerIndex} />}
-        {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} />}
+        {/* The tick scroller stays put while scrolling — it's the one bit of
+            chrome that should remain when everything else ducks away — but it
+            still hides during a handle drag so it doesn't sit under the dots. */}
+        {!fromGallery && <ScrollTicker index={tickerIndex} hidden={handleDragging} />}
+        {/* Turrell reads "Hard" as crisp: no blur between the nested squares. */}
+        {gradient.type === 'square' && (
+          <TurrellSquare
+            stops={animatedStops}
+            reversed={gradient.reversed}
+            blurPx={gradient.hardStops ? 0 : undefined}
+          />
+        )}
         <NoiseOverlay visible={noiseEnabled} />
         <PaletteTitle
           name={gradient.name ?? namePalette(gradient.stops.map((s) => s.hex))}
           onRename={renameCurrentGradient}
-          hidden={scrolling}
+          hidden={chromeHidden}
           color={titleColor}
         />
-        <GrainButton enabled={noiseEnabled} onToggle={toggleNoise} hidden={scrolling} color={cornerColor} />
+        <GrainButton enabled={noiseEnabled} onToggle={toggleNoise} hidden={chromeHidden} color={cornerColor} />
         <button
           type="button"
           data-testid="sort-fab"
           aria-label={`Stop order: ${activeOrder}. Tap to change`}
-          className={[styles.sortFab, 'ghost-chip', 'ghost-pill', scrolling && styles.hidden].filter(Boolean).join(' ')}
+          className={[styles.sortFab, 'ghost-chip', 'ghost-pill', chromeHidden && styles.hidden].filter(Boolean).join(' ')}
           style={{ color: sortColor }}
           onClick={handleSortCycle}
           onPointerDown={(e) => e.stopPropagation()}
@@ -653,14 +736,39 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         <LikeButton
           liked={isGradientSaved}
           onToggle={() => toggleSaveGradient(gradient)}
-          hidden={scrolling}
+          hidden={chromeHidden}
           color={cornerColor}
+        />
+        <CanvasHandles
+          stops={editableStops}
+          type={gradient.type}
+          spoke="up"
+          fanAnchor={gradient.fanAnchor}
+          repeat={gradient.repeatEnabled}
+          cursor={canvasCursor}
+          size={canvasSize}
+          onReorder={(next) => commit(next)}
+          onDraggingChange={(dragging) => {
+            const wasDragging = isDraggingRef.current
+            isDraggingRef.current = dragging
+            // Only stamp the cooldown on a genuine drag→release transition.
+            // CanvasHandles also reports `false` on mount; stamping then would
+            // suppress tap-to-exit for 350ms right after entering edit mode.
+            if (!dragging && wasDragging) {
+              lastHandleDragEndRef.current = Date.now()
+            }
+            setHandleDragging(dragging)
+            if (!dragging && pendingGradientRef.current) {
+              setCurrentGradient(pendingGradientRef.current)
+              pendingGradientRef.current = null
+            }
+          }}
         />
       </div>
       <div
         data-testid="edit-sheet"
         ref={sheetRef}
-        className={styles.sheet}
+        className={[styles.sheet, chromeHidden && styles.hidden].filter(Boolean).join(' ')}
         onPointerDown={(e) => {
           if (e.target === e.currentTarget) {
             setActiveStopId(null)
@@ -684,6 +792,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           onToggleHardStops={handleToggleHardStops}
           onRotateFan={handleRotateFan}
         />
+
         <div className={styles.blockArea}>
           <FlowEditor
             stops={editableStops}
@@ -705,6 +814,9 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           </button>
           <span className={styles.stopHint}>Tap a color to recolor · drag down to remove</span>
         </div>
+        {/* Keyboard hints live in the panel (desktop only, hidden on touch via
+            the component's own media query) rather than floating on the canvas. */}
+        <ShortcutHints items={EDIT_SHORTCUTS} placement="inline" color={cornerColor} />
         {/* Off-screen native picker, opened programmatically from a stop tap or
             the Add color button — the explicit-color path that replaces the
             swatch tray. */}
@@ -718,7 +830,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           onChange={(e) => handleColorPicked(e.target.value)}
         />
       </div>
-      {editHint.visible && <Hint text="Tap a color to recolor" visible={editHint.visible} />}
+      {!chromeHidden && editHint.visible && <Hint text="Tap a color to recolor" visible={editHint.visible && !chromeHidden} />}
     </div>
   )
 }

@@ -18,6 +18,7 @@ interface ScrollTickerProps {
    * instead of a phantom ±WINDOW range. The Create feed is unbounded and
    * omits this. */
   total?: number
+  hidden?: boolean
 }
 
 /** Decorative timeline on the right edge of the feed: tick marks scroll past
@@ -27,7 +28,7 @@ interface ScrollTickerProps {
  * Ticks live at fixed offsets inside a single translated strip so that only
  * one element animates per step — animating each tick individually restarts
  * 21 transitions per step, which reads as jank on mobile. */
-export function ScrollTicker({ index, label, total }: ScrollTickerProps) {
+export function ScrollTicker({ index, label, total, hidden }: ScrollTickerProps) {
   const [visible, setVisible] = useState(false)
   const isFirstRender = useRef(true)
 
@@ -48,7 +49,7 @@ export function ScrollTicker({ index, label, total }: ScrollTickerProps) {
   )
 
   return (
-    <div data-testid="scroll-ticker" aria-hidden="true" className={styles.ticker} style={{ opacity: visible ? 1 : 0 }}>
+    <div data-testid="scroll-ticker" aria-hidden="true" className={styles.ticker} style={{ opacity: visible && !hidden ? 1 : 0 }}>
       <div className={styles.strip} style={{ transform: `translateY(${-index * TICK_SPACING_PX}px)` }}>
         {/* Lives inside the translated strip at the active tick's offset, so
             it scrolls with the marks and reads as a counter ticking up/down. */}

@@ -133,7 +133,13 @@ export function Feed({ chromeVisible = true }: FeedProps) {
 
   // The single piece of React state: whatever gradient is currently shown.
   // Re-renders are triggered explicitly via setDisplayed, never implicitly.
-  const [displayed, setDisplayed] = useState<Gradient | null>(null)
+  // Seed from the persisted feed session so a remount (e.g. exiting edit mode)
+  // renders the card on its FIRST render — otherwise the card (and its
+  // view-transition-name) is absent when the exit transition captures the new
+  // state, so it can't morph and instead flashes out and back in.
+  const [displayed, setDisplayed] = useState<Gradient | null>(
+    () => feedSession.history[feedSession.index] ?? null,
+  )
   const [tickerIndex, setTickerIndex] = useState(0)
 
   // Initialize history with a first gradient on mount, if the store doesn't

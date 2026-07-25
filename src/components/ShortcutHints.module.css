@@ -19,6 +19,17 @@
   top: 76px;
 }
 
+/* Inline: no fixed positioning — the strip sits in normal flow inside the edit
+   panel, centered under the controls. */
+.strip.inline {
+  position: static;
+  left: auto;
+  bottom: auto;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 2px;
+}
+
 .hidden {
   opacity: 0;
 }

@@ -14,20 +14,14 @@ import { titleColorAt } from './lib/titleColor'
 import { withViewTransition } from './lib/viewTransition'
 import { useIdleFade } from './hooks/useIdleFade'
 import type { Gradient } from './store/types'
+import type { GradientType } from './lib/gradient'
+import { supabase } from './lib/supabase'
 
 const CREATE_SHORTCUTS: ShortcutHintItem[] = [
   { keys: ['↑', '↓'], label: 'Browse' },
   { keys: ['←', '→'], label: 'Style' },
   { keys: ['S'], label: 'Save' },
   { keys: ['E'], label: 'Edit' },
-]
-
-const EDIT_SHORTCUTS: ShortcutHintItem[] = [
-  { keys: ['↑', '↓'], label: 'Browse' },
-  { keys: ['←', '→'], label: 'Style' },
-  { keys: ['S'], label: 'Save' },
-  { keys: ['F'], label: 'Flip' },
-  { keys: ['Esc'], label: 'Back' },
 ]
 
 export function App() {
@@ -56,14 +50,58 @@ export function App() {
   }
 
   // Share-link import: decode #d=… on load, add straight to the Gallery.
+  // Or if it's a slug, fetch from Supabase.
   useEffect(() => {
-    const payload = decodeFromFragment(window.location.hash)
-    if (!payload) return
-    const gradients: Gradient[] = payload.gradients.map(importGradient)
-    importGradients(gradients)
-    const added = useAppStore.getState().lastImported?.ids.length ?? 0
-    showImportToast(added)
-    history.replaceState(null, '', window.location.pathname + window.location.search)
+    const hash = window.location.hash
+    if (!hash) return
+
+    if (hash.startsWith('#d=')) {
+      const payload = decodeFromFragment(hash)
+      if (!payload) return
+      const gradients: Gradient[] = payload.gradients.map(importGradient)
+      importGradients(gradients)
+      const added = useAppStore.getState().lastImported?.ids.length ?? 0
+      showImportToast(added)
+      history.replaceState(null, '', window.location.pathname + window.location.search)
+    } else {
+      const slug = hash.replace('#', '')
+      if (!slug) return
+      
+      supabase
+        .from('palettes')
+        .select('*')
+        .eq('slug', slug)
+        .single()
+        .then(({ data, error }) => {
+          if (error || !data) {
+            console.error('Failed to load gradient by slug', error)
+            return
+          }
+          const stops = data.colors.map((hex: string, i: number) => ({
+            hex,
+            position: data.colors.length === 1 ? 0 : Math.round((i / (data.colors.length - 1)) * 100),
+            id: `stop-${i}`
+          }))
+          const gradient: Gradient = {
+            id: data.id,
+            name: data.display_name,
+            type: data.shape as GradientType,
+            stops,
+            fanAnchor: 'center',
+            reversed: false,
+            hardStops: false,
+            repeatEnabled: false,
+            createdAt: new Date(data.created_at).getTime()
+          }
+          
+          // Seed the feed with this gradient and open edit mode
+          withViewTransition(() => {
+            riffIntoFeed(gradient)
+            setCurrentGradient(gradient)
+            setMode('edit')
+          })
+        })
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -149,14 +187,14 @@ export function App() {
         </>
       )}
       {mode === 'gallery' && <Gallery onRiff={handleRiff} onImport={handleImportJson} />}
-      {mode !== 'gallery' && (
+      {/* Edit mode renders its own shortcut hints inside the panel. */}
+      {mode === 'create' && (
         <ShortcutHints
-          items={mode === 'edit' ? EDIT_SHORTCUTS : CREATE_SHORTCUTS}
-          placement={mode === 'edit' ? 'top' : 'bottom'}
-          visible={mode === 'edit' || chromeVisible}
-          // Same foreground strategy as the title, sampled where the strip
-          // actually sits (top-left in edit, bottom-left in create).
-          color={current ? titleColorAt(current, 0.08, mode === 'edit' ? 0.12 : 0.9) : '#ffffff'}
+          items={CREATE_SHORTCUTS}
+          placement="bottom"
+          visible={chromeVisible}
+          // Same foreground strategy as the title, sampled where the strip sits.
+          color={current ? titleColorAt(current, 0.08, 0.9) : '#ffffff'}
         />
       )}
       <TabBar

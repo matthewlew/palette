@@ -24,7 +24,7 @@ export const FAN_ANCHORS: FanAnchor[] = ['bottom', 'top', 'left', 'right']
 
 /** Per-anchor geometry: `at`/`from` feed the CSS conic-gradient, and px/py are
  * the same pivot in normalized coords for gradientColorAt's angle sampling. */
-const FAN_ANCHOR_CONFIG: Record<FanAnchor, { at: string; from: number; px: number; py: number }> = {
+export const FAN_ANCHOR_CONFIG: Record<FanAnchor, { at: string; from: number; px: number; py: number }> = {
   bottom: { at: '50% 100%', from: 270, px: 0.5, py: 1 },
   top: { at: '50% 0%', from: 90, px: 0.5, py: 0 },
   left: { at: '0% 50%', from: 0, px: 0, py: 0.5 },
@@ -53,13 +53,22 @@ function buildSquareGradient(stops: GradientStop[]): string {
   return `conic-gradient(from 0deg, ${segments.join(', ')})`
 }
 
-function buildAngularGradient(stops: GradientStop[]): string {
-  // Compress existing positions to leave room for a final segment that
-  // blends the last color back to the first, eliminating the hard seam at
-  // 360deg/0deg that a plain conic-gradient produces.
-  const scaleFactor = stops.length / (stops.length + 1)
-  const compressed = stops.map((s) => ({ hex: s.hex, position: Math.round(s.position * scaleFactor) }))
-  const withSeam = [...compressed, { hex: stops[0].hex, position: 100 }]
+function buildAngularGradient(stops: GradientStop[], hard = false): string {
+  // Spread the colors evenly around the full circle by index (i/n). Every
+  // wedge — including the seam — is 360/n wide, so N colors read as N equal
+  // wedges instead of the uneven distribution a compress-to-leave-room-for-the-
+  // seam scheme produces.
+  const n = stops.length
+  if (hard) {
+    // Solid wedges, each color filling its 360/n slice with a crisp edge at the
+    // boundary (a double stop). The last wedge cuts straight to the first.
+    const segments = stops.map(
+      (s, i) => `${s.hex} ${Math.round((i / n) * 100)}% ${Math.round(((i + 1) / n) * 100)}%`,
+    )
+    return `conic-gradient(${segments.join(', ')})`
+  }
+  const spread = stops.map((s, i) => ({ hex: s.hex, position: Math.round((i / n) * 100) }))
+  const withSeam = [...spread, { hex: stops[0].hex, position: 100 }]
   return `conic-gradient(${stopsToCss(withSeam)})`
 }
 
@@ -164,7 +173,9 @@ export function buildGradientCss(
     // Repeat first: it rebuilds an even position sequence from hex order, so
     // hardening must run on the already-repeated stops for bands to stay even.
     if (filters.repeat) orderedStops = repeatedStops(orderedStops)
-    if (filters.hard) orderedStops = hardenStops(orderedStops)
+    // Angular hardens internally (its wedges are index-based, not position-
+    // based, so a position-doubling harden here would be discarded).
+    if (filters.hard && type !== 'angular') orderedStops = hardenStops(orderedStops)
   }
 
   switch (type) {
@@ -173,7 +184,7 @@ export function buildGradientCss(
     case 'radial':
       return `radial-gradient(circle, ${stopsToCss(orderedStops)})`
     case 'angular':
-      return buildAngularGradient(orderedStops)
+      return buildAngularGradient(orderedStops, filters.hard)
     case 'square':
       return buildSquareGradient(orderedStops)
     case 'mirror':
@@ -232,12 +243,12 @@ export function gradientColorAt(
       return sampleStops(orderedStops, r)
     }
     case 'angular': {
-      // Angle from the top edge, clockwise, over the same compressed
-      // sequence (with the seam blending back to the first color) that
+      // Angle from the top edge, clockwise, over the same evenly-spread
+      // sequence (with the seam wrapping back to the first color) that
       // buildAngularGradient renders.
-      const scaleFactor = orderedStops.length / (orderedStops.length + 1)
-      const compressed = orderedStops.map((s) => ({ hex: s.hex, position: Math.round(s.position * scaleFactor) }))
-      const withSeam = [...compressed, { hex: orderedStops[0].hex, position: 100 }]
+      const n = orderedStops.length
+      const spread = orderedStops.map((s, i) => ({ hex: s.hex, position: Math.round((i / n) * 100) }))
+      const withSeam = [...spread, { hex: orderedStops[0].hex, position: 100 }]
       const angle = (Math.atan2(x - 0.5, -(y - 0.5)) / (2 * Math.PI) + 1) % 1
       return sampleStops(withSeam, angle)
     }

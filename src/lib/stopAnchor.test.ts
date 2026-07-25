@@ -1,0 +1,87 @@
+import { describe, it, expect } from 'vitest'
+import { stopAnchor } from './stopAnchor'
+
+describe('stopAnchor', () => {
+  it('linear: runs down the vertical axis', () => {
+    expect(stopAnchor('linear', [0, 50, 100], 0)).toEqual({ x: 0.5, y: 0 })
+    expect(stopAnchor('linear', [0, 50, 100], 1)).toEqual({ x: 0.5, y: 0.5 })
+    expect(stopAnchor('linear', [0, 50, 100], 2)).toEqual({ x: 0.5, y: 1 })
+  })
+
+  it('mirror: runs down the top half of the axis', () => {
+    expect(stopAnchor('mirror', [0, 100], 0)).toEqual({ x: 0.5, y: 0 })
+    expect(stopAnchor('mirror', [0, 100], 1)).toEqual({ x: 0.5, y: 0.5 })
+  })
+
+  it('radial: defaults to the up spoke, center to top edge', () => {
+    expect(stopAnchor('radial', [0, 100], 0)).toEqual({ x: 0.5, y: 0.5 })
+    expect(stopAnchor('radial', [0, 100], 1)).toEqual({ x: 0.5, y: 0 })
+  })
+
+  it('radial: honors all four spokes at p=1 (full extent)', () => {
+    expect(stopAnchor('radial', [100], 0, { spoke: 'up' })).toEqual({ x: 0.5, y: 0 })
+    expect(stopAnchor('radial', [100], 0, { spoke: 'down' })).toEqual({ x: 0.5, y: 1 })
+    expect(stopAnchor('radial', [100], 0, { spoke: 'left' })).toEqual({ x: 0, y: 0.5 })
+    expect(stopAnchor('radial', [100], 0, { spoke: 'right' })).toEqual({ x: 1, y: 0.5 })
+  })
+
+  it('square: each stop anchors at the middle of its color ring along the spoke', () => {
+    // TurrellSquare nests by position — higher position renders innermost.
+    // Edges at half(p)=0.5-0.4p: outer ring [0.5,0.1] -> mid 0.3 -> y 0.2;
+    // inner ring [0.1,0] -> mid 0.05 -> y 0.45.
+    const outer = stopAnchor('square', [0, 100], 0)
+    expect(outer.x).toBeCloseTo(0.5)
+    expect(outer.y).toBeCloseTo(0.2)
+    const inner = stopAnchor('square', [0, 100], 1)
+    expect(inner.x).toBeCloseTo(0.5)
+    expect(inner.y).toBeCloseTo(0.45)
+  })
+
+  it('square: honors all four spokes for a single stop (ring [0.5,0] -> mid 0.25)', () => {
+    const up = stopAnchor('square', [0], 0, { spoke: 'up' })
+    expect(up.x).toBeCloseTo(0.5); expect(up.y).toBeCloseTo(0.25)
+    const down = stopAnchor('square', [0], 0, { spoke: 'down' })
+    expect(down.x).toBeCloseTo(0.5); expect(down.y).toBeCloseTo(0.75)
+    const left = stopAnchor('square', [0], 0, { spoke: 'left' })
+    expect(left.x).toBeCloseTo(0.25); expect(left.y).toBeCloseTo(0.5)
+    const right = stopAnchor('square', [0], 0, { spoke: 'right' })
+    expect(right.x).toBeCloseTo(0.75); expect(right.y).toBeCloseTo(0.5)
+  })
+
+  it('angular: spreads stops evenly by index around the circle, clockwise from the top', () => {
+    // 4 stops -> 0deg (top), 90deg (right), 180deg (bottom), 270deg (left);
+    // index, not position, drives the angle so N colors read as N equal wedges.
+    const positions = [0, 25, 50, 75]
+    const top = stopAnchor('angular', positions, 0)
+    expect(top.x).toBeCloseTo(0.5, 5); expect(top.y).toBeCloseTo(0.5 - 0.32, 5)
+    const right = stopAnchor('angular', positions, 1)
+    expect(right.x).toBeCloseTo(0.5 + 0.32, 5); expect(right.y).toBeCloseTo(0.5, 5)
+    const bottom = stopAnchor('angular', positions, 2)
+    expect(bottom.x).toBeCloseTo(0.5, 5); expect(bottom.y).toBeCloseTo(0.5 + 0.32, 5)
+    const left = stopAnchor('angular', positions, 3)
+    expect(left.x).toBeCloseTo(0.5 - 0.32, 5); expect(left.y).toBeCloseTo(0.5, 5)
+  })
+
+  it('fan: sits at mid-radius from the anchor pivot, sweeping the 180deg cone', () => {
+    const start = stopAnchor('fan', [0], 0, { fanAnchor: 'bottom' })
+    // bottom pivot is (0.5, 1); at p=0 the cone starts at 270deg (from FAN_ANCHOR_CONFIG).
+    expect(start.x).toBeCloseTo(0.5 - 0.35, 4)
+    expect(start.y).toBeCloseTo(1, 4)
+  })
+
+  it('repeat maps a linear handle into the first (half-size) cycle', () => {
+    // Without repeat, position 100 sits at the bottom (y=1); with repeat it
+    // rides the first cycle, so the same stop lands at the halfway point.
+    expect(stopAnchor('linear', [0, 100], 1).y).toBeCloseTo(1, 5)
+    expect(stopAnchor('linear', [0, 100], 1, { repeat: true }).y).toBeCloseTo(0.5, 5)
+  })
+
+  it('repeat squeezes the angular sweep into the first half-circle', () => {
+    // 4 stops normally span the full circle (index 2 -> 180deg, bottom); with
+    // repeat they span a semicircle (index 2 -> 90deg, right).
+    const full = stopAnchor('angular', [0, 25, 50, 75], 2)
+    expect(full.x).toBeCloseTo(0.5, 5); expect(full.y).toBeCloseTo(0.5 + 0.32, 5)
+    const repeated = stopAnchor('angular', [0, 25, 50, 75], 2, { repeat: true })
+    expect(repeated.x).toBeCloseTo(0.5 + 0.32, 5); expect(repeated.y).toBeCloseTo(0.5, 5)
+  })
+})

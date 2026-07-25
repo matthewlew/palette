@@ -130,6 +130,7 @@
   left: 50%;
   transform: translate(-50%, -50%);
   width: min(480px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
   border-radius: 16px;
   padding: 16px;
   z-index: 21;
@@ -148,6 +149,9 @@
 
 .jsonArea {
   width: 100%;
+  flex: 1 1 auto;
+  min-height: 100px;
+  max-height: calc(100dvh - 160px);
   resize: vertical;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;

@@ -13,8 +13,7 @@ import { BoardShare } from './BoardShare'
 import { PaletteTitle } from './PaletteTitle'
 import { ScrollTicker } from './ScrollTicker'
 import { CollectionsRow } from './CollectionsRow'
-import { DropAuthor } from './DropAuthor'
-import { THEMED_FEEDS } from '../lib/themedFeed'
+import { SearchBar } from './SearchBar'
 import styles from './Gallery.module.css'
 
 const TYPE_CHIPS: GradientType[] = ['linear', 'radial', 'angular', 'square', 'fan']
@@ -483,6 +482,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   const dragIdRef = useRef<string | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
+  const [searchResults, setSearchResults] = useState<Gradient[] | null>(null)
 
   // Publish the open viewer gradient so the app-level Cmd+C copies it. Resolve
   // the live copy from `saved` (the viewer reads `live` for the same reason) so
@@ -493,10 +493,6 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
     return () => setViewerGradient(null)
   }, [open, saved, setViewerGradient])
   const [undoVisible, setUndoVisible] = useState(false)
-  const [segment, setSegment] = useState<'yours' | 'feed'>('yours')
-  const [activeThemeId, setActiveThemeId] = useState<string>('banff')
-  const [authoring, setAuthoring] = useState(false)
-  const curatedDrops = useAppStore((s) => s.curatedDrops)
   const galleryHint = useHint('gallery')
 
   // Every delete surfaces an Undo toast for a few seconds. The deleted
@@ -562,17 +558,15 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   const enterDelayFor = (index: number) => Math.min(index * ENTER_STEP_MS, ENTER_DELAY_CAP_MS)
 
   const gridRef = useRef<HTMLDivElement>(null)
-  const activeTheme = THEMED_FEEDS.find((t) => t.id === activeThemeId) ?? THEMED_FEEDS[0]
 
   // Masonry uses measured row spans; grid layout is a plain uniform grid.
-  // `segment` and `collectionView` are included because the grid unmounts and
-  // remounts when you switch Yours <-> Daily Drops or enter/leave a board — and
-  // the freshly-mounted tiles need re-measuring, or they keep their default 8px
-  // grid slot and pile up (a "solitaire stack" of overlapping tiles).
+  // `collectionView` is included because the grid unmounts and remounts when
+  // you enter/leave a board — and the freshly-mounted tiles need re-measuring,
+  // or they keep their default 8px grid slot and pile up (a "solitaire stack"
+  // of overlapping tiles).
   useMasonryRowSpans(gridRef, galleryLayout === 'masonry', [
     galleryLayout,
     filtered.map((g) => g.id).join(','),
-    segment,
     collectionView,
   ])
 
@@ -659,60 +653,41 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
     <div data-testid="gallery" className={styles.container}>
       <div className={styles.header}>
         <div className={styles.titleArea}>
-          <h2 className={styles.title}>Gallery</h2>
-          <div className={styles.segmentControl}>
-            <button
-              type="button"
-              className={segment === 'yours' ? styles.segmentBtnActive : styles.segmentBtn}
-              onClick={() => {
-                setSegment('yours')
-                setCollectionView(null)
-              }}
-            >
-              Yours ({saved.length})
-            </button>
-            <button
-              type="button"
-              className={segment === 'feed' ? styles.segmentBtnActive : styles.segmentBtn}
-              onClick={() => setSegment('feed')}
-            >
-              Daily Drops
-            </button>
-          </div>
+          <h2 className={styles.title}>
+            Gallery <span className={styles.titleCount}>({saved.length})</span>
+          </h2>
         </div>
         <div className={styles.headerActions}>
-          {segment === 'yours' && (
-            <div className={styles.toggleGroup}>
-              <button
-                type="button"
-                className={galleryLayout === 'grid' ? styles.toggleBtnActive : styles.toggleBtn}
-                onClick={() => setGalleryLayout('grid')}
-                aria-label="Show grid layout"
-                title="Grid layout"
-              >
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <rect x="3" y="3" width="7" height="7" />
-                  <rect x="14" y="3" width="7" height="7" />
-                  <rect x="14" y="14" width="7" height="7" />
-                  <rect x="3" y="14" width="7" height="7" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                className={galleryLayout === 'masonry' ? styles.toggleBtnActive : styles.toggleBtn}
-                onClick={() => setGalleryLayout('masonry')}
-                aria-label="Show Pinterest masonry layout"
-                title="Pinterest masonry layout"
-              >
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <rect x="3" y="3" width="7" height="9" />
-                  <rect x="14" y="3" width="7" height="5" />
-                  <rect x="14" y="12" width="7" height="9" />
-                  <rect x="3" y="16" width="7" height="5" />
-                </svg>
-              </button>
-            </div>
-          )}
+          <div className={styles.toggleGroup}>
+            <button
+              type="button"
+              className={galleryLayout === 'grid' ? styles.toggleBtnActive : styles.toggleBtn}
+              onClick={() => setGalleryLayout('grid')}
+              aria-label="Show grid layout"
+              title="Grid layout"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="7" height="7" />
+                <rect x="14" y="3" width="7" height="7" />
+                <rect x="14" y="14" width="7" height="7" />
+                <rect x="3" y="14" width="7" height="7" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className={galleryLayout === 'masonry' ? styles.toggleBtnActive : styles.toggleBtn}
+              onClick={() => setGalleryLayout('masonry')}
+              aria-label="Show Pinterest masonry layout"
+              title="Pinterest masonry layout"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="7" height="9" />
+                <rect x="14" y="3" width="7" height="5" />
+                <rect x="14" y="12" width="7" height="9" />
+                <rect x="3" y="16" width="7" height="5" />
+              </svg>
+            </button>
+          </div>
           <BoardShare
             saved={saved}
             onImport={onImport ?? (() => {})}
@@ -721,92 +696,29 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
         </div>
       </div>
 
-      {segment === 'feed' ? (
-        <>
-          <button
-            type="button"
-            data-testid="drop-author-toggle"
-            className={styles.emptyAction}
-            onClick={() => setAuthoring((v) => !v)}
-          >
-            {authoring ? 'Close author' : 'Author a drop'}
-          </button>
-          {authoring ? (
-            <>
-              <DropAuthor />
-              <div data-testid="curated-drops">
-                {curatedDrops.map((d) => (
-                  <article key={d.id} className={styles.themeHero} data-testid={`curated-drop-${d.id}`}>
-                    <div className={styles.themeHeroBadge}>{d.date}</div>
-                    <h3 className={styles.themeHeroTitle}>{d.title}</h3>
-                    <p className={styles.themeHeroDescription}>{d.description}</p>
-                    <div className={galleryLayout === 'masonry' ? styles.masonryGrid : styles.grid}>
-                      {d.gradients.map((g) => (
-                        <span
-                          key={g.id}
-                          className={styles.tilePreview}
-                          style={{
-                            backgroundImage: buildGradientCss(g.type, g.stops, false),
-                            aspectRatio: '4 / 5',
-                            display: 'block',
-                          }}
-                        />
-                      ))}
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </>
+      <SearchBar onResults={setSearchResults} />
+
+      {searchResults ? (
+        <div data-testid="search-results">
+          {searchResults.length === 0 ? (
+            <div className={styles.onboarding}>
+              <p className={styles.onboardingSub}>No palettes found for that name.</p>
+            </div>
           ) : (
-            <>
-              <div className={styles.themeSelector}>
-                {THEMED_FEEDS.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    className={activeThemeId === t.id ? styles.themeTabActive : styles.themeTab}
-                    onClick={() => setActiveThemeId(t.id)}
-                    style={
-                      activeThemeId === t.id
-                        ? ({ '--theme-color': t.themeColor } as React.CSSProperties)
-                        : undefined
-                    }
-                  >
-                    <span className={styles.themeTabEmoji}>{t.emoji}</span>
-                    <span className={styles.themeTabName}>{t.name}</span>
-                  </button>
-                ))}
-              </div>
-
-              <div
-                className={styles.themeHero}
-                style={{ '--theme-color': activeTheme.themeColor } as React.CSSProperties}
-              >
-                <div className={styles.themeHeroBadge}>Today’s themed drops</div>
-                <h3 className={styles.themeHeroTitle}>{activeTheme.name}</h3>
-                <p className={styles.themeHeroSubtitle}>{activeTheme.subtitle}</p>
-                <p className={styles.themeHeroDescription}>{activeTheme.description}</p>
-              </div>
-
-              <div
-                data-testid="gallery-grid"
-                ref={gridRef}
-                onKeyDown={handleGridKeyDown}
-                className={galleryLayout === 'masonry' ? styles.masonryGrid : styles.grid}
-              >
-                {activeTheme.gradients.map((g) => (
-                  <Tile
-                    key={g.id}
-                    gradient={g}
-                    onOpen={setOpen}
-                    galleryLayout={galleryLayout}
-                    onRiff={onRiff}
-                  />
-                ))}
-              </div>
-            </>
+            <div className={galleryLayout === 'masonry' ? styles.masonryGrid : styles.grid}>
+              {searchResults.map((g) => (
+                <Tile
+                  key={g.id}
+                  gradient={g}
+                  onOpen={setOpen}
+                  galleryLayout={galleryLayout}
+                  onRiff={onRiff}
+                  enterDelayMs={0}
+                />
+              ))}
+            </div>
           )}
-        </>
+        </div>
       ) : saved.length === 0 ? (
         <div className={styles.onboarding}>
           <p className={styles.onboardingTitle}>Create a gradient</p>
@@ -1003,7 +915,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
       {open && (
         <Viewer
           gradient={open}
-          items={segment === 'feed' ? activeTheme.gradients : filtered}
+          items={filtered}
           onNavigate={setOpen}
           onClose={() => setOpen(null)}
           onRiff={onRiff}

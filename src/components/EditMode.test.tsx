@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup, act } from '@testing-library/react'
 import { EditMode } from './EditMode'
 import { useAppStore } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
@@ -512,5 +512,107 @@ describe('EditMode', () => {
     fireEvent.keyDown(window, { key: 'f' })
     updated = useAppStore.getState().current!
     expect(updated.reversed).toBe(false)
+  })
+
+  it('still cycles shapes with arrows when a control button holds focus', () => {
+    const custom: Gradient = {
+      id: 'g6b',
+      type: 'linear',
+      stops: [
+        { hex: '#ff0000', position: 0 },
+        { hex: '#0000ff', position: 100 },
+      ],
+      reversed: false,
+    }
+    useAppStore.setState({ current: custom })
+    render(<EditMode gradient={custom} onExit={vi.fn()} />)
+
+    // A geometry tab (or any control button) is focused after tapping it.
+    const button = screen.getByRole('button', { name: 'Radial' })
+    button.focus()
+    fireEvent.keyDown(button, { key: 'ArrowRight' })
+    expect(useAppStore.getState().current!.type).toBe('radial')
+
+    // Space, however, is left to the focused button so it can activate.
+    fireEvent.keyDown(button, { key: ' ' })
+    expect(useAppStore.getState().current!.type).toBe('radial')
+  })
+})
+
+describe('EditMode canvas handles', () => {
+  it('mounts CanvasHandles over the preview canvas', () => {
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    expect(screen.getByTestId('canvas-handles')).toBeInTheDocument()
+  })
+
+  it('renders 4 handle dots per stop for radial, and no direction toggle arrow buttons are needed', () => {
+    const { rerender } = render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    expect(screen.queryByTestId('direction-toggle')).not.toBeInTheDocument()
+    rerender(<EditMode gradient={{ ...gradient, type: 'radial' }} onExit={vi.fn()} />)
+    expect(screen.queryByTestId('direction-toggle')).not.toBeInTheDocument()
+    // For 2 stops in radial, there should be 2 * 4 = 8 handle buttons rendered
+    const handles = screen.getAllByTestId(/^canvas-handle-(?!visible|near)/)
+    expect(handles.length).toBe(gradient.stops.length * 4)
+  })
+
+  it('reordering via a canvas handle updates the live gradient stop order', () => {
+    vi.useFakeTimers()
+    try {
+      render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+      const preview = screen.getByTestId('edit-mode-preview')
+      // Give the preview a real layout box so getBoundingClientRect-derived
+      // cursor/size math is well-defined in jsdom.
+      vi.spyOn(preview, 'getBoundingClientRect').mockReturnValue({
+        x: 0, y: 0, left: 0, top: 0, width: 200, height: 200, right: 200, bottom: 200, toJSON() {},
+      } as DOMRect)
+      fireEvent.pointerMove(preview, { clientX: 100, clientY: 0 })
+      const firstHandle = screen.getAllByTestId(/^canvas-handle-(?!visible|near)/)[0]
+      fireEvent.pointerDown(firstHandle, { pointerId: 1, clientX: 100, clientY: 0 })
+      // Wait out the hold delay that arms a drag (scroll-vs-drag intent).
+      act(() => {
+        vi.advanceTimersByTime(200)
+      })
+      fireEvent.pointerMove(firstHandle, { pointerId: 1, buttons: 1, clientX: 100, clientY: 200 })
+      fireEvent.pointerUp(firstHandle, { pointerId: 1, clientX: 100, clientY: 200 })
+      // The originally-first stop's hex should no longer be at position 0.
+      const stops = useAppStore.getState().current!.stops
+      expect(stops[0].hex).not.toBe(gradient.stops[0].hex)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('hides all non-handle UI (FABs, sheet, back button) while a handle drag is active, restores them after', () => {
+    vi.useFakeTimers()
+    try {
+      render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+      const preview = screen.getByTestId('edit-mode-preview')
+      vi.spyOn(preview, 'getBoundingClientRect').mockReturnValue({
+        x: 0, y: 0, left: 0, top: 0, width: 200, height: 200, right: 200, bottom: 200, toJSON() {},
+      } as DOMRect)
+      const sortFab = screen.getByTestId('sort-fab')
+      const sheet = screen.getByTestId('edit-sheet')
+      const backButton = screen.getByTestId('edit-mode-back')
+      expect(sortFab.className).not.toMatch(/hidden/)
+      expect(sheet.className).not.toMatch(/hidden/)
+      expect(backButton.className).not.toMatch(/hidden/)
+
+      const firstHandle = screen.getAllByTestId(/^canvas-handle-(?!visible|near)/)[0]
+      fireEvent.pointerDown(firstHandle, { pointerId: 1, clientX: 100, clientY: 0 })
+      act(() => {
+        vi.advanceTimersByTime(200)
+      })
+      // Drag armed: all surrounding UI ducks out of the way.
+      expect(sortFab.className).toMatch(/hidden/)
+      expect(sheet.className).toMatch(/hidden/)
+      expect(backButton.className).toMatch(/hidden/)
+
+      fireEvent.pointerUp(firstHandle, { pointerId: 1, clientX: 100, clientY: 0 })
+      expect(sortFab.className).not.toMatch(/hidden/)
+      expect(sheet.className).not.toMatch(/hidden/)
+      expect(backButton.className).not.toMatch(/hidden/)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
