@@ -6,7 +6,6 @@ import { titleColorAt } from '../lib/titleColor'
 import { TurrellSquare } from './TurrellSquare'
 import { PaletteTitle } from './PaletteTitle'
 import { LikeButton } from './LikeButton'
-import { SaveDestination } from './SaveDestination'
 import { GrainButton } from './GrainButton'
 import { NoiseOverlay } from './NoiseOverlay'
 import type { Gradient } from '../store/types'
@@ -28,10 +27,7 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
   const noiseEnabled = useAppStore((s) => s.noiseEnabled)
   const toggleNoise = useAppStore((s) => s.toggleNoise)
   const renameCurrentGradient = useAppStore((s) => s.renameCurrentGradient)
-  const collections = useAppStore((s) => s.collections)
   const activeCollectionId = useAppStore((s) => s.activeCollectionId)
-  const setActiveCollection = useAppStore((s) => s.setActiveCollection)
-  const createCollection = useAppStore((s) => s.createCollection)
   const addToCollection = useAppStore((s) => s.addToCollection)
 
   // Save toggles the gallery membership as before; when a collection is
@@ -112,15 +108,6 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
         color={titleColor}
       />
       <GrainButton enabled={noiseEnabled} onToggle={toggleNoise} hidden={!chromeVisible} color={cornerColor} />
-      {chromeVisible && (
-        <SaveDestination
-          collections={collections}
-          activeId={activeCollectionId}
-          onSelect={setActiveCollection}
-          onCreate={() => setActiveCollection(createCollection())}
-          color={cornerColor}
-        />
-      )}
       <LikeButton liked={liked} onToggle={handleSave} hidden={!chromeVisible} color={cornerColor} />
     </div>
   )
