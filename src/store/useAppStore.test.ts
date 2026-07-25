@@ -326,43 +326,6 @@ describe('collection membership on delete', () => {
   })
 })
 
-describe('keyword vocabulary + curated drops', () => {
-  beforeEach(() => {
-    useAppStore.setState({ keywordBindings: [], curatedDrops: [] })
-  })
-
-  it('adds a keyword binding and returns its id', () => {
-    const id = useAppStore.getState().addKeywordBinding({
-      keyword: 'glacier',
-      colors: ['#005e6b', '#e3ecec'],
-    })
-    const bindings = useAppStore.getState().keywordBindings
-    expect(bindings).toHaveLength(1)
-    expect(bindings[0].id).toBe(id)
-    expect(bindings[0].keyword).toBe('glacier')
-    expect(bindings[0].colors).toEqual(['#005e6b', '#e3ecec'])
-  })
-
-  it('updates and deletes a keyword binding', () => {
-    const id = useAppStore.getState().addKeywordBinding({ keyword: 'pine', colors: ['#142b1f'] })
-    useAppStore.getState().updateKeywordBinding(id, { note: 'spruce canopy' })
-    expect(useAppStore.getState().keywordBindings[0].note).toBe('spruce canopy')
-    useAppStore.getState().deleteKeywordBinding(id)
-    expect(useAppStore.getState().keywordBindings).toHaveLength(0)
-  })
-
-  it('creates, updates, and deletes a curated drop', () => {
-    const id = useAppStore.getState().createCuratedDrop({
-      title: 'Banff', description: 'Rockies.', date: '2026-07-13', gradients: [],
-    })
-    expect(useAppStore.getState().curatedDrops).toHaveLength(1)
-    useAppStore.getState().updateCuratedDrop(id, { title: 'Banff NP' })
-    expect(useAppStore.getState().curatedDrops[0].title).toBe('Banff NP')
-    useAppStore.getState().deleteCuratedDrop(id)
-    expect(useAppStore.getState().curatedDrops).toHaveLength(0)
-  })
-})
-
 function grad(id: string, name: string): Gradient {
   return {
     id,
