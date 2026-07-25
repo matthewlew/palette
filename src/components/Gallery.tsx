@@ -13,6 +13,7 @@ import { BoardShare } from './BoardShare'
 import { PaletteTitle } from './PaletteTitle'
 import { ScrollTicker } from './ScrollTicker'
 import { CollectionsRow } from './CollectionsRow'
+import { SearchBar } from './SearchBar'
 import styles from './Gallery.module.css'
 
 const TYPE_CHIPS: GradientType[] = ['linear', 'radial', 'angular', 'square', 'fan']
@@ -481,6 +482,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   const dragIdRef = useRef<string | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
+  const [searchResults, setSearchResults] = useState<Gradient[] | null>(null)
 
   // Publish the open viewer gradient so the app-level Cmd+C copies it. Resolve
   // the live copy from `saved` (the viewer reads `live` for the same reason) so
@@ -694,7 +696,30 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
         </div>
       </div>
 
-      {saved.length === 0 ? (
+      <SearchBar onResults={setSearchResults} />
+
+      {searchResults ? (
+        <div data-testid="search-results">
+          {searchResults.length === 0 ? (
+            <div className={styles.onboarding}>
+              <p className={styles.onboardingSub}>No palettes found for that name.</p>
+            </div>
+          ) : (
+            <div className={galleryLayout === 'masonry' ? styles.masonryGrid : styles.grid}>
+              {searchResults.map((g) => (
+                <Tile
+                  key={g.id}
+                  gradient={g}
+                  onOpen={setOpen}
+                  galleryLayout={galleryLayout}
+                  onRiff={onRiff}
+                  enterDelayMs={0}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      ) : saved.length === 0 ? (
         <div className={styles.onboarding}>
           <p className={styles.onboardingTitle}>Create a gradient</p>
           <p className={styles.onboardingSub}>Pick a shape to start — your saves land here.</p>
