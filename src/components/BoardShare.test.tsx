@@ -73,7 +73,7 @@ describe('BoardShare Component', () => {
 
     await waitFor(() =>
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-        expect.stringContaining('/palette/g/test-gradient.html'),
+        expect.stringContaining('/palette/#test-gradient'),
       ),
     )
   })
