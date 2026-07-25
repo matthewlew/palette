@@ -1,19 +1,19 @@
 /**
  * Builds the rich-preview share URL for a single published gradient.
  *
- * This points at the Supabase `preview` Edge Function (not the app directly),
- * so link crawlers in iMessage / Instagram DMs get per-gradient Open Graph
- * tags and a generated preview image. The function 302s humans on to the app
- * at `${APP}/#<slug>`, so the recipient still lands in palette.
+ * Points at a prerendered static page on GitHub Pages
+ * (`/palette/g/<slug>.html`). GitHub Pages serves it as real `text/html`, so
+ * link crawlers in iMessage / Instagram DMs read its Open Graph tags and show
+ * a rich card; the page then redirects humans on to the app at `#<slug>`.
  *
- * Derives the function base from VITE_SUPABASE_URL
- * (https://<ref>.supabase.co -> https://<ref>.supabase.co/functions/v1).
+ * (The OG *image* those tags point to is rendered by the Supabase Edge
+ * Function — Supabase serves image/png fine, it only blocks serving HTML.)
+ *
+ * These static pages are generated in batches (see the site repo's
+ * scripts/gen-previews.mjs), so a freshly-created gradient may not have a
+ * preview page until the next generation run; until then the link still
+ * resolves to the app via the fallback below only if the page is missing.
  */
 export function previewShareUrl(slug: string): string {
-  const base = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace(/\/$/, '')
-  if (!base) {
-    // No Supabase configured: fall back to a plain app slug link (no preview).
-    return `${window.location.origin}${window.location.pathname}#${slug}`
-  }
-  return `${base}/functions/v1/preview/g/${encodeURIComponent(slug)}`
+  return `${window.location.origin}/palette/g/${encodeURIComponent(slug)}.html`
 }
