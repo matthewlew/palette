@@ -1,5 +1,5 @@
 import { hexToSrgb } from './oklch'
-import { contrastRatio } from './titleColor'
+import { inkOn } from 'lew-design-system/ink'
 
 /**
  * Colorblind-safe color schemes for data visualization — a system distinct
@@ -137,10 +137,10 @@ export function divergingColors(count: number): string[] {
   return Array.from({ length: count }, (_, i) => sampleRamp(DIVERGING, i / (count - 1)))
 }
 
-/** Black or white — whichever has more WCAG contrast — for labels drawn on
+/** Black or white — whichever has more APCA contrast — for labels drawn on
  * top of a swatch. */
 export function readableTextOn(hex: string): '#000000' | '#ffffff' {
-  return contrastRatio('#ffffff', hex) >= contrastRatio('#000000', hex) ? '#ffffff' : '#000000'
+  return inkOn(hex)
 }
 
 /** Structured index of all three schemes, for building a palette preview or

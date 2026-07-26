@@ -14,6 +14,7 @@ import {
   readableTextOn,
 } from './chartPalettes'
 import { contrastRatio } from './titleColor'
+import { lcOn, Lc } from 'lew-design-system/ink'
 
 const HEX = /^#[0-9a-fA-F]{6}$/
 
@@ -130,9 +131,14 @@ describe('readableTextOn', () => {
     expect(readableTextOn('#F0E442')).toBe('#000000')
   })
 
-  it('always clears WCAG AA (4.5) against its swatch', () => {
+  // Swatch labels are short, bold and large, so APCA's Lc 45 "large/heavy"
+  // tier is the applicable floor — not the body-text 75 used for gradient
+  // chrome. Every swatch clears 45; only 11 of 21 clear 75, so a small label
+  // on the mid-tone swatches would NOT be legible enough. Worth knowing if
+  // chart labels ever shrink.
+  it('always clears the APCA large-text floor against its swatch', () => {
     for (const { hex } of QUALITATIVE) {
-      expect(contrastRatio(readableTextOn(hex), hex)).toBeGreaterThanOrEqual(4.5)
+      expect(lcOn(readableTextOn(hex), hex)).toBeGreaterThanOrEqual(Lc.LARGE)
     }
   })
 })
