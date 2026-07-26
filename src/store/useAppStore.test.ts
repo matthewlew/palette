@@ -227,7 +227,7 @@ describe('useAppStore activeColorSet', () => {
 })
 
 describe('persist migration', () => {
-  it('drops the removed smoothEnabled/flutedEnabled flags from v0 boards', async () => {
+  it('drops the removed flutedEnabled flag from v0 boards but preserves smoothEnabled', async () => {
     localStorage.setItem(
       'palette-saved-gradients',
       JSON.stringify({
@@ -241,7 +241,8 @@ describe('persist migration', () => {
     await useAppStore.persist.rehydrate()
     const saved = useAppStore.getState().saved
     expect(saved).toHaveLength(1)
-    expect('smoothEnabled' in saved[0]).toBe(false)
+    // smoothEnabled is a supported filter again, so it must survive migration.
+    expect(saved[0].smoothEnabled).toBe(true)
     expect('flutedEnabled' in saved[0]).toBe(false)
   })
 })

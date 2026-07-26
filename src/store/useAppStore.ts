@@ -313,9 +313,10 @@ export const useAppStore = create<AppState>()(
         collections: state.collections,
         activeCollectionId: state.activeCollectionId,
       }),
-      // v1 drops the removed smoothEnabled/flutedEnabled flags from boards
-      // persisted before those filters were deleted, so stale keys don't
-      // live in localStorage forever.
+      // v1 drops the removed flutedEnabled flag from boards persisted before
+      // that filter was deleted, so stale keys don't live in localStorage
+      // forever. (smoothEnabled was likewise removed here once, but the Smooth
+      // filter is supported again, so it's preserved.)
       // v2 makes masonry the default gallery layout (a one-time reset for
       // boards persisted while 'grid' was the default).
       // v5 removes the Daily Drops state (keywordBindings/curatedDrops) after
@@ -331,8 +332,7 @@ export const useAppStore = create<AppState>()(
         }
         if (Array.isArray(state.saved)) {
           state.saved = state.saved.map((g) => {
-            const { smoothEnabled: _s, flutedEnabled: _f, ...rest } = g as Gradient & {
-              smoothEnabled?: boolean
+            const { flutedEnabled: _f, ...rest } = g as Gradient & {
               flutedEnabled?: boolean
             }
             return rest
