@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { GradientType } from '../lib/gradient'
-import { FAN_ANCHOR_CONFIG, getRadialConfig } from '../lib/gradient'
+import { resolveFanConfig, getRadialConfig } from '../lib/gradient'
 import type { EditableStop } from '../lib/stopOrdering'
 import { stopAnchor, type StopAnchorOpts } from '../lib/stopAnchor'
 import { anchorWithinThreshold, type PixelPoint } from '../lib/canvasReorder'
@@ -107,7 +107,7 @@ export function CanvasHandles({
   // drift off the color they mark. Scale the offset from the reference by the
   // shorter side uniformly to keep it circular.
   const minSide = Math.min(size.width, size.height)
-  const fanCfg = FAN_ANCHOR_CONFIG[fanAnchor ?? 'bottom']
+  const fanCfg = resolveFanConfig(fanAnchor, angle)
   function toPixel(a: { x: number; y: number }): PixelPoint {
     if (type === 'angular') {
       return {

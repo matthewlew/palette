@@ -35,19 +35,32 @@ describe('buildGradientCss', () => {
   })
 
   it('builds a bottom-centered 180° fan (conic from 270deg) for fan type', () => {
-    const css = buildGradientCss('fan', stops)
+    // Bottom is angle 180 on the re-based compass (0 = top, clockwise).
+    const css = buildGradientCss('fan', stops, false, { angle: 180 })
     // Palette compressed into the visible top semicircle (0-50%), last color
     // held across the off-screen lower half so the fan shows no seam.
     expect(css).toBe(
       'conic-gradient(from 270deg at 50% 100%, #ff0000 0%, #00ff00 25%, #0000ff 50%, #0000ff 100%)'
     )
+    // A fan saved with the legacy anchor renders identically.
+    expect(buildGradientCss('fan', stops, false, { fanAnchor: 'bottom' })).toBe(css)
+  })
+
+  it('leaves an un-rotated fan at the bottom, exactly as before', () => {
+    expect(buildGradientCss('fan', stops)).toBe(
+      buildGradientCss('fan', stops, false, { angle: 180 })
+    )
   })
 
   it('fan sampling maps the horizons to the ends and straight-up to the middle', () => {
     // Left horizon → first color, right horizon → last, straight up → middle.
-    expect(gradientColorAt('fan', stops, 0, 1)).toBe('#ff0000')
-    expect(gradientColorAt('fan', stops, 1, 1)).toBe('#0000ff')
-    expect(gradientColorAt('fan', stops, 0.5, 0)).toBe('#00ff00')
+    // Bottom pivot is angle 180 now; a bare fan pivots at the centre.
+    const bottom = { angle: 180 }
+    expect(gradientColorAt('fan', stops, 0, 1, false, bottom)).toBe('#ff0000')
+    expect(gradientColorAt('fan', stops, 1, 1, false, bottom)).toBe('#0000ff')
+    expect(gradientColorAt('fan', stops, 0.5, 0, false, bottom)).toBe('#00ff00')
+    // The legacy anchor samples the same, so old saves are untouched.
+    expect(gradientColorAt('fan', stops, 0, 1, false, { fanAnchor: 'bottom' })).toBe('#ff0000')
   })
 
   it('rotates the fan pivot and start angle to the chosen anchor edge', () => {

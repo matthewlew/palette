@@ -4,8 +4,7 @@ import {
   hardenStops,
   positionedStops,
   sampleStops,
-  getFanConfig,
-  FAN_ANCHOR_CONFIG,
+  resolveFanConfig,
   getRadialConfig,
   smoothStops,
 } from './gradient'
@@ -123,7 +122,7 @@ export function renderGradientToCanvas(
       break
     }
     case 'fan': {
-      const config = typeof gradient.angle === 'number' ? getFanConfig(gradient.angle) : FAN_ANCHOR_CONFIG[fanAnchor ?? 'bottom']
+      const config = resolveFanConfig(fanAnchor, gradient.angle)
       const cx = width * config.px
       const cy = height * config.py
       const compressed = stops.map((s) => ({ hex: s.hex, position: Math.round(s.position * config.span) }))

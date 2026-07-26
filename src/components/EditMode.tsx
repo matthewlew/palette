@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { useAppStore } from '../store/useAppStore'
-import { buildGradientCss, nextRotationAngle, SELECTABLE_GEOMETRY, type GradientType } from '../lib/gradient'
+import { buildGradientCss, nextRotationAngle, nextFanRotation, SELECTABLE_GEOMETRY, type GradientType } from '../lib/gradient'
 import {
   toEditableStops,
   equalizePositions,
@@ -586,8 +586,12 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   // Re-tapping the active Fan tab rotates which edge the cone rises from,
   // by jumping 90 degrees.
   function handleRotateFan() {
-    const newAngle = ((gradient.angle ?? 0) + 90) % 360
-    commitPreservingPositions({ angle: newAngle })
+    // Shares the 45 degree, nine-position origin cycle with radial and square
+    // (centre -> top -> clockwise) instead of its own 90 degree one, which only
+    // ever visited the four edges. Rotating also drops the legacy fanAnchor —
+    // see nextFanRotation.
+    const { angle: newAngle, fanAnchor } = nextFanRotation(gradient.angle)
+    commitPreservingPositions({ angle: newAngle, fanAnchor })
     feedSession.lockedAngle = newAngle
   }
 

@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import {
   angularSequence, fanSequence, resolveFanConfig,
-  buildGradientCss, gradientColorAt,
+  buildGradientCss, gradientColorAt, getRadialConfig,
+  nextRotationAngle, nextFanRotation,
 } from './gradient'
+import { sampleStops } from './gradient'
 import type { GradientStop } from './gradient'
 
 const stops: GradientStop[] = [
@@ -60,11 +62,21 @@ describe('sampling agrees with rendering', () => {
   // FAN_ANCHOR_CONFIG, ignoring filters.angle. A corner fan was therefore
   // sampled against a 180 degree sector it does not occupy, so titleColorAt
   // picked the on-gradient ink against the wrong colour.
-  it('samples a corner fan against its own 90 degree sector', () => {
-    // angle 45 pivots at the bottom-left corner sweeping 0..90 degrees, so the
-    // far corner (1,1) sits at exactly the end of the sector -> the LAST colour.
-    const hex = gradientColorAt('fan', stops, 1, 1, false, { angle: 45 })
-    expect(hex).toBe('#798184')
+  it('samples a corner fan against its own 90 degree sector, not a 180 one', () => {
+    // Derived from the config rather than hardcoded, so re-basing the compass
+    // again cannot quietly invalidate it.
+    const cfg = resolveFanConfig(undefined, 45)
+    expect(cfg.span).toBe(0.25)
+    const [x, y] = [0.5, 0.5]
+    const deg = ((Math.atan2(x - cfg.px, -(y - cfg.py)) * 180) / Math.PI + 360) % 360
+    const t = ((deg - cfg.from + 360) % 360) / 360
+
+    const correct = sampleStops(fanSequence(stops, cfg.span), t)
+    const oldBuggy = sampleStops(fanSequence(stops, 0.5), t)
+
+    expect(gradientColorAt('fan', stops, x, y, false, { angle: 45 })).toBe(correct)
+    // The regression this pins: the sampler used to assume a 0.5 span here.
+    expect(correct).not.toBe(oldBuggy)
   })
 
   it('gives a different answer per fan angle', () => {
@@ -95,5 +107,49 @@ describe('sampling agrees with rendering', () => {
     for (const s of fanSequence(stops, resolveFanConfig('bottom', 45).span)) {
       expect(css).toContain(`${s.hex} ${s.position}%`)
     }
+  })
+})
+
+describe('the fan compass matches radial', () => {
+  it('puts every angle where getRadialConfig puts it — 0 is top, then clockwise', () => {
+    const compass = [0, 45, 90, 135, 180, 225, 270, 315]
+    const fan = compass.map((a) => { const c = resolveFanConfig(undefined, a); return `${c.px},${c.py}` })
+    const radial = compass.map((a) => { const c = getRadialConfig(a); return `${c.px},${c.py}` })
+    expect(fan).toEqual(radial)
+    expect(fan[0]).toBe('0.5,0')  // top
+    expect(fan[1]).toBe('1,0')    // top-right, i.e. clockwise
+    expect(fan[4]).toBe('0.5,1')  // bottom sits opposite top
+  })
+
+  it('has no centre position, because a fan would tear there', () => {
+    // radial and square include centre in their cycle; fan cannot. Its last
+    // colour holds the remainder, so there is always a wrap point — pivoting on
+    // the boundary hides it off-canvas. From the centre the whole circle is
+    // visible and the wrap shows as a hard edge.
+    expect(resolveFanConfig(undefined, undefined)).toEqual(resolveFanConfig(undefined, 180))
+    expect(getRadialConfig(undefined)).toEqual({ css: 'center', px: 0.5, py: 0.5 })
+  })
+
+  it('gives every legacy anchor the angle that reproduces it', () => {
+    for (const [anchor, angle] of [['top', 0], ['right', 90], ['bottom', 180], ['left', 270]] as const) {
+      expect(resolveFanConfig(anchor, undefined)).toEqual(resolveFanConfig(undefined, angle))
+    }
+  })
+
+  it('cycles fan through the eight compass points', () => {
+    const seen: number[] = []
+    let a = 0
+    for (let i = 0; i < 8; i++) { seen.push(a); a = nextFanRotation(a).angle }
+    expect(seen).toEqual([0, 45, 90, 135, 180, 225, 270, 315])
+    expect(nextFanRotation(315).angle).toBe(0) // wraps, no centre
+  })
+
+  it('keeps centre in the radial and square cycle', () => {
+    expect(nextRotationAngle('radial', 315)).toBeUndefined()
+    expect(nextRotationAngle('square', 315)).toBeUndefined()
+  })
+
+  it('drops the legacy anchor on rotate so it cannot shadow the angle', () => {
+    expect(nextFanRotation(0).fanAnchor).toBeUndefined()
   })
 })

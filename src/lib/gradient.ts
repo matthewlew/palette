@@ -22,20 +22,51 @@ export type FanAnchor = 'bottom' | 'top' | 'left' | 'right'
 
 export const FAN_ANCHORS: FanAnchor[] = ['bottom', 'top', 'left', 'right']
 
-export function getFanConfig(angle: number) {
+/** Where an un-rotated fan sits. Bottom, as it always has — see the note on
+ * why a fan has no centre position. */
+const FAN_DEFAULT = { at: '50% 100%', from: 270, span: 0.5, px: 0.5, py: 1 } as const
+
+/**
+ * Fan origin for an angle, on the SAME compass as getRadialConfig: 0 is top and
+ * the cycle runs clockwise from there.
+ *
+ * This used to start at BOTTOM (0 = bottom, clockwise from there), so the
+ * identical stored angle put a fan and a radial at opposite ends of the canvas
+ * while sharing one rotate control. The eight geometries below are unchanged —
+ * only which angle selects each one moved, by 180°.
+ *
+ * NO CENTRE POSITION, unlike radial and square. A fan is a cone with the last
+ * colour held across the remainder, so there is always a wrap point where the
+ * last colour meets the first. Pivoting on the boundary puts that wrap OFF the
+ * canvas, which is the whole reason the construction looks seamless. From the
+ * centre the entire circle is visible and the wrap is exposed: measured on a
+ * red→green→blue ramp, the two sides of 12 o'clock come out #0003ff and
+ * #ff0100 — a hard blue-to-red tear straight up the middle. Every boundary
+ * pivot measures smooth there by comparison (#0bff00 vs #00ff06 at the bottom).
+ * A seamless full-circle conic is what `angular` already is.
+ */
+export function getFanConfig(angle?: number) {
+  if (angle == null) return { ...FAN_DEFAULT }
   // Map 0-360 degrees to one of 8 positions (steps of 45)
-  const step = (Math.round(angle / 45) * 45) % 360
+  const step = ((Math.round(angle / 45) * 45) % 360 + 360) % 360
   switch (step) {
-    case 0: return { at: '50% 100%', from: 270, span: 0.5, px: 0.5, py: 1 } // bottom
-    case 45: return { at: '0% 100%', from: 0, span: 0.25, px: 0, py: 1 } // bottom-left
-    case 90: return { at: '0% 50%', from: 0, span: 0.5, px: 0, py: 0.5 } // left
-    case 135: return { at: '0% 0%', from: 90, span: 0.25, px: 0, py: 0 } // top-left
-    case 180: return { at: '50% 0%', from: 90, span: 0.5, px: 0.5, py: 0 } // top
-    case 225: return { at: '100% 0%', from: 180, span: 0.25, px: 1, py: 0 } // top-right
-    case 270: return { at: '100% 50%', from: 180, span: 0.5, px: 1, py: 0.5 } // right
-    case 315: return { at: '100% 100%', from: 270, span: 0.25, px: 1, py: 1 } // bottom-right
-    default: return { at: '50% 100%', from: 270, span: 0.5, px: 0.5, py: 1 }
+    case 0: return { at: '50% 0%', from: 90, span: 0.5, px: 0.5, py: 0 } // top
+    case 45: return { at: '100% 0%', from: 180, span: 0.25, px: 1, py: 0 } // top-right
+    case 90: return { at: '100% 50%', from: 180, span: 0.5, px: 1, py: 0.5 } // right
+    case 135: return { at: '100% 100%', from: 270, span: 0.25, px: 1, py: 1 } // bottom-right
+    case 180: return { at: '50% 100%', from: 270, span: 0.5, px: 0.5, py: 1 } // bottom
+    case 225: return { at: '0% 100%', from: 0, span: 0.25, px: 0, py: 1 } // bottom-left
+    case 270: return { at: '0% 50%', from: 0, span: 0.5, px: 0, py: 0.5 } // left
+    case 315: return { at: '0% 0%', from: 90, span: 0.25, px: 0, py: 0 } // top-left
+    default: return { ...FAN_DEFAULT }
   }
+}
+
+/** The angle that reproduces a legacy `fanAnchor` under the new compass.
+ * Fans saved before the origin cycle was unified carry an anchor and no angle;
+ * mapping them here keeps them rendering exactly as they always have. */
+const LEGACY_ANCHOR_ANGLE: Record<FanAnchor, number> = {
+  top: 0, right: 90, bottom: 180, left: 270,
 }
 
 export const FAN_ANCHOR_CONFIG: Record<FanAnchor, { at: string; from: number; span: number; px: number; py: number }> = {
@@ -45,22 +76,40 @@ export const FAN_ANCHOR_CONFIG: Record<FanAnchor, { at: string; from: number; sp
   right: { at: '100% 50%', from: 180, span: 0.5, px: 1, py: 0.5 },
 }
 
+/** Types whose `angle` is an ORIGIN with a CENTRE position: the cycle runs
+ * centre → 0 (top) → 45 → … → 315 → centre, nine positions.
+ *
+ * `fan` reads its angle as an origin on the same compass but is deliberately
+ * absent: it has no centre position (see getFanConfig), so it cycles the eight
+ * compass points. `linear` and the rest read `angle` as a plain rotation. */
+const ORIGIN_TYPES: ReadonlySet<GradientType> = new Set(['radial', 'square'] as GradientType[])
+
 /**
- * The next angle for a 45° rotate step. Radial reads `angle` as its origin, and
- * center (angle === undefined) is a real, selectable origin: the cycle runs
- * center → 0 → 45 → … → 315 → center (9 positions). Every other type simply
- * wraps 0–360.
+ * The next angle for a 45° rotate step.
+ *
+ * Fan's compass was re-based to match radial's (0 = top, clockwise). It used to
+ * start at bottom, so the same stored angle pointed a fan and a radial at
+ * opposite edges of the canvas even though one control drives both.
  */
 export function nextRotationAngle(type: GradientType, angle?: number): number | undefined {
-  // Radial and square (Turrell) both treat their origin as rotatable, with
-  // center (angle === undefined) as a real, selectable position in the cycle:
-  // center → 0 (top) → 45 (corner) → … → 315 → center.
-  if (type === 'radial' || type === 'square') {
+  if (ORIGIN_TYPES.has(type)) {
     if (angle === undefined) return 0
     if (angle === 315) return undefined
     return (angle + 45) % 360
   }
   return ((angle ?? 0) + 45) % 360
+}
+
+/**
+ * Rotating a fan also retires its legacy `fanAnchor`.
+ *
+ * An anchored fan resolves through LEGACY_ANCHOR_ANGLE so it keeps rendering as
+ * it always has, but the anchor then shadows the angle. Dropping it on the
+ * first rotate leaves the angle as the fan's only origin, so the two can never
+ * disagree afterwards.
+ */
+export function nextFanRotation(angle?: number): { angle: number; fanAnchor: undefined } {
+  return { angle: ((angle ?? 0) + 45) % 360, fanAnchor: undefined }
 }
 
 export function getRadialConfig(angle?: number) {
@@ -143,11 +192,24 @@ export function fanSequence(stops: GradientStop[], span: number): GradientStop[]
   return [...compressed, { hex: stops[stops.length - 1].hex, position: 100 }]
 }
 
-/** The origin, start angle and sector a fan occupies. `angle` wins when set;
- * otherwise the named anchor. Both render and sample paths resolve through
- * here, so they cannot disagree about the span again. */
-export function resolveFanConfig(anchor: FanAnchor = 'bottom', angle?: number) {
-  return angle != null ? getFanConfig(angle) : FAN_ANCHOR_CONFIG[anchor]
+/**
+ * The origin, start angle and sector a fan occupies. Both the render and the
+ * sample path resolve through here, so they cannot disagree about the span.
+ *
+ * `angle` is the real control: null is centre, 0 is top, clockwise from there —
+ * the same compass radial and square use.
+ *
+ * `anchor` is legacy and deprecated. It was only ever written as 'bottom' (no
+ * UI ever set another value), so it carries a default rather than a choice. It
+ * is still honoured for gradients saved before the cycle was unified, which
+ * have an anchor and no angle — without it, every one of them would silently
+ * become a centre fan. Once an anchored fan is rotated the anchor is dropped
+ * (see nextFanRotation), which is what makes centre reachable.
+ */
+export function resolveFanConfig(anchor?: FanAnchor, angle?: number) {
+  if (angle != null) return getFanConfig(angle)
+  if (anchor) return getFanConfig(LEGACY_ANCHOR_ANGLE[anchor])
+  return getFanConfig(undefined) // bottom, the historical default
 }
 
 function buildAngularGradient(stops: GradientStop[], hard = false, angle = 0, smooth = false): string {
@@ -164,7 +226,7 @@ function buildAngularGradient(stops: GradientStop[], hard = false, angle = 0, sm
   return `conic-gradient(from ${angle}deg, ${stopsToCss(smooth ? smoothStops(sequence) : sequence)})`
 }
 
-function buildFanGradient(stops: GradientStop[], anchor: FanAnchor = 'bottom', angle?: number, smooth = false): string {
+function buildFanGradient(stops: GradientStop[], anchor: FanAnchor | undefined, angle: number | undefined, smooth = false): string {
   const { at, from, span } = resolveFanConfig(anchor, angle)
   const sequence = fanSequence(stops, span)
   return `conic-gradient(from ${from}deg at ${at}, ${stopsToCss(smooth ? smoothStops(sequence) : sequence)})`
@@ -428,7 +490,7 @@ export function gradientColorAt(
       // span hardcoded to 0.5, ignoring filters.angle. So a corner fan (span
       // 0.25) or any angle-driven fan was sampled against a sector it does not
       // occupy, and the on-gradient ink was picked against the wrong colour.
-      const { from, px, py, span } = resolveFanConfig(filters.fanAnchor ?? 'bottom', filters.angle)
+      const { from, px, py, span } = resolveFanConfig(filters.fanAnchor, filters.angle)
       const deg = ((Math.atan2(x - px, -(y - py)) * 180) / Math.PI + 360) % 360
       const t = ((deg - from + 360) % 360) / 360
       return sampleStops(fanSequence(orderedStops, span), t)

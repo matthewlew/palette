@@ -60,28 +60,44 @@ describe('canvasExport rendering', () => {
     expect(mockAddColorStop).toHaveBeenCalledTimes(2)
   })
 
-  it('renders fan gradients from the bottom-center with a tail stop', () => {
+  /** Render a fan and report the conic centre + start angle the canvas got. */
+  function renderFan(overrides: Partial<Gradient>) {
     const mockAddColorStop = vi.fn()
     const mockContext = {
       fillRect: vi.fn(),
-      createConicGradient: vi.fn().mockReturnValue({
-        addColorStop: mockAddColorStop,
-      }),
+      createConicGradient: vi.fn().mockReturnValue({ addColorStop: mockAddColorStop }),
       fillStyle: '',
     }
-    const canvas = {
-      width: 0,
-      height: 0,
-      getContext: vi.fn().mockReturnValue(mockContext),
-    } as unknown as HTMLCanvasElement
+    const canvas = { width: 0, height: 0, getContext: vi.fn().mockReturnValue(mockContext) } as unknown as HTMLCanvasElement
+    renderGradientToCanvas(canvas, { ...gradient, type: 'fan', ...overrides }, 1000, 1000)
+    return { conic: mockContext.createConicGradient, stops: mockAddColorStop }
+  }
 
-    const fanGradient: Gradient = { ...gradient, type: 'fan' }
-    renderGradientToCanvas(canvas, fanGradient, 1000, 1000)
+  it('leaves an un-rotated fan at the bottom', () => {
+    // Fan has no centre position (its wrap point would be exposed); an
+    // un-rotated fan stays where it always was.
+    const { conic, stops } = renderFan({})
+    expect(conic).toHaveBeenCalledWith(Math.PI, 500, 1000)
+    expect(stops).toHaveBeenCalledTimes(3) // 2 stops + the tail
+  })
 
-    // Center at bottom-center (500, 1000); CSS from 270deg -> canvas start π.
-    expect(mockContext.createConicGradient).toHaveBeenCalledWith(Math.PI, 500, 1000)
-    // 2 stops + 1 tail stop that holds the last color across the lower half.
-    expect(mockAddColorStop).toHaveBeenCalledTimes(3)
+  it('puts top at 0 and bottom at 180, matching getRadialConfig', () => {
+    expect(renderFan({ angle: 0 }).conic).toHaveBeenCalledWith(0, 500, 0)
+    expect(renderFan({ angle: 180 }).conic).toHaveBeenCalledWith(Math.PI, 500, 1000)
+  })
+
+  it('renders a legacy anchored fan exactly as it always did', () => {
+    // Fans saved before the compass was re-based carry fanAnchor and no angle.
+    // bottom-center (500, 1000), CSS from 270deg -> canvas start pi.
+    expect(renderFan({ fanAnchor: 'bottom' }).conic).toHaveBeenCalledWith(Math.PI, 500, 1000)
+    // ...and each legacy anchor equals its new angle.
+    expect(renderFan({ fanAnchor: 'top' }).conic).toHaveBeenCalledWith(0, 500, 0)
+    expect(renderFan({ fanAnchor: 'left' }).conic).toHaveBeenCalledWith(-Math.PI / 2, 0, 500)
+    expect(renderFan({ fanAnchor: 'right' }).conic).toHaveBeenCalledWith(Math.PI / 2, 1000, 500)
+  })
+
+  it('lets an explicit angle override the legacy anchor', () => {
+    expect(renderFan({ fanAnchor: 'bottom', angle: 0 }).conic).toHaveBeenCalledWith(0, 500, 0)
   })
 
   it('adds more color stops for a smoothed linear gradient', () => {

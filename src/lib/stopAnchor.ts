@@ -1,5 +1,5 @@
 import type { FanAnchor, GradientType } from './gradient'
-import { FAN_ANCHOR_CONFIG, getFanConfig, getRadialConfig } from './gradient'
+import { resolveFanConfig, getRadialConfig } from './gradient'
 
 export type SpokeDir = 'up' | 'down' | 'left' | 'right'
 
@@ -136,8 +136,10 @@ export function stopAnchor(
       }, opts.angle ?? 0)
     }
     case 'fan': {
-      const { from, px, py } = opts.angle ? getFanConfig(opts.angle) : FAN_ANCHOR_CONFIG[opts.fanAnchor ?? 'bottom']
-      const { span } = opts.angle ? getFanConfig(opts.angle) : { span: 0.5 }
+      // One resolver for origin AND span. This previously took the origin from
+      // the anchor but hardcoded span to 0.5, so a corner fan's handles were
+      // laid out over a 180 degree sweep it does not occupy.
+      const { from, px, py, span } = resolveFanConfig(opts.fanAnchor, opts.angle)
       const sweep = span * 360
       const deg = from + (positions[index] / 100) * sweep
       const rad = (deg * Math.PI) / 180
