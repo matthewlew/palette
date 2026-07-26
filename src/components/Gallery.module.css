@@ -300,7 +300,7 @@
   border: 1px solid rgba(255, 255, 255, 0.14);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-base);
   animation: tile-enter 200ms ease both;
 }
 
@@ -723,7 +723,7 @@
 .tileDragging {
   opacity: 0.85;
   transform: scale(1.03);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--shadow-lg);
 }
 
 .tileDragOver .tilePreview {

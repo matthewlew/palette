@@ -43,7 +43,7 @@
   background: rgba(20, 20, 24, 0.55);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-base);
 }
 
 /* Legacy hook from the per-corner tone flipping era. The dark pill with

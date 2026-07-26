@@ -18,7 +18,7 @@
   border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--shadow-base);
   transition: opacity 0.4s ease;
 }
 
@@ -84,7 +84,7 @@
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-sm);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -186,7 +186,7 @@
   justify-content: center;
   border-radius: var(--radius-lg);
   border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--shadow-sm);
   background-color: color-mix(in srgb, currentColor 12%, #26262c);
   background-size: cover;
   background-position: center;
