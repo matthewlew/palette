@@ -6,11 +6,19 @@ import type { Gradient } from '../store/types'
 /** Publish a Gradient to the shared DB so it becomes searchable in the gallery.
  * Convenience wrapper over publishPalette that pulls hexes/offsets/angle/name
  * off the gradient. Used by every save/share/export path. */
+/** Origin is nullable ON PURPOSE and must not be coerced to 0.
+ *
+ * getRadialConfig treats `null`/`undefined` as CENTRE and `0` as TOP — two
+ * different origins. Every `angle ?? 0` on a publish or load path therefore
+ * silently re-anchors a centred Turrell (or radial) to the top edge, which is
+ * why shared posts came back with the wrong origin. Keep it nullable end to end.
+ */
+
 export function publishGradient(gradient: Gradient) {
   return publishPalette(
     gradient.stops.map((s) => s.hex),
     gradient.type,
-    gradient.angle ?? 0,
+    gradient.angle,
     gradient.name,
     gradient.stops.map((s) => s.position),
   )
@@ -23,7 +31,7 @@ export function generateSlug(name: string): string {
 export async function publishPalette(
   hexes: string[],
   shape: string,
-  angle: number = 0,
+  angle?: number,
   providedName?: string,
   /** Stop offset positions (0-100), aligned to `hexes`. Persisted so uneven
    * stop spacing reproduces exactly on load; omit for evenly-spaced stops. */
@@ -71,7 +79,7 @@ export async function publishPalette(
       display_name: displayName,
       colors: hexes,
       shape: shape,
-      angle: angle,
+      angle: angle ?? null,
       offsets: offsets ?? null
     })
 

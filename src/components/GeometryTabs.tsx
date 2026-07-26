@@ -109,6 +109,7 @@ export function GeometryTabs({
                   stops={stops} 
                   reversed={gradient.reversed} 
                   repeatEnabled={gradient.repeatEnabled} blurPx={gradient.hardStops ? 0 : 4} 
+                  angle={gradient.angle}
                 />
               )}
             </div>

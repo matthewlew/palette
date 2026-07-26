@@ -91,7 +91,7 @@ export function App() {
             name: data.display_name,
             type: data.shape as GradientType,
             stops,
-            angle: data.angle ?? 0,
+            angle: data.angle ?? undefined,   // null = centred; see publishPalette
             fanAnchor: 'bottom',
             reversed: false,
             hardStops: false,

@@ -112,7 +112,7 @@ export function BoardShare({
     try {
       const hexes = current.stops.map((s) => s.hex)
       const offsets = current.stops.map((s) => s.position)
-      const result = await publishPalette(hexes, current.type, current.angle ?? 0, current.name, offsets)
+      const result = await publishPalette(hexes, current.type, current.angle, current.name, offsets)
       if (result?.slug) link = previewShareUrl(result.slug)
     } catch (err) {
       console.error('Publish for share link failed; using fragment link', err)

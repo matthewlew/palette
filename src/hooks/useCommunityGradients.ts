@@ -32,7 +32,7 @@ export function useCommunityGradients() {
               name: row.display_name,
               type: row.shape as GradientType,
               stops,
-              angle: row.angle ?? 0,
+              angle: row.angle ?? undefined,   // null = centred; see publishPalette
               fanAnchor: 'bottom',
               reversed: false,
               hardStops: false,

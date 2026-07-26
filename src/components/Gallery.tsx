@@ -160,7 +160,7 @@ function Tile({
           viewTransitionName: `palette-card-${gradient.id}`,
         }}
       >
-        {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={6} />}
+        {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={6} angle={gradient.angle} />}
         <NoiseOverlay visible={noiseEnabled} />
         {/* Clicks anywhere except the Edit button bubble to the tile and
             open the viewer. */}
@@ -342,7 +342,7 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport }: View
           the fold, unlike the other shapes' background-image. */}
       {gradient.type === 'square' && (
         <div className={styles.viewerSquare}>
-          <TurrellSquare stops={live.stops} reversed={live.reversed} />
+          <TurrellSquare stops={live.stops} reversed={live.reversed} angle={live.angle} />
         </div>
       )}
       <NoiseOverlay visible={noiseEnabled} />

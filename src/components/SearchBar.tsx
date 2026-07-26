@@ -82,7 +82,7 @@ export function SearchBar({ onResults }: SearchBarProps) {
               stops,
               // Restore rotation / radial-origin so the preview matches what was
               // saved (previously dropped, so rotated gradients rendered wrong).
-              angle: row.angle ?? 0,
+              angle: row.angle ?? undefined,   // null = centred; see publishPalette
               fanAnchor: 'bottom',
               reversed: false,
               hardStops: false,

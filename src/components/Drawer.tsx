@@ -60,7 +60,7 @@ export function Drawer({ saved, onSelect, hidden = false }: DrawerProps) {
               }}
             >
               {gradient.type === 'square' && (
-                <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={4} />
+                <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={4} angle={gradient.angle} />
               )}
             </span>
           ))}
