@@ -101,7 +101,7 @@ function buildSquareGradient(stops: GradientStop[]): string {
   return `conic-gradient(${segments.join(', ')})`
 }
 
-function buildAngularGradient(stops: GradientStop[], hard = false, angle = 0): string {
+function buildAngularGradient(stops: GradientStop[], hard = false, angle = 0, smooth = false): string {
   // Spread the colors evenly around the full circle by index (i/n). Every
   // wedge — including the seam — is 360/n wide, so N colors read as N equal
   // wedges instead of the uneven distribution a compress-to-leave-room-for-the-
@@ -117,16 +117,18 @@ function buildAngularGradient(stops: GradientStop[], hard = false, angle = 0): s
   }
   const spread = stops.map((s, i) => ({ hex: s.hex, position: Math.round((i / n) * 100) }))
   const withSeam = [...spread, { hex: stops[0].hex, position: 100 }]
-  return `conic-gradient(from ${angle}deg, ${stopsToCss(withSeam)})`
+  const finalStops = smooth ? smoothStops(withSeam) : withSeam
+  return `conic-gradient(from ${angle}deg, ${stopsToCss(finalStops)})`
 }
 
-function buildFanGradient(stops: GradientStop[], anchor: FanAnchor = 'bottom', angle?: number): string {
+function buildFanGradient(stops: GradientStop[], anchor: FanAnchor = 'bottom', angle?: number, smooth = false): string {
   // A fan rising from an edge or corner. The palette is compressed into the visible
   // sector (180° for sides, 90° for corners) and the last color holds across the rest.
   const { at, from, span } = angle != null ? getFanConfig(angle) : FAN_ANCHOR_CONFIG[anchor]
   const compressed = stops.map((s) => ({ hex: s.hex, position: Math.round(s.position * span) }))
   const withTail = [...compressed, { hex: stops[stops.length - 1].hex, position: 100 }]
-  return `conic-gradient(from ${from}deg at ${at}, ${stopsToCss(withTail)})`
+  const finalStops = smooth ? smoothStops(withTail) : withTail
+  return `conic-gradient(from ${from}deg at ${at}, ${stopsToCss(finalStops)})`
 }
 
 export function applyReversed(stops: GradientStop[], reversed: boolean): GradientStop[] {
@@ -146,7 +148,7 @@ export function positionedStops(hexes: string[]): GradientStop[] {
   }))
 }
 
-function buildMirrorGradient(stops: GradientStop[], angle = 0): string {
+function buildMirrorGradient(stops: GradientStop[], angle = 0, smooth = false): string {
   // Sort by position and normalize to a full 0–100 span before folding. Stops
   // can be dragged into any order and needn't reach 0 or 100 (moveStop doesn't
   // re-equalize), so the old code — which assumed ascending order and a stop at
@@ -169,11 +171,14 @@ function buildMirrorGradient(stops: GradientStop[], angle = 0): string {
     .map((s) => ({ hex: s.hex, position: 100 - norm(s.position) / 2 }))
 
   const mirrored = [...forward, ...reverse]
-  return `linear-gradient(${180 + angle}deg, ${stopsToCss(mirrored)})`
+  const finalStops = smooth ? smoothStops(mirrored) : mirrored
+  return `linear-gradient(${180 + angle}deg, ${stopsToCss(finalStops)})`
 }
 
-function buildRepeatGradient(stops: GradientStop[], angle = 0): string {
-  return `linear-gradient(${180 + angle}deg, ${stopsToCss(repeatedStops(stops))})`
+function buildRepeatGradient(stops: GradientStop[], angle = 0, smooth = false): string {
+  const seq = repeatedStops(stops)
+  const finalStops = smooth ? smoothStops(seq) : seq
+  return `linear-gradient(${180 + angle}deg, ${stopsToCss(finalStops)})`
 }
 
 /** Cycles the stop sequence twice across the gradient — a "2x repeat"
@@ -251,6 +256,9 @@ export interface GradientFilters {
   fanAnchor?: FanAnchor
   /** Rotation angle in degrees. */
   angle?: number
+  /** Densifies the blend with Oklab-eased interior stops so transitions are
+   * seamless. Mutually exclusive with `hard`; ignored for `square`. */
+  smooth?: boolean
 }
 
 export function buildGradientCss(
@@ -275,24 +283,28 @@ export function buildGradientCss(
     if (filters.hard && type !== 'angular') orderedStops = hardenStops(orderedStops)
   }
 
+  // Smoothing densifies the final blend with Oklab-eased interior stops. It is
+  // meaningless for solid squares and is mutually exclusive with hard bands
+  // (hard wins), matching how the UI keeps the two toggles exclusive.
+  const smooth = !!filters.smooth && !filters.hard && type !== 'square'
   const angle = filters.angle ?? 0
   switch (type) {
     case 'linear':
-      return `linear-gradient(${180 + angle}deg, ${stopsToCss(orderedStops)})`
+      return `linear-gradient(${180 + angle}deg, ${stopsToCss(smooth ? smoothStops(orderedStops) : orderedStops)})`
     case 'radial': {
       const { css } = getRadialConfig(filters.angle)
-      return `radial-gradient(circle at ${css}, ${stopsToCss(orderedStops)})`
+      return `radial-gradient(circle at ${css}, ${stopsToCss(smooth ? smoothStops(orderedStops) : orderedStops)})`
     }
     case 'angular':
-      return buildAngularGradient(orderedStops, filters.hard, angle)
+      return buildAngularGradient(orderedStops, filters.hard, angle, smooth)
     case 'square':
       return buildSquareGradient(orderedStops)
     case 'mirror':
-      return buildMirrorGradient(orderedStops, angle)
+      return buildMirrorGradient(orderedStops, angle, smooth)
     case 'repeat':
-      return buildRepeatGradient(orderedStops, angle)
+      return buildRepeatGradient(orderedStops, angle, smooth)
     case 'fan':
-      return buildFanGradient(orderedStops, filters?.fanAnchor, filters?.angle)
+      return buildFanGradient(orderedStops, filters?.fanAnchor, filters?.angle, smooth)
   }
 }
 

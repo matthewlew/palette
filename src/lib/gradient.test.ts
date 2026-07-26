@@ -272,3 +272,30 @@ describe('smoothStops', () => {
     expect(smoothStops(one)).toHaveLength(1)
   })
 })
+
+describe('buildGradientCss smooth filter', () => {
+  const bw = [
+    { hex: '#000000', position: 0 },
+    { hex: '#ffffff', position: 100 },
+  ]
+  const countHashes = (s: string) => (s.match(/#/g) || []).length
+
+  it('densifies a linear gradient when smooth is on', () => {
+    const plain = buildGradientCss('linear', bw)
+    const smooth = buildGradientCss('linear', bw, false, { smooth: true })
+    expect(smooth.startsWith('linear-gradient(')).toBe(true)
+    expect(countHashes(smooth)).toBeGreaterThan(countHashes(plain))
+  })
+
+  it('lets hard win when both hard and smooth are set', () => {
+    const both = buildGradientCss('linear', bw, false, { smooth: true, hard: true })
+    const hardOnly = buildGradientCss('linear', bw, false, { hard: true })
+    expect(both).toBe(hardOnly)
+  })
+
+  it('ignores smooth for square (solid blocks)', () => {
+    expect(buildGradientCss('square', bw, false, { smooth: true })).toBe(
+      buildGradientCss('square', bw)
+    )
+  })
+})
