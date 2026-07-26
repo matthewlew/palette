@@ -128,6 +128,35 @@ function lerpHue(a: number, b: number, t: number): number {
   return (a + diff * t + 360) % 360
 }
 
+function hexToOklab(hex: string): { L: number; a: number; b: number } {
+  const srgb = hexToSrgb(hex)
+  const linear = {
+    r: gammaToLinear(srgb.r / 255),
+    g: gammaToLinear(srgb.g / 255),
+    b: gammaToLinear(srgb.b / 255),
+  }
+  return linearSrgbToOklab(linear)
+}
+
+function oklabToHex(oklab: { L: number; a: number; b: number }): string {
+  const linear = oklabToLinearSrgb(oklab)
+  const toHex = (v: number) => Math.round(clamp255(linearToGamma(v) * 255)).toString(16).padStart(2, '0')
+  return `#${toHex(linear.r)}${toHex(linear.g)}${toHex(linear.b)}`
+}
+
+/** Blends two hex colors in Oklab (rectangular L/a/b). Unlike blendOklchHex,
+ * this travels a straight line and never loops around the hue wheel, so it
+ * introduces no in-between hues that weren't in the endpoints. */
+export function blendOklabHex(hexA: string, hexB: string, t = 0.5): string {
+  const a = hexToOklab(hexA)
+  const b = hexToOklab(hexB)
+  return oklabToHex({
+    L: lerp(a.L, b.L, t),
+    a: lerp(a.a, b.a, t),
+    b: lerp(a.b, b.b, t),
+  })
+}
+
 export function blendOklchHex(hexA: string, hexB: string, t = 0.5): string {
   const a = hexToOklch(hexA)
   const b = hexToOklch(hexB)

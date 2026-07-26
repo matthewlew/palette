@@ -5,6 +5,8 @@ import {
   oklchToHex,
   hexToOklch,
   blendOklchHex,
+  blendOklabHex,
+  hexToSrgb,
   isLightColor,
 } from './oklch'
 
@@ -89,5 +91,30 @@ describe('hex <-> oklch and blending', () => {
 
   it('reports a dark color (low L) as not light', () => {
     expect(isLightColor('#000000')).toBe(false)
+  })
+})
+
+describe('blendOklabHex', () => {
+  it('returns the endpoints exactly at t=0 and t=1', () => {
+    expect(blendOklabHex('#ff0000', '#0000ff', 0)).toBe('#ff0000')
+    expect(blendOklabHex('#ff0000', '#0000ff', 1)).toBe('#0000ff')
+  })
+
+  it('blends black and white to a neutral gray at the midpoint', () => {
+    const mid = blendOklabHex('#000000', '#ffffff', 0.5)
+    const { r, g, b } = hexToSrgb(mid)
+    expect(r).toBe(g)
+    expect(g).toBe(b)
+    expect(r).toBeGreaterThan(80)
+    expect(r).toBeLessThan(120)
+  })
+
+  it('does not introduce a phantom hue (green->magenta midpoint is near-neutral, not green/cyan)', () => {
+    const mid = blendOklabHex('#00ff00', '#ff00ff', 0.5)
+    const { r, g, b } = hexToSrgb(mid)
+    // A polar OKLCH arc would keep green dominant; the Oklab straight line
+    // desaturates toward neutral so green never dominates red & blue.
+    expect(g).toBeLessThan(200)
+    expect(Math.abs(r - b)).toBeLessThan(40)
   })
 })
