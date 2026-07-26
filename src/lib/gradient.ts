@@ -101,34 +101,73 @@ function buildSquareGradient(stops: GradientStop[]): string {
   return `conic-gradient(${segments.join(', ')})`
 }
 
-function buildAngularGradient(stops: GradientStop[], hard = false, angle = 0, smooth = false): string {
-  // Spread the colors evenly around the full circle by index (i/n). Every
-  // wedge — including the seam — is 360/n wide, so N colors read as N equal
-  // wedges instead of the uneven distribution a compress-to-leave-room-for-the-
-  // seam scheme produces.
+/* ---- Conic geometries ----------------------------------------------------
+ *
+ * `angular` and `fan` are both conic-gradients, and they used to be written out
+ * twice each: once to build the CSS, once again inside gradientColorAt to
+ * sample it. The two copies drifted — gradientColorAt's fan hardcoded a 0.5
+ * span and ignored `angle` entirely, so corner fans (span 0.25) and every
+ * angle-driven fan sampled the wrong colour, which is what titleColorAt picks
+ * the on-gradient ink against.
+ *
+ * The sequence builders below are now the single source for both paths.
+ *
+ * They are NOT merged into one geometry, and should not be. The two differ on
+ * three axes, only one of which is origin:
+ *   origin    angular is always centred; fan sits on an edge or corner
+ *   sweep     angular covers the full circle and seams back to the first
+ *             colour; fan compresses into a sector and the last colour holds
+ *             the remainder
+ *   positions angular IGNORES them (equal wedges by index, deliberately —
+ *             see below); fan honours them
+ * Merging would force one position model on both, and a flag to choose is just
+ * the two geometries again with extra steps.
+ */
+
+/** Angular's stop sequence: colours spread evenly around the circle by index
+ * (i/n), plus the seam wrapping back to the first.
+ *
+ * Positions are ignored on purpose. Every wedge — including the seam — is
+ * 360/n wide, so N colours read as N equal wedges instead of the uneven
+ * distribution a compress-to-leave-room-for-the-seam scheme produces. */
+export function angularSequence(stops: GradientStop[]): GradientStop[] {
   const n = stops.length
+  const spread = stops.map((s, i) => ({ hex: s.hex, position: Math.round((i / n) * 100) }))
+  return [...spread, { hex: stops[0].hex, position: 100 }]
+}
+
+/** Fan's stop sequence: the palette compressed into the visible sector, plus
+ * the last colour held across the remainder. */
+export function fanSequence(stops: GradientStop[], span: number): GradientStop[] {
+  const compressed = stops.map((s) => ({ hex: s.hex, position: Math.round(s.position * span) }))
+  return [...compressed, { hex: stops[stops.length - 1].hex, position: 100 }]
+}
+
+/** The origin, start angle and sector a fan occupies. `angle` wins when set;
+ * otherwise the named anchor. Both render and sample paths resolve through
+ * here, so they cannot disagree about the span again. */
+export function resolveFanConfig(anchor: FanAnchor = 'bottom', angle?: number) {
+  return angle != null ? getFanConfig(angle) : FAN_ANCHOR_CONFIG[anchor]
+}
+
+function buildAngularGradient(stops: GradientStop[], hard = false, angle = 0, smooth = false): string {
   if (hard) {
     // Solid wedges, each color filling its 360/n slice with a crisp edge at the
     // boundary (a double stop). The last wedge cuts straight to the first.
+    const n = stops.length
     const segments = stops.map(
       (s, i) => `${s.hex} ${Math.round((i / n) * 100)}% ${Math.round(((i + 1) / n) * 100)}%`,
     )
     return `conic-gradient(from ${angle}deg, ${segments.join(', ')})`
   }
-  const spread = stops.map((s, i) => ({ hex: s.hex, position: Math.round((i / n) * 100) }))
-  const withSeam = [...spread, { hex: stops[0].hex, position: 100 }]
-  const finalStops = smooth ? smoothStops(withSeam) : withSeam
-  return `conic-gradient(from ${angle}deg, ${stopsToCss(finalStops)})`
+  const sequence = angularSequence(stops)
+  return `conic-gradient(from ${angle}deg, ${stopsToCss(smooth ? smoothStops(sequence) : sequence)})`
 }
 
 function buildFanGradient(stops: GradientStop[], anchor: FanAnchor = 'bottom', angle?: number, smooth = false): string {
-  // A fan rising from an edge or corner. The palette is compressed into the visible
-  // sector (180° for sides, 90° for corners) and the last color holds across the rest.
-  const { at, from, span } = angle != null ? getFanConfig(angle) : FAN_ANCHOR_CONFIG[anchor]
-  const compressed = stops.map((s) => ({ hex: s.hex, position: Math.round(s.position * span) }))
-  const withTail = [...compressed, { hex: stops[stops.length - 1].hex, position: 100 }]
-  const finalStops = smooth ? smoothStops(withTail) : withTail
-  return `conic-gradient(from ${from}deg at ${at}, ${stopsToCss(finalStops)})`
+  const { at, from, span } = resolveFanConfig(anchor, angle)
+  const sequence = fanSequence(stops, span)
+  return `conic-gradient(from ${from}deg at ${at}, ${stopsToCss(smooth ? smoothStops(sequence) : sequence)})`
 }
 
 export function applyReversed(stops: GradientStop[], reversed: boolean): GradientStop[] {
@@ -355,14 +394,10 @@ export function gradientColorAt(
       return sampleStops(orderedStops, r)
     }
     case 'angular': {
-      // Angle from the top edge, clockwise, over the same evenly-spread
-      // sequence (with the seam wrapping back to the first color) that
+      // Angle from the top edge, clockwise, over the very sequence
       // buildAngularGradient renders.
-      const n = orderedStops.length
-      const spread = orderedStops.map((s, i) => ({ hex: s.hex, position: Math.round((i / n) * 100) }))
-      const withSeam = [...spread, { hex: orderedStops[0].hex, position: 100 }]
       const angle = (Math.atan2(x - 0.5, -(y - 0.5)) / (2 * Math.PI) + 1) % 1
-      return sampleStops(withSeam, angle)
+      return sampleStops(angularSequence(orderedStops), angle)
     }
     case 'square': {
       // TurrellSquare paints nested solid layers, later stops on top and
@@ -386,14 +421,17 @@ export function gradientColorAt(
       return sampleStops(positionedStops([...hexes, ...hexes]), y)
     }
     case 'fan': {
-      // Same compressed sequence buildFanGradient renders, sampled by the
-      // angle (clockwise from straight up) about the anchor-edge pivot.
-      const { from, px, py } = FAN_ANCHOR_CONFIG[filters.fanAnchor ?? 'bottom']
-      const compressed = orderedStops.map((s) => ({ hex: s.hex, position: Math.round(s.position * 0.5) }))
-      const withTail = [...compressed, { hex: orderedStops[orderedStops.length - 1].hex, position: 100 }]
+      // Same sequence buildFanGradient renders, sampled by the angle (clockwise
+      // from straight up) about the pivot.
+      //
+      // This used to resolve the config as FAN_ANCHOR_CONFIG[anchor] with the
+      // span hardcoded to 0.5, ignoring filters.angle. So a corner fan (span
+      // 0.25) or any angle-driven fan was sampled against a sector it does not
+      // occupy, and the on-gradient ink was picked against the wrong colour.
+      const { from, px, py, span } = resolveFanConfig(filters.fanAnchor ?? 'bottom', filters.angle)
       const deg = ((Math.atan2(x - px, -(y - py)) * 180) / Math.PI + 360) % 360
       const t = ((deg - from + 360) % 360) / 360
-      return sampleStops(withTail, t)
+      return sampleStops(fanSequence(orderedStops, span), t)
     }
   }
 }
