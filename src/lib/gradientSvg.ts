@@ -1,6 +1,6 @@
 import type { Gradient } from '../store/types'
 import type { GradientStop, GradientType } from './gradient'
-import { applyReversed, positionedStops, repeatedStops, hardenStops } from './gradient'
+import { applyReversed, positionedStops, repeatedStops, hardenStops, smoothStops } from './gradient'
 
 const RADIAL_TYPES: ReadonlySet<GradientType> = new Set(['radial'])
 
@@ -17,15 +17,17 @@ function safeHex(hex: string): string {
 function effectiveStops(gradient: Gradient): GradientStop[] {
   const reversed = applyReversed(gradient.stops, gradient.reversed ?? false)
   const hexes = reversed.map((s) => s.hex)
+  const smooth = (s: GradientStop[]): GradientStop[] =>
+    gradient.smoothEnabled && !gradient.hardStops ? smoothStops(s) : s
 
   switch (gradient.type) {
     case 'mirror': {
       // Palindrome without duplicating the color at the axis: [A,B,C]->[A,B,C,B,A].
       const mirrored = [...hexes, ...hexes.slice(0, -1).reverse()]
-      return positionedStops(mirrored)
+      return smooth(positionedStops(mirrored))
     }
     case 'repeat':
-      return positionedStops([...hexes, ...hexes])
+      return smooth(positionedStops([...hexes, ...hexes]))
     case 'square':
       // Turrell squares aren't a real blend; approximate with the raw stops.
       return reversed
@@ -33,7 +35,7 @@ function effectiveStops(gradient: Gradient): GradientStop[] {
       let stops = reversed
       if (gradient.repeatEnabled) stops = repeatedStops(stops)
       if (gradient.hardStops) stops = hardenStops(stops)
-      return stops
+      return smooth(stops)
     }
   }
 }

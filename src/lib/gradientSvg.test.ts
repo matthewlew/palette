@@ -101,4 +101,19 @@ describe('gradientToSvg', () => {
       expect(() => gradientToSvg(grad({ type }))).not.toThrow()
     }
   })
+
+  it('emits extra <stop> elements when smoothEnabled', () => {
+    const base = {
+      id: 'x',
+      type: 'linear' as const,
+      stops: [
+        { hex: '#000000', position: 0 },
+        { hex: '#ffffff', position: 100 },
+      ],
+    }
+    const plain = gradientToSvg(base)
+    const smoothed = gradientToSvg({ ...base, smoothEnabled: true })
+    const count = (s: string) => (s.match(/<stop/g) || []).length
+    expect(count(smoothed)).toBeGreaterThan(count(plain))
+  })
 })
