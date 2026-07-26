@@ -11,6 +11,7 @@ interface GeometryTabsProps {
   onToggleReversed: () => void
   onToggleRepeat?: () => void
   onToggleHardStops?: () => void
+  onToggleSmooth?: () => void
   /** Re-tapping the active Fan tab rotates its anchor edge. */
   onRotateFan?: () => void
   onRotate?: () => void
@@ -40,6 +41,7 @@ export function GeometryTabs({
   onToggleReversed,
   onToggleRepeat,
   onToggleHardStops,
+  onToggleSmooth,
   onRotateFan,
   onRotate,
 }: GeometryTabsProps) {
@@ -75,6 +77,9 @@ export function GeometryTabs({
   // reads its `hard` as "no blur" (crisp nested squares). Only the types that
   // build their own hard-coded sequence can't honor it.
   const hardDisabled = gradient.type === 'mirror' || gradient.type === 'repeat'
+  // Smooth densifies a continuous blend — meaningful everywhere except the
+  // solid Turrell squares.
+  const smoothDisabled = gradient.type === 'square'
 
   return (
     <div data-noscroll-hide="true" ref={tabsRef} className={styles.tabs} onWheel={handleWheel}>
@@ -95,6 +100,7 @@ export function GeometryTabs({
                   hard: gradient.hardStops,
                   fanAnchor: gradient.fanAnchor,
                   angle: gradient.angle,
+                  smooth: gradient.smoothEnabled,
                 }) : undefined
               }}
             >
@@ -119,6 +125,16 @@ export function GeometryTabs({
         onClick={onToggleRepeat}
       >
         Repeat ×2
+      </button>
+      <button
+        type="button"
+        data-testid="filter-smooth"
+        aria-pressed={gradient.smoothEnabled}
+        disabled={smoothDisabled}
+        className={gradient.smoothEnabled ? styles.filterActive : styles.filter}
+        onClick={onToggleSmooth}
+      >
+        Smooth
       </button>
       <button
         type="button"

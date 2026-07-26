@@ -84,6 +84,11 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   const previewRef = useRef<HTMLDivElement>(null)
   const onExitRef = useRef(onExit)
   onExitRef.current = onExit
+  // Dragging the sheet down collapses it to a full-screen gradient view that's
+  // still in edit mode (a pull-tab restores it); only Back/Esc actually exits.
+  const [collapsed, setCollapsed] = useState(false)
+  const collapseRef = useRef<(v: boolean) => void>(() => {})
+  collapseRef.current = setCollapsed
   const [activeStopId, setActiveStopId] = useState<string | null>(null)
   // Crossfades the preview's colors when a canvas-handle swap reorders them,
   // so the color blocks visibly trade places instead of hard-jumping.
@@ -177,14 +182,14 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     function handleTouchEnd() {
       if (!dragging) return
       dragging = false
+      // Clear the inline height first either way; the collapse is driven by a
+      // CSS class transform, and a leftover inline height would fight it.
+      el!.style.height = ''
+      el!.style.overflow = ''
       if (dragY > baseHeight * 0.3) {
-        // Keep the collapsed height while exiting — restoring it first made
-        // the sheet snap back to full size for a frame (a visible flash)
-        // before the exit transition slid it away.
-        onExitRef.current()
-      } else {
-        el!.style.height = ''
-        el!.style.overflow = ''
+        // Collapse to a full-screen gradient view (still editing) rather than
+        // exiting — a deliberate Back/Esc is what leaves edit mode.
+        collapseRef.current(true)
       }
     }
 
@@ -527,7 +532,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   // positions the user has already dragged into place — only handle removal/
   // addition/sorting re-equalizes, since those change stop count or order.
   function commitPreservingPositions(
-    overrides: Partial<Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops' | 'fanAnchor' | 'angle'>>
+    overrides: Partial<Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops' | 'smoothEnabled' | 'fanAnchor' | 'angle'>>
   ) {
     setCurrentGradient({
       ...gradient,
@@ -549,7 +554,12 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   }
 
   function handleToggleReversed() {
-    commitPreservingPositions({ reversed: !gradient.reversed })
+    const reversedPositions = editableStops.map(s => ({ ...s, position: 100 - s.position }))
+    setEditableStops(reversedPositions)
+    setCurrentGradient({
+      ...gradient,
+      stops: toGradientStops(reversedPositions),
+    })
   }
 
   function handleToggleRepeat() {
@@ -557,7 +567,11 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   }
 
   function handleToggleHardStops() {
-    commitPreservingPositions({ hardStops: !gradient.hardStops })
+    commitPreservingPositions({ hardStops: !gradient.hardStops, smoothEnabled: false })
+  }
+
+  function handleToggleSmooth() {
+    commitPreservingPositions({ smoothEnabled: !gradient.smoothEnabled, hardStops: false })
   }
 
   function handleRotateAngle() {
@@ -679,6 +693,12 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
       const dy = e.clientY - start.y
       if (Math.hypot(dx, dy) > PREVIEW_TAP_THRESHOLD_PX) return
     }
+    // While collapsed to the full-screen view, a tap restores the edit panel
+    // instead of leaving edit mode.
+    if (collapsed) {
+      setCollapsed(false)
+      return
+    }
     onExit()
   }
 
@@ -736,6 +756,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
                   hard: gradient.hardStops,
                   fanAnchor: gradient.fanAnchor,
                   angle: gradient.angle,
+                  smooth: gradient.smoothEnabled,
                 }),
         }}
         onPointerDown={handlePreviewPointerDown}
@@ -754,6 +775,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
             reversed={gradient.reversed}
             repeatEnabled={gradient.repeatEnabled}
             blurPx={gradient.hardStops ? 0 : undefined}
+            angle={gradient.angle}
           />
         )}
         <NoiseOverlay visible={noiseEnabled} />
@@ -805,7 +827,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
       <div
         data-testid="edit-sheet"
         ref={sheetRef}
-        className={[styles.sheet, chromeHidden && styles.hidden].filter(Boolean).join(' ')}
+        className={[styles.sheet, chromeHidden && styles.hidden, collapsed && styles.collapsed].filter(Boolean).join(' ')}
         onPointerDown={(e) => {
           if (e.target === e.currentTarget) {
             setActiveStopId(null)
@@ -815,9 +837,18 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         <button
           type="button"
           data-testid="sheet-handle"
-          aria-label="Collapse controls"
+          aria-label={collapsed ? 'Show controls' : 'Collapse controls'}
           className={styles.sheetHandle}
-          onClick={onExit}
+          onClick={() => {
+            // On the desktop side-panel layout the sheet doesn't collapse, so
+            // the handle keeps its exit behavior; on the mobile bottom sheet it
+            // toggles the full-screen (collapsed) view.
+            if (typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 768px)').matches) {
+              onExit()
+            } else {
+              setCollapsed((c) => !c)
+            }
+          }}
         />
         <GeometryTabs
           gradient={gradient}
@@ -826,6 +857,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           onToggleReversed={handleToggleReversed}
           onToggleRepeat={handleToggleRepeat}
           onToggleHardStops={handleToggleHardStops}
+          onToggleSmooth={handleToggleSmooth}
           onRotateFan={handleRotateFan}
           onRotate={handleRotateAngle}
         />
@@ -855,7 +887,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         </div>
         {/* Keyboard hints live in the panel (desktop only, hidden on touch via
             the component's own media query) rather than floating on the canvas. */}
-        <ShortcutHints items={EDIT_SHORTCUTS} placement="inline" color={cornerColor} />
+        <ShortcutHints items={EDIT_SHORTCUTS} placement="inline" color="currentColor" />
         {/* Off-screen native picker, opened programmatically from a stop tap or
             the Add color button — the explicit-color path that replaces the
             swatch tray. */}

@@ -67,6 +67,20 @@ const dummyGradient = (type: any) => ({ id: 'g1', type, stops: dummyStops, rever
     expect(onSelectType).not.toHaveBeenCalled()
   })
 
+  it('renders a Smooth chip and calls onToggleSmooth when clicked', () => {
+    const onToggleSmooth = vi.fn()
+    render(
+      <GeometryTabs gradient={dummyGradient('linear')} stops={dummyStops}
+        onSelectType={vi.fn()}
+        onToggleReversed={vi.fn()}
+        onToggleSmooth={onToggleSmooth}
+      />
+    )
+    const chip = screen.getByTestId('filter-smooth')
+    fireEvent.click(chip)
+    expect(onToggleSmooth).toHaveBeenCalledTimes(1)
+  })
+
   it('labels the square-type tab as "Turrell"', () => {
     render(<GeometryTabs gradient={dummyGradient('square')} stops={dummyStops} onSelectType={vi.fn()} onToggleReversed={vi.fn()} />)
     expect(screen.getByText('Turrell')).toBeInTheDocument()
