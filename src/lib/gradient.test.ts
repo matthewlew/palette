@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildGradientCss, gradientColorAt, nextRotationAngle, SELECTABLE_GEOMETRY, type GradientStop } from './gradient'
+import { buildGradientCss, gradientColorAt, nextRotationAngle, SELECTABLE_GEOMETRY, smoothStops, SMOOTH_SAMPLES_PER_SEGMENT, type GradientStop } from './gradient'
 
 const stops: GradientStop[] = [
   { hex: '#ff0000', position: 0 },
@@ -108,6 +108,12 @@ describe('nextRotationAngle', () => {
     expect(nextRotationAngle('radial', 0)).toBe(45)
     expect(nextRotationAngle('radial', 270)).toBe(315)
     expect(nextRotationAngle('radial', 315)).toBeUndefined()
+  })
+
+  it('cycles square (Turrell) origin through center too, like radial', () => {
+    expect(nextRotationAngle('square', undefined)).toBe(0)
+    expect(nextRotationAngle('square', 0)).toBe(45)
+    expect(nextRotationAngle('square', 315)).toBeUndefined()
   })
 
   it('wraps other geometries 0-360 with no center state', () => {
@@ -230,5 +236,39 @@ describe('buildGradientCss repeat type (legacy dedicated type)', () => {
     for (const hex of matches) {
       expect(palette.has(hex), `${hex} should be an input color`).toBe(true)
     }
+  })
+})
+
+describe('smoothStops', () => {
+  const bw = [
+    { hex: '#000000', position: 0 },
+    { hex: '#ffffff', position: 100 },
+  ]
+
+  it('keeps the original endpoints exactly', () => {
+    const out = smoothStops(bw)
+    expect(out[0]).toEqual({ hex: '#000000', position: 0 })
+    expect(out[out.length - 1]).toEqual({ hex: '#ffffff', position: 100 })
+  })
+
+  it('inserts SMOOTH_SAMPLES_PER_SEGMENT interior stops per segment', () => {
+    // 1 leading endpoint + (samples interior + 1 trailing) per segment
+    expect(smoothStops(bw)).toHaveLength(1 + (SMOOTH_SAMPLES_PER_SEGMENT + 1))
+  })
+
+  it('produces monotonically non-decreasing positions', () => {
+    const out = smoothStops([
+      { hex: '#ff0000', position: 0 },
+      { hex: '#00ff00', position: 50 },
+      { hex: '#0000ff', position: 100 },
+    ])
+    for (let i = 1; i < out.length; i++) {
+      expect(out[i].position).toBeGreaterThanOrEqual(out[i - 1].position)
+    }
+  })
+
+  it('returns lists shorter than 2 unchanged', () => {
+    const one = [{ hex: '#ffffff', position: 0 }]
+    expect(smoothStops(one)).toHaveLength(1)
   })
 })

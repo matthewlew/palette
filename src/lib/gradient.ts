@@ -1,6 +1,6 @@
 
 
-import { blendOklchHex } from './oklch'
+import { blendOklchHex, blendOklabHex } from './oklch'
 
 export type GradientType = 'linear' | 'radial' | 'angular' | 'square' | 'mirror' | 'repeat' | 'fan'
 
@@ -52,7 +52,10 @@ export const FAN_ANCHOR_CONFIG: Record<FanAnchor, { at: string; from: number; sp
  * wraps 0–360.
  */
 export function nextRotationAngle(type: GradientType, angle?: number): number | undefined {
-  if (type === 'radial') {
+  // Radial and square (Turrell) both treat their origin as rotatable, with
+  // center (angle === undefined) as a real, selectable position in the cycle:
+  // center → 0 (top) → 45 (corner) → … → 315 → center.
+  if (type === 'radial' || type === 'square') {
     if (angle === undefined) return 0
     if (angle === 315) return undefined
     return (angle + 45) % 360
@@ -144,19 +147,27 @@ export function positionedStops(hexes: string[]): GradientStop[] {
 }
 
 function buildMirrorGradient(stops: GradientStop[], angle = 0): string {
-  // Compress the user's positions into the first half (0% to 50%)
-  const forward = stops.map(s => ({
-    hex: s.hex,
-    position: s.position / 2
-  }))
-  
-  // The reverse half maps from 50% back to 100%, mirroring the original distances.
-  // We omit the last stop (pos=100) because it sits exactly at 50% and is already in `forward`.
-  const reverse = stops.slice(0, -1).reverse().map(s => ({
-    hex: s.hex,
-    position: 100 - (s.position / 2)
-  }))
-  
+  // Sort by position and normalize to a full 0–100 span before folding. Stops
+  // can be dragged into any order and needn't reach 0 or 100 (moveStop doesn't
+  // re-equalize), so the old code — which assumed ascending order and a stop at
+  // exactly 100 for the fold — produced out-of-order CSS stops and a gap around
+  // the 50% reflection line whenever the near-center stop was moved. Normalizing
+  // pins the outer color to 0/100 and the near-center color to the 50% fold, so
+  // the mirror stays symmetric regardless of where stops sit.
+  const sorted = [...stops].sort((a, b) => a.position - b.position)
+  const minP = sorted[0].position
+  const maxP = sorted[sorted.length - 1].position
+  const span = maxP - minP
+  const norm = (p: number) => (span === 0 ? 0 : ((p - minP) / span) * 100)
+
+  // Compress the normalized positions into the first half (0% to 50%).
+  const forward = sorted.map((s) => ({ hex: s.hex, position: norm(s.position) / 2 }))
+  // Reflect back from 50% to 100%, omitting the fold stop (already at 50%).
+  const reverse = sorted
+    .slice(0, -1)
+    .reverse()
+    .map((s) => ({ hex: s.hex, position: 100 - norm(s.position) / 2 }))
+
   const mirrored = [...forward, ...reverse]
   return `linear-gradient(${180 + angle}deg, ${stopsToCss(mirrored)})`
 }
@@ -196,6 +207,40 @@ export function hardenStops(stops: GradientStop[]): GradientStop[] {
   }
   return result
 }
+
+function easeInOut(t: number): number {
+  return t * t * (3 - 2 * t)
+}
+
+/** Interior samples inserted between each adjacent stop pair when smoothing. */
+export const SMOOTH_SAMPLES_PER_SEGMENT = 16
+
+/** Densifies a stop list for seamless transitions. The user's stops stay
+ * exactly where they are; between each adjacent pair we insert
+ * SMOOTH_SAMPLES_PER_SEGMENT interior stops whose COLOR follows an ease-in-out
+ * (smoothstep) curve, blended in Oklab. The eased distribution drives the rate
+ * of color change to zero at every original stop — dissolving the Mach-band
+ * seam — while Oklab blending avoids the phantom in-between hues that polar
+ * OKLCH interpolation produces. */
+export function smoothStops(stops: GradientStop[]): GradientStop[] {
+  if (stops.length < 2) return stops
+  const sorted = [...stops].sort((a, b) => a.position - b.position)
+  const result: GradientStop[] = [{ ...sorted[0] }]
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const a = sorted[i]
+    const b = sorted[i + 1]
+    for (let k = 1; k <= SMOOTH_SAMPLES_PER_SEGMENT; k++) {
+      const raw = k / (SMOOTH_SAMPLES_PER_SEGMENT + 1)
+      result.push({
+        hex: blendOklabHex(a.hex, b.hex, easeInOut(raw)),
+        position: Math.round((a.position + (b.position - a.position) * raw) * 10) / 10,
+      })
+    }
+    result.push({ ...b })
+  }
+  return result
+}
+
 export interface GradientFilters {
   /** Cycles the stop sequence twice across the gradient, like the old
    * dedicated "repeat" type but layered on top of any geometry. */
