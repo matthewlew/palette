@@ -9,6 +9,7 @@ export interface SharePayloadGradient {
   reversed?: boolean
   repeatEnabled?: boolean
   hardStops?: boolean
+  smoothEnabled?: boolean
   fanAnchor?: FanAnchor
   name: string
 }
@@ -31,13 +32,14 @@ export function toSharePayloadGradient(gradient: Gradient): SharePayloadGradient
   if (gradient.reversed !== undefined) out.reversed = gradient.reversed
   if (gradient.repeatEnabled !== undefined) out.repeatEnabled = gradient.repeatEnabled
   if (gradient.hardStops !== undefined) out.hardStops = gradient.hardStops
+  if (gradient.smoothEnabled !== undefined) out.smoothEnabled = gradient.smoothEnabled
   if (gradient.fanAnchor !== undefined) out.fanAnchor = gradient.fanAnchor
   return out
 }
 
 /** Builds a fresh Gradient from an imported wire payload, copying only the
  * known SharePayloadGradient fields — stale keys from old share links or
- * exports (e.g. the removed smoothEnabled/flutedEnabled) never reach app
+ * exports (e.g. the removed flutedEnabled) never reach app
  * state, which persists to localStorage. */
 export function importGradient(g: SharePayloadGradient): Gradient {
   const out: Gradient = {
@@ -51,6 +53,7 @@ export function importGradient(g: SharePayloadGradient): Gradient {
   if (g.reversed !== undefined) out.reversed = g.reversed
   if (g.repeatEnabled !== undefined) out.repeatEnabled = g.repeatEnabled
   if (g.hardStops !== undefined) out.hardStops = g.hardStops
+  if (g.smoothEnabled !== undefined) out.smoothEnabled = g.smoothEnabled
   if (g.fanAnchor !== undefined) out.fanAnchor = g.fanAnchor
   return out
 }
@@ -78,6 +81,7 @@ export function isSharePayloadGradient(value: unknown): value is SharePayloadGra
     (v.reversed === undefined || typeof v.reversed === 'boolean') &&
     (v.repeatEnabled === undefined || typeof v.repeatEnabled === 'boolean') &&
     (v.hardStops === undefined || typeof v.hardStops === 'boolean') &&
+    (v.smoothEnabled === undefined || typeof v.smoothEnabled === 'boolean') &&
     (v.fanAnchor === undefined || FAN_ANCHORS.includes(v.fanAnchor as FanAnchor))
   )
 }

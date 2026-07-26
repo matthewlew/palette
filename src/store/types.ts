@@ -16,6 +16,9 @@ export interface Gradient {
   // bands instead of a smooth blend.
   repeatEnabled?: boolean
   hardStops?: boolean
+  /** Densify the blend with Oklab-eased interior stops for seamless
+   * transitions. Mutually exclusive with hardStops. */
+  smoothEnabled?: boolean
   fanAnchor?: FanAnchor
   /** Rotation angle in degrees (0-360) */
   angle?: number

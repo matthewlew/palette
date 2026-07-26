@@ -5,6 +5,8 @@ import {
   toExportJson,
   fromImportJson,
   importGradient,
+  toSharePayloadGradient,
+  isSharePayloadGradient,
   type SharePayload,
   type SharePayloadGradient,
 } from './gradientCodec'
@@ -84,14 +86,12 @@ describe('importGradient', () => {
     expect('hardStops' in g).toBe(false)
   })
 
-  it('strips unknown legacy fields from old payloads (e.g. smoothEnabled/flutedEnabled)', () => {
+  it('strips unknown legacy fields from old payloads (e.g. flutedEnabled)', () => {
     const legacy = {
       ...gradientA,
-      smoothEnabled: true,
       flutedEnabled: true,
     } as SharePayloadGradient
     const g = importGradient(legacy)
-    expect('smoothEnabled' in g).toBe(false)
     expect('flutedEnabled' in g).toBe(false)
   })
 })
@@ -172,5 +172,36 @@ describe('importGradient stop sanitization', () => {
     const g = importGradient(dirty)
     expect(g.stops[0]).toEqual({ hex: '#ff0000', position: 0 })
     expect('tracking' in g.stops[0]).toBe(false)
+  })
+})
+
+describe('smoothEnabled persistence', () => {
+  const g = {
+    id: 'x',
+    type: 'linear' as const,
+    stops: [
+      { hex: '#000000', position: 0 },
+      { hex: '#ffffff', position: 100 },
+    ],
+    smoothEnabled: true,
+    name: 'n',
+  }
+
+  it('round-trips smoothEnabled through the share payload', () => {
+    const round = importGradient(toSharePayloadGradient(g))
+    expect(round.smoothEnabled).toBe(true)
+  })
+
+  it('validates smoothEnabled as an optional boolean', () => {
+    const base = {
+      type: 'linear',
+      stops: [
+        { hex: '#000000', position: 0 },
+        { hex: '#ffffff', position: 100 },
+      ],
+      name: 'n',
+    }
+    expect(isSharePayloadGradient({ ...base, smoothEnabled: true })).toBe(true)
+    expect(isSharePayloadGradient({ ...base, smoothEnabled: 'yes' })).toBe(false)
   })
 })
