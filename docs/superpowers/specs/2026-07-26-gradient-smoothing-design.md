@@ -82,21 +82,44 @@ Smoothing applies to the continuous-blend geometries:
   (share-link round-trip). **Not** written to the Supabase published row — matches
   `hardStops`, so no DB migration.
 
-### 5. `src/lib/gradientSvg.ts`
+### 5. `src/lib/gradientSvg.ts` (vector export parity)
 - In `effectiveStops`, apply `smoothStops` when `gradient.smoothEnabled` (and not
   `hardStops`) in the default / mirror / repeat branches, so pasted SVG matches
   the on-screen render. `square` branch unchanged.
 
-### 6. UI wiring
-- **`src/components/EditMode.tsx`**: add a **"Smooth"** toggle button beside the
-  existing Hard toggle, wired `commitPreservingPositions({ smoothEnabled: !gradient.smoothEnabled, hardStops: false })`
-  (and make the Hard toggle clear `smoothEnabled`, to enforce mutual exclusion).
-  Add `smoothEnabled` to the `overrides` Pick type. Pass `smooth: gradient.smoothEnabled`
-  into the preview's `buildGradientCss` filters.
-- **All other `buildGradientCss` call sites** (~10: Gallery, ExportModal,
-  ShapePreviews, GradientPage, CollectionsRow, Drawer, SavedBrowser, TabBar,
-  GeometryTabs) pass `smooth: gradient.smoothEnabled` so every preview reflects
-  the setting.
+### 6. `src/lib/canvasExport.ts` (raster/PNG export parity)
+- After the reversed/repeat/hard preprocessing (currently lines ~56-63), apply
+  `smoothStops` to the working `stops` when `gradient.smoothEnabled` and not
+  `hardStops`, so exported PNGs (IG posts/posters) match the on-screen render for
+  the addColorStop-based paths. Mirrors the CSS scope (skipped for square).
+
+### 7. UI wiring
+- **`src/components/GeometryTabs.tsx`**: this is where the Repeat/Hard filter
+  chips live. Add a **"Smooth"** chip button (same markup as the Hard chip,
+  `data-testid="filter-smooth"`, `aria-pressed={gradient.smoothEnabled}`),
+  disabled only for `square`. Pass `smooth: gradient.smoothEnabled` into the
+  per-tab preview `buildGradientCss` filters here too. Add an `onToggleSmooth?`
+  prop.
+- **`src/components/EditMode.tsx`**: add `handleToggleSmooth` →
+  `commitPreservingPositions({ smoothEnabled: !gradient.smoothEnabled, hardStops: false })`,
+  and make `handleToggleHardStops` also clear `smoothEnabled` (mutual exclusion).
+  Add `smoothEnabled` to the `commitPreservingPositions` `overrides` Pick type.
+  Pass `smooth: gradient.smoothEnabled` into the preview `buildGradientCss`
+  filters, and pass `onToggleSmooth={handleToggleSmooth}` to `<GeometryTabs>`.
+- **All other `buildGradientCss` call sites** (Gallery, ExportModal,
+  ShapePreviews, GradientPage, CollectionsRow, Drawer, SavedBrowser, TabBar)
+  pass `smooth: gradient.smoothEnabled` so every preview reflects the setting.
+
+## History note
+
+A prior `smooth`/`fluted` filter pair existed and was removed in commit `9cb40d2`
+("didn't add anything visually useful"). The old `smoothenStops` used the same
+`easeInOut` curve but blended in **OKLCH** (polar) — which introduces phantom
+in-between hues (validated as the rejected option during design). This design
+deliberately differs by blending in **Oklab** (rectangular), plus more samples
+and full export parity. Reintroducing `smoothEnabled` in the codec means old
+share links carrying the flag will once again render smoothed — acceptable, as
+it's the same concept.
 
 ## Non-goals
 
