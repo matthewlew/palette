@@ -1,13 +1,309 @@
 [
   {
+    "id": "curated-gen-0-wild-moss-hour",
+    "note": "A chaotic, rich mix of mossy greens and deep violets cut by sudden bright pops. Feels like stumbling through a dense, overgrown greenhouse at twilight.",
+    "date": "2026-07-20",
+    "gradient": {
+      "type": "angular",
+      "stops": [
+        {
+          "hex": "#90ac89",
+          "position": 0
+        },
+        {
+          "hex": "#6f3ea7",
+          "position": 33
+        },
+        {
+          "hex": "#e4bfbc",
+          "position": 67
+        },
+        {
+          "hex": "#0c121b",
+          "position": 100
+        }
+      ],
+      "name": "Wild Moss Hour"
+    }
+  },
+  {
+    "id": "curated-gen-1-marine-glass",
+    "note": "Warm tangerine shifting into intense sapphire over an incredibly dark ground. The glass-like layering creates a glowing, high-contrast jewel effect.",
+    "date": "2026-07-19",
+    "gradient": {
+      "type": "square",
+      "stops": [
+        {
+          "hex": "#f4ba7e",
+          "position": 0
+        },
+        {
+          "hex": "#161719",
+          "position": 33
+        },
+        {
+          "hex": "#007ee7",
+          "position": 67
+        },
+        {
+          "hex": "#9f624a",
+          "position": 100
+        }
+      ],
+      "name": "Marine Glass"
+    }
+  },
+  {
+    "id": "curated-gen-2-wild-emerald",
+    "note": "A multi-stop radial explosion of earthy emerald and soft violets. Very complex and somewhat vintage.",
+    "date": "2026-07-18",
+    "gradient": {
+      "type": "radial",
+      "stops": [
+        {
+          "hex": "#497c4c",
+          "position": 0
+        },
+        {
+          "hex": "#8d7896",
+          "position": 20
+        },
+        {
+          "hex": "#dec575",
+          "position": 40
+        },
+        {
+          "hex": "#c1c1c1",
+          "position": 60
+        },
+        {
+          "hex": "#1a4b31",
+          "position": 80
+        },
+        {
+          "hex": "#5c48b0",
+          "position": 100
+        }
+      ],
+      "name": "Wild Emerald"
+    }
+  },
+  {
+    "id": "curated-gen-3-tangerine-velvet",
+    "note": "A deep, earthy tangerine exploding into very dark, velvety olive and forest greens. Striking and moody.",
+    "date": "2026-07-17",
+    "gradient": {
+      "type": "radial",
+      "stops": [
+        {
+          "hex": "#bb5134",
+          "position": 0
+        },
+        {
+          "hex": "#334530",
+          "position": 50
+        },
+        {
+          "hex": "#354436",
+          "position": 100
+        }
+      ],
+      "name": "Tangerine Velvet"
+    }
+  },
+  {
+    "id": "curated-gen-4-ocean-valley",
+    "note": "A complex angular sweep from soft linen through deep earth to a sharp, bright ocean blue. Unexpected and highly energetic.",
+    "date": "2026-07-16",
+    "gradient": {
+      "type": "angular",
+      "stops": [
+        {
+          "hex": "#d1ccbd",
+          "position": 0
+        },
+        {
+          "hex": "#6e2d08",
+          "position": 25
+        },
+        {
+          "hex": "#0091ff",
+          "position": 50
+        },
+        {
+          "hex": "#ae8fbc",
+          "position": 75
+        },
+        {
+          "hex": "#0a71c1",
+          "position": 100
+        }
+      ],
+      "name": "Ocean Valley"
+    }
+  },
+  {
+    "id": "curated-gen-5-velvety-mustard",
+    "note": "A dramatic radial composition where velvety, deep navy and intense mustard hues orbit each other, reminiscent of royal tapestries.",
+    "date": "2026-07-15",
+    "gradient": {
+      "type": "radial",
+      "stops": [
+        {
+          "hex": "#c7bfa6",
+          "position": 0
+        },
+        {
+          "hex": "#1a2c60",
+          "position": 33
+        },
+        {
+          "hex": "#7d3622",
+          "position": 67
+        },
+        {
+          "hex": "#a28aa3",
+          "position": 100
+        }
+      ],
+      "name": "Velvety Mustard"
+    }
+  },
+  {
+    "id": "curated-gen-6-neon-cider-noon",
+    "note": "A very rich, almost autumnal blend of hot cider golds, deep greens, and rich wine reds. Highly saturated and deeply complex.",
+    "date": "2026-07-14",
+    "gradient": {
+      "type": "square",
+      "stops": [
+        {
+          "hex": "#d58f14",
+          "position": 0
+        },
+        {
+          "hex": "#6752b7",
+          "position": 20
+        },
+        {
+          "hex": "#eabd8a",
+          "position": 40
+        },
+        {
+          "hex": "#53624a",
+          "position": 60
+        },
+        {
+          "hex": "#559534",
+          "position": 80
+        },
+        {
+          "hex": "#5d1318",
+          "position": 100
+        }
+      ],
+      "name": "Neon Cider Noon"
+    }
+  },
+  {
+    "id": "curated-gen-7-flax-linen",
+    "note": "A sophisticated, incredibly subdued palette. Soft flaxen and linen hues over a deep charcoal slate. Quiet luxury.",
+    "date": "2026-07-13",
+    "gradient": {
+      "type": "square",
+      "stops": [
+        {
+          "hex": "#1f2c31",
+          "position": 0
+        },
+        {
+          "hex": "#c1a593",
+          "position": 33
+        },
+        {
+          "hex": "#9f9489",
+          "position": 67
+        },
+        {
+          "hex": "#e7a87b",
+          "position": 100
+        }
+      ],
+      "name": "Flax Linen"
+    }
+  },
+  {
+    "id": "curated-gen-8-emerald-porch",
+    "note": "A complex, slightly retro combination of warm rust, muted rose, and sharp emerald green. Reminiscent of 1970s interior design.",
+    "date": "2026-07-12",
+    "gradient": {
+      "type": "radial",
+      "stops": [
+        {
+          "hex": "#35831c",
+          "position": 0
+        },
+        {
+          "hex": "#b7a596",
+          "position": 20
+        },
+        {
+          "hex": "#d7b3b6",
+          "position": 40
+        },
+        {
+          "hex": "#293e42",
+          "position": 60
+        },
+        {
+          "hex": "#a5958c",
+          "position": 80
+        },
+        {
+          "hex": "#c17001",
+          "position": 100
+        }
+      ],
+      "name": "Emerald Porch"
+    }
+  },
+  {
+    "id": "curated-gen-9-dreamy-wave-postcard",
+    "note": "A soft, refreshing oceanic linear gradient. The transition through muted gray gives the teal and seafoam tones a dreamy, slightly faded postcard feel.",
+    "date": "2026-07-11",
+    "gradient": {
+      "type": "linear",
+      "stops": [
+        {
+          "hex": "#50a3ab",
+          "position": 0
+        },
+        {
+          "hex": "#707375",
+          "position": 50
+        },
+        {
+          "hex": "#05655d",
+          "position": 100
+        }
+      ],
+      "name": "Dreamy Wave Postcard"
+    }
+  },
+  {
     "id": "curated-kiln-ember",
     "note": "A classic warm blend reminiscent of wood-fired kilns. The transition from a deep terracotta to a warm sandy biscuit provides a soft, comforting ambient glow.",
     "date": "2026-07-10",
     "gradient": {
       "type": "linear",
       "stops": [
-        { "hex": "#c2543a", "position": 0 },
-        { "hex": "#e8c49a", "position": 100 }
+        {
+          "hex": "#c2543a",
+          "position": 0
+        },
+        {
+          "hex": "#e8c49a",
+          "position": 100
+        }
       ],
       "name": "Kiln Ember"
     }
@@ -19,8 +315,14 @@
     "gradient": {
       "type": "linear",
       "stops": [
-        { "hex": "#38523f", "position": 0 },
-        { "hex": "#829c89", "position": 100 }
+        {
+          "hex": "#38523f",
+          "position": 0
+        },
+        {
+          "hex": "#829c89",
+          "position": 100
+        }
       ],
       "name": "Moss Garden"
     }
@@ -32,8 +334,14 @@
     "gradient": {
       "type": "linear",
       "stops": [
-        { "hex": "#4d5e68", "position": 0 },
-        { "hex": "#ccd7db", "position": 100 }
+        {
+          "hex": "#4d5e68",
+          "position": 0
+        },
+        {
+          "hex": "#ccd7db",
+          "position": 100
+        }
       ],
       "name": "Harbor Fog"
     }
@@ -45,8 +353,14 @@
     "gradient": {
       "type": "linear",
       "stops": [
-        { "hex": "#523c28", "position": 0 },
-        { "hex": "#cfa15c", "position": 100 }
+        {
+          "hex": "#523c28",
+          "position": 0
+        },
+        {
+          "hex": "#cfa15c",
+          "position": 100
+        }
       ],
       "name": "Ochre Ridge"
     }
@@ -58,8 +372,14 @@
     "gradient": {
       "type": "linear",
       "stops": [
-        { "hex": "#d9a79a", "position": 0 },
-        { "hex": "#e3c0ab", "position": 100 }
+        {
+          "hex": "#d9a79a",
+          "position": 0
+        },
+        {
+          "hex": "#e3c0ab",
+          "position": 100
+        }
       ],
       "name": "Blush Adobe"
     }
@@ -71,8 +391,14 @@
     "gradient": {
       "type": "linear",
       "stops": [
-        { "hex": "#3d233c", "position": 0 },
-        { "hex": "#a1789c", "position": 100 }
+        {
+          "hex": "#3d233c",
+          "position": 0
+        },
+        {
+          "hex": "#a1789c",
+          "position": 100
+        }
       ],
       "name": "Plum Orchard"
     }
@@ -84,8 +410,14 @@
     "gradient": {
       "type": "linear",
       "stops": [
-        { "hex": "#7bb09c", "position": 0 },
-        { "hex": "#dbeef0", "position": 100 }
+        {
+          "hex": "#7bb09c",
+          "position": 0
+        },
+        {
+          "hex": "#dbeef0",
+          "position": 100
+        }
       ],
       "name": "Celadon Frost"
     }
@@ -97,8 +429,14 @@
     "gradient": {
       "type": "linear",
       "stops": [
-        { "hex": "#edd9cc", "position": 0 },
-        { "hex": "#cca793", "position": 100 }
+        {
+          "hex": "#edd9cc",
+          "position": 0
+        },
+        {
+          "hex": "#cca793",
+          "position": 100
+        }
       ],
       "name": "Speckled Sand"
     }
@@ -110,8 +448,14 @@
     "gradient": {
       "type": "linear",
       "stops": [
-        { "hex": "#8f3521", "position": 0 },
-        { "hex": "#5e4d41", "position": 100 }
+        {
+          "hex": "#8f3521",
+          "position": 0
+        },
+        {
+          "hex": "#5e4d41",
+          "position": 100
+        }
       ],
       "name": "Rust Horizon"
     }
@@ -123,8 +467,14 @@
     "gradient": {
       "type": "linear",
       "stops": [
-        { "hex": "#294a47", "position": 0 },
-        { "hex": "#a7cfc6", "position": 100 }
+        {
+          "hex": "#294a47",
+          "position": 0
+        },
+        {
+          "hex": "#a7cfc6",
+          "position": 100
+        }
       ],
       "name": "Verdigris Copper"
     }
@@ -136,8 +486,14 @@
     "gradient": {
       "type": "linear",
       "stops": [
-        { "hex": "#c6b5cc", "position": 0 },
-        { "hex": "#8c8291", "position": 100 }
+        {
+          "hex": "#c6b5cc",
+          "position": 0
+        },
+        {
+          "hex": "#8c8291",
+          "position": 100
+        }
       ],
       "name": "Lilac Fog"
     }
@@ -149,8 +505,14 @@
     "gradient": {
       "type": "linear",
       "stops": [
-        { "hex": "#283d2c", "position": 0 },
-        { "hex": "#97b095", "position": 100 }
+        {
+          "hex": "#283d2c",
+          "position": 0
+        },
+        {
+          "hex": "#97b095",
+          "position": 100
+        }
       ],
       "name": "Fern Hollow"
     }
@@ -162,8 +524,14 @@
     "gradient": {
       "type": "linear",
       "stops": [
-        { "hex": "#3f5666", "position": 0 },
-        { "hex": "#96b3c2", "position": 100 }
+        {
+          "hex": "#3f5666",
+          "position": 0
+        },
+        {
+          "hex": "#96b3c2",
+          "position": 100
+        }
       ],
       "name": "Steel Water"
     }
@@ -175,8 +543,14 @@
     "gradient": {
       "type": "radial",
       "stops": [
-        { "hex": "#bf893b", "position": 0 },
-        { "hex": "#fceeb8", "position": 100 }
+        {
+          "hex": "#bf893b",
+          "position": 0
+        },
+        {
+          "hex": "#fceeb8",
+          "position": 100
+        }
       ],
       "name": "Marigold Sun"
     }
@@ -188,8 +562,14 @@
     "gradient": {
       "type": "linear",
       "stops": [
-        { "hex": "#2b201a", "position": 0 },
-        { "hex": "#edd6ca", "position": 100 }
+        {
+          "hex": "#2b201a",
+          "position": 0
+        },
+        {
+          "hex": "#edd6ca",
+          "position": 100
+        }
       ],
       "name": "Espresso Cream"
     }
@@ -201,8 +581,14 @@
     "gradient": {
       "type": "linear",
       "stops": [
-        { "hex": "#526655", "position": 0 },
-        { "hex": "#bccfc0", "position": 100 }
+        {
+          "hex": "#526655",
+          "position": 0
+        },
+        {
+          "hex": "#bccfc0",
+          "position": 100
+        }
       ],
       "name": "Sage Meadow"
     }
@@ -214,8 +600,14 @@
     "gradient": {
       "type": "linear",
       "stops": [
-        { "hex": "#151224", "position": 0 },
-        { "hex": "#473063", "position": 100 }
+        {
+          "hex": "#151224",
+          "position": 0
+        },
+        {
+          "hex": "#473063",
+          "position": 100
+        }
       ],
       "name": "Midnight Iris"
     }
@@ -227,8 +619,14 @@
     "gradient": {
       "type": "linear",
       "stops": [
-        { "hex": "#5c6366", "position": 0 },
-        { "hex": "#b5bec2", "position": 100 }
+        {
+          "hex": "#5c6366",
+          "position": 0
+        },
+        {
+          "hex": "#b5bec2",
+          "position": 100
+        }
       ],
       "name": "Ceramic Smoke"
     }
