@@ -43,6 +43,7 @@ function tileBackground(gradient: Gradient): string | undefined {
     : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
         repeat: gradient.repeatEnabled,
         hard: gradient.hardStops,
+        smooth: gradient.smoothEnabled,
         fanAnchor: gradient.fanAnchor,
         angle: gradient.angle,
       })

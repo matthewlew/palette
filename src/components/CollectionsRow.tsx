@@ -35,6 +35,7 @@ function cellBackground(g: Gradient): string {
   return buildGradientCss(g.type, g.stops, g.reversed, {
     repeat: g.repeatEnabled,
     hard: g.hardStops,
+    smooth: g.smoothEnabled,
     fanAnchor: g.fanAnchor,
     angle: g.angle,
   })
