@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAppStore } from './store/useAppStore'
 import { Hint } from './components/Hint'
+import { WelcomeOverlay } from './components/WelcomeOverlay'
 import { Feed, riffIntoFeed } from './components/Feed'
 import { Gallery } from './components/Gallery'
 import { TabBar } from './components/TabBar'
@@ -229,6 +230,7 @@ export function App() {
           onUndo={importToast.undoable ? handleUndoImport : undefined}
         />
       )}
+      <WelcomeOverlay />
     </>
   )
 }
