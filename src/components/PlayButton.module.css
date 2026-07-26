@@ -1,0 +1,19 @@
+/* Position only — the visual recipe is the global .ghost-chip. Third in the
+   bottom-right stack: save (16), grain (72), play (128). */
+.playButton {
+  position: absolute;
+  bottom: calc(128px + env(safe-area-inset-bottom));
+  right: 16px;
+  z-index: 3;
+  width: 44px;
+}
+
+.playButton:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.hidden {
+  opacity: 0;
+  pointer-events: none;
+}

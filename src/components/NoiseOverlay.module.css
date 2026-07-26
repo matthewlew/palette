@@ -2,10 +2,42 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
+  /* The texture is a 128x128 SVG raster. Painting it into a 128px CSS box means
+     one texture pixel per CSS pixel — which on a 2x display is one texture pixel
+     stretched across a 2x2 device block, i.e. visibly blocky rather than fine.
+     Measured: the grain's blob width only grows 1.39x from a 128 to a 256
+     raster, so the browser is scaling it up, not re-rendering the filter finer.
+     Halving the tile below maps it 1:1 onto device pixels instead. */
   background-size: 128px 128px;
   background-repeat: repeat;
-  opacity: 0.35;
+  /* 0.35 read as an effect rather than a surface, especially full-screen where
+     the grain covers the whole viewport. */
+  opacity: 0.22;
   mix-blend-mode: overlay;
   z-index: 4;
   border-radius: inherit;
+}
+
+/* 1:1 with device pixels on retina — this is what takes the grain from blocky
+   to fine. It also doubles the tile count across a surface, which matters most
+   on gallery thumbnails: at 128px a 283px-wide thumb showed the same tile only
+   2.2 times, so the repeat read as a pattern instead of as grain. */
+@media (min-resolution: 2dppx) {
+  .noise {
+    background-size: 64px 64px;
+  }
+}
+
+@media (min-resolution: 3dppx) {
+  .noise {
+    background-size: 43px 43px;
+  }
+}
+
+/* Grain is texture, not information. Anyone who has asked for less motion and
+   visual noise should not get a full-viewport dither. */
+@media (prefers-reduced-motion: reduce) {
+  .noise {
+    opacity: 0.12;
+  }
 }

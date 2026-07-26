@@ -30,6 +30,11 @@ interface AppState {
   activeColorSet: ColorSet
   noiseEnabled: boolean
   toggleNoise: () => void
+  /** Ambient drift of the stop positions. Colors never change — see
+   * lib/stopDrift.ts. Not persisted: motion is a per-session mood, and a
+   * gradient that starts moving on load is a surprise, not a feature. */
+  motionEnabled: boolean
+  toggleMotion: () => void
   setCurrentGradient: (gradient: Gradient) => void
   saveGradient: (gradient: Gradient) => void
   isGradientSaved: (gradient: Gradient) => boolean
@@ -89,6 +94,8 @@ export const useAppStore = create<AppState>()(
       activeColorSet: DEFAULT_COLOR_SET,
       noiseEnabled: false,
       toggleNoise: () => set({ noiseEnabled: !get().noiseEnabled }),
+      motionEnabled: false,
+      toggleMotion: () => set({ motionEnabled: !get().motionEnabled }),
       setCurrentGradient: (gradient) => set({ current: gradient }),
       saveGradient: (gradient) => {
         const signature = gradientSignature(gradient)

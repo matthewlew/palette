@@ -7,7 +7,10 @@ import { TurrellSquare } from './TurrellSquare'
 import { PaletteTitle } from './PaletteTitle'
 import { LikeButton } from './LikeButton'
 import { GrainButton } from './GrainButton'
+import { PlayButton } from './PlayButton'
 import { publishPalette } from '../lib/publishPalette'
+import { useStopDrift } from '../lib/useStopDrift'
+import { canDrift } from '../lib/stopDrift'
 import { NoiseOverlay } from './NoiseOverlay'
 import type { Gradient } from '../store/types'
 import styles from './GradientPage.module.css'
@@ -27,6 +30,12 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null)
   const noiseEnabled = useAppStore((s) => s.noiseEnabled)
   const toggleNoise = useAppStore((s) => s.toggleNoise)
+  const motionEnabled = useAppStore((s) => s.motionEnabled)
+  const toggleMotion = useAppStore((s) => s.toggleMotion)
+  // Writes background-image straight to the element each frame, so the drift
+  // never re-renders the tree (and never re-samples the title's ink).
+  const driftRef = useStopDrift(gradient, motionEnabled)
+  const driftable = canDrift(gradient.stops, gradient.type)
   const renameCurrentGradient = useAppStore((s) => s.renameCurrentGradient)
   const activeCollectionId = useAppStore((s) => s.activeCollectionId)
   const addToCollection = useAppStore((s) => s.addToCollection)
@@ -92,6 +101,7 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
 
   return (
     <div
+      ref={driftRef}
       data-testid="gradient-page"
       className={styles.page}
       style={{
@@ -126,6 +136,13 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
         color={titleColor}
       />
       <GrainButton enabled={noiseEnabled} onToggle={toggleNoise} hidden={!chromeVisible} color={cornerColor} />
+      <PlayButton
+        playing={motionEnabled}
+        onToggle={toggleMotion}
+        hidden={!chromeVisible}
+        color={cornerColor}
+        available={driftable}
+      />
       <LikeButton liked={liked} onToggle={handleSave} hidden={!chromeVisible} color={cornerColor} />
       {/* Explicit, TikTok-style edit affordance on the right rail. Tapping the
           gradient anywhere already opens the editor, but that's not
