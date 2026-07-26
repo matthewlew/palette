@@ -24,11 +24,18 @@ import type { GradientStop, GradientType } from './gradient'
  * a jump. */
 
 /** Slowest and fastest a stop may travel, as the time for one full cycle.
- * Both are deliberately far slower than a UI animation: at 17s the motion is
- * still readable as movement, and by 40s a stop is drifting at the edge of
- * perception, which is where the ambient quality comes from. */
-const PERIOD_MIN_MS = 17_000
-const PERIOD_SPREAD_MS = 23_000
+ * Both are deliberately far slower than a UI animation, and were lengthened
+ * again when crossing arrived. What the eye reads as aggression is SPEED, not
+ * travel — amplitude/period — so raising amplitude 6 -> 26 without touching the
+ * period made stops move 5.4x faster than the original ambient tuning. Slowing
+ * the cycle keeps the crossings; cutting amplitude back would remove them.
+ *
+ * Measured at 43-101s: peak 3.2 position-units/sec, 2.0x the pre-crossing feel
+ * rather than 5.4x, and still 84 reorders per ten minutes across five ramp
+ * shapes. Halving these again lands near the original speed but roughly halves
+ * the crossings too. */
+const PERIOD_MIN_MS = 43_000
+const PERIOD_SPREAD_MS = 58_000
 
 /** Ceiling on how far a stop may travel from home, in position units (0–100).
  * Raised from 6, which was tuned for breathing-in-place. Two adjacent stops a

@@ -5,8 +5,12 @@ import type { GradientStop } from './gradient'
 const stops = (...positions: number[]): GradientStop[] =>
   positions.map((position, i) => ({ hex: ['#622b00', '#00897e', '#798184', '#ffcc00'][i % 4], position }))
 
-/** Sample a full cycle of the slowest stop, so nothing can hide between frames. */
-const FRAMES = Array.from({ length: 800 }, (_, i) => i * 50) // 0–40s at 50ms
+/** Sample a full cycle of the slowest stop, so nothing can hide between frames.
+ * Periods are PERIOD_MIN_MS + PERIOD_SPREAD_MS at the top end, currently 101s —
+ * this window has to cover that or a test can pass by simply not looking long
+ * enough, which is exactly how the crossing test failed when the periods were
+ * lengthened. */
+const FRAMES = Array.from({ length: 2400 }, (_, i) => i * 50) // 0–120s at 50ms
 
 describe('driftStops', () => {
   it('leaves a colour alone whenever its neighbours are clear', () => {
@@ -34,7 +38,7 @@ describe('driftStops', () => {
     // is roughly once a minute. Measured across five ramp shapes it is 14–65
     // reorders per ten minutes, so this is frequent, not marginal.
     const input = stops(0, 40, 80)
-    const longRun = Array.from({ length: 3600 }, (_, i) => i * 50) // 0–180s
+    const longRun = Array.from({ length: 9000 }, (_, i) => i * 50) // 0–450s
     const orders = new Set(longRun.map((t) => driftStops(input, t).map((s) => s.hex).join('>')))
     expect(orders.size).toBeGreaterThan(1)
   })
