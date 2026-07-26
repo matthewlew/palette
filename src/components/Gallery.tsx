@@ -20,7 +20,18 @@ import JSZip from 'jszip'
 import { renderVignetteToCanvas } from '../lib/vignette'
 import styles from './Gallery.module.css'
 
-const TYPE_CHIPS: GradientType[] = ['linear', 'radial', 'angular', 'square', 'fan']
+// Shape filters. Labels are explicit rather than derived from the type string so
+// 'square' reads as "Turrell" here the same way it does in EditMode and the
+// onboarding row. 'repeat' is deliberately absent: it is a legacy type that the
+// editor now expresses as the "Repeat ×2" modifier, not a shape of its own.
+const TYPE_CHIPS: { type: GradientType; label: string }[] = [
+  { type: 'linear', label: 'Linear' },
+  { type: 'radial', label: 'Radial' },
+  { type: 'angular', label: 'Angular' },
+  { type: 'square', label: 'Turrell' },
+  { type: 'mirror', label: 'Mirror' },
+  { type: 'fan', label: 'Fan' },
+]
 
 // The dark app surface the tile captions sit on (matches --surface in
 // index.css); tile ink is chosen to read against it.
@@ -878,7 +889,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
             >
               All <span className={styles.chipCount}>{activeTab === 'community' ? communityGradients.length : saved.length}</span>
             </button>
-            {TYPE_CHIPS.map((type) => {
+            {TYPE_CHIPS.map(({ type, label }) => {
               const count = (activeTab === 'community' ? communityGradients : saved).filter((gradient) => gradient.type === type).length
               return (
                 <button
@@ -887,7 +898,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
                   className={typeFilter === type ? styles.chipOn : styles.chip}
                   onClick={() => setTypeFilter(typeFilter === type ? null : type)}
                 >
-                  {type[0].toUpperCase() + type.slice(1)}{' '}
+                  {label}{' '}
                   <span className={styles.chipCount}>{count}</span>
                 </button>
               )
