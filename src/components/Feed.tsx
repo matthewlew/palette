@@ -455,7 +455,7 @@ export function Feed({ chromeVisible = true }: FeedProps) {
 
     function handleMouseDown(e: MouseEvent) {
       const target = e.target as HTMLElement
-      if (target.closest('button') || target.closest('[data-testid="saved-drawer"]')) {
+      if ((target instanceof Element && target.closest('button')) || (target instanceof Element && target.closest('[data-testid="saved-drawer"]'))) {
         return
       }
       cancelMomentum()
@@ -511,7 +511,7 @@ export function Feed({ chromeVisible = true }: FeedProps) {
         e.ctrlKey ||
         e.altKey ||
         // Focused range widgets (flow-editor stops) own the arrow keys.
-        target?.closest?.('[role="slider"]')
+        (target instanceof Element && target.closest('[role="slider"]'))
       ) {
         return
       }
