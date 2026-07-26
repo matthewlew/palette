@@ -321,7 +321,9 @@ export const useAppStore = create<AppState>()(
       // boards persisted while 'grid' was the default).
       // v5 removes the Daily Drops state (keywordBindings/curatedDrops) after
       // that feature was dropped, so its keys don't linger in localStorage.
-      version: 5,
+      // v6 backfills missing ids and names for legacy saved gradients
+      // (some predate the database schema or the naming engine).
+      version: 6,
       migrate: (persisted, version) => {
         const state = persisted as {
           saved?: Gradient[]
@@ -334,6 +336,17 @@ export const useAppStore = create<AppState>()(
           state.saved = state.saved.map((g) => {
             const { flutedEnabled: _f, ...rest } = g as Gradient & {
               flutedEnabled?: boolean
+            }
+            // Backfill missing identifiers and names for legacy saved gradients.
+            if (!rest.id) {
+              rest.id = crypto.randomUUID()
+            }
+            if (!rest.name) {
+              try {
+                rest.name = namePalette(rest.stops.map(s => s.hex))
+              } catch {
+                rest.name = 'Untitled Palette'
+              }
             }
             return rest
           })
