@@ -153,35 +153,65 @@ export function renderGradientToCanvas(
       break
     }
     case 'square': {
-      const hexes = stops.map((s) => s.hex)
-      // Flat background fill with outermost color
-      ctx.fillStyle = hexes[0]
+      /* Mirrors TurrellSquare exactly — this is the export of what is on
+       * screen, so the two geometries have to agree. The previous version
+       * disagreed in three ways:
+       *
+       *   1. It hardcoded a centred nest, `(width - sizeX) / 2`, and never
+       *      consulted getRadialConfig — so every non-centred origin exported
+       *      as centred. That is the bug that made shared posts wrong.
+       *   2. It inverted the size ramp: `100 - position * 0.8` makes position 0
+       *      the OUTERMOST layer, while the component's `0.2 + position * 0.8`
+       *      makes it the innermost.
+       *   3. It skipped the repeat filter, which the component applies.
+       *
+       * Built from gradient.stops rather than the pre-processed `stops` above,
+       * because the component applies repeat BEFORE reversing hexes and the
+       * shared pipeline reverses first. */
+      const base = repeatEnabled ? repeatedStops([...gradient.stops]) : [...gradient.stops]
+      const hexes = reversed ? base.map((s) => s.hex).reverse() : base.map((s) => s.hex)
+
+      const origin = getRadialConfig(angle)
+      // Reach to the farthest edge on each axis, so an edge/corner origin still
+      // spans the whole canvas instead of leaving a flat band of the last colour.
+      const reachX = Math.max(origin.px, 1 - origin.px)
+      const reachY = Math.max(origin.py, 1 - origin.py)
+      const cx = origin.px * width
+      const cy = origin.py * height
+
+      const layers = base
+        .map((stop, i) => ({
+          hex: hexes[i],
+          factor: base.length <= 1 ? 1 : 0.2 + (stop.position / 100) * 0.8,
+        }))
+        // Largest first, so smaller inner layers are not painted over.
+        .sort((a, b) => b.factor - a.factor)
+
+      // The canvas is painted in the outermost layer's colour, matching the
+      // component's container fill.
+      ctx.fillStyle = layers[0]?.hex ?? '#000000'
       ctx.fillRect(0, 0, width, height)
 
-      // Nested blur layers. Default blur is 24px when width is 400px.
-      const scaleFactor = width / 400
-      const blurRadius = 24 * scaleFactor
+      const blurRadius = 24 * (width / 400)
 
-      for (let i = 1; i < stops.length; i++) {
-        const stop = stops[i]
-        const scalePercent = 100 - (stop.position / 100) * 80
-        const sizeX = (scalePercent / 100) * width
-        const sizeY = (scalePercent / 100) * height
-        const rx = (width - sizeX) / 2
-        const ry = (height - sizeY) / 2
+      for (const layer of layers) {
+        const sizeX = 2 * reachX * layer.factor * width
+        const sizeY = 2 * reachY * layer.factor * height
+        const rx = cx - sizeX / 2
+        const ry = cy - sizeY / 2
 
         ctx.save()
         if (blurRadius > 0) {
           // Safari often ignores ctx.filter = 'blur()' on large canvases.
           // Drawing the shadow of an offscreen rect perfectly emulates it.
-          ctx.shadowColor = hexes[i]
+          ctx.shadowColor = layer.hex
           ctx.shadowBlur = blurRadius
           ctx.shadowOffsetX = width * 2
           ctx.shadowOffsetY = 0
-          ctx.fillStyle = hexes[i]
+          ctx.fillStyle = layer.hex
           ctx.fillRect(rx - width * 2, ry, sizeX, sizeY)
         } else {
-          ctx.fillStyle = hexes[i]
+          ctx.fillStyle = layer.hex
           ctx.fillRect(rx, ry, sizeX, sizeY)
         }
         ctx.restore()

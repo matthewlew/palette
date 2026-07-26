@@ -102,3 +102,71 @@ describe('canvasExport rendering', () => {
     expect(mockAddColorStop.mock.calls.length).toBeGreaterThan(2)
   })
 })
+
+describe('square (Turrell) export honours the origin', () => {
+  const round4 = (a: number[]) => a.map((n) => Math.round(n * 1e4) / 1e4)
+
+  /** Capture every fillRect, undoing the offscreen shadow trick's x-offset so
+   *  the rects are in real canvas coordinates. */
+  function renderSquare(angle: number | undefined, width = 400, height = 400) {
+    const calls: number[][] = []
+    const ctx = {
+      fillRect: (x: number, y: number, w: number, h: number) => calls.push([x, y, w, h]),
+      save: vi.fn(), restore: vi.fn(),
+      fillStyle: '', shadowColor: '', shadowBlur: 0, shadowOffsetX: 0, shadowOffsetY: 0,
+    }
+    const canvas = { width: 0, height: 0, getContext: () => ctx } as unknown as HTMLCanvasElement
+    const gradient: Gradient = {
+      id: 's', type: 'square', angle,
+      stops: [
+        { hex: '#111111', position: 0 },
+        { hex: '#222222', position: 50 },
+        { hex: '#333333', position: 100 },
+      ],
+    }
+    renderGradientToCanvas(canvas, gradient, width, height)
+    // The first two fillRects are backgrounds (the black clear, then the
+    // outermost colour). Filtering by size would wrongly drop the outermost
+    // LAYER too, which at a centred origin is exactly canvas-sized.
+    // Rounded: the two paths reach the same numbers by slightly different
+    // arithmetic, so 80 vs 79.99999999999999 is noise, not a discrepancy.
+    return calls.slice(2).map(([x, y, w, h]) => round4([x + width * 2, y, w, h]))
+  }
+
+  /** TurrellSquare's own maths, restated so the export is pinned to it. */
+  function expected(angle: number | undefined, width = 400, height = 400) {
+    const cfg = angle == null
+      ? { px: 0.5, py: 0.5 }
+      : { 0: { px: 0.5, py: 0 }, 90: { px: 1, py: 0.5 }, 315: { px: 0, py: 0 } }[angle]!
+    const reachX = Math.max(cfg.px, 1 - cfg.px)
+    const reachY = Math.max(cfg.py, 1 - cfg.py)
+    return [100, 50, 0].map((position) => {
+      const factor = 0.2 + (position / 100) * 0.8
+      const sizeX = 2 * reachX * factor * width
+      const sizeY = 2 * reachY * factor * height
+      return round4([cfg.px * width - sizeX / 2, cfg.py * height - sizeY / 2, sizeX, sizeY])
+    })
+  }
+
+  it('centres the nest when there is no origin', () => {
+    expect(renderSquare(undefined)).toEqual(expected(undefined))
+  })
+
+  it('anchors the nest to each edge and corner', () => {
+    for (const angle of [0, 90, 315]) {
+      expect(renderSquare(angle), `angle ${angle}`).toEqual(expected(angle))
+    }
+  })
+
+  it('actually produces a DIFFERENT nest per origin', () => {
+    const centred = JSON.stringify(renderSquare(undefined))
+    const top = JSON.stringify(renderSquare(0))
+    const right = JSON.stringify(renderSquare(90))
+    expect(new Set([centred, top, right]).size).toBe(3)
+  })
+
+  it('draws largest layer first so inner layers are not painted over', () => {
+    const sizes = renderSquare(undefined).map(([, , w]) => w)
+    expect(sizes).toEqual([...sizes].sort((a, b) => b - a))
+  })
+})

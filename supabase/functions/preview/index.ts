@@ -82,24 +82,79 @@ function buildSvg(row: Row): string {
     .map((hex, i) => `<stop offset="${offsets[i]}%" stop-color="${hex}"/>`)
     .join('')
 
-  const angle = ((row.angle ?? 0) % 360 + 360) % 360
-  const isRadial = row.shape === 'radial'
-  const def = isRadial
-    ? `<radialGradient id="g" cx="0.5" cy="0.5" r="0.6">${stops}</radialGradient>`
-    // gradientTransform rotates the default top->bottom axis about the center.
-    : `<linearGradient id="g" x1="0" y1="0" x2="0" y2="1" gradientTransform="rotate(${angle} 0.5 0.5)">${stops}</linearGradient>`
+  // NOTE the `?? null`, not `?? 0`: the app treats a null angle as CENTRE and 0
+  // as TOP. Coercing here re-anchors every centred gradient to the top edge.
+  // Mirrors getRadialConfig in src/lib/gradient.ts.
+  const rawAngle = row.angle ?? null
+  const origin = radialOrigin(rawAngle)
+  const angle = ((rawAngle ?? 0) % 360 + 360) % 360
 
   const title = esc(row.display_name || 'palette')
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
-    <defs>${def}
-      <filter id="sh" x="-20%" y="-20%" width="140%" height="140%">
+  const shadow = `<filter id="sh" x="-20%" y="-20%" width="140%" height="140%">
         <feDropShadow dx="0" dy="2" stdDeviation="6" flood-color="#000" flood-opacity="0.45"/>
+      </filter>`
+  const label = `<text x="60" y="${h - 60}" font-family="Roboto"
+      font-size="56" font-weight="700" fill="#ffffff" filter="url(#sh)">${title}</text>`
+
+  // Turrell squares are nested rects, not a gradient — rendering them as a
+  // linear ramp made the single most visually distinctive shape unrecognisable
+  // in link previews. SVG does this natively; only conic genuinely can't be done.
+  if (row.shape === 'square') {
+    const reachX = Math.max(origin.px, 1 - origin.px)
+    const reachY = Math.max(origin.py, 1 - origin.py)
+    const cx = origin.px * w
+    const cy = origin.py * h
+    const layers = colors
+      .map((hex, i) => ({ hex, factor: n <= 1 ? 1 : 0.2 + (offsets[i] / 100) * 0.8 }))
+      .sort((a, b) => b.factor - a.factor) // largest first
+    const rects = layers.map(({ hex, factor }) => {
+      const rw = 2 * reachX * factor * w
+      const rh = 2 * reachY * factor * h
+      return `<rect x="${(cx - rw / 2).toFixed(1)}" y="${(cy - rh / 2).toFixed(1)}" width="${rw.toFixed(1)}" height="${rh.toFixed(1)}" fill="${hex}"/>`
+    }).join('')
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+    <defs>${shadow}
+      <filter id="turrell" x="-25%" y="-25%" width="150%" height="150%">
+        <feGaussianBlur stdDeviation="38"/>
       </filter>
     </defs>
-    <rect width="${w}" height="${h}" fill="url(#g)"/>
-    <text x="60" y="${h - 60}" font-family="Roboto"
-      font-size="56" font-weight="700" fill="#ffffff" filter="url(#sh)">${title}</text>
+    <rect width="${w}" height="${h}" fill="${layers[0]?.hex ?? '#333'}"/>
+    <g filter="url(#turrell)">${rects}</g>
+    ${label}
   </svg>`
+  }
+
+  const def = row.shape === 'radial'
+    // Origin honoured rather than pinned to the centre. r grows with the reach
+    // so an edge/corner origin still covers the far side.
+    ? `<radialGradient id="g" cx="${origin.px}" cy="${origin.py}" r="${(0.6 * Math.max(Math.max(origin.px, 1 - origin.px), Math.max(origin.py, 1 - origin.py)) / 0.5).toFixed(3)}">${stops}</radialGradient>`
+    // gradientTransform rotates the default top->bottom axis about the center.
+    // angular/fan/mirror/repeat still approximate as linear: SVG has no conic
+    // gradient, and the rest are close enough at thumbnail size.
+    : `<linearGradient id="g" x1="0" y1="0" x2="0" y2="1" gradientTransform="rotate(${angle} 0.5 0.5)">${stops}</linearGradient>`
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+    <defs>${def}${shadow}</defs>
+    <rect width="${w}" height="${h}" fill="url(#g)"/>
+    ${label}
+  </svg>`
+}
+
+/** The 8-way origin mapping, mirroring getRadialConfig in src/lib/gradient.ts.
+ *  null/undefined is CENTRE; 0 is TOP. They are different origins. */
+function radialOrigin(angle: number | null): { px: number; py: number } {
+  if (angle == null) return { px: 0.5, py: 0.5 }
+  switch ((Math.round(angle / 45) * 45) % 360) {
+    case 0: return { px: 0.5, py: 0 }
+    case 45: return { px: 1, py: 0 }
+    case 90: return { px: 1, py: 0.5 }
+    case 135: return { px: 1, py: 1 }
+    case 180: return { px: 0.5, py: 1 }
+    case 225: return { px: 0, py: 1 }
+    case 270: return { px: 0, py: 0.5 }
+    case 315: return { px: 0, py: 0 }
+    default: return { px: 0.5, py: 0.5 }
+  }
 }
 
 async function fetchRow(slug: string): Promise<Row | null> {
