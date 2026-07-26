@@ -14,7 +14,7 @@
   width: 100%;
   padding: 6px;
   padding-bottom: 10px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border, rgba(255, 255, 255, 0.18));
   background: transparent;
   color: var(--text-subdued);
@@ -44,7 +44,7 @@
   width: 100%;
   min-height: 44px;
   padding: 0 4px;
-  border-radius: 999px;
+  border-radius: var(--pill);
   border: 1px solid var(--border, rgba(255, 255, 255, 0.18));
   background: transparent;
   color: var(--text-subdued);
@@ -90,7 +90,7 @@
 .previewBox {
   width: 100%;
   aspect-ratio: 1;
-  border-radius: 8px;
+  border-radius: var(--radius-base);
   overflow: hidden;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
   /* The preview uses absolute sizing/positioning internally for TurrellSquare */

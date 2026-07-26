@@ -8,7 +8,7 @@
   align-items: center;
   gap: 12px;
   padding: 8px 8px 8px 16px;
-  border-radius: 999px;
+  border-radius: var(--pill);
   background: rgba(20, 20, 24, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.14);
   backdrop-filter: blur(14px);
@@ -30,7 +30,7 @@
   min-height: 30px;
   padding: 0 14px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--pill);
   background: rgba(255, 255, 255, 0.92);
   color: #111;
   font-size: 13px;

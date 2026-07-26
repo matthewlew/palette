@@ -44,7 +44,7 @@
   flex: 0 0 auto;
   padding-top: 12px;
   background: var(--background);
-  border-radius: 16px 16px 0 0;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.12);
   view-transition-name: edit-sheet;
   transition: opacity 200ms ease, transform 200ms ease, margin-right 200ms ease;
@@ -101,7 +101,7 @@
     order: 2;
     height: 100%;
     box-sizing: border-box;
-    border-radius: 16px 0 0 16px;
+    border-radius: var(--radius-xl) 0 0 var(--radius-xl);
     box-shadow: -4px 0 16px rgba(0, 0, 0, 0.12);
     justify-content: flex-start;
     gap: 16px;
@@ -150,7 +150,7 @@
 .sortButton {
   min-height: 40px;
   padding: 0 18px;
-  border-radius: 999px;
+  border-radius: var(--pill);
   border: 1px solid var(--border, rgba(255, 255, 255, 0.18));
   background: transparent;
   color: var(--text);
@@ -203,7 +203,7 @@
 .directionBtnActive {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: var(--radius-base);
   border: 1px solid rgba(128, 128, 128, 0.3);
   background: transparent;
   font-size: 14px;

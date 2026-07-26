@@ -15,7 +15,7 @@
   z-index: 100;
   width: min(680px, 95vw);
   max-height: 90vh;
-  border-radius: 20px;
+  border-radius: var(--radius-xl);
   padding: 30px;
   display: flex;
   flex-direction: column;
@@ -100,7 +100,7 @@
 .previewCard {
   width: 100%;
   aspect-ratio: 9 / 16;
-  border-radius: 14px;
+  border-radius: var(--radius-xl);
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
@@ -182,7 +182,7 @@
   width: 40px;
   height: 40px;
   padding: 0;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   border: 1px solid rgba(255, 255, 255, 0.15);
   background: rgba(255, 255, 255, 0.05);
   cursor: pointer;
@@ -208,7 +208,7 @@
 }
 
 .shapeGlyphFull {
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
 }
 
 .shapeGlyphCircle {
@@ -293,7 +293,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 16px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.04);
   color: #fff;
@@ -356,7 +356,7 @@
   color: rgba(255, 255, 255, 0.4);
   background: rgba(255, 255, 255, 0.08);
   padding: 1px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 /* Loading Spinner */

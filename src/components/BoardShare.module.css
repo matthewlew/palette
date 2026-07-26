@@ -61,7 +61,7 @@
   top: 52px;
   right: 0;
   min-width: 180px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 6px;
   display: flex;
   flex-direction: column;
@@ -80,7 +80,7 @@
 .menuItem {
   background: transparent;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-base);
   color: #fff;
   cursor: pointer;
   font-size: 13px;
@@ -137,7 +137,7 @@
   transform: translate(-50%, -50%);
   width: min(480px, calc(100vw - 32px));
   max-height: calc(100dvh - 32px);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   padding: 16px;
   z-index: 21;
   display: flex;
@@ -165,7 +165,7 @@
   color: #fff;
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   padding: 10px;
   box-sizing: border-box;
 }
@@ -178,7 +178,7 @@
 
 .modalButton,
 .modalButtonPrimary {
-  border-radius: 999px;
+  border-radius: var(--pill);
   font-size: 13px;
   padding: 8px 16px;
   cursor: pointer;

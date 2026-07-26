@@ -38,7 +38,7 @@
   bottom: 0;
   width: 52px;
   height: 52px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   border: 1px solid rgba(255, 255, 255, 0.35);
   overflow: hidden;
   transform-origin: bottom right;
@@ -54,7 +54,7 @@
   bottom: 0;
   width: 52px;
   height: 52px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   border: 1.5px dashed rgba(255, 255, 255, 0.5);
   color: rgba(255, 255, 255, 0.6);
   display: flex;
@@ -71,7 +71,7 @@
   min-width: 20px;
   height: 20px;
   padding: 0 5px;
-  border-radius: 10px;
+  border-radius: var(--pill);
   background: rgba(0, 0, 0, 0.65);
   border: 1px solid rgba(255, 255, 255, 0.4);
   color: #fff;

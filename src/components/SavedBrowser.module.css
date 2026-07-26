@@ -71,7 +71,7 @@
   background: rgba(255, 255, 255, 0.15);
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 8px;
+  border-radius: var(--radius-base);
   padding: 4px 12px;
   font-size: 13px;
   font-weight: 500;
@@ -92,7 +92,7 @@
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
+  border-radius: var(--radius-base);
   padding: 4px 6px;
   font-size: 12px;
 }
@@ -167,7 +167,7 @@
 .cardThumb {
   width: 100%;
   aspect-ratio: 4 / 3;
-  border-radius: 14px;
+  border-radius: var(--radius-xl);
   border: 1px solid rgba(255, 255, 255, 0.2);
   cursor: pointer;
   position: relative;
@@ -193,7 +193,7 @@
 .nameInput {
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.35);
-  border-radius: 6px;
+  border-radius: var(--radius-base);
   color: #fff;
   font-size: 13px;
   font-weight: 500;
@@ -209,7 +209,7 @@
 .cardAction {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 8px;
+  border-radius: var(--radius-base);
   color: rgba(255, 255, 255, 0.85);
   font-size: 11px;
   padding: 3px 8px;
