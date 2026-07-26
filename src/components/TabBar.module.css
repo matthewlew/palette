@@ -55,7 +55,7 @@
   border-radius: 999px;
   background: transparent;
   color: color-mix(in srgb, currentColor 68%, transparent);
-  font-family: var(--heading, sans-serif);
+  font-family: var(--th-display);
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
@@ -79,7 +79,7 @@
   border-radius: 999px;
   background: color-mix(in srgb, currentColor 18%, rgba(20, 20, 24, 0.45));
   color: currentColor;
-  font-family: var(--heading, sans-serif);
+  font-family: var(--th-display);
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
@@ -106,7 +106,7 @@
   border-radius: 999px;
   background: transparent;
   color: currentColor;
-  font-family: var(--heading);
+  font-family: var(--th-display);
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;

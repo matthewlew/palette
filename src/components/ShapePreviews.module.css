@@ -1,7 +1,7 @@
 .tray {
   display: flex;
-  gap: var(--space-md, 10px);
-  padding: var(--space-sm, 4px) var(--space-md, 8px);
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
@@ -15,7 +15,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-xs, 4px);
+  gap: var(--space-1);
   cursor: pointer;
   border: none;
   background: none;
@@ -48,8 +48,8 @@
 }
 
 .thumbActive .preview {
-  border-color: var(--text, rgba(128, 128, 128, 0.7));
-  box-shadow: 0 0 0 1.5px var(--text, rgba(128, 128, 128, 0.4));
+  border-color: var(--text-subdued);
+  box-shadow: 0 0 0 1.5px var(--text-subdued);
 }
 
 /* Shape masks applied inside the preview */
@@ -102,7 +102,7 @@
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--text, #6b6375);
+  color: var(--text-subdued);
   opacity: 0.7;
   white-space: nowrap;
 }
@@ -116,8 +116,8 @@
     flex-wrap: wrap;
     overflow-x: visible;
     justify-content: center;
-    gap: var(--space-md, 10px);
-    padding: var(--space-md, 8px) var(--space-lg, 12px);
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
   }
 
   .preview {

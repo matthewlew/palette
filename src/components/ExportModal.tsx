@@ -109,7 +109,7 @@ export function ExportModal({ gradient, onClose }: ExportModalProps) {
           justifyContent: 'flex-start',
           paddingLeft: '6%',
           color: titleColor,
-          fontFamily: 'var(--heading, system-ui, sans-serif)',
+          fontFamily: 'var(--th-display)',
           fontWeight: 600,
           fontSize: '9px', // scaled down for preview
         }}

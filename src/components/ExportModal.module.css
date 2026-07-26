@@ -49,7 +49,7 @@
 
 .title {
   margin: 0 0 6px 0;
-  font-family: var(--heading);
+  font-family: var(--th-display);
   font-size: 20px;
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -156,7 +156,7 @@
 }
 
 .posterTitle {
-  font-family: var(--heading);
+  font-family: var(--th-display);
   font-size: 11px;
   font-weight: 500;
   color: #1c1a20;
@@ -254,7 +254,7 @@
 
 .previewName {
   margin-top: 12px;
-  font-family: var(--heading);
+  font-family: var(--th-display);
   font-size: 14px;
   font-weight: 600;
   color: #fff;
@@ -326,7 +326,7 @@
 }
 
 .presetLabel {
-  font-family: var(--heading);
+  font-family: var(--th-display);
   font-size: 15px;
   font-weight: 600;
 }
@@ -345,7 +345,7 @@
 }
 
 .presetDim {
-  font-family: var(--mono);
+  font-family: var(--th-mono);
   font-size: 12px;
   color: #fff;
   font-weight: 500;

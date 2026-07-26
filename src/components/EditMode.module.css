@@ -43,7 +43,7 @@
   flex-direction: column;
   flex: 0 0 auto;
   padding-top: 12px;
-  background: var(--bg, #fff);
+  background: var(--background);
   border-radius: 16px 16px 0 0;
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.12);
   view-transition-name: edit-sheet;
@@ -153,8 +153,8 @@
   border-radius: 999px;
   border: 1px solid var(--border, rgba(255, 255, 255, 0.18));
   background: transparent;
-  color: var(--text-h, inherit);
-  font-family: var(--sans);
+  color: var(--text);
+  font-family: var(--th-body);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -162,13 +162,13 @@
 }
 
 .sortButton:hover {
-  background: var(--surface-2, rgba(128, 128, 128, 0.12));
-  border-color: var(--text, rgba(128, 128, 128, 0.4));
+  background: var(--bg-hover);
+  border-color: var(--text-subdued);
 }
 
 .stopHint {
   font-size: 11px;
-  color: var(--text, rgba(128, 128, 128, 0.7));
+  color: var(--text-subdued);
   opacity: 0.8;
   text-align: center;
 }
@@ -196,7 +196,7 @@
 .directionToggle {
   display: flex;
   gap: 6px;
-  padding: 0 var(--space-xs) 8px;
+  padding: 0 var(--space-1) 8px;
 }
 
 .directionBtn,

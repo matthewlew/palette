@@ -56,7 +56,7 @@
   border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
   color: currentColor;
   opacity: 0.65;
-  font-family: var(--mono);
+  font-family: var(--th-mono);
   font-size: 10px;
   line-height: 1;
 }

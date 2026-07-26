@@ -4,13 +4,13 @@
 .tray {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
-  gap: var(--space-sm) var(--space-md);
+  gap: var(--space-2) var(--space-3);
   justify-items: center;
   max-height: 32vh;
   overflow-y: auto;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
-  padding: var(--space-sm) var(--space-md);
+  padding: var(--space-2) var(--space-3);
 }
 
 .swatch,
@@ -18,7 +18,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-1);
   width: 40px;
   border: none;
   background: none;
@@ -42,7 +42,7 @@
 }
 
 .swatchActiveStop .swatchColor {
-  box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--text, #fff);
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--text);
   transform: scale(1.08);
 }
 
@@ -60,7 +60,7 @@
   font-size: 10px;
   line-height: 1.3;
   font-weight: 500;
-  color: var(--text, #6b6375);
+  color: var(--text-subdued);
   max-width: 40px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -71,10 +71,10 @@
   .tray {
     grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
     justify-items: center;
-    gap: var(--space-md);
+    gap: var(--space-3);
     max-height: none;
     overflow-y: visible;
-    padding: var(--space-lg) var(--space-xl);
+    padding: var(--space-4) var(--space-5);
   }
 
   /* On desktop the wrapped grid is dense and pointer users can hover: the

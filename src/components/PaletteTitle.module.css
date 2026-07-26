@@ -28,7 +28,7 @@
   height: 36px;
   max-width: 100%;
   padding: 0 16px;
-  font-family: var(--heading);
+  font-family: var(--th-display);
   font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.2px;
@@ -48,7 +48,7 @@
   height: 36px;
   width: min(70vw, 280px);
   padding: 0 16px;
-  font-family: var(--heading);
+  font-family: var(--th-display);
   font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.2px;

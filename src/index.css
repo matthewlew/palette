@@ -1,33 +1,29 @@
+/* Colour, type, spacing and radius all come from LDS now — see main.tsx for the
+   import order and index.html for the root classes.
+   `.theme-palette.mode-dark.emph-subtle` on <html> resolves the seven roles.
+
+   WHY emph-subtle AND NOT emph-plain: plain deliberately pins the LDS *grey*
+   ramp (core must not read a brand hue), which would bypass theme-palette's
+   --c-* entirely. That ramp is not decorative — it was measured FROM this app,
+   so subtle resolves to palette's own shipped values:
+       --background #1C1A20 (card surface)  --border #2E303A (dark border)
+       --text #F0F0F2        --text-subdued #ACACB7   --c-950 #101014 (canvas)
+   For a theme with no brand hue, subtle IS plain.
+
+   The old :root defined 19 vars, 6 of them dead portfolio-template leftovers
+   (--accent*, --social-bg, --shadow, --space-xxl, plus #social and <code>
+   rules for markup palette does not render). Those are gone.
+
+   The dark values used to live behind `@media (prefers-color-scheme: dark)`,
+   which was a latent bug: palette is dark-native, so on a light-preference OS
+   --bg resolved to #fff and gave white-on-white in GeometryTabs .filterActive
+   and a white EditMode sheet. Mode is now declared, not inferred. */
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
-
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
-
-  /* Spacing system */
-  --space-xs: 4px;
-  --space-sm: 8px;
-  --space-md: 12px;
-  --space-lg: 16px;
-  --space-xl: 20px;
-  --space-xxl: 24px;
-
-  font: 18px/145% var(--sans);
+  font: 18px/145% var(--th-body);
   letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
+  color-scheme: dark;
+  color: var(--text-subdued);
+  background: var(--c-950);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -35,26 +31,6 @@
 
   @media (max-width: 1024px) {
     font-size: 16px;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
   }
 }
 
@@ -93,7 +69,7 @@
   -webkit-backdrop-filter: blur(10px);
   box-shadow: none;
   color: currentColor;
-  font-family: var(--sans);
+  font-family: var(--th-body);
   font-size: 13px;
   font-weight: 600;
   display: inline-flex;
@@ -148,14 +124,14 @@ button,
 input,
 textarea,
 select {
-  font-family: var(--sans);
+  font-family: var(--th-body);
 }
 
 h1,
 h2 {
-  font-family: var(--heading);
+  font-family: var(--th-display);
   font-weight: 500;
-  color: var(--text-h);
+  color: var(--text);
 }
 
 h1 {
@@ -178,21 +154,6 @@ h2 {
 }
 p {
   margin: 0;
-}
-
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
 }
 
 /* The palette card must morph (move/resize), not cross-fade: hide the old
