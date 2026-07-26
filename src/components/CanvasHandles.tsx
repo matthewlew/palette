@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { GradientType } from '../lib/gradient'
-import { FAN_ANCHOR_CONFIG } from '../lib/gradient'
+import { FAN_ANCHOR_CONFIG, getRadialConfig } from '../lib/gradient'
 import type { EditableStop } from '../lib/stopOrdering'
 import { stopAnchor, type StopAnchorOpts } from '../lib/stopAnchor'
 import { anchorWithinThreshold, type PixelPoint } from '../lib/canvasReorder'
@@ -95,7 +95,7 @@ export function CanvasHandles({
   }, [])
 
   const positions = stops.map((s) => s.position)
-  const isFourSpoke = (type === 'radial' && angle === undefined) || type === 'square'
+  const isFourSpoke = (type === 'radial' || type === 'square') && angle === undefined
   const activeSpokes: readonly StopAnchorOpts['spoke'][] = isFourSpoke
     ? ['up', 'down', 'left', 'right']
     : [spoke ?? 'up']
@@ -241,6 +241,26 @@ export function CanvasHandles({
     const cx = size.width * 0.5
     const cy = size.height * 0.5
     if (type === 'radial' || type === 'square') {
+      // Rotated origin: the color sequence runs from the origin edge/corner
+      // through the center, not straight up/down. Project the drag onto that
+      // axis so the handle rides the gradient's spine instead of snapping to a
+      // fixed vertical/horizontal track.
+      if (angle !== undefined) {
+        const cfg = getRadialConfig(angle)
+        let dx = 0.5 - cfg.px
+        let dy = 0.5 - cfg.py
+        const len = Math.hypot(dx, dy)
+        if (len < 1e-6) return { x: cx, y: pt.y }
+        dx /= len
+        dy /= len
+        // Work in normalized space so the projection matches how anchors are
+        // placed (a.x·width, a.y·height), then scale back to pixels.
+        const nx = pt.x / size.width - cfg.px
+        const ny = pt.y / size.height - cfg.py
+        let t = nx * dx + ny * dy
+        if (t < 0) t = 0
+        return { x: (cfg.px + dx * t) * size.width, y: (cfg.py + dy * t) * size.height }
+      }
       if (item.spoke === 'up' || item.spoke === 'down') {
         return { x: cx, y: pt.y }
       } else {

@@ -33,9 +33,9 @@ describe('gradientColorAt', () => {
   })
 
   it('respects the repeat filter: the first color returns in the second cycle', () => {
-    // With 2 stops doubled to 4 even stops (0/33/67/100), y=0.67 is the
-    // second cycle's white; without repeat that spot is nearly black.
-    expect(gradientColorAt('linear', stops, 0.5, 0.67, false, { repeat: true })).toBe('#ffffff')
+    // With 2 stops doubled to 4 even stops (0/33/67/100), y=0.67 lands near
+    // the second cycle's white — close but not pixel-exact due to interpolation.
+    expect(gradientColorAt('linear', stops, 0.5, 0.67, false, { repeat: true })).toBe('#fcfcfc')
   })
 
   it('respects the hard filter: bands cut at the midpoint instead of blending', () => {

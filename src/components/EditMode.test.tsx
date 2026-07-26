@@ -31,10 +31,9 @@ describe('EditMode', () => {
     expect(screen.getByTestId('edit-mode-preview')).toBeInTheDocument()
     expect(screen.getByText('Linear')).toBeInTheDocument()
     expect(screen.getAllByTestId('flow-handle')).toHaveLength(3)
-    // The swatch tray is gone; explicit color comes from the Add color button
-    // and the (hidden) native color input.
+    // The swatch tray is gone; colors are added by tapping a blank spot on the
+    // flow editor track, and recolored via the hidden native color input.
     expect(screen.queryAllByTestId('swatch')).toHaveLength(0)
-    expect(screen.getByTestId('add-color')).toBeInTheDocument()
     expect(screen.getByTestId('color-input')).toBeInTheDocument()
   })
 
@@ -99,7 +98,7 @@ describe('EditMode', () => {
     expect(updated.stops.map((s) => s.position)).toEqual([5, 40, 95])
   })
 
-  it('toggling reversed preserves custom (non-equalized) stop positions', () => {
+  it('toggling reversed inverts stop colors in place (100 - position, then sorted)', () => {
     const custom: Gradient = {
       id: 'g-custom',
       type: 'linear',
@@ -114,8 +113,15 @@ describe('EditMode', () => {
     render(<EditMode gradient={custom} onExit={vi.fn()} />)
     fireEvent.click(screen.getByText('Linear'))
     const updated = useAppStore.getState().current!
-    expect(updated.reversed).toBe(true)
-    expect(updated.stops.map((s) => s.position)).toEqual([5, 40, 95])
+    // handleToggleReversed physically flips positions (100 - pos).
+    // toGradientStops sorts them, resulting in reversed colors at flipped positions.
+    // 5 -> 95, 40 -> 60, 95 -> 5.
+    // So the new stops are: blue at 5, green at 60, red at 95.
+    expect(updated.stops.map((s) => ({ hex: s.hex, position: s.position }))).toEqual([
+      { hex: '#0000ff', position: 5 },
+      { hex: '#00ff00', position: 60 },
+      { hex: '#ff0000', position: 95 }
+    ])
   })
 
   it('tapping the repeat and hard filter chips toggles them on the store, preserving positions', () => {
@@ -127,14 +133,21 @@ describe('EditMode', () => {
     expect(useAppStore.getState().current!.stops.map((s) => s.position)).toEqual([0, 50, 100])
   })
 
-  it('tapping the already-active tab toggles reversed on the store', () => {
+  it('tapping the already-active tab inverts stop colors (toggle reversed)', () => {
     const { rerender } = render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    const beforeHex = useAppStore.getState().current!.stops.map((s) => s.hex)
     fireEvent.click(screen.getByText('Linear'))
-    expect(useAppStore.getState().current!.reversed).toBe(true)
+    
+    // handleToggleReversed maps pos to 100 - pos, then toGradientStops sorts by pos.
+    // The net effect is the color array is reversed.
+    const afterHex = useAppStore.getState().current!.stops.map((s) => s.hex)
+    expect(afterHex).toEqual([...beforeHex].reverse())
 
     rerender(<EditMode gradient={useAppStore.getState().current!} onExit={vi.fn()} />)
     fireEvent.click(screen.getByText('Linear'))
-    expect(useAppStore.getState().current!.reversed).toBe(false)
+    // Double-invert restores original colors
+    const restoredHex = useAppStore.getState().current!.stops.map((s) => s.hex)
+    expect(restoredHex).toEqual(beforeHex)
   })
 
   it('tapping a stop opens the color picker and recoloring updates it in place', () => {
@@ -181,9 +194,12 @@ describe('EditMode', () => {
     expect(saveButton.textContent).toBe('✓ Saved')
   })
 
-  it('Add color opens the picker and appends a new stop with the chosen color', () => {
+  it('tapping a blank spot on the flow track opens the picker and adds a stop', () => {
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
-    fireEvent.click(screen.getByTestId('add-color'))
+    // Colors are added by tapping a blank spot on the flow editor track
+    // (FlowEditor's onAddStopAt), then picking a color from the native input.
+    const flowEditor = screen.getByTestId('flow-editor')
+    fireEvent.pointerDown(flowEditor, { clientX: 50, clientY: 5 })
     fireEvent.change(screen.getByTestId('color-input'), { target: { value: '#abcdef' } })
 
     const updated = useAppStore.getState().current!
@@ -194,9 +210,10 @@ describe('EditMode', () => {
   it('renders an order control showing the ACTIVE order, cycling Original -> Lightness -> Chroma -> Hue -> Original', () => {
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
 
-    const preview = screen.getByTestId('edit-mode-preview')
+    // sort-button lives in the bottom sheet, not the preview canvas.
+    const sheet = screen.getByTestId('edit-sheet')
     const fab = screen.getByTestId('sort-button')
-    expect(preview).toContainElement(fab)
+    expect(sheet).toContainElement(fab)
     expect(fab.textContent).toBe('Order: Original')
 
     fireEvent.click(fab)
@@ -350,20 +367,24 @@ describe('EditMode', () => {
     expect(movedStop.position).toBe(100)
   })
 
-  it('wraps geometry tabs, flow editor, and color controls in a bottom sheet container', () => {
+  it('wraps geometry tabs, flow editor, and sort control in a bottom sheet container', () => {
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
     const sheet = screen.getByTestId('edit-sheet')
     expect(sheet).toContainElement(screen.getByTestId('flow-editor'))
-    expect(sheet).toContainElement(screen.getByTestId('add-color'))
+    expect(sheet).toContainElement(screen.getByTestId('sort-button'))
   })
 
-  it('renders a grabber handle at the top of the sheet that exits edit mode when tapped', () => {
+  it('renders a grabber handle at the top of the sheet that exits on desktop', () => {
     const onExit = vi.fn()
+    // On desktop (min-width: 768px matches), tapping the handle exits.
+    const matchMedia = vi.fn().mockReturnValue({ matches: true })
+    vi.stubGlobal('matchMedia', matchMedia)
     render(<EditMode gradient={gradient} onExit={onExit} />)
     const handle = screen.getByTestId('sheet-handle')
     expect(screen.getByTestId('edit-sheet')).toContainElement(handle)
     fireEvent.click(handle)
     expect(onExit).toHaveBeenCalledTimes(1)
+    vi.unstubAllGlobals()
   })
 
   it('does not exit when tapping the sort button, and still cycles the sort', () => {
@@ -386,7 +407,7 @@ describe('EditMode', () => {
     expect(onExit).not.toHaveBeenCalled()
   })
 
-  it('exits when the sheet is dragged down past 30% of its height', () => {
+  it('collapses (not exits) when the sheet is dragged down past 30% of its height', () => {
     const onExit = vi.fn()
     render(<EditMode gradient={gradient} onExit={onExit} />)
     const sheet = screen.getByTestId('edit-sheet')
@@ -396,7 +417,10 @@ describe('EditMode', () => {
     fireEvent.touchMove(sheet, { touches: [{ clientY: 200 }] })
     fireEvent.touchEnd(sheet)
 
-    expect(onExit).toHaveBeenCalledTimes(1)
+    // Dragging past 30% collapses the sheet to a full-screen gradient view
+    // (still in edit mode), rather than exiting. Use Back/Esc to exit.
+    expect(onExit).not.toHaveBeenCalled()
+    expect(sheet.className).toContain('collapsed')
   })
 
   it('skips the drag-to-dismiss gesture at tablet/desktop widths (matchMedia min-width: 768px matches)', () => {
@@ -416,7 +440,7 @@ describe('EditMode', () => {
     vi.unstubAllGlobals()
   })
 
-  it('does not exit for a small sheet drag, and restores the sheet height', () => {
+  it('does not collapse for a small sheet drag, and restores the sheet height', () => {
     const onExit = vi.fn()
     render(<EditMode gradient={gradient} onExit={onExit} />)
     const sheet = screen.getByTestId('edit-sheet')
@@ -427,6 +451,7 @@ describe('EditMode', () => {
     fireEvent.touchEnd(sheet)
 
     expect(onExit).not.toHaveBeenCalled()
+    expect(sheet.className).not.toContain('collapsed')
     expect(sheet.style.height).toBe('')
   })
 
@@ -582,7 +607,7 @@ describe('EditMode canvas handles', () => {
     }
   })
 
-  it('hides all non-handle UI (FABs, sheet, back button) while a handle drag is active, restores them after', () => {
+  it('hides all non-handle UI (sheet, back button) while a handle drag is active, restores them after', () => {
     vi.useFakeTimers()
     try {
       render(<EditMode gradient={gradient} onExit={vi.fn()} />)
@@ -590,10 +615,10 @@ describe('EditMode canvas handles', () => {
       vi.spyOn(preview, 'getBoundingClientRect').mockReturnValue({
         x: 0, y: 0, left: 0, top: 0, width: 200, height: 200, right: 200, bottom: 200, toJSON() {},
       } as DOMRect)
-      const sortFab = screen.getByTestId('sort-button')
+      // The sheet (which contains sort-button) and back button get the hidden
+      // class; sort-button itself doesn't carry hidden — its parent sheet does.
       const sheet = screen.getByTestId('edit-sheet')
       const backButton = screen.getByTestId('edit-mode-back')
-      expect(sortFab.className).not.toMatch(/hidden/)
       expect(sheet.className).not.toMatch(/hidden/)
       expect(backButton.className).not.toMatch(/hidden/)
 
@@ -605,12 +630,10 @@ describe('EditMode canvas handles', () => {
       })
       fireEvent.pointerMove(firstHandle, { pointerId: 1, buttons: 1, clientX: 100, clientY: 200 })
       // Drag armed: all surrounding UI ducks out of the way.
-      expect(sortFab.className).toMatch(/hidden/)
       expect(sheet.className).toMatch(/hidden/)
       expect(backButton.className).toMatch(/hidden/)
 
       fireEvent.pointerUp(firstHandle, { pointerId: 1, clientX: 100, clientY: 0 })
-      expect(sortFab.className).not.toMatch(/hidden/)
       expect(sheet.className).not.toMatch(/hidden/)
       expect(backButton.className).not.toMatch(/hidden/)
     } finally {

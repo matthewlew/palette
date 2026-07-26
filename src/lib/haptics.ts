@@ -36,6 +36,17 @@ export function tickHaptic(): void {
   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
     navigator.vibrate(10)
   } else if (typeof document !== 'undefined') {
+    // Capture the currently focused element before .click() steals focus to
+    // the hidden checkbox input — otherwise the next keydown targets the
+    // actuator's INPUT and the Feed's inTextField guard swallows it.
+    const prev = document.activeElement as HTMLElement | null
     ensureActuator().click()
+    // Restore focus immediately so keyboard navigation continues uninterrupted.
+    if (prev && prev !== document.body) {
+      prev.focus({ preventScroll: true })
+    } else {
+      // Nothing meaningful was focused — just blur the actuator.
+      ;(document.activeElement as HTMLElement)?.blur?.()
+    }
   }
 }

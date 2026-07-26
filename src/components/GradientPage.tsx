@@ -62,6 +62,7 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
   // are rough normalized anchors — tone only needs the right neighborhood.
   const titleColor = titleColorAt(gradient, 0.5, 0.06)
   const cornerColor = titleColorAt(gradient, 0.93, 0.85)
+  const editColor = titleColorAt(gradient, 0.94, 0.5)
 
   function handlePointerDown(e: React.PointerEvent) {
     pointerStartRef.current = { x: e.clientX, y: e.clientY }
@@ -114,6 +115,7 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
           reversed={gradient.reversed}
           repeatEnabled={gradient.repeatEnabled}
           blurPx={gradient.hardStops ? 0 : undefined}
+          angle={gradient.angle}
         />
       )}
       <NoiseOverlay visible={noiseEnabled} />
@@ -125,6 +127,24 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
       />
       <GrainButton enabled={noiseEnabled} onToggle={toggleNoise} hidden={!chromeVisible} color={cornerColor} />
       <LikeButton liked={liked} onToggle={handleSave} hidden={!chromeVisible} color={cornerColor} />
+      {/* Explicit, TikTok-style edit affordance on the right rail. Tapping the
+          gradient anywhere already opens the editor, but that's not
+          discoverable — this labels the action and sits well clear of the
+          bottom tab bar. */}
+      <button
+        type="button"
+        data-testid="edit-fab"
+        aria-label="Edit gradient"
+        className={[styles.editButton, 'ghost-chip', !chromeVisible && styles.editHidden].filter(Boolean).join(' ')}
+        style={{ color: editColor }}
+        onClick={onEdit}
+      >
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M12 20h9" />
+          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+        </svg>
+        <span className={styles.editLabel}>Edit</span>
+      </button>
     </div>
   )
 }

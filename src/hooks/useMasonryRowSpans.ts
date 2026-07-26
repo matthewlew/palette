@@ -20,6 +20,7 @@ export function useMasonryRowSpans(
 ) {
   useLayoutEffect(() => {
     const container = containerRef.current
+    if (!container) return
     const children = Array.from(container.children) as HTMLElement[]
 
     if (!enabled) {

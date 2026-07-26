@@ -56,6 +56,19 @@
   transform: translateY(16px);
 }
 
+/* Collapsed: the sheet shrinks to just its grab handle so the flex:1 preview
+   fills the screen (a full-screen view that's still in edit mode). Tapping the
+   handle — which stays visible and tappable — restores the panel. */
+.sheet.collapsed {
+  max-height: 28px;
+  overflow: hidden;
+  transition: max-height 200ms ease, opacity 200ms ease, transform 200ms ease;
+}
+
+.sheet.collapsed .sheetHandle {
+  margin-bottom: 0;
+}
+
 .sheetHandle {
   width: 36px;
   height: 4px;

@@ -99,7 +99,7 @@ export function ExportModal({ gradient, onClose }: ExportModalProps) {
     <div
       style={{ position: 'absolute', inset: 0, backgroundImage: backgroundStyle }}
     >
-      {isSquare && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={8} />}
+      {isSquare && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={8} angle={gradient.angle} />}
       <div 
         style={{
           position: 'absolute',

@@ -190,9 +190,9 @@ export function Feed({ chromeVisible = true }: FeedProps) {
       const initial = current ?? { 
         ...makeGradient(typeToUse, activeColorSet), 
         angle: angleToUse,
-        hardStops: feedSession.lockedHardStops,
-        repeatEnabled: feedSession.lockedRepeatEnabled,
-        reversed: feedSession.lockedReversed
+        hardStops: feedSession.lockedHardStops ?? false,
+        repeatEnabled: feedSession.lockedRepeatEnabled ?? false,
+        reversed: feedSession.lockedReversed ?? false
       }
       feedSession.history = [initial]
       feedSession.index = 0
@@ -264,9 +264,9 @@ export function Feed({ chromeVisible = true }: FeedProps) {
       const fresh: Gradient = { 
         ...makeGradient(typeToUse, activeColorSet), 
         angle: feedSession.lockedAngle ?? (typeToUse === 'radial' ? undefined : 0),
-        hardStops: feedSession.lockedHardStops,
-        repeatEnabled: feedSession.lockedRepeatEnabled,
-        reversed: feedSession.lockedReversed
+        hardStops: feedSession.lockedHardStops ?? false,
+        repeatEnabled: feedSession.lockedRepeatEnabled ?? false,
+        reversed: feedSession.lockedReversed ?? false
       }
       history.push(fresh)
     }
@@ -499,8 +499,13 @@ export function Feed({ chromeVisible = true }: FeedProps) {
 
     function handleKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement
+      // Only block arrow keys when focus is on a text-like input — checkboxes,
+      // radios, switches (e.g. the haptic actuator) and range sliders are not
+      // text entry and should not swallow navigation keys.
+      const TEXT_INPUT_TYPES = new Set(['text', 'search', 'email', 'tel', 'url', 'password', 'number'])
+      const isTextInput = target?.tagName === 'INPUT' && TEXT_INPUT_TYPES.has((target as HTMLInputElement).type)
       const inTextField = 
-        target?.tagName === 'INPUT' ||
+        isTextInput ||
         target?.tagName === 'TEXTAREA' ||
         target?.isContentEditable
         

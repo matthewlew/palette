@@ -37,9 +37,9 @@ const dummyGradient = (type: any) => ({ id: 'g1', type, stops: dummyStops, rever
     expect(onToggleHardStops).toHaveBeenCalledTimes(1)
   })
 
-  it('disables Repeat for square/mirror, but keeps Hard available on square (Turrell reads it as crisp)', () => {
+  it('keeps Repeat and Hard available on square (Turrell reads Hard as crisp, Repeat works normally)', () => {
     render(<GeometryTabs gradient={dummyGradient('square')} stops={dummyStops} onSelectType={vi.fn()} onToggleReversed={vi.fn()} />)
-    expect(screen.getByTestId('filter-repeat')).toBeDisabled()
+    expect(screen.getByTestId('filter-repeat')).not.toBeDisabled()
     expect(screen.getByTestId('filter-hard')).not.toBeDisabled()
   })
 

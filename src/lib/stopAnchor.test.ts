@@ -26,26 +26,28 @@ describe('stopAnchor', () => {
   })
 
   it('square: each stop anchors at the middle of its color ring along the spoke', () => {
-    // TurrellSquare nests by position — higher position renders innermost.
-    // Edges at half(p)=0.5-0.4p: outer ring [0.5,0.1] -> mid 0.3 -> y 0.2;
-    // inner ring [0.1,0] -> mid 0.05 -> y 0.45.
-    const outer = stopAnchor('square', [0, 100], 0)
-    expect(outer.x).toBeCloseTo(0.5)
-    expect(outer.y).toBeCloseTo(0.2)
-    const inner = stopAnchor('square', [0, 100], 1)
+    // TurrellSquare nests by position: position 0 renders the smallest
+    // (innermost) square, 100 the largest (outermost). A stop's edge sits at
+    // h(p)=(20+0.8p)/200: pos 0 -> 0.1, pos 100 -> 0.5. So the pos-0 ring is
+    // [0,0.1] -> mid 0.05 -> y 0.45 (near center); the pos-100 ring is
+    // [0.1,0.5] -> mid 0.3 -> y 0.2 (near edge).
+    const inner = stopAnchor('square', [0, 100], 0)
     expect(inner.x).toBeCloseTo(0.5)
     expect(inner.y).toBeCloseTo(0.45)
+    const outer = stopAnchor('square', [0, 100], 1)
+    expect(outer.x).toBeCloseTo(0.5)
+    expect(outer.y).toBeCloseTo(0.2)
   })
 
-  it('square: honors all four spokes for a single stop (ring [0.5,0] -> mid 0.25)', () => {
+  it('square: honors all four spokes for a single stop (ring [0,0.1] -> mid 0.05)', () => {
     const up = stopAnchor('square', [0], 0, { spoke: 'up' })
-    expect(up.x).toBeCloseTo(0.5); expect(up.y).toBeCloseTo(0.25)
+    expect(up.x).toBeCloseTo(0.5); expect(up.y).toBeCloseTo(0.45)
     const down = stopAnchor('square', [0], 0, { spoke: 'down' })
-    expect(down.x).toBeCloseTo(0.5); expect(down.y).toBeCloseTo(0.75)
+    expect(down.x).toBeCloseTo(0.5); expect(down.y).toBeCloseTo(0.55)
     const left = stopAnchor('square', [0], 0, { spoke: 'left' })
-    expect(left.x).toBeCloseTo(0.25); expect(left.y).toBeCloseTo(0.5)
+    expect(left.x).toBeCloseTo(0.45); expect(left.y).toBeCloseTo(0.5)
     const right = stopAnchor('square', [0], 0, { spoke: 'right' })
-    expect(right.x).toBeCloseTo(0.75); expect(right.y).toBeCloseTo(0.5)
+    expect(right.x).toBeCloseTo(0.55); expect(right.y).toBeCloseTo(0.5)
   })
 
   it('angular: spreads stops evenly by index around the circle, clockwise from the top', () => {

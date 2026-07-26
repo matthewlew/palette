@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Gradient } from '../store/types'
 import type { GradientType } from '../lib/gradient'
+import { COLOR_NOUNS, type HueFamily } from '../lib/namingWords'
 import styles from './SearchBar.module.css'
 
 interface SearchBarProps {
@@ -30,7 +31,33 @@ export function SearchBar({ onResults }: SearchBarProps) {
           
         const words = query.trim().split(/\s+/)
         for (const word of words) {
-          queryBuilder = queryBuilder.ilike('display_name', `%${word}%`)
+          const lowerWord = word.toLowerCase()
+          
+          let familyKey: HueFamily | null = null
+          if (lowerWord === 'red') familyKey = 'red'
+          else if (lowerWord === 'orange') familyKey = 'orange'
+          else if (lowerWord === 'amber') familyKey = 'amber'
+          else if (lowerWord === 'yellow') familyKey = 'yellow'
+          else if (lowerWord === 'lime') familyKey = 'lime'
+          else if (lowerWord === 'green') familyKey = 'green'
+          else if (lowerWord === 'teal') familyKey = 'teal'
+          else if (lowerWord === 'cyan' || lowerWord === 'blue') familyKey = lowerWord === 'cyan' ? 'cyanBlue' : 'blue'
+          else if (lowerWord === 'violet') familyKey = 'violet'
+          else if (lowerWord === 'purple') familyKey = 'purple'
+          else if (lowerWord === 'pink') familyKey = 'pink'
+          else if (['neutral', 'grey', 'gray', 'black', 'white'].includes(lowerWord)) familyKey = 'neutral'
+
+          if (familyKey) {
+            const nouns = [
+              ...COLOR_NOUNS[familyKey].dark,
+              ...COLOR_NOUNS[familyKey].mid,
+              ...COLOR_NOUNS[familyKey].light
+            ]
+            const orString = `display_name.ilike.%${word}%,` + nouns.map(n => `display_name.ilike.%${n}%`).join(',')
+            queryBuilder = queryBuilder.or(orString)
+          } else {
+            queryBuilder = queryBuilder.ilike('display_name', `%${word}%`)
+          }
         }
         
         const { data, error } = await queryBuilder.limit(20)
@@ -91,6 +118,22 @@ export function SearchBar({ onResults }: SearchBarProps) {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
+      {query && !loading && (
+        <button
+          type="button"
+          className={styles.clearButton}
+          onClick={() => {
+            setQuery('')
+            onResults(null)
+          }}
+          aria-label="Clear search"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      )}
       {loading && <span className={styles.loading}>Searching...</span>}
     </div>
   )

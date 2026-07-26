@@ -20,6 +20,7 @@ export function FlowEditor({ stops, onMove, onTapStop, onRemoveStop, onAddStopAt
   const trackRef = containerRef ?? (internalRef as RefObject<HTMLDivElement>)
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null)
   const draggingIdRef = useRef<string | null>(null)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
   const [removeCandidateId, setRemoveCandidateId] = useState<string | null>(null)
 
   // Horizontal strip: left-to-right mirrors the stop positions 0-100.
@@ -38,6 +39,7 @@ export function FlowEditor({ stops, onMove, onTapStop, onRemoveStop, onAddStopAt
   function handlePointerDown(e: React.PointerEvent, id: string) {
     pointerStartRef.current = { x: e.clientX, y: e.clientY }
     draggingIdRef.current = id
+    setDraggingId(id)
     const target = e.target as Element
     if (typeof target.setPointerCapture === 'function') {
       target.setPointerCapture(e.pointerId)
@@ -62,6 +64,7 @@ export function FlowEditor({ stops, onMove, onTapStop, onRemoveStop, onAddStopAt
   function handlePointerUp(e: React.PointerEvent, id: string) {
     const start = pointerStartRef.current
     draggingIdRef.current = null
+    setDraggingId(null)
     pointerStartRef.current = null
     setRemoveCandidateId(null)
     if (!start) return
@@ -112,6 +115,7 @@ export function FlowEditor({ stops, onMove, onTapStop, onRemoveStop, onAddStopAt
           className={stop.id === activeStopId ? `${styles.handle} ${styles.handleActive}` : styles.handle}
           style={{
             left: `${stop.position}%`,
+            transition: draggingId === stop.id ? 'none' : 'left 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.2s, background-color 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)',
             backgroundColor: stop.hex,
             opacity: removeCandidateId === stop.id ? 0.35 : 1,
             transform: removeCandidateId === stop.id

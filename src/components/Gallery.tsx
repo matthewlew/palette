@@ -588,15 +588,23 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
 
   const filtered = saved.filter((gradient) => matchesFilters(gradient, typeFilter))
   const filteredCommunity = communityGradients.filter((gradient) => matchesFilters(gradient, typeFilter))
-  const currentViewGradients = activeTab === 'community' ? filteredCommunity : filtered
-  const hasFilters = typeFilter !== null
-
   // Lookup + active-collection membership for the collections layer.
   const gradientsById = Object.fromEntries(saved.map((g) => [g.id, g])) as Record<string, Gradient>
   const activeCol = collectionView ? collections.find((c) => c.id === collectionView) ?? null : null
   const members = activeCol
     ? activeCol.gradientIds.map((id) => gradientsById[id]).filter(Boolean) as Gradient[]
     : []
+
+  const hasFilters = typeFilter !== null
+
+  let currentViewGradients = activeTab === 'community' ? filteredCommunity : filtered
+  if (searchResults) {
+    currentViewGradients = searchResults
+  } else if (activeCol) {
+    currentViewGradients = members
+  }
+
+
 
   const gridRef = useRef<HTMLDivElement>(null)
 
@@ -767,7 +775,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
               <p className={styles.onboardingSub}>No palettes found for that name.</p>
             </div>
           ) : (
-            <div className={galleryLayout === 'masonry' ? styles.masonryGrid : styles.grid}>
+            <div ref={gridRef} className={galleryLayout === 'masonry' ? styles.masonryGrid : styles.grid}>
               {searchResults.map((g, i) => (
                 <Tile
                   key={g.id}
@@ -835,7 +843,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
               Open in feed
             </button>
           </div>
-          <div className={galleryLayout === 'masonry' ? styles.masonryGrid : styles.grid}>
+          <div ref={gridRef} className={galleryLayout === 'masonry' ? styles.masonryGrid : styles.grid}>
             {members.map((g, i) => (
               <Tile
                 key={g.id}

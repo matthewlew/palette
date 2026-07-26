@@ -76,18 +76,50 @@ export function stopAnchor(
       return { x: 0.5 + v.dx * p, y: 0.5 + v.dy * p }
     }
     case 'square': {
-      // TurrellSquare nests by position: a stop at position p renders a
-      // centered square of side (100 - 0.8p)%, so its edge sits at distance
-      // half(p) = 0.5 - 0.4p from center. Each color is visible in the ring
-      // between its own edge and the next (smaller) stop's edge; the innermost
-      // stop fills to the center. Anchor each handle at the MIDDLE of its ring
-      // along the chosen spoke, so the dots land on the color blocks (this is
-      // most visible with hard stops, where the rings are crisp).
-      const v = SPOKE_VECTOR[opts.spoke ?? 'up']
-      const half = (pos: number) => 0.5 - 0.4 * (pos / 100)
-      const outer = half(positions[index])
-      const inner = index < positions.length - 1 ? half(positions[index + 1]) : 0
+      // TurrellSquare nests by position: a stop at position p renders a square
+      // of side (20 + 0.8p)% about the origin, so its half-extent from the
+      // origin is h(p) = (20 + 0.8p)/200. Each color is visible in the ring
+      // between the next (smaller) stop's edge and its own; anchor each handle
+      // at the MIDDLE of its ring so the dots land on the color blocks (most
+      // visible with hard stops, where the rings are crisp).
+      const h = (pos: number) => (20 + 0.8 * pos) / 200
+      const outer = h(positions[index])
+      // A stop's color is visible in the ring between its own square's edge and
+      // the edge of the largest square smaller than it (the innermost stop fills
+      // to the center, inner = 0). Scanning for that neighbor — rather than
+      // assuming array index+1 is it — keeps the handle on the color regardless
+      // of stop order.
+      let inner = 0
+      for (let j = 0; j < positions.length; j++) {
+        const hj = h(positions[j])
+        if (hj < outer && hj > inner) inner = hj
+      }
       const r = (outer + inner) / 2
+      if (opts.angle !== undefined) {
+        // Rotated origin: place along the axis from the origin toward center,
+        // matching the rotated nest (see the radial angle branch). The nest
+        // stretches to the farthest corner along that axis (R), so scale the
+        // ring radius by R — otherwise the dots bunch near the origin while the
+        // color bands reach the canvas edges.
+        const config = getRadialConfig(opts.angle)
+        const px = config.px
+        const py = config.py
+        let vx = 0.5 - px
+        let vy = 0.5 - py
+        const len = Math.hypot(vx, vy)
+        if (len > 0) {
+          vx /= len
+          vy /= len
+        }
+        let R = 0
+        for (const [cx, cy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+          const proj = (cx - px) * vx + (cy - py) * vy
+          if (proj > R) R = proj
+        }
+        const d = 2 * r * R
+        return { x: px + vx * d, y: py + vy * d }
+      }
+      const v = SPOKE_VECTOR[opts.spoke ?? 'up']
       return { x: 0.5 + v.dx * 2 * r, y: 0.5 + v.dy * 2 * r }
     }
     case 'angular': {

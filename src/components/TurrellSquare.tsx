@@ -1,5 +1,5 @@
 import type { GradientStop } from '../lib/gradient'
-import { repeatedStops } from '../lib/gradient'
+import { repeatedStops, getRadialConfig } from '../lib/gradient'
 import styles from './TurrellSquare.module.css'
 
 interface TurrellSquareProps {
@@ -7,28 +7,53 @@ interface TurrellSquareProps {
   reversed?: boolean
   blurPx?: number
   repeatEnabled?: boolean
+  /** Origin of the nested squares, mirroring the radial rotate cycle: undefined
+   * = centered; a degree (0/45/…/315) anchors the nest at that edge/corner. */
+  angle?: number
 }
 
-export function TurrellSquare({ stops: initialStops, reversed = false, blurPx, repeatEnabled = false }: TurrellSquareProps) {
+export function TurrellSquare({ stops: initialStops, reversed = false, blurPx, repeatEnabled = false, angle }: TurrellSquareProps) {
   const stops = repeatEnabled ? repeatedStops(initialStops) : initialStops
 
-  // To match radial gradients, position 0 is the center (innermost) and position 100 
+  // Where the nested squares converge. Center (undefined) keeps the classic
+  // Turrell; an angle shifts the shared center to that edge/corner so the
+  // smallest square hugs the origin — the square analogue of a radial origin.
+  const origin = getRadialConfig(angle)
+  const originX = `${origin.px * 100}%`
+  const originY = `${origin.py * 100}%`
+
+  // Reach to the farthest edge on each axis from the origin. A centered origin
+  // gives 0.5 (the classic square that just fills the canvas); an edge/corner
+  // origin grows toward 1.0 so the outermost square still spans the whole
+  // canvas — the way an off-center radial gradient still reaches the farthest
+  // corner instead of leaving a flat band of the last color.
+  const reachX = Math.max(origin.px, 1 - origin.px)
+  const reachY = Math.max(origin.py, 1 - origin.py)
+
+  // To match radial gradients, position 0 is the center (innermost) and position 100
   // is the edge (outermost). reversed swaps which color fills which stop.
   const hexes = reversed ? [...stops].map((s) => s.hex).reverse() : stops.map((s) => s.hex)
 
-  // Map stops to their visual layer properties. Position 0 = 20% size, Position 100 = 100% size.
+  // Each stop's half-extent scales with position (0.2 of the reach at pos 0, up
+  // to the full reach at pos 100), then the size is that half-extent doubled and
+  // taken per-axis so the nest fills the canvas from any origin.
   const layers = stops.map((stop, i) => {
-    const scalePercent = stops.length <= 1 ? 100 : 20 + (stop.position / 100) * 80
+    const factor = stops.length <= 1 ? 1 : 0.2 + (stop.position / 100) * 0.8
+    // Round to shed floating-point noise (0.2 + 0.16 = 0.36000…1) so the inline
+    // sizes stay tidy.
+    const round = (n: number) => Math.round(n * 1e4) / 1e4
     return {
       id: i,
       hex: hexes[i],
-      scalePercent
+      factor,
+      widthPercent: round(2 * reachX * factor * 100),
+      heightPercent: round(2 * reachY * factor * 100),
     }
   })
 
   // To prevent smaller inner layers from being covered by larger outer layers, we must
-  // render them in DOM order from largest to smallest (descending scalePercent).
-  const sortedLayers = [...layers].sort((a, b) => b.scalePercent - a.scalePercent)
+  // render them in DOM order from largest to smallest (descending size).
+  const sortedLayers = [...layers].sort((a, b) => b.factor - a.factor)
   const outerHex = sortedLayers.length > 0 ? sortedLayers[0].hex : 'transparent'
 
   return (
@@ -42,7 +67,8 @@ export function TurrellSquare({ stops: initialStops, reversed = false, blurPx, r
       {sortedLayers.map((layer, index) => {
         const isOutermost = index === 0
         const bleedPx = (blurPx ?? 24) * 4
-        const size = isOutermost ? `calc(100% + ${bleedPx}px)` : `${layer.scalePercent}%`
+        const width = isOutermost ? `calc(${layer.widthPercent}% + ${bleedPx}px)` : `${layer.widthPercent}%`
+        const height = isOutermost ? `calc(${layer.heightPercent}% + ${bleedPx}px)` : `${layer.heightPercent}%`
         return (
           <div
             key={layer.id}
@@ -50,8 +76,10 @@ export function TurrellSquare({ stops: initialStops, reversed = false, blurPx, r
             className={styles.layer}
             style={{
               backgroundColor: layer.hex,
-              width: size,
-              height: size,
+              width,
+              height,
+              left: originX,
+              top: originY,
               filter: blurPx != null ? `blur(${blurPx}px)` : undefined,
             }}
           />

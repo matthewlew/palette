@@ -119,7 +119,6 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   const titleColor = titleColorAt(gradient, 0.5, 0.06)
   const shareColor = titleColorAt(gradient, 0.94, 0.06)
   const cornerColor = titleColorAt(gradient, 0.93, 0.88)
-  const sortColor = titleColorAt(gradient, 0.12, 0.93)
 
   // Scroll, drag, and keyboard navigation state for editing
   const [tickerIndex, setTickerIndex] = useState(() => feedSession.index)
@@ -410,8 +409,12 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement
+      // Only block when focus is on a text-like input — checkboxes, switches
+      // (e.g. the haptic actuator), and range sliders should not swallow keys.
+      const TEXT_INPUT_TYPES = new Set(['text', 'search', 'email', 'tel', 'url', 'password', 'number'])
+      const isTextInput = target?.tagName === 'INPUT' && TEXT_INPUT_TYPES.has((target as HTMLInputElement).type)
       const inTextField =
-        target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable
+        isTextInput || target?.tagName === 'TEXTAREA' || target?.isContentEditable
 
       // Escape works even while a button holds focus (e.g. right after
       // clicking Save) — only text fields own it, for cancelling their own
