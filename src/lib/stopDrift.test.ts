@@ -9,11 +9,68 @@ const stops = (...positions: number[]): GradientStop[] =>
 const FRAMES = Array.from({ length: 800 }, (_, i) => i * 50) // 0–40s at 50ms
 
 describe('driftStops', () => {
-  it('never changes a colour', () => {
+  it('leaves a colour alone whenever its neighbours are clear', () => {
+    // The palette is only ever touched inside a crossing. Away from one, every
+    // stop must still be exactly the hex the user picked.
     const input = stops(0, 40, 80)
+    const originals = new Set(input.map((s) => s.hex))
+    let untouchedFrames = 0
     for (const t of FRAMES) {
-      expect(driftStops(input, t).map((s) => s.hex)).toEqual(input.map((s) => s.hex))
+      const out = driftStops(input, t)
+      const gaps = out.slice(1).map((s, i) => s.position - out[i].position)
+      if (Math.min(...gaps) >= 8) {
+        expect(out.every((s) => originals.has(s.hex))).toBe(true)
+        untouchedFrames++
+      }
     }
+    expect(untouchedFrames).toBeGreaterThan(0)
+  })
+
+  it('lets stops cross, so the ramp actually reorders', () => {
+    // The old behaviour clamped amplitude below half the gap precisely so this
+    // could never happen; it is now the point.
+    // Sampled over three minutes, not FRAMES' forty seconds: a reorder needs the
+    // two stops' independent periods to line up, which for a widely spaced ramp
+    // is roughly once a minute. Measured across five ramp shapes it is 14–65
+    // reorders per ten minutes, so this is frequent, not marginal.
+    const input = stops(0, 40, 80)
+    const longRun = Array.from({ length: 3600 }, (_, i) => i * 50) // 0–180s
+    const orders = new Set(longRun.map((t) => driftStops(input, t).map((s) => s.hex).join('>')))
+    expect(orders.size).toBeGreaterThan(1)
+  })
+
+  it('dissolves a converging pair instead of cutting between them', () => {
+    // At the tightest approach the two must have moved toward each other's
+    // colour, so there is no hard edge at the moment they swap.
+    const input = stops(0, 40, 52, 100)
+    let tightest = Infinity
+    let atTightest: ReturnType<typeof driftStops> = []
+    for (const t of FRAMES) {
+      const out = driftStops(input, t)
+      const gaps = out.slice(1).map((s, i) => s.position - out[i].position)
+      const min = Math.min(...gaps)
+      if (min < tightest) { tightest = min; atTightest = out }
+    }
+    expect(tightest).toBeLessThan(2)
+    const originals = new Set(input.map((s) => s.hex))
+    const blended = atTightest.filter((s) => !originals.has(s.hex))
+    expect(blended.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('brings a coincident pair to the same colour, which is what removes the cut', () => {
+    const input = stops(0, 40, 52, 100)
+    let closest = Infinity
+    let pair: [string, string] = ['', '']
+    for (const t of FRAMES) {
+      const out = driftStops(input, t)
+      for (let i = 0; i < out.length - 1; i++) {
+        const gap = out[i + 1].position - out[i].position
+        if (gap < closest) { closest = gap; pair = [out[i].hex, out[i + 1].hex] }
+      }
+    }
+    // At coincidence the two resolve to the SAME hex. That is precisely what
+    // removes the cut: there is no edge left to see at the moment they swap.
+    expect(pair[0]).toBe(pair[1])
   })
 
   it('keeps stops in ascending order at every frame', () => {
@@ -73,22 +130,25 @@ describe('isDriftableType', () => {
 
 describe('amplitudeFor', () => {
   it('gives a crowded stop almost no room', () => {
-    // 19.3 and 19.85 are 0.55 apart; neither may travel far enough to meet.
+    // 19.3 and 19.85 are 0.55 apart. Travel stays proportional to that gap, so
+    // a tight pair still moves tightly — but it may now just reach its
+    // neighbour and trade places, where before it was clamped short on purpose.
     const input = stops(0, 19.3, 19.85)
-    expect(amplitudeFor(input, 1)).toBeLessThan(0.3)
-    expect(amplitudeFor(input, 2)).toBeLessThan(0.3)
+    const a = amplitudeFor(input, 1)
+    expect(a).toBeLessThan(0.6)
+    expect(2 * a).toBeGreaterThan(0.55)
   })
 
   it('caps a roomy stop at the maximum rather than letting it roam', () => {
-    expect(amplitudeFor(stops(0, 50, 100), 1)).toBe(6)
+    expect(amplitudeFor(stops(0, 50, 100), 1)).toBe(26)
   })
 
   it('measures the end stops against the 0 and 100 boundaries', () => {
     // A stop sitting on 0 has no room on its left, so it cannot move at all.
     expect(amplitudeFor(stops(0, 50, 100), 0)).toBe(0)
     // A stop at 10 is bounded by the boundary (10) rather than by its
-    // neighbour (40), so it gets 10 * NEIGHBOUR_HEADROOM.
-    expect(amplitudeFor(stops(10, 50, 90), 0)).toBeCloseTo(4.2, 5)
+    // neighbour (40), so it gets 10 * NEIGHBOUR_REACH.
+    expect(amplitudeFor(stops(10, 50, 90), 0)).toBeCloseTo(9.5, 5)
   })
 })
 

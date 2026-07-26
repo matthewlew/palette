@@ -367,9 +367,21 @@
 }
 
 /* Bottom-right action cluster, mirroring the create flow's Save pill. */
+/* Sits ABOVE the global TabBar rather than beside it.
+ *
+ * TabBar is fixed, centred (left:50% + translateX(-50%)) and 18px off the
+ * bottom; this bar is absolute and right-anchored at the same height. Neither
+ * reserved space for the other, so once the viewer showed three actions the
+ * centred bar's right edge ran into this bar's left edge — measured at 731px
+ * wide, "Create" (398–473) overlapped "✓ Saved" (461–553) by 12px, and since
+ * TabBar is z-index 30 against this bar's 3, it drew over the tick.
+ *
+ * Stacked rather than nudged sideways: the collision is width-dependent, so any
+ * horizontal offset only moves the width at which it reappears. 18px bottom +
+ * ~44px pill + 12px gap clears it at every width. */
 .viewerActionsBar {
   position: absolute;
-  bottom: calc(16px + env(safe-area-inset-bottom));
+  bottom: calc(74px + env(safe-area-inset-bottom));
   right: 16px;
   z-index: 3;
   display: flex;

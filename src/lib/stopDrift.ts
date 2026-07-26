@@ -1,11 +1,22 @@
+import { blendOklabHex } from './oklch'
 import type { GradientStop, GradientType } from './gradient'
 
 /* Slow, endless motion for a gradient's stops.
  *
- * Only POSITIONS move. The hexes are untouched, so an animating gradient is
- * always still the palette the user chose — it is the same colors breathing,
- * not a different gradient. That is what makes it usable as a wallpaper rather
- * than as an effect.
+ * Stops MOVE and they CROSS. When two of them meet they trade places, so the
+ * ramp genuinely reorders over a cycle rather than breathing in place — that is
+ * what stops a long-running gradient reading as static.
+ *
+ * Colours are touched only in the moment of a crossing. As a pair converges the
+ * two dissolve toward each other, so at coincidence they are the same colour and
+ * there is no hard edge; as they separate the swap has already happened. Away
+ * from a crossing every stop is exactly the hex the user chose, and because the
+ * motion is sinusoidal the palette returns home every cycle.
+ *
+ * This is a deliberate reversal. The first version clamped amplitude below half
+ * the neighbour gap precisely so stops could never meet, on the grounds that a
+ * converging pair collapses to a hard edge. That is true of a naive crossing —
+ * the dissolve is what makes it survivable.
  *
  * Everything here is a pure function of (stops, elapsed ms). No internal state,
  * no Math.random, so the same moment always renders the same frame — which is
@@ -20,14 +31,29 @@ const PERIOD_MIN_MS = 17_000
 const PERIOD_SPREAD_MS = 23_000
 
 /** Ceiling on how far a stop may travel from home, in position units (0–100).
- * The real limit is usually the neighbour clamp below; this only caps stops
- * that have lots of room. */
-const MAX_AMPLITUDE = 6
+ * Raised from 6, which was tuned for breathing-in-place. Two adjacent stops a
+ * gap G apart cross only when 2A > G, so the ceiling decides which ramps can
+ * reorder at all. At 6 nothing did; at 18 a 40-unit gap still closed to 4 and
+ * stopped — measured, not guessed. 26 crosses gaps up to ~52, which covers the
+ * ordinary 3–5 stop ramp, while a very wide pair still just breathes. The rate
+ * stays gentle: a full cycle is 17–40s. */
+const MAX_AMPLITUDE = 26
 
-/** Fraction of the distance to its nearest neighbour a stop may use. Below 0.5
- * two adjacent stops travelling toward each other can never meet, so the ramp
- * can never invert or collapse to a hard edge mid-animation. */
-const NEIGHBOUR_HEADROOM = 0.42
+/** Fraction of the distance to its nearest neighbour a stop may use. Above 0.5,
+ * so two stops travelling toward each other MEET and pass; the old value of 0.42
+ * was chosen to guarantee they never could. */
+const NEIGHBOUR_REACH = 0.95
+
+/** Separation, in position units, at which a converging pair starts to dissolve
+ * into each other. Wide enough that the swap reads as a fade rather than a cut,
+ * narrow enough that stops show their own colour the rest of the time. */
+const DISSOLVE_WINDOW = 8
+
+/** Smoothstep, so the dissolve eases in and out instead of ramping linearly —
+ * a linear fade still announces its start and end. */
+function smoothstep(t: number): number {
+  return t * t * (3 - 2 * t)
+}
 
 /** Per-stop period. Index-derived via an odd multiplier so adjacent stops never
  * share a speed — if they did they would move in lockstep and the whole ramp
@@ -49,27 +75,46 @@ export function amplitudeFor(stops: readonly GradientStop[], index: number): num
   const leftGap = index === 0 ? here : here - stops[index - 1].position
   const rightGap = index === stops.length - 1 ? 100 - here : stops[index + 1].position - here
   const room = Math.min(leftGap, rightGap)
-  return Math.max(0, Math.min(MAX_AMPLITUDE, room * NEIGHBOUR_HEADROOM))
+  return Math.max(0, Math.min(MAX_AMPLITUDE, room * NEIGHBOUR_REACH))
 }
 
 /**
  * The gradient's stops as they sit `elapsed` ms into the animation.
  *
- * Each stop rides its own sine wave, so the ramp breathes unevenly rather than
- * sliding as a unit. Amplitude is bounded per stop by the distance to its
- * nearest neighbour, which means a tightly clustered pair (palette allows two
- * stops half a unit apart) barely moves — correctly, since moving it would
- * redraw the design rather than animate it.
+ * Each stop rides its own sine wave, so the ramp reorders unevenly rather than
+ * sliding as a unit. Adjacent stops are then dissolved through any crossing, and
+ * the result is sorted — CSS requires ascending positions, and after a crossing
+ * the input order is no longer ascending.
  */
 export function driftStops(stops: readonly GradientStop[], elapsedMs: number): GradientStop[] {
-  return stops.map((stop, i) => {
+  const moved = stops.map((stop, i) => {
     const amplitude = amplitudeFor(stops, i)
     if (amplitude === 0) return { ...stop }
     const angle = (elapsedMs / periodFor(i)) * Math.PI * 2 + phaseFor(i)
     const position = stop.position + Math.sin(angle) * amplitude
-    // The clamp is a backstop; the amplitude bound already keeps this in range.
     return { ...stop, position: Math.min(100, Math.max(0, position)) }
   })
+
+  // Dissolve converging pairs.
+  //
+  // Only ADJACENT pairs, and adjacent by the ORIGINAL index rather than by
+  // current position: those are the two that are actually trading places. Using
+  // current neighbours would re-pair the stops mid-crossing and blend a stop
+  // against whichever one it had just passed.
+  //
+  // Both sides read from `moved`, never from the partially blended output, so
+  // the fade is symmetric — at coincidence each is the same 50/50 mix and the
+  // pair is one colour, which is the whole point: no hard edge to cut through.
+  const blended = moved.map((s) => ({ ...s }))
+  for (let i = 0; i < moved.length - 1; i++) {
+    const separation = Math.abs(moved[i].position - moved[i + 1].position)
+    if (separation >= DISSOLVE_WINDOW) continue
+    const t = 0.5 * smoothstep(1 - separation / DISSOLVE_WINDOW)
+    blended[i].hex = blendOklabHex(moved[i].hex, moved[i + 1].hex, t)
+    blended[i + 1].hex = blendOklabHex(moved[i + 1].hex, moved[i].hex, t)
+  }
+
+  return blended.sort((a, b) => a.position - b.position)
 }
 
 /** Types whose CSS is actually built from stop positions.
