@@ -83,4 +83,22 @@ describe('canvasExport rendering', () => {
     // 2 stops + 1 tail stop that holds the last color across the lower half.
     expect(mockAddColorStop).toHaveBeenCalledTimes(3)
   })
+
+  it('adds more color stops for a smoothed linear gradient', () => {
+    const mockAddColorStop = vi.fn()
+    const mockContext = {
+      fillRect: vi.fn(),
+      createLinearGradient: vi.fn().mockReturnValue({ addColorStop: mockAddColorStop }),
+      fillStyle: '',
+    }
+    const canvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn().mockReturnValue(mockContext),
+    } as unknown as HTMLCanvasElement
+
+    renderGradientToCanvas(canvas, { ...gradient, smoothEnabled: true }, 1200, 800)
+
+    expect(mockAddColorStop.mock.calls.length).toBeGreaterThan(2)
+  })
 })

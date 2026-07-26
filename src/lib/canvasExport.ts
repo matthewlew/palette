@@ -7,6 +7,7 @@ import {
   getFanConfig,
   FAN_ANCHOR_CONFIG,
   getRadialConfig,
+  smoothStops,
 } from './gradient'
 
 function getLinearGradientCoords(angle: number = 0, width: number, height: number) {
@@ -45,6 +46,7 @@ export function renderGradientToCanvas(
     reversed = false,
     repeatEnabled = false,
     hardStops = false,
+    smoothEnabled = false,
     angle,
     fanAnchor,
   } = gradient
@@ -61,6 +63,7 @@ export function renderGradientToCanvas(
   if (type !== 'square' && type !== 'mirror' && type !== 'repeat') {
     if (repeatEnabled) stops = repeatedStops(stops)
     if (hardStops) stops = hardenStops(stops)
+    if (smoothEnabled && !hardStops) stops = smoothStops(stops)
   }
 
   // Clear background
