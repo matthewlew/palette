@@ -105,7 +105,10 @@ function buildSvg(row: Row): string {
     const cx = origin.px * w
     const cy = origin.py * h
     const layers = colors
-      .map((hex, i) => ({ hex, factor: n <= 1 ? 1 : 0.2 + (offsets[i] / 100) * 0.8 }))
+      // Mirrors turrellExtent in src/lib/gradient.ts. Kept as a literal because
+      // this is a separate Deno runtime with no access to the app's modules —
+      // if TURRELL_EXTENT_FLOOR changes there, change 0.1/0.9 here too.
+      .map((hex, i) => ({ hex, factor: n <= 1 ? 1 : 0.1 + (offsets[i] / 100) * 0.9 }))
       .sort((a, b) => b.factor - a.factor) // largest first
     const rects = layers.map(({ hex, factor }) => {
       const rw = 2 * reachX * factor * w

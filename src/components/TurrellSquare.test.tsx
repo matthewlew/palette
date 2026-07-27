@@ -55,7 +55,10 @@ describe('TurrellSquare', () => {
     for (let i = 1; i < sizes.length; i++) {
       expect(sizes[i]).toBeLessThan(sizes[i - 1])
     }
-    expect(sizes[sizes.length - 1]).toBe(20) // Position 0 is 20%
+    // Position 0 is TURRELL_EXTENT_FLOOR of the reach, doubled to a width.
+    // Was 20%, which damped a stop's travel to 80% of the range and made the
+    // control feel unresponsive next to linear or radial.
+    expect(sizes[sizes.length - 1]).toBe(10)
   })
 
   it('handles a single stop without dividing by zero, rendering it beyond full size', () => {
@@ -77,8 +80,8 @@ describe('TurrellSquare', () => {
     const layers = screen.getAllByTestId('turrell-layer')
     // DOM rendering: pos 90 (layers[0]), pos 20 (layers[1]), pos 10 (layers[2])
     // layers[0] bleeds past 100% so check layers 1 and 2 directly.
-    expect(layers[1].style.width).toBe(`${20 + (20 / 100) * 80}%`) // 36%
-    expect(layers[2].style.width).toBe(`${20 + (10 / 100) * 80}%`) // 28%
+    expect(layers[1].style.width).toBe(`${10 + (20 / 100) * 90}%`) // 28%
+    expect(layers[2].style.width).toBe(`${10 + (10 / 100) * 90}%`) // 19%
     
     const gapNear = Math.abs(parseFloat(layers[1].style.width) - parseFloat(layers[2].style.width))
     // Virtual size for layers[0] without bleed would be 92%.

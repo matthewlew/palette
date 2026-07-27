@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildGradientCss, gradientColorAt, nextRotationAngle, SELECTABLE_GEOMETRY, smoothStops, SMOOTH_SAMPLES_PER_SEGMENT, type GradientStop } from './gradient'
+import { buildGradientCss, gradientColorAt, nextRotationAngle, SELECTABLE_GEOMETRY, smoothStops, SMOOTH_SAMPLES_PER_SEGMENT, turrellExtent, type GradientStop } from './gradient'
 
 const stops: GradientStop[] = [
   { hex: '#ff0000', position: 0 },
@@ -310,5 +310,87 @@ describe('buildGradientCss smooth filter', () => {
     expect(buildGradientCss('square', bw, false, { smooth: true })).toBe(
       buildGradientCss('square', bw)
     )
+  })
+})
+
+/* Stop positions have to actually move the gradient.
+ *
+ * Three geometries used to discard or damp them, each for its own reason, and
+ * the shared symptom was that dragging a stop leftward on mirror or angular
+ * did not move the ramp the way it does on linear, radial or fan. */
+describe('every geometry responds to a dragged stop', () => {
+  const at = (...positions: number[]): GradientStop[] =>
+    positions.map((position, i) => ({ hex: ['#ff0000', '#00ff00', '#0000ff'][i], position }))
+
+  it('gives DIFFERENT css for a shifted ramp, in every selectable geometry', () => {
+    // square renders through TurrellSquare rather than this CSS, so it is
+    // covered by its own component test instead.
+    for (const type of SELECTABLE_GEOMETRY.filter((t) => t !== 'square')) {
+      expect(
+        buildGradientCss(type, at(0, 50, 100), false, {}),
+        `${type} should respond to a moved stop`,
+      ).not.toBe(buildGradientCss(type, at(0, 20, 100), false, {}))
+    }
+  })
+
+  it('mirror is no longer invariant to shifting or stretching the whole ramp', () => {
+    // It normalized min-max onto 0-100 before folding, so all three of these
+    // produced byte-identical CSS and dragging either END stop did nothing.
+    const shapes = [at(0, 50, 100), at(10, 50, 90), at(30, 65, 100)]
+    const rendered = shapes.map((s) => buildGradientCss('mirror', s, false, {}))
+    expect(new Set(rendered).size).toBe(3)
+  })
+
+  it('mirror still renders the classic ramp exactly as it always did', () => {
+    // The reversal has to be a strict generalisation: a ramp that already fills
+    // 0-100 is unchanged, so no saved gradient shifts under it.
+    expect(buildGradientCss('mirror', at(0, 50, 100), false, {})).toBe(
+      'linear-gradient(180deg, #ff0000 0%, #00ff00 25%, #0000ff 50%, #00ff00 75%, #ff0000 100%)',
+    )
+  })
+
+  it('mirror holds the last colour flat across the fold when the ramp stops short', () => {
+    // The old normalization existed to avoid a gap here. Reflecting the fold
+    // stop closes it without stretching the ramp: blue runs 35% to 65%.
+    const css = buildGradientCss('mirror', at(0, 50, 70), false, {})
+    expect(css).toBe(
+      'linear-gradient(180deg, #ff0000 0%, #00ff00 25%, #0000ff 35%, #0000ff 65%, #00ff00 75%, #ff0000 100%)',
+    )
+  })
+
+  it('mirror stays a palindrome about the 50% line', () => {
+    for (const shape of [at(0, 50, 100), at(10, 50, 90), at(0, 20, 70)]) {
+      const css = buildGradientCss('mirror', shape, false, {})
+      const positions = [...css.matchAll(/ (-?[\d.]+)%/g)].map((m) => parseFloat(m[1]))
+      expect(positions).toEqual([...positions].reverse().map((p) => 100 - p))
+    }
+  })
+
+  it('angular still renders the evenly spaced ramp exactly as it always did', () => {
+    expect(buildGradientCss('angular', at(0, 50, 100), false, {})).toBe(
+      'conic-gradient(from 0deg, #ff0000 0%, #00ff00 33%, #0000ff 67%, #ff0000 100%)',
+    )
+  })
+
+  it('angular keeps its stops ascending and inside the seam', () => {
+    for (const shape of [at(0, 50, 100), at(0, 20, 100), at(40, 60, 80)]) {
+      const positions = [...buildGradientCss('angular', shape, false, {})
+        .matchAll(/ (\d+)%/g)].map((m) => parseInt(m[1], 10))
+      expect(positions).toEqual([...positions].sort((a, b) => a - b))
+      expect(Math.max(...positions)).toBe(100)
+    }
+  })
+
+  it('hardened angular wedges track a dragged stop too', () => {
+    expect(buildGradientCss('angular', at(0, 20, 100), false, { hard: true })).not.toBe(
+      buildGradientCss('angular', at(0, 50, 100), false, { hard: true }),
+    )
+  })
+
+  it('a Turrell stop travels nearly the whole range, like the other geometries', () => {
+    // The extent floor was 0.2, so position 0 still filled a fifth of the
+    // canvas and the control read as damped next to linear or radial.
+    expect(turrellExtent(0, 3)).toBeCloseTo(0.1, 5)
+    expect(turrellExtent(100, 3)).toBeCloseTo(1, 5)
   })
 })

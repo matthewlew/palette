@@ -7,6 +7,9 @@ import {
   resolveFanConfig,
   getRadialConfig,
   smoothStops,
+  turrellExtent,
+  angularSequence,
+  mirrorSequence,
 } from './gradient'
 
 function getLinearGradientCoords(angle: number = 0, width: number, height: number) {
@@ -92,9 +95,11 @@ export function renderGradientToCanvas(
     case 'angular': {
       const cx = width / 2
       const cy = height / 2
-      const scaleFactor = stops.length / (stops.length + 1)
-      const compressed = stops.map((s) => ({ hex: s.hex, position: Math.round(s.position * scaleFactor) }))
-      const withSeam = [...compressed, { hex: stops[0].hex, position: 100 }]
+      // The same sequence the screen renders. This used to compress by
+      // n/(n+1) — its own third compression, agreeing with neither the CSS nor
+      // the sampler, so an exported PNG placed every angular stop differently
+      // from the gradient it was exported from.
+      const withSeam = angularSequence(stops)
       const startAngle = (((angle ?? 0) - 90) * Math.PI) / 180
 
       if (ctx.createConicGradient) {
@@ -181,7 +186,7 @@ export function renderGradientToCanvas(
       const layers = base
         .map((stop, i) => ({
           hex: hexes[i],
-          factor: base.length <= 1 ? 1 : 0.2 + (stop.position / 100) * 0.8,
+          factor: turrellExtent(stop.position, base.length),
         }))
         // Largest first, so smaller inner layers are not painted over.
         .sort((a, b) => b.factor - a.factor)
@@ -218,9 +223,9 @@ export function renderGradientToCanvas(
       break
     }
     case 'mirror': {
-      const forward = stops.map((s) => s.hex)
-      const mirrored = [...forward, ...forward.slice(0, -1).reverse()]
-      const ordered = positionedStops(mirrored)
+      // Shared with the CSS builder; this used to rebuild an evenly-spaced
+      // sequence from hex order, discarding positions entirely.
+      const ordered = mirrorSequence(stops)
       const coords = getLinearGradientCoords(angle, width, height)
       const grad = ctx.createLinearGradient(coords.x0, coords.y0, coords.x1, coords.y1)
       ordered.forEach((s) => grad.addColorStop(s.position / 100, s.hex))

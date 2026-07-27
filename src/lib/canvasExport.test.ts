@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { renderGradientToCanvas } from './canvasExport'
 import type { Gradient } from '../store/types'
+import { turrellExtent } from './gradient'
 
 describe('canvasExport rendering', () => {
   const gradient: Gradient = {
@@ -149,7 +150,9 @@ describe('square (Turrell) export honours the origin', () => {
     return calls.slice(2).map(([x, y, w, h]) => round4([x + width * 2, y, w, h]))
   }
 
-  /** TurrellSquare's own maths, restated so the export is pinned to it. */
+  /** TurrellSquare's own maths. The extent now comes from the shared
+   * turrellExtent rather than being restated here — restating it is exactly how
+   * the export drifted from the component in the first place. */
   function expected(angle: number | undefined, width = 400, height = 400) {
     const cfg = angle == null
       ? { px: 0.5, py: 0.5 }
@@ -157,7 +160,7 @@ describe('square (Turrell) export honours the origin', () => {
     const reachX = Math.max(cfg.px, 1 - cfg.px)
     const reachY = Math.max(cfg.py, 1 - cfg.py)
     return [100, 50, 0].map((position) => {
-      const factor = 0.2 + (position / 100) * 0.8
+      const factor = turrellExtent(position, 3)
       const sizeX = 2 * reachX * factor * width
       const sizeY = 2 * reachY * factor * height
       return round4([cfg.px * width - sizeX / 2, cfg.py * height - sizeY / 2, sizeX, sizeY])

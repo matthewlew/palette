@@ -43,9 +43,14 @@ describe('gradientColorAt', () => {
     expect(gradientColorAt('linear', stops, 0.5, 0.55, false, { hard: true })).toBe('#000000')
   })
 
-  it('samples Turrell squares by nesting depth: edges show the outermost color', () => {
-    expect(gradientColorAt('square', stops, 0.02, 0.5)).toBe('#ffffff')
-    expect(gradientColorAt('square', stops, 0.5, 0.5)).toBe('#000000')
+  it('samples Turrell squares by nesting depth: position 0 is the INNERMOST block', () => {
+    // White sits at position 0 and black at 100, so white is the small central
+    // block and black the layer that fills the canvas — the same way position 0
+    // is the centre of a radial. The sampler previously computed
+    // `100 - position * 0.8`, inverting this and returning white at the edges.
+    expect(gradientColorAt('square', stops, 0.5, 0.5)).toBe('#ffffff')
+    expect(gradientColorAt('square', stops, 0.02, 0.5)).toBe('#000000')
+    expect(gradientColorAt('square', stops, 0.5, 0)).toBe('#000000')
   })
 
   it('samples mirror gradients as a palindrome: both ends match', () => {

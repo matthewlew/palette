@@ -123,10 +123,11 @@ describe('driftStops', () => {
 })
 
 describe('isDriftableType', () => {
-  it('excludes exactly angular and square', () => {
-    expect(isDriftableType('angular')).toBe(false)
+  it('excludes only square', () => {
+    // angular was excluded too, back when it spread colours by index and
+    // discarded positions; it now scales them into the circle and drifts.
     expect(isDriftableType('square')).toBe(false)
-    for (const t of ['linear', 'radial', 'fan', 'mirror', 'repeat'] as const) {
+    for (const t of ['linear', 'radial', 'fan', 'mirror', 'repeat', 'angular'] as const) {
       expect(isDriftableType(t)).toBe(true)
     }
   })
@@ -165,16 +166,12 @@ describe('canDrift', () => {
     expect(canDrift(stops(0, 40, 80), 'linear')).toBe(true)
   })
 
-  it('is false for geometries that are not built from positions', () => {
-    // angular spreads colours by index (i/n) and square paints solid blocks,
-    // so drifting either produces identical CSS every frame — the button would
-    // toggle and nothing would move.
-    expect(canDrift(stops(0, 40, 80), 'angular')).toBe(false)
+  it('is false for square, which paints solid blocks rather than a background', () => {
     expect(canDrift(stops(0, 40, 80), 'square')).toBe(false)
   })
 
   it('is true for every geometry that IS built from positions', () => {
-    for (const type of ['linear', 'radial', 'fan', 'mirror', 'repeat'] as const) {
+    for (const type of ['linear', 'radial', 'fan', 'mirror', 'repeat', 'angular'] as const) {
       expect(canDrift(stops(0, 40, 80), type)).toBe(true)
     }
   })
@@ -184,7 +181,7 @@ describe('drift actually changes the rendered CSS', () => {
   it('produces different CSS across frames for each position-driven type', async () => {
     const { buildGradientCss } = await import('./gradient')
     const input = stops(0, 40, 80)
-    for (const type of ['linear', 'radial', 'fan', 'mirror', 'repeat'] as const) {
+    for (const type of ['linear', 'radial', 'fan', 'mirror', 'repeat', 'angular'] as const) {
       const frames = [0, 3000, 6000, 9000].map((t) =>
         buildGradientCss(type, driftStops(input, t), false, { smooth: true })
       )
@@ -192,11 +189,13 @@ describe('drift actually changes the rendered CSS', () => {
     }
   })
 
-  it('produces IDENTICAL CSS for angular, which is why the button disables', async () => {
+  it('produces IDENTICAL CSS for square, which is why the button disables there', async () => {
+    // buildSquareGradient paints equal wedges as a fallback; the real render is
+    // TurrellSquare's nested blocks, which a drifting background never reaches.
     const { buildGradientCss } = await import('./gradient')
     const input = stops(0, 40, 80)
     const frames = [0, 3000, 6000].map((t) =>
-      buildGradientCss('angular', driftStops(input, t), false, {})
+      buildGradientCss('square', driftStops(input, t), false, {})
     )
     expect(new Set(frames).size).toBe(1)
   })

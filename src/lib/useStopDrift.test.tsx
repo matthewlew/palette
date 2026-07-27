@@ -111,10 +111,13 @@ describe('useStopDrift', () => {
     expect(el.dataset.drift).toBe('off')
   })
 
-  it('does not run for a geometry that ignores stop positions', () => {
-    const c = render(<Harness g={gradient('angular')} enabled />)
+  it('does not run for a geometry a background-image cannot reach', () => {
+    // square is painted by TurrellSquare's nested elements, not by the
+    // surface's background. angular used to be here too, back when it
+    // discarded positions and every frame rendered the same CSS.
+    const c = render(<Harness g={gradient('square')} enabled />)
     const el = surfaceOf(c)
-    expect(el.dataset.drift).toBe('unsupported-type:angular')
+    expect(el.dataset.drift).toBe('unsupported-type:square')
     expect(pending).toHaveLength(0)
     expect(el.style.backgroundImage).toBe(staticCss())
   })

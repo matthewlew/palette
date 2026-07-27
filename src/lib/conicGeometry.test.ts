@@ -14,18 +14,23 @@ const stops: GradientStop[] = [
 ]
 
 describe('angularSequence', () => {
-  it('spreads by index and ignores stop positions', () => {
+  it('honours stop positions', () => {
+    // Positions used to be discarded entirely (colours spread by index), so
+    // dragging a stop on an angular gradient emitted byte-identical CSS.
     const uneven: GradientStop[] = [
       { hex: '#622b00', position: 0 },
       { hex: '#00897e', position: 3 },
       { hex: '#798184', position: 97 },
     ]
-    expect(angularSequence(uneven).map((s) => s.position)).toEqual(
+    expect(angularSequence(uneven).map((s) => s.position)).not.toEqual(
       angularSequence(stops).map((s) => s.position),
     )
+    expect(angularSequence(uneven).map((s) => s.position)).toEqual([0, 2, 65, 100])
   })
 
-  it('gives N equal wedges plus a seam back to the first colour', () => {
+  it('still gives N equal wedges plus a seam for an evenly spaced ramp', () => {
+    // The (n-1)/n scaling is chosen so this default is bit-identical to the old
+    // index-based spread — the seam gets its own 360/n wedge for free.
     const seq = angularSequence(stops)
     expect(seq.map((s) => s.position)).toEqual([0, 33, 67, 100])
     expect(seq[seq.length - 1].hex).toBe(stops[0].hex)
@@ -88,16 +93,19 @@ describe('sampling agrees with rendering', () => {
     expect(seen.size).toBeGreaterThan(1)
   })
 
-  it('still ignores positions when sampling an angular gradient', () => {
+  it('honours positions when sampling an angular gradient too', () => {
+    // The sampler shares angularSequence with the renderer, so moving a stop
+    // has to change the sampled colour or the two have diverged again.
     const uneven: GradientStop[] = [
       { hex: '#622b00', position: 0 },
       { hex: '#00897e', position: 3 },
       { hex: '#798184', position: 97 },
     ]
-    for (const [x, y] of [[0.5, 0.06], [0.93, 0.85], [0.1, 0.9]]) {
-      expect(gradientColorAt('angular', uneven, x, y, false, {}))
-        .toBe(gradientColorAt('angular', stops, x, y, false, {}))
-    }
+    const differs = [[0.5, 0.06], [0.93, 0.85], [0.1, 0.9]].some(([x, y]) =>
+      gradientColorAt('angular', uneven, x, y, false, {}) !==
+      gradientColorAt('angular', stops, x, y, false, {}),
+    )
+    expect(differs).toBe(true)
   })
 
   it('renders and samples from the same sequence builders', () => {

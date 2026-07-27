@@ -1,5 +1,5 @@
 import type { GradientStop } from '../lib/gradient'
-import { repeatedStops, getRadialConfig } from '../lib/gradient'
+import { repeatedStops, getRadialConfig, turrellExtent } from '../lib/gradient'
 import styles from './TurrellSquare.module.css'
 
 interface TurrellSquareProps {
@@ -34,11 +34,12 @@ export function TurrellSquare({ stops: initialStops, reversed = false, blurPx, r
   // is the edge (outermost). reversed swaps which color fills which stop.
   const hexes = reversed ? [...stops].map((s) => s.hex).reverse() : stops.map((s) => s.hex)
 
-  // Each stop's half-extent scales with position (0.2 of the reach at pos 0, up
-  // to the full reach at pos 100), then the size is that half-extent doubled and
-  // taken per-axis so the nest fills the canvas from any origin.
+  // Each stop's half-extent scales with position, from TURRELL_EXTENT_FLOOR of
+  // the reach at pos 0 up to the full reach at pos 100; the size is that
+  // half-extent doubled and taken per-axis so the nest fills the canvas from any
+  // origin. turrellExtent is shared with the sampler and the PNG export.
   const layers = stops.map((stop, i) => {
-    const factor = stops.length <= 1 ? 1 : 0.2 + (stop.position / 100) * 0.8
+    const factor = turrellExtent(stop.position, stops.length)
     // Round to shed floating-point noise (0.2 + 0.16 = 0.36000…1) so the inline
     // sizes stay tidy.
     const round = (n: number) => Math.round(n * 1e4) / 1e4

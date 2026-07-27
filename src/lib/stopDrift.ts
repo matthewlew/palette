@@ -126,15 +126,16 @@ export function driftStops(stops: readonly GradientStop[], elapsedMs: number): G
 
 /** Types whose CSS is actually built from stop positions.
  *
- * Two are not, and drifting them would be a no-op the user could see the button
- * for but never the effect of:
- *   angular — spreads colours evenly around the circle by INDEX (i/n), so it
- *             discards positions entirely
- *   square  — Turrell blocks, painted by their own component, not by a
- *             background gradient
- * linear, radial, fan, mirror and repeat all derive their CSS from position. */
+ * Only `square` is left out, and only because Turrell blocks are painted by
+ * their own component rather than by a background gradient, so a drifting
+ * background-image never reaches them.
+ *
+ * `angular` used to be excluded too: it spread colours around the circle by
+ * INDEX (i/n) and discarded positions, so every frame rendered identical CSS
+ * and the button would have toggled with nothing to show. It now scales
+ * positions into the circle, so it drifts like the rest. */
 const POSITION_DRIVEN: ReadonlySet<GradientType> = new Set([
-  'linear', 'radial', 'fan', 'mirror', 'repeat',
+  'linear', 'radial', 'fan', 'mirror', 'repeat', 'angular',
 ] as GradientType[])
 
 export function isDriftableType(type: GradientType): boolean {

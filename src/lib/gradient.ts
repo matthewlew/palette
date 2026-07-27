@@ -138,6 +138,33 @@ function stopsToCss(stops: GradientStop[]): string {
   return stops.map((s) => `${s.hex} ${s.position}%`).join(', ')
 }
 
+/** Smallest half-extent a Turrell layer may take, as a fraction of its reach.
+ *
+ * Was 0.2, which meant a stop dragged the full 0–100 only travelled 80% of the
+ * range and the innermost block never shrank below a fifth of the canvas —
+ * noticeably more damped than linear, radial or fan, which is what made the
+ * control feel unresponsive by comparison. 0.1 lets a stop travel 90% of it.
+ *
+ * It stays well above 0 on purpose, and 0.05 was tried and rejected: layers are
+ * blurred (24px by default), so a block only 5% of the canvas across is entirely
+ * swallowed and the innermost colour disappears from the gradient. At 0.1 the
+ * core still reads at the default blur. The extra 5% of travel is not worth
+ * losing a colour. */
+export const TURRELL_EXTENT_FLOOR = 0.1
+
+/** A Turrell layer's half-extent for a stop position, as a fraction of the reach
+ * to the farthest edge. Position 0 is the innermost block, 100 the outermost,
+ * matching how radial reads.
+ *
+ * Single source for all four paths that paint or sample Turrell squares — the
+ * component, the PNG export, this file's sampler, and (by hand, because it is a
+ * separate Deno runtime) the preview edge function. Every one of those has
+ * drifted from the others at least once. */
+export function turrellExtent(position: number, stopCount: number): number {
+  if (stopCount <= 1) return 1
+  return TURRELL_EXTENT_FLOOR + (position / 100) * (1 - TURRELL_EXTENT_FLOOR)
+}
+
 function buildSquareGradient(stops: GradientStop[]): string {
   const segmentCount = stops.length
   const degreesPerSegment = 360 / segmentCount
@@ -173,15 +200,30 @@ function buildSquareGradient(stops: GradientStop[]): string {
  * the two geometries again with extra steps.
  */
 
-/** Angular's stop sequence: colours spread evenly around the circle by index
- * (i/n), plus the seam wrapping back to the first.
+/** Where angular places each stop around the circle, as a 0–100 offset.
  *
- * Positions are ignored on purpose. Every wedge — including the seam — is
- * 360/n wide, so N colours read as N equal wedges instead of the uneven
- * distribution a compress-to-leave-room-for-the-seam scheme produces. */
-export function angularSequence(stops: GradientStop[]): GradientStop[] {
+ * Positions used to be ignored entirely: colours were spread by index (i/n) so
+ * that N colours read as N equal wedges, seam included. That held the wedges
+ * even, but it also meant dragging a stop on an angular gradient emitted
+ * byte-identical CSS — the control was inert, and drift had to disable itself
+ * for the type because every frame rendered the same.
+ *
+ * Scaling by (n-1)/n keeps the even reading and restores the control. An
+ * evenly-spaced ramp still lands exactly on i/n — 0/50/100 over three stops
+ * gives 0/33.3/66.7, the seam taking the last 360/n — so the default is
+ * unchanged and only a deliberately uneven ramp looks different. The factor is
+ * what reserves the seam's wedge: positions span 0–100 but the circle has to
+ * fit one more interval than the ramp has gaps. */
+export function angularPositions(stops: GradientStop[]): number[] {
   const n = stops.length
-  const spread = stops.map((s, i) => ({ hex: s.hex, position: Math.round((i / n) * 100) }))
+  return stops.map((s) => (s.position * (n - 1)) / n)
+}
+
+/** Angular's stop sequence: the palette spread around the circle, plus the seam
+ * wrapping back to the first colour. */
+export function angularSequence(stops: GradientStop[]): GradientStop[] {
+  const positions = angularPositions(stops)
+  const spread = stops.map((s, i) => ({ hex: s.hex, position: Math.round(positions[i]) }))
   return [...spread, { hex: stops[0].hex, position: 100 }]
 }
 
@@ -214,11 +256,14 @@ export function resolveFanConfig(anchor?: FanAnchor, angle?: number) {
 
 function buildAngularGradient(stops: GradientStop[], hard = false, angle = 0, smooth = false): string {
   if (hard) {
-    // Solid wedges, each color filling its 360/n slice with a crisp edge at the
-    // boundary (a double stop). The last wedge cuts straight to the first.
-    const n = stops.length
+    // Solid wedges, each color filling up to the next stop's offset with a crisp
+    // edge at the boundary (a double stop). The last wedge runs to the seam and
+    // cuts straight back to the first. Boundaries come from angularPositions, so
+    // hardened wedges track a dragged stop exactly as the blended ones do.
+    const positions = angularPositions(stops)
     const segments = stops.map(
-      (s, i) => `${s.hex} ${Math.round((i / n) * 100)}% ${Math.round(((i + 1) / n) * 100)}%`,
+      (s, i) =>
+        `${s.hex} ${Math.round(positions[i])}% ${Math.round(positions[i + 1] ?? 100)}%`,
     )
     return `conic-gradient(from ${angle}deg, ${segments.join(', ')})`
   }
@@ -249,29 +294,38 @@ export function positionedStops(hexes: string[]): GradientStop[] {
   }))
 }
 
-function buildMirrorGradient(stops: GradientStop[], angle = 0, smooth = false): string {
-  // Sort by position and normalize to a full 0–100 span before folding. Stops
-  // can be dragged into any order and needn't reach 0 or 100 (moveStop doesn't
-  // re-equalize), so the old code — which assumed ascending order and a stop at
-  // exactly 100 for the fold — produced out-of-order CSS stops and a gap around
-  // the 50% reflection line whenever the near-center stop was moved. Normalizing
-  // pins the outer color to 0/100 and the near-center color to the 50% fold, so
-  // the mirror stays symmetric regardless of where stops sit.
+/** Mirror's stop sequence: the palette halved into 0–50, then reflected about
+ * the 50% line.
+ *
+ * This used to normalize min–max onto a full 0–100 span before folding, which
+ * made the whole geometry invariant to any shift or stretch of the ramp:
+ * [0,50,100], [10,50,90] and [30,65,100] all emitted identical CSS, so dragging
+ * either end stop was a no-op and interior stops moved at an unrelated rate.
+ *
+ * Halving directly restores that. An evenly-spaced ramp reaching 0 and 100 is
+ * unchanged — [0,50,100] still gives 0/25/50/75/100 — so only ramps that do not
+ * fill the span behave differently, which is exactly where the old normalization
+ * was throwing information away.
+ *
+ * The normalization was there for a real reason: it guaranteed a stop landed on
+ * the 50% fold, and without one the reflection left a gap. That is fixed here by
+ * REFLECTING the last stop too, rather than by stretching the ramp to reach the
+ * fold. A ramp ending at 70 folds at 35 and mirrors back at 65, holding its last
+ * colour flat across the middle — a mirror with a plateau, which is what the
+ * stop positions actually describe. The fold stop is dropped from the reflection
+ * only when it sits exactly on 50 (i.e. the ramp reaches 100), where its
+ * reflection would be a duplicate. */
+export function mirrorSequence(stops: GradientStop[]): GradientStop[] {
   const sorted = [...stops].sort((a, b) => a.position - b.position)
-  const minP = sorted[0].position
-  const maxP = sorted[sorted.length - 1].position
-  const span = maxP - minP
-  const norm = (p: number) => (span === 0 ? 0 : ((p - minP) / span) * 100)
+  const forward = sorted.map((s) => ({ hex: s.hex, position: s.position / 2 }))
+  const fold = forward[forward.length - 1]
+  const reflectable = fold.position === 50 ? forward.slice(0, -1) : forward
+  const reverse = [...reflectable].reverse().map((s) => ({ hex: s.hex, position: 100 - s.position }))
+  return [...forward, ...reverse]
+}
 
-  // Compress the normalized positions into the first half (0% to 50%).
-  const forward = sorted.map((s) => ({ hex: s.hex, position: norm(s.position) / 2 }))
-  // Reflect back from 50% to 100%, omitting the fold stop (already at 50%).
-  const reverse = sorted
-    .slice(0, -1)
-    .reverse()
-    .map((s) => ({ hex: s.hex, position: 100 - norm(s.position) / 2 }))
-
-  const mirrored = [...forward, ...reverse]
+function buildMirrorGradient(stops: GradientStop[], angle = 0, smooth = false): string {
+  const mirrored = mirrorSequence(stops)
   const finalStops = smooth ? smoothStops(mirrored) : mirrored
   return `linear-gradient(${180 + angle}deg, ${stopsToCss(finalStops)})`
 }
@@ -462,22 +516,32 @@ export function gradientColorAt(
       return sampleStops(angularSequence(orderedStops), angle)
     }
     case 'square': {
-      // TurrellSquare paints nested solid layers, later stops on top and
-      // shrinking with position; the visible color at a point is the
-      // innermost layer still covering it (Chebyshev distance from center).
-      const d = Math.max(Math.abs(x - 0.5), Math.abs(y - 0.5)) * 200
-      let hex = orderedStops[0].hex
-      for (let i = 1; i < orderedStops.length; i++) {
-        const scale = 100 - (orderedStops[i].position / 100) * 80
-        if (scale >= d) hex = orderedStops[i].hex
+      // TurrellSquare paints nested solid layers; the visible colour at a point
+      // is the SMALLEST layer still covering it (Chebyshev distance from the
+      // origin, approximated as centred — chrome tone only needs to be close).
+      //
+      // This used to compute `100 - position * 0.8`, which inverts the ramp:
+      // it made position 0 the outermost layer where the component makes it the
+      // innermost, so the sampled colour was wrong for any square whose stops
+      // were not symmetric. That is the same inversion canvasExport carried
+      // before it was fixed; this was the last copy still holding it.
+      const d = Math.max(Math.abs(x - 0.5), Math.abs(y - 0.5)) * 2
+      let hex = orderedStops[orderedStops.length - 1].hex
+      let smallest = Infinity
+      for (const stop of orderedStops) {
+        const extent = turrellExtent(stop.position, orderedStops.length)
+        if (extent >= d && extent < smallest) {
+          smallest = extent
+          hex = stop.hex
+        }
       }
       return hex
     }
-    case 'mirror': {
-      const forward = orderedStops.map((s) => s.hex)
-      const mirrored = [...forward, ...forward.slice(0, -1).reverse()]
-      return sampleStops(positionedStops(mirrored), y)
-    }
+    case 'mirror':
+      // The very sequence buildMirrorGradient renders. This used to rebuild an
+      // evenly-spaced sequence from hex order alone, discarding positions —
+      // a third copy of the geometry, drifting from the other two.
+      return sampleStops(mirrorSequence(orderedStops), y)
     case 'repeat': {
       const hexes = orderedStops.map((s) => s.hex)
       return sampleStops(positionedStops([...hexes, ...hexes]), y)
