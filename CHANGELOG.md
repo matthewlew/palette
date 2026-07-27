@@ -5,6 +5,8 @@ All notable changes to this project during our sessions will be documented in th
 ## [Unreleased] - 2026-07-27
 
 ### Added
+- **Full-screen search on mobile.** Below 768px a live query takes over the gallery: the field and a Cancel stay, everything else goes. Measured before, 104px of chrome sat above the results and most of it did nothing for searching. Done by hiding rows in place rather than rendering an overlay, so the input keeps its DOM node and focus, the keyboard and the caret survive the transition. Desktop is unchanged — it has room for search and the gallery at once.
+- **Search results are grouped Yours, then Community.** Search only ever queried the Supabase `palettes` table, so it returned other people's palettes and never your own — and the Yours/Community toggle stayed visible and interactive while the results ignored it entirely. Your saved palettes are now matched locally by name and shown first, on the **first keystroke**, while the community query is still in flight behind its 400ms debounce. Your matches also survive a failed network call.
 - **Back button on the full-screen create feed.** Top-left, same anchor and chevron as the editor's, so "leave this surface" is one gesture everywhere. It only renders where a caller passes `onBack`, so other `GradientPage` surfaces keep their own close chrome.
 
 ### Fixed

@@ -9,6 +9,48 @@
   padding: max(var(--space-3), env(safe-area-inset-top)) var(--space-4) calc(90px + env(safe-area-inset-bottom));
 }
 
+/* Group heading above each half of the search results. */
+.searchGroupHeading {
+  margin: var(--space-3) 0 var(--space-2);
+  font-family: var(--th-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-subdued);
+}
+
+/* FULL-SCREEN SEARCH, mobile only.
+ *
+ * While a query is live the gallery is a search surface and nothing else: the
+ * field and its Cancel stay, everything else goes. Measured before: 104px of
+ * chrome sat above the results, and most of it did nothing for searching. The
+ * Yours/Community toggle was worse than useless — search always queried the
+ * community table, so it stayed interactive while the results ignored it.
+ *
+ * Done by hiding rows in place rather than by rendering an overlay: the input
+ * keeps its DOM node, so focus, the composing keyboard and the caret survive
+ * the transition. An overlay would remount the field and drop all three on iOS.
+ *
+ * The 768px bound matches every other mobile branch in the app; above it the
+ * header has room for search and the gallery at once. */
+@media (max-width: 767px) {
+  .searching .titleArea,
+  .searching .filterSelectWrap,
+  .searching .chips {
+    display: none;
+  }
+
+  .searching .headerActions :global([data-testid='search-container']) {
+    flex: 1 1 100%;
+  }
+
+  /* Layout toggles and the share menu are browse controls, not search ones. */
+  .searching .headerActions > *:not([data-testid='search-container']) {
+    display: none;
+  }
+}
+
 /* The filter control has two forms and only one is ever shown. Below 640px the
    chips wrapped to three rows and cost 90px of a 812px screen; the select is a
    single 36px row. Above 640px there is room to show every shape at once, and

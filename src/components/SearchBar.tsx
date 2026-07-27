@@ -5,11 +5,41 @@ import type { GradientType } from '../lib/gradient'
 import { COLOR_NOUNS, type HueFamily } from '../lib/namingWords'
 import styles from './SearchBar.module.css'
 
-interface SearchBarProps {
-  onResults: (results: Gradient[] | null) => void;
+/** Search hits, split by where they came from. Yours are matched locally and
+ * land immediately; community comes back from Supabase after the debounce. */
+export interface SearchResults {
+  mine: Gradient[]
+  community: Gradient[]
 }
 
-export function SearchBar({ onResults }: SearchBarProps) {
+interface SearchBarProps {
+  onResults: (results: SearchResults | null) => void;
+  /** Your saved palettes, matched locally by name. Search used to hit only the
+   * community table, so a search from the "Yours" tab returned other people's
+   * palettes and yours were nowhere — the tab said one thing and the results
+   * showed another. */
+  saved?: Gradient[];
+  /** Told when the field gains or loses a query, so the gallery can go
+   * full-screen on mobile. */
+  onActiveChange?: (active: boolean) => void;
+  /** Renders a Cancel affordance beside the field (mobile full-screen). */
+  onCancel?: () => void;
+}
+
+/** Local name match. Deliberately dumber than the community query — it is a
+ * substring test on the name you gave it, which is what you are reaching for
+ * when you search your own small library. */
+function matchSaved(saved: Gradient[], query: string): Gradient[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return []
+  const words = q.split(/\s+/)
+  return saved.filter((g) => {
+    const name = (g.name ?? '').toLowerCase()
+    return words.every((w) => name.includes(w))
+  })
+}
+
+export function SearchBar({ onResults, saved = [], onActiveChange, onCancel }: SearchBarProps) {
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const debounceTimer = useRef<number | null>(null)
@@ -17,11 +47,19 @@ export function SearchBar({ onResults }: SearchBarProps) {
   useEffect(() => {
     if (!query.trim()) {
       onResults(null)
+      onActiveChange?.(false)
       return
     }
+    onActiveChange?.(true)
 
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
-    
+
+    // Yours land on the FIRST keystroke, not after the network. The whole point
+    // of showing them first is that the screen is never blank while the
+    // community query is in flight.
+    const mine = matchSaved(saved, query)
+    onResults({ mine, community: [] })
+
     setLoading(true)
     debounceTimer.current = window.setTimeout(async () => {
       try {
@@ -90,11 +128,12 @@ export function SearchBar({ onResults }: SearchBarProps) {
               createdAt: new Date(row.created_at).getTime()
             }
           })
-          onResults(gradients)
+          onResults({ mine, community: gradients })
         }
       } catch (err) {
         console.error("Search failed:", err)
-        onResults([])
+        // Yours still stand even when the network does not.
+        onResults({ mine, community: [] })
       } finally {
         setLoading(false)
       }
@@ -103,10 +142,14 @@ export function SearchBar({ onResults }: SearchBarProps) {
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
     }
-  }, [query, onResults])
+  }, [query, onResults, saved, onActiveChange])
 
   return (
     <div data-testid="search-container" className={styles.searchContainer}>
+      {/* The icon and the clear button are absolutely positioned against THIS
+          wrapper, not the outer container — once Cancel joined the container,
+          `right: 8px` put the clear cross on top of the Cancel label. */}
+      <div className={styles.field}>
       <svg className={styles.searchIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="11" cy="11" r="8" />
         <line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -115,6 +158,7 @@ export function SearchBar({ onResults }: SearchBarProps) {
         type="text"
         className={styles.searchInput}
         placeholder="Search palettes..."
+        data-testid="search-input"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
@@ -135,6 +179,22 @@ export function SearchBar({ onResults }: SearchBarProps) {
         </button>
       )}
       {loading && <span className={styles.loading}>Searching...</span>}
+      </div>
+      {onCancel && (
+        <button
+          type="button"
+          data-testid="search-cancel"
+          className={styles.cancelButton}
+          onClick={() => {
+            setQuery('')
+            onResults(null)
+            onActiveChange?.(false)
+            onCancel()
+          }}
+        >
+          Cancel
+        </button>
+      )}
     </div>
   )
 }

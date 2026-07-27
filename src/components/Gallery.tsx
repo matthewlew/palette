@@ -14,7 +14,7 @@ import { BoardShare } from './BoardShare'
 import { PaletteTitle } from './PaletteTitle'
 import { NoiseOverlay } from './NoiseOverlay'
 import { ScrollTicker } from './ScrollTicker'
-import { SearchBar } from './SearchBar'
+import { SearchBar, type SearchResults } from './SearchBar'
 import JSZip from 'jszip'
 import { renderVignetteToCanvas } from '../lib/vignette'
 import styles from './Gallery.module.css'
@@ -40,6 +40,47 @@ function formatDate(timestamp?: number): string | null {
   if (!timestamp) return null
   const date = new Date(timestamp)
   return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+/** One titled half of the search results, with its OWN grid ref.
+ *
+ * Masonry row spans are measured per grid element, and Gallery has a single
+ * gridRef — pointing it at one group left the other with no spans, so its tiles
+ * kept the default 8px row and piled on top of each other. A group that owns
+ * its ref scales to however many groups there are. */
+function SearchGroup({
+  testId, heading, gradients, galleryLayout, onOpen, onRiff,
+}: {
+  testId: string
+  heading: string
+  gradients: Gradient[]
+  galleryLayout: 'grid' | 'masonry'
+  onOpen: (g: Gradient) => void
+  onRiff: (g: Gradient) => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  useMasonryRowSpans(ref, galleryLayout === 'masonry', [
+    galleryLayout,
+    gradients.map((g) => g.id).join(','),
+  ])
+  if (gradients.length === 0) return null
+  return (
+    <section data-testid={testId}>
+      <h2 className={styles.searchGroupHeading}>{heading}</h2>
+      <div ref={ref} className={galleryLayout === 'masonry' ? styles.masonryGrid : styles.grid}>
+        {gradients.map((g, i) => (
+          <Tile
+            key={g.id}
+            gradient={g}
+            index={i}
+            onOpen={onOpen}
+            galleryLayout={galleryLayout}
+            onRiff={onRiff}
+          />
+        ))}
+      </div>
+    </section>
+  )
 }
 
 function matchesFilters(gradient: Gradient, type: GradientType | null): boolean {
@@ -501,7 +542,9 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   const dragIdRef = useRef<string | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
-  const [searchResults, setSearchResults] = useState<Gradient[] | null>(null)
+  const [searchResults, setSearchResults] = useState<SearchResults | null>(null)
+  // Mobile only: a live query takes over the screen (see .searching below).
+  const [searchOpen, setSearchOpen] = useState(false)
 
   async function handleExportAll() {
     if (exporting || saved.length === 0) return
@@ -604,7 +647,11 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
     .map(({ type, label }) => ({ type, label, count: filterPool.filter((g) => g.type === type).length }))
     .filter(({ type, count }) => count > 0 || typeFilter === type)
 
-  const currentViewGradients = searchResults
+  // Search results are rendered in their own grouped branch below; this is the
+  // browse list. Flattening the groups here would lose the Yours/Community
+  // split the results are meant to show.
+  const searchFlat = searchResults ? [...searchResults.mine, ...searchResults.community] : null
+  const currentViewGradients = searchFlat
     ?? (activeTab === 'community' ? filteredCommunity : filtered)
 
 
@@ -698,7 +745,10 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   }
 
   return (
-    <div data-testid="gallery" className={styles.container}>
+    <div
+      data-testid="gallery"
+      className={[styles.container, searchOpen && styles.searching].filter(Boolean).join(' ')}
+    >
       <div className={styles.header}>
         <div className={styles.titleArea}>
           <div className={styles.toggleGroup}>
@@ -719,7 +769,12 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
           </div>
         </div>
         <div className={styles.headerActions}>
-          <SearchBar onResults={setSearchResults} />
+          <SearchBar
+            onResults={setSearchResults}
+            saved={saved}
+            onActiveChange={setSearchOpen}
+            onCancel={() => setSearchOpen(false)}
+          />
           <div className={styles.toggleGroup}>
             <button
               type="button"
@@ -762,23 +817,32 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
 
       {searchResults ? (
         <div data-testid="search-results">
-          {searchResults.length === 0 ? (
+          {searchResults.mine.length === 0 && searchResults.community.length === 0 ? (
             <div className={styles.onboarding}>
               <p className={styles.onboardingSub}>No palettes found for that name.</p>
             </div>
           ) : (
-            <div ref={gridRef} className={galleryLayout === 'masonry' ? styles.masonryGrid : styles.grid}>
-              {searchResults.map((g, i) => (
-                <Tile
-                  key={g.id}
-                  gradient={g}
-                  index={i}
-                  onOpen={setOpen}
-                  galleryLayout={galleryLayout}
-                  onRiff={onRiff}
-                />
-              ))}
-            </div>
+            <>
+              {/* Yours first, and they arrive on the first keystroke rather than
+                  after the network — the community query is debounced 400ms, so
+                  leading with the remote result meant staring at nothing. */}
+              <SearchGroup
+                testId="search-group-mine"
+                heading="Yours"
+                gradients={searchResults.mine}
+                galleryLayout={galleryLayout}
+                onOpen={setOpen}
+                onRiff={onRiff}
+              />
+              <SearchGroup
+                testId="search-group-community"
+                heading="Community"
+                gradients={searchResults.community}
+                galleryLayout={galleryLayout}
+                onOpen={setOpen}
+                onRiff={onRiff}
+              />
+            </>
           )}
         </div>
       ) : activeTab === 'saves' && saved.length === 0 ? (
