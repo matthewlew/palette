@@ -1,5 +1,12 @@
 /* Position only — the visual recipe is the global .ghost-chip/.ghost-pill. */
 .likeButton {
+  /* Own transition group. Everything in this corner sits inside an element
+     carrying `view-transition-name: palette-card`, and an unnamed descendant is
+     captured INSIDE that snapshot — which the transition resizes with
+     object-fit: cover, so the button stretches and cross-fades out on every
+     surface switch instead of holding still. Naming it hoists it into its own
+     group and it morphs in place. Same fix as palette-title and edit-fab. */
+  view-transition-name: like-button;
   position: absolute;
   bottom: calc(16px + env(safe-area-inset-bottom));
   right: 16px;

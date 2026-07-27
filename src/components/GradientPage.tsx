@@ -64,7 +64,13 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, onBack, ch
   // are rough normalized anchors — tone only needs the right neighborhood.
   const titleColor = titleColorAt(gradient, 0.5, 0.06)
   const cornerColor = titleColorAt(gradient, 0.93, 0.85)
-  const editColor = titleColorAt(gradient, 0.94, 0.5)
+  // Sampled where each control ACTUALLY sits. editColor was (0.94, 0.5) — the
+  // right edge at mid-height, where the Edit button lived before it moved to
+  // the bottom-left corner. Sampling the old spot picks the ink against a part
+  // of the gradient the button is nowhere near, which is how it ended up
+  // washed out on gradients whose two sides differ.
+  const editColor = titleColorAt(gradient, 0.06, 0.85)
+  const backColor = titleColorAt(gradient, 0.06, 0.05)
 
   function handlePointerDown(e: React.PointerEvent) {
     pointerStartRef.current = { x: e.clientX, y: e.clientY }
@@ -118,7 +124,7 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, onBack, ch
           data-testid="feed-back"
           aria-label="Back to gallery"
           className={[styles.backButton, 'ghost-chip', !chromeVisible && styles.editHidden].filter(Boolean).join(' ')}
-          style={{ color: titleColor }}
+          style={{ color: backColor }}
           onClick={onBack}
         >
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -165,7 +171,7 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, onBack, ch
         style={{ color: editColor }}
         onClick={onEdit}
       >
-        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M12 20h9" />
           <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
         </svg>

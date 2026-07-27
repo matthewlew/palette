@@ -45,15 +45,30 @@
   position: absolute;
   left: 16px;
   bottom: calc(84px + env(safe-area-inset-bottom));
-  display: flex;
-  flex-direction: column;
+  /* A ROW, and everything else left to .ghost-chip.
+   *
+   * This was a column with its own border-radius (16px) and width (44px),
+   * fighting the shared recipe instead of using it: ghost-chip pins height to
+   * 44px, so 12px of vertical padding left 20px for a 26px icon stacked above
+   * a label — the pencil was squashed out of sight and what remained was a
+   * rounded SQUARE reading "Edit" beside a row of pills and circles. That is
+   * the "broken" look.
+   *
+   * As a row it is the same object as the Save pill on the opposite corner:
+   * ghost-chip's 44px height, pill radius, border and glass, with only the
+   * horizontal padding and the icon/label gap set here. */
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 12px 10px;
-  border-radius: var(--radius-xl);
+  gap: 6px;
+  padding: 0 16px;
   cursor: pointer;
   transition: opacity 0.25s ease, transform 0.15s ease;
   z-index: 3;
+  /* Its own transition group. Without a name it is captured INSIDE .page's
+     `palette-card` snapshot, which the transition resizes with object-fit:
+     cover — so the button stretched and cross-faded out on every switch
+     instead of staying put. Same fix, and same reason, as palette-title. */
+  view-transition-name: edit-fab;
 }
 
 .editButton:active {
@@ -61,7 +76,7 @@
 }
 
 .editLabel {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.02em;
 }
@@ -103,6 +118,8 @@
   z-index: 3;
   width: 44px;
   transition: opacity 200ms ease;
+  /* See .editButton — own group, or it rides the palette-card snapshot. */
+  view-transition-name: feed-back;
 }
 
 /* Optically centre the chevron: nudge left so its visual mass sits centred. */
