@@ -18,13 +18,24 @@
   bottom: calc(140px + env(safe-area-inset-bottom));
 }
 
-/* TikTok-style right-rail edit button: a vertical icon + label, vertically
-   centered so it never crowds the bottom tab bar. */
+/* Bottom-LEFT, mirroring the grain/play/save cluster on the bottom right. It
+   takes the SAME 84px the like button gets above (not LikeButton's own 16px
+   base rule, which the feed overrides), so the two corners sit on one line and
+   both clear the bottom tab bar. At 16px it was only 12px clear of the tab
+   bar's left edge and sat a row below Save, which read as misaligned.
+
+   It used to be right: 16px / top: 50%, which put it at x 311-359, y 384-428 —
+   entirely inside the scroll ticker's box (x 313-365, y 266-549) and right on
+   the ticker's active tick and number. Not a near miss; a full overlap.
+
+   Moving rather than deleting: tapping the gradient anywhere already opens the
+   editor, so this button is functionally redundant, but it is the only thing on
+   screen that ADVERTISES that. Remove it and editing still works and nobody
+   finds it. */
 .editButton {
   position: absolute;
-  right: 16px;
-  top: 50%;
-  transform: translateY(-50%);
+  left: 16px;
+  bottom: calc(84px + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -37,7 +48,7 @@
 }
 
 .editButton:active {
-  transform: translateY(-50%) scale(0.94);
+  transform: scale(0.94);
 }
 
 .editLabel {

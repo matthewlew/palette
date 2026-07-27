@@ -144,10 +144,12 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
         available={driftable}
       />
       <LikeButton liked={liked} onToggle={handleSave} hidden={!chromeVisible} color={cornerColor} />
-      {/* Explicit, TikTok-style edit affordance on the right rail. Tapping the
+      {/* Explicit, TikTok-style edit affordance, bottom LEFT. Tapping the
           gradient anywhere already opens the editor, but that's not
-          discoverable — this labels the action and sits well clear of the
-          bottom tab bar. */}
+          discoverable — this labels the action. It sat mid-height on the right
+          rail until that turned out to land entirely inside the scroll
+          ticker's box; the left corner is empty and mirrors the grain/play/save
+          cluster opposite. */}
       <button
         type="button"
         data-testid="edit-fab"

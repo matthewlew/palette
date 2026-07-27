@@ -99,26 +99,26 @@
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
 }
 
 @media (min-width: 600px) {
   .grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-5);
   }
 }
 
 @media (min-width: 1000px) {
   .grid {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
 @media (min-width: 1400px) {
   .grid {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 
@@ -411,9 +411,16 @@
   font-family: var(--th-display);
 }
 
+/* currentColor, NOT a fixed white. This count sits inside the Yours/Community
+   pills, and the ACTIVE pill inverts to a light fill with dark ink — a
+   hardcoded rgba(255,255,255,0.4) stayed white there and vanished against it.
+   Inheriting the pill's own ink and dimming with opacity keeps it legible in
+   both polarities, which is the point of LDS's ink roles: the emphasis is
+   relative to whatever surface you land on, never a fixed colour. */
 .titleCount {
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.4);
+  color: currentColor;
+  opacity: 0.6;
   font-weight: 500;
   margin-left: 6px;
 }
@@ -422,6 +429,31 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
+}
+
+/* The header is one non-wrapping flex row: title on the left, then search +
+   Export Posts + the layout toggles on the right. That is ~489px of controls,
+   which does not fit a 375px phone — the search box ran 83px off-screen.
+   Below 640px the actions drop to their own full-width line and wrap, and the
+   search takes a whole row so it stays usable rather than being squeezed to a
+   stub between the two buttons. */
+@media (max-width: 640px) {
+  .header {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .headerActions {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .headerActions :global([data-testid='search-container']) {
+    flex: 1 1 100%;
+    max-width: none;
+  }
 }
 
 .exportAllButton {
@@ -494,7 +526,7 @@
   padding: 0 14px;
   border: none;
   background: transparent;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-subdued);
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
@@ -503,13 +535,17 @@
 }
 
 .toggleBtnTab:hover {
-  color: rgba(255, 255, 255, 0.85);
-  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  background: color-mix(in srgb, currentColor 6%, transparent);
 }
 
+/* Same inverted-pill recipe as GeometryTabs' .filterActive: the ink colour
+   becomes the fill and the darkest surface token becomes the label, so the
+   pair stays a real contrast pair under any theme instead of a fixed
+   white-on-#111 that only happens to work in the dark palette theme. */
 .toggleBtnActiveTab {
-  background: rgba(255, 255, 255, 0.9);
-  color: #111;
+  background: var(--text);
+  color: var(--c-950);
 }
 
 /* Reading-order masonry: a CSS grid with a small row unit (grid-auto-rows),
@@ -517,9 +553,30 @@
    flow left-to-right, top-to-bottom, so visual order == saved-array order
    (which is what makes drag-reorder intuitive). align-items:start lets tiles
    size to content instead of stretching to their (8px) grid area. */
+/* minmax(0, 1fr), NOT 1fr — the columns must not be content-sized.
+ *
+ * `1fr` means `minmax(auto, 1fr)`, so a track can be pushed wider than its
+ * share by its content's min-content size. In the masonry that closed a
+ * feedback loop and the grid never stopped moving: useMasonryRowSpans writes
+ * grid-row-end from each tile's measured height -> the span changes the
+ * tiles' min-content contributions -> the two columns resize UNEVENLY and even
+ * swap widths (measured 177.2/153.8 and 153.8/177.2) -> .tilePreview is
+ * width:100% with an aspect-ratio, so its height follows its width -> the
+ * tiles measure differently -> new spans. Measured on the Community tab: 118
+ * span writes in 3s, 112 of them re-entering a state already seen, cycling
+ * through 7 states on a ~95ms period. That is the flashing.
+ *
+ * With minmax(0, 1fr) the tracks are exactly even and a tile's height stops
+ * depending on its own span: verified 259px at span 5, span 400 and no span
+ * at all, where before it swung 275 <-> 244.
+ *
+ * This is why the no-op guard in useMasonryRowSpans could not stop it. That
+ * guard skips writes when the span is UNCHANGED, but here every pass genuinely
+ * measured a different height, so every write was legitimate. The loop had to
+ * be broken in the layout, not in the hook. */
 .masonryGrid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-auto-rows: 8px;
   align-items: start;
   column-gap: var(--space-3);
@@ -534,7 +591,7 @@
 
 @media (min-width: 600px) {
   .masonryGrid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     column-gap: var(--space-5);
     row-gap: var(--space-5);
   }
@@ -542,13 +599,13 @@
 
 @media (min-width: 1000px) {
   .masonryGrid {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
 @media (min-width: 1400px) {
   .masonryGrid {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 

@@ -1,6 +1,13 @@
+/* 240px is the intended size, but it must be a CEILING rather than a fixed
+   width: at 375px the gallery header's single row of controls came to 489px,
+   and this box ran 83px past the right edge of the screen. width:100% lets it
+   take whatever the header gives it (the header stacks on mobile, see
+   Gallery.module.css) and max-width keeps it from stretching on desktop. */
 .searchContainer {
   position: relative;
-  width: 240px;
+  width: 100%;
+  max-width: 240px;
+  min-width: 0;
 }
 
 .searchInput {
