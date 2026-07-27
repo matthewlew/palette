@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { buildGradientCss } from '../lib/gradient'
 import type { GradientType } from '../lib/gradient'
 import { useCommunityGradients } from '../hooks/useCommunityGradients'
@@ -100,7 +100,7 @@ function tileBackground(gradient: Gradient): string | undefined {
       })
 }
 
-function Tile({
+const Tile = memo(function Tile({
   gradient,
   index,
   onOpen,
@@ -243,7 +243,7 @@ function Tile({
       </div>
     </div>
   )
-}
+})
 
 interface ViewerProps {
   gradient: Gradient
