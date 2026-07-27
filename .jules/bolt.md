@@ -1,0 +1,3 @@
+## 2024-05-18 - Tile Re-renders in Gallery
+**Learning:** The Gallery component renders a grid of many `Tile` elements. Because `Tile` was a standard functional component taking complex props (`gradient` object, many functions like `onOpen`, `onRiff`, etc.), any state change in the parent `Gallery` (e.g. updating drag-and-drop state `draggingId`, or just simple state changes like switching tabs) would trigger re-renders of all `Tile` elements.
+**Action:** Wrap the `Tile` component in `React.memo()`. This prevents unnecessary re-renders of tiles when their props haven't changed, improving the scrolling and dragging performance of the Gallery, especially with many saved palettes.
