@@ -18,6 +18,15 @@
   bottom: calc(140px + env(safe-area-inset-bottom));
 }
 
+/* Play has to be lifted by the SAME 68px as the two below it. The base stack
+   is save 16 / grain 72 / play 128 — an even 56px rhythm. The feed lifted save
+   to 84 and grain to 140 for the saved-palettes stack but left play at 128, so
+   play ended up BELOW grain and the two overlapped by 32px (they are 44px
+   tall). 196 restores the rhythm. */
+.page :global([data-testid='play-button']) {
+  bottom: calc(196px + env(safe-area-inset-bottom));
+}
+
 /* Bottom-LEFT, mirroring the grain/play/save cluster on the bottom right. It
    takes the SAME 84px the like button gets above (not LikeButton's own 16px
    base rule, which the feed overrides), so the two corners sit on one line and
@@ -60,4 +69,25 @@
 .editHidden {
   opacity: 0;
   pointer-events: none;
+}
+
+/* Where there is a keyboard, there is no edit BUTTON.
+ *
+ * The shortcut strip lives in this same bottom-left corner (fixed, left 16px,
+ * and it lifts to bottom:80px under 1280px to clear the tab bar), so the FAB
+ * landed straight on top of it — measured x16-64/y672-716 over the strip's
+ * x16-422/y694-720.
+ *
+ * Hiding the button rather than nudging the strip, because on a keyboard the
+ * button is redundant twice over: the strip already reads "E Edit", and
+ * clicking the gradient anywhere opens the editor. The FAB exists to advertise
+ * that on touch, where no strip is rendered to do the advertising.
+ *
+ * This condition is the exact complement of the strip's own hide rule in
+ * ShortcutHints.module.css — `(pointer: coarse), (max-width: 767px)`. Exactly
+ * one of the two is ever on screen. Change one and you must change the other. */
+@media (pointer: fine) and (min-width: 768px) {
+  .editButton {
+    display: none;
+  }
 }
