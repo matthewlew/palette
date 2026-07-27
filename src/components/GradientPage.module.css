@@ -91,3 +91,22 @@
     display: none;
   }
 }
+
+/* Back to the gallery, top-left — the same anchor and chevron EditMode uses,
+   so "leave this surface" is one gesture in one place across the app. The
+   title sits centred at the same height, so this must stay narrow.
+   It fades with the rest of the chrome while scrolling the feed. */
+.backButton {
+  position: absolute;
+  top: calc(16px + env(safe-area-inset-top));
+  left: 16px;
+  z-index: 3;
+  width: 44px;
+  transition: opacity 200ms ease;
+}
+
+/* Optically centre the chevron: nudge left so its visual mass sits centred. */
+.backButton svg {
+  display: block;
+  margin-left: -2px;
+}

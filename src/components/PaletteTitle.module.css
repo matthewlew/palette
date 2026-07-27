@@ -23,7 +23,12 @@
    one of the palette's own stops chosen for contrast against the gradient
    right here, so the title reads as part of the palette. */
 .pill {
-  border: 0;
+  /* Transparent rather than absent, with border-box sizing, so the hover box
+     below costs no layout: a 0 -> 1px border would otherwise nudge the title
+     by a pixel every time the cursor crossed it. */
+  border: 1px solid transparent;
+  box-sizing: border-box;
+  border-radius: var(--radius-base);
   background: transparent;
   height: 36px;
   max-width: 100%;
@@ -36,15 +41,31 @@
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: pointer;
+  transition: border-color 150ms ease;
+}
+
+/* Nothing said this title was editable — it is plain text with no chrome, so
+   the rename was invisible until you happened to click it. Hover now outlines
+   it as the text field it becomes, which is also what the editing state looks
+   like, so hover -> focus is one continuous shape rather than a label turning
+   into something else.
+   `hover: hover` only, or touch devices latch the outline on after a tap. */
+@media (hover: hover) {
+  .pill:hover {
+    border-color: color-mix(in srgb, currentColor 45%, transparent);
+    cursor: text;
+  }
 }
 
 .input {
   background: transparent;
-  border: 0;
-  /* The rename affordance is a hairline underline in the title's own color
-     (set inline), keeping the editing state as blob-free as the label. */
-  border-bottom: 1px solid currentColor;
-  border-radius: 0;
+  /* A full hairline box in the title's own colour (set inline), matching the
+     hover outline on .pill above so the label and the field are the same shape.
+     This was a border-BOTTOM underline, which read as a different control from
+     whatever you had just hovered, and gave the resting label no way to hint at
+     the field it was about to become. */
+  border: 1px solid currentColor;
+  border-radius: var(--radius-base);
   height: 36px;
   width: min(70vw, 280px);
   padding: 0 16px;

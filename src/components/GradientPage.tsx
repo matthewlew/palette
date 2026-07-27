@@ -22,11 +22,15 @@ interface GradientPageProps {
   liked: boolean
   onToggleLike: () => void
   onEdit: () => void
+  /** Leaves the full-screen feed for the gallery. Optional: the button only
+   * renders where a caller wires it, so other GradientPage surfaces (which
+   * have their own close/back chrome) don't grow a second one. */
+  onBack?: () => void
   /** When false, the like button fades out for uninterrupted viewing. */
   chromeVisible?: boolean
 }
 
-export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisible = true }: GradientPageProps) {
+export function GradientPage({ gradient, liked, onToggleLike, onEdit, onBack, chromeVisible = true }: GradientPageProps) {
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null)
   const noiseEnabled = useAppStore((s) => s.noiseEnabled)
   const toggleNoise = useAppStore((s) => s.toggleNoise)
@@ -108,6 +112,20 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
     >
+      {onBack && (
+        <button
+          type="button"
+          data-testid="feed-back"
+          aria-label="Back to gallery"
+          className={[styles.backButton, 'ghost-chip', !chromeVisible && styles.editHidden].filter(Boolean).join(' ')}
+          style={{ color: titleColor }}
+          onClick={onBack}
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M15 5l-7 7 7 7" />
+          </svg>
+        </button>
+      )}
       {gradient.type === 'square' && (
         <TurrellSquare
           stops={gradient.stops}

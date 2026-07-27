@@ -70,3 +70,31 @@ describe('GradientPage', () => {
   })
 })
 
+
+describe('GradientPage back to gallery', () => {
+  it('renders a back button only when a caller wires onBack', () => {
+    // Other GradientPage surfaces have their own close chrome; they must not
+    // grow a second back control just because the feed wanted one.
+    const { queryByTestId } = render(
+      <GradientPage gradient={gradient} liked={false} onToggleLike={vi.fn()} onEdit={vi.fn()} />
+    )
+    expect(queryByTestId('feed-back')).toBeNull()
+  })
+
+  it('calls onBack, and does NOT open the editor', () => {
+    // Tapping the gradient anywhere opens the editor, so a control sitting on
+    // top of it has to be excluded from that — the pointer handler filters
+    // `button`, and this pins that the back chevron benefits from it.
+    const onBack = vi.fn()
+    const onEdit = vi.fn()
+    render(
+      <GradientPage gradient={gradient} liked={false} onToggleLike={vi.fn()} onEdit={onEdit} onBack={onBack} />
+    )
+    const back = screen.getByTestId('feed-back')
+    fireEvent.pointerDown(back, { clientX: 20, clientY: 20 })
+    fireEvent.pointerUp(back, { clientX: 20, clientY: 20 })
+    fireEvent.click(back)
+    expect(onBack).toHaveBeenCalledTimes(1)
+    expect(onEdit).not.toHaveBeenCalled()
+  })
+})

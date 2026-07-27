@@ -119,6 +119,7 @@ export function Feed({ chromeVisible = true }: FeedProps) {
   const isGradientSaved = useAppStore((s) => s.isGradientSaved)
   const toggleSaveGradient = useAppStore((s) => s.toggleSaveGradient)
   const enterEditMode = useAppStore((s) => s.enterEditMode)
+  const setMode = useAppStore((s) => s.setMode)
   const scrollHint = useHint('scroll')
   const likeHint = useHint('like')
   // Fires at the reward moment: the first pin teaches where pins live.
@@ -603,6 +604,7 @@ export function Feed({ chromeVisible = true }: FeedProps) {
           toggleSaveGradient(displayed)
         }}
         onEdit={() => withViewTransition(enterEditMode)}
+        onBack={() => withViewTransition(() => setMode('gallery'))}
       />
       <ScrollTicker index={tickerIndex} />
       {scrollHint.visible && <Hint text="Scroll to explore palettes ↓" visible={scrollHint.visible} />}

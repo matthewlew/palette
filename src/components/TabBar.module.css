@@ -33,13 +33,23 @@
    `.overCanvas` is applied only while editing (panelOpen), so this scopes to
    edit mode. On tablet/desktop the sheet is a side panel, so the bar returns
    and centers on the remaining canvas width. */
+/* Fades out rather than `display: none`.
+ *
+ * display:none removes the element from the box tree, so it is not captured by
+ * the View Transition and cannot animate: entering edit made the bar vanish in
+ * a single frame while the gradient and sheet morphed around it, which reads as
+ * a glitch rather than as the bar leaving. Opacity keeps it in the snapshot, so
+ * it cross-fades with the rest of the transition, and pointer-events:none keeps
+ * it just as unclickable as display:none did. */
 .overCanvas {
-  display: none;
+  opacity: 0;
+  pointer-events: none;
 }
 
 @media (min-width: 768px) {
   .overCanvas {
-    display: flex;
+    opacity: 1;
+    pointer-events: auto;
     left: calc((100vw - 340px) / 2);
   }
 }
