@@ -14,7 +14,6 @@ import { BoardShare } from './BoardShare'
 import { PaletteTitle } from './PaletteTitle'
 import { NoiseOverlay } from './NoiseOverlay'
 import { ScrollTicker } from './ScrollTicker'
-import { CollectionsRow } from './CollectionsRow'
 import { SearchBar } from './SearchBar'
 import JSZip from 'jszip'
 import { renderVignetteToCanvas } from '../lib/vignette'
@@ -490,18 +489,12 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   const setMode = useAppStore((s) => s.setMode)
   const galleryLayout = useAppStore((s) => s.galleryLayout)
   const setGalleryLayout = useAppStore((s) => s.setGalleryLayout)
-  const collections = useAppStore((s) => s.collections)
-  const createCollection = useAppStore((s) => s.createCollection)
-  const setActiveCollection = useAppStore((s) => s.setActiveCollection)
-  const addToCollection = useAppStore((s) => s.addToCollection)
-  const removeFromCollection = useAppStore((s) => s.removeFromCollection)
   const [typeFilter, setTypeFilter] = useState<GradientType | null>(null)
   const [activeTab, setActiveTab] = useState<'saves' | 'community'>(
     useAppStore.getState().saved.length === 0 ? 'community' : 'saves'
   )
   const { gradients: communityGradients, loading: communityLoading, deleteGradient: deleteCommunityGradient } = useCommunityGradients()
   const isAdmin = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('admin') === 'true'
-  const [collectionView, setCollectionView] = useState<string | null>(null)
   const [open, setOpen] = useState<Gradient | null>(null)
   const [exporting, setExporting] = useState(false)
   const reorderSaved = useAppStore((s) => s.reorderSaved)
@@ -599,35 +592,29 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
 
   const filtered = saved.filter((gradient) => matchesFilters(gradient, typeFilter))
   const filteredCommunity = communityGradients.filter((gradient) => matchesFilters(gradient, typeFilter))
-  // Lookup + active-collection membership for the collections layer.
-  const gradientsById = Object.fromEntries(saved.map((g) => [g.id, g])) as Record<string, Gradient>
-  const activeCol = collectionView ? collections.find((c) => c.id === collectionView) ?? null : null
-  const members = activeCol
-    ? activeCol.gradientIds.map((id) => gradientsById[id]).filter(Boolean) as Gradient[]
-    : []
-
   const hasFilters = typeFilter !== null
 
-  let currentViewGradients = activeTab === 'community' ? filteredCommunity : filtered
-  if (searchResults) {
-    currentViewGradients = searchResults
-  } else if (activeCol) {
-    currentViewGradients = members
-  }
+  // Counts for the filter UI. Shapes with nothing to show are dropped rather
+  // than rendered as a dead "0" option — but the CURRENTLY selected shape is
+  // always kept, or selecting it would make it vanish from the control that
+  // selects it.
+  const filterPool = activeTab === 'community' ? communityGradients : saved
+  const totalCount = filterPool.length
+  const availableTypeChips = TYPE_CHIPS
+    .map(({ type, label }) => ({ type, label, count: filterPool.filter((g) => g.type === type).length }))
+    .filter(({ type, count }) => count > 0 || typeFilter === type)
+
+  const currentViewGradients = searchResults
+    ?? (activeTab === 'community' ? filteredCommunity : filtered)
 
 
 
   const gridRef = useRef<HTMLDivElement>(null)
 
   // Masonry uses measured row spans; grid layout is a plain uniform grid.
-  // `collectionView` is included because the grid unmounts and remounts when
-  // you enter/leave a board — and the freshly-mounted tiles need re-measuring,
-  // or they keep their default 8px grid slot and pile up (a "solitaire stack"
-  // of overlapping tiles).
   useMasonryRowSpans(gridRef, galleryLayout === 'masonry', [
     galleryLayout,
     currentViewGradients.map((g) => g.id).join(','),
-    collectionView,
     activeTab,
   ])
 
@@ -733,14 +720,6 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
         </div>
         <div className={styles.headerActions}>
           <SearchBar onResults={setSearchResults} />
-          <button
-            type="button"
-            className={styles.exportAllButton}
-            onClick={handleExportAll}
-            disabled={exporting || saved.length === 0}
-          >
-            {exporting ? 'Zipping...' : 'Export Posts'}
-          </button>
           <div className={styles.toggleGroup}>
             <button
               type="button"
@@ -775,6 +754,8 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
             saved={saved}
             onImport={onImport ?? (() => {})}
             position="inline"
+            onExportAll={handleExportAll}
+            exportingAll={exporting}
           />
         </div>
       </div>
@@ -829,80 +810,47 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
             ))}
           </div>
         </div>
-      ) : activeCol ? (
-        <div data-testid="collection-detail">
-          <div className={styles.header}>
-            <button
-              type="button"
-              className={styles.emptyAction}
-              onClick={() => setCollectionView(null)}
-            >
-              ← Collections
-            </button>
-            <h2 className={styles.title}>
-              {activeCol.name} <span className={styles.titleCount}>({members.length})</span>
-            </h2>
-            <button
-              type="button"
-              data-testid="collection-open-in-feed"
-              className={styles.emptyAction}
-              onClick={() => {
-                setActiveCollection(activeCol.id)
-                setMode('create')
-              }}
-            >
-              Open in feed
-            </button>
-          </div>
-          <div ref={gridRef} className={galleryLayout === 'masonry' ? styles.masonryGrid : styles.grid}>
-            {members.map((g, i) => (
-              <Tile
-                key={g.id}
-                gradient={g}
-                index={i}
-                onOpen={setOpen}
-                galleryLayout={galleryLayout}
-                onRiff={onRiff}
-                onDelete={(id) => removeFromCollection(activeCol.id, id)}
-              />
-            ))}
-          </div>
-        </div>
       ) : (
         <>
-          {activeTab === 'saves' && <CollectionsRow
-            collections={collections}
-            gradientsById={gradientsById}
-            onOpen={(id) => setCollectionView(id)}
-            onCreateFromDrop={(gradientId) => {
-              const id = createCollection()
-              addToCollection(id, gradientId)
-              setCollectionView(id)
-            }}
-            onDropGradient={addToCollection}
-          />}
+          {/* Filters render twice, and only one is ever visible (CSS media
+              query, not JS): a native <select> on mobile and the chip row on
+              desktop. The chips cost 90px over three rows at 375px and seven of
+              the fifteen read "0" — a select is one 36px row, uses the OS
+              picker, and cannot overflow. Zero-count options are omitted, so
+              every choice leads somewhere. */}
+          <div className={styles.filterSelectWrap}>
+            <select
+              data-testid="filter-select"
+              aria-label="Filter by gradient shape"
+              className={styles.filterSelect}
+              value={typeFilter ?? 'all'}
+              onChange={(e) => setTypeFilter(e.target.value === 'all' ? null : e.target.value as GradientType)}
+            >
+              <option value="all">All shapes ({totalCount})</option>
+              {availableTypeChips.map(({ type, label, count }) => (
+                <option key={type} value={type}>{label} ({count})</option>
+              ))}
+            </select>
+          </div>
+
           <div className={styles.chips}>
             <button
               type="button"
               className={!hasFilters ? styles.chipOn : styles.chip}
               onClick={() => setTypeFilter(null)}
             >
-              All <span className={styles.chipCount}>{activeTab === 'community' ? communityGradients.length : saved.length}</span>
+              All <span className={styles.chipCount}>{totalCount}</span>
             </button>
-            {TYPE_CHIPS.map(({ type, label }) => {
-              const count = (activeTab === 'community' ? communityGradients : saved).filter((gradient) => gradient.type === type).length
-              return (
-                <button
-                  key={type}
-                  type="button"
-                  className={typeFilter === type ? styles.chipOn : styles.chip}
-                  onClick={() => setTypeFilter(typeFilter === type ? null : type)}
-                >
-                  {label}{' '}
-                  <span className={styles.chipCount}>{count}</span>
-                </button>
-              )
-            })}
+            {availableTypeChips.map(({ type, label, count }) => (
+              <button
+                key={type}
+                type="button"
+                className={typeFilter === type ? styles.chipOn : styles.chip}
+                onClick={() => setTypeFilter(typeFilter === type ? null : type)}
+              >
+                {label} <span className={styles.chipCount}>{count}</span>
+              </button>
+            ))}
           </div>
 
           {currentViewGradients.length === 0 ? (

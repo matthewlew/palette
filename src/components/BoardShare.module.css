@@ -52,6 +52,15 @@
   width: 44px;
 }
 
+/* In the gallery header the trigger is a BAR control, not a floating FAB, so
+   it takes --control-h and lines up with the tabs, layout toggles and filter
+   select. The fixed/viewer variants keep 44px: there it floats over a gradient
+   with nothing to align to, and the bigger target is the right call. */
+.inline .triggerButton {
+  width: var(--control-h);
+  height: var(--control-h);
+}
+
 .triggerButton:active {
   transform: scale(0.9);
 }

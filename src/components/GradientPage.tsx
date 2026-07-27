@@ -37,21 +37,10 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, chromeVisi
   const driftRef = useStopDrift(gradient, motionEnabled)
   const driftable = canDrift(gradient.stops, gradient.type)
   const renameCurrentGradient = useAppStore((s) => s.renameCurrentGradient)
-  const activeCollectionId = useAppStore((s) => s.activeCollectionId)
-  const addToCollection = useAppStore((s) => s.addToCollection)
 
-  // Save toggles the gallery membership as before; when a collection is
-  // active, the freshly-saved copy (a new id, appended last) is also added to
-  // it. Removing (un-saving) leaves collection membership to the prune path.
   async function handleSave() {
     const wasSaved = liked
     onToggleLike()
-    if (!wasSaved && activeCollectionId) {
-      const saved = useAppStore.getState().saved
-      const newest = saved[saved.length - 1]
-      if (newest) addToCollection(activeCollectionId, newest.id)
-    }
-
     if (!wasSaved) {
       const hexes = gradient.stops.map(s => s.hex)
       const offsets = gradient.stops.map(s => s.position)

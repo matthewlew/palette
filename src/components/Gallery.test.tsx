@@ -266,35 +266,6 @@ describe('Gallery layout switcher', () => {
   })
 })
 
-describe('Gallery collections', () => {
-  beforeEach(() => {
-    useAppStore.setState(useAppStore.getInitialState())
-    useAppStore.setState({ mode: 'gallery' })
-  })
-
-  it('shows a Collections row and opens a board detail view with Open-in-feed', () => {
-    const store = useAppStore.getState()
-    store.saveGradient({
-      id: 's1',
-      type: 'linear',
-      stops: [
-        { hex: '#b5643c', position: 0 },
-        { hex: '#3a5a78', position: 100 },
-      ],
-    })
-    const savedId = useAppStore.getState().saved[0].id
-    const cid = store.createCollection('Kiln')
-    store.addToCollection(cid, savedId)
-
-    render(<Gallery onRiff={vi.fn()} />)
-    expect(screen.getByTestId('collections-row')).toBeInTheDocument()
-
-    fireEvent.click(screen.getByTestId(`collection-cover-${cid}`))
-    expect(screen.getByTestId('collection-detail')).toBeInTheDocument()
-    expect(screen.getByTestId('collection-open-in-feed')).toBeInTheDocument()
-  })
-})
-
 describe('Gallery load-in stagger', () => {
   beforeEach(() => {
     useAppStore.setState({
@@ -352,5 +323,82 @@ describe('Gallery drag reorder', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Linear/ }))
     const tiles = screen.getAllByTestId('gallery-tile')
     expect(tiles[0].getAttribute('draggable')).toBe('false')
+  })
+})
+
+describe('Gallery filter control', () => {
+  const mixed: Gradient[] = [
+    { id: 'a', type: 'linear', stops: [{ hex: '#111111', position: 0 }, { hex: '#eeeeee', position: 100 }], name: 'A' },
+    { id: 'b', type: 'linear', stops: [{ hex: '#222222', position: 0 }, { hex: '#dddddd', position: 100 }], name: 'B' },
+    { id: 'c', type: 'square', stops: [{ hex: '#333333', position: 0 }, { hex: '#cccccc', position: 100 }], name: 'C' },
+  ]
+
+  beforeEach(() => {
+    useAppStore.setState(useAppStore.getInitialState())
+    useAppStore.setState({ saved: mixed, mode: 'gallery' })
+  })
+
+  it('offers only shapes that would return something', () => {
+    // Seven of the fifteen chips read "0" before this. A filter that leads
+    // nowhere is worse than no filter, and on mobile each one cost a row.
+    render(<Gallery onRiff={vi.fn()} />)
+    const options = [...screen.getByTestId('filter-select').querySelectorAll('option')]
+      .map((o) => o.textContent)
+    expect(options).toEqual(['All shapes (3)', 'Linear (2)', 'Turrell (1)'])
+    expect(options.some((o) => /\(0\)/.test(o!))).toBe(false)
+  })
+
+  it('filters the grid by the selected shape', () => {
+    render(<Gallery onRiff={vi.fn()} />)
+    fireEvent.change(screen.getByTestId('filter-select'), { target: { value: 'square' } })
+    expect(screen.getByText('C')).toBeInTheDocument()
+    expect(screen.queryByText('A')).not.toBeInTheDocument()
+  })
+
+  it('returns to everything when All is picked', () => {
+    render(<Gallery onRiff={vi.fn()} />)
+    const select = screen.getByTestId('filter-select')
+    fireEvent.change(select, { target: { value: 'square' } })
+    fireEvent.change(select, { target: { value: 'all' } })
+    expect(screen.getByText('A')).toBeInTheDocument()
+    expect(screen.getByText('C')).toBeInTheDocument()
+  })
+
+  it('keeps the ACTIVE shape listed even once nothing matches it', () => {
+    // Otherwise selecting a shape and then deleting its last palette would
+    // make the option vanish from the very control that selects it, stranding
+    // the user in a filter they cannot see or clear.
+    render(<Gallery onRiff={vi.fn()} />)
+    fireEvent.change(screen.getByTestId('filter-select'), { target: { value: 'square' } })
+    useAppStore.setState({ saved: mixed.filter((g) => g.type !== 'square') })
+    const options = [...screen.getByTestId('filter-select').querySelectorAll('option')]
+      .map((o) => o.getAttribute('value'))
+    expect(options).toContain('square')
+  })
+
+  it('renders the chip row too, for the desktop breakpoint to reveal', () => {
+    // Both controls are always in the DOM; a media query picks one. The chips
+    // must therefore stay in sync with the select's options.
+    render(<Gallery onRiff={vi.fn()} />)
+    expect(screen.getByRole('button', { name: /Linear/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Mirror/ })).not.toBeInTheDocument()
+  })
+})
+
+describe('Gallery bulk export', () => {
+  beforeEach(() => {
+    useAppStore.setState(useAppStore.getInitialState())
+    useAppStore.setState({ saved: savedGradients, mode: 'gallery' })
+  })
+
+  it('offers Export Posts inside the share menu, not as its own header button', () => {
+    // As a labelled pill beside the icon-only share trigger it was the odd one
+    // out in a row where nothing shared a size, and it is a slow bulk action
+    // rather than a primary control.
+    render(<Gallery onRiff={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: /Export Posts/ })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText('Share options'))
+    fireEvent.click(screen.getByText(/More options/))
+    expect(screen.getByTestId('export-all-posts')).toBeInTheDocument()
   })
 })

@@ -1,7 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, fireEvent, screen } from '@testing-library/react'
 import { GradientPage } from './GradientPage'
-import { useAppStore } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
 
 const gradient: Gradient = {
@@ -71,33 +70,3 @@ describe('GradientPage', () => {
   })
 })
 
-describe('GradientPage destination-aware save', () => {
-  beforeEach(() => {
-    useAppStore.setState(useAppStore.getInitialState())
-  })
-
-  it('adds the freshly-saved gradient to the active collection on Save', () => {
-    const cid = useAppStore.getState().createCollection('Kiln')
-    useAppStore.getState().setActiveCollection(cid)
-    // onToggleLike mirrors the feed's behavior: it saves the shown gradient.
-    const onToggleLike = () => useAppStore.getState().saveGradient(gradient)
-
-    render(<GradientPage gradient={gradient} liked={false} onToggleLike={onToggleLike} onEdit={vi.fn()} />)
-    fireEvent.click(screen.getByTestId('like-button'))
-
-    const savedId = useAppStore.getState().saved[0].id
-    expect(useAppStore.getState().collections[0].gradientIds).toContain(savedId)
-  })
-
-  it('does not touch collections when no collection is active', () => {
-    const cid = useAppStore.getState().createCollection('Kiln')
-    // Not active.
-    const onToggleLike = () => useAppStore.getState().saveGradient(gradient)
-
-    render(<GradientPage gradient={gradient} liked={false} onToggleLike={onToggleLike} onEdit={vi.fn()} />)
-    fireEvent.click(screen.getByTestId('like-button'))
-
-    expect(useAppStore.getState().saved).toHaveLength(1)
-    expect(useAppStore.getState().collections.find((c) => c.id === cid)!.gradientIds).toEqual([])
-  })
-})

@@ -9,16 +9,57 @@
   padding: max(var(--space-3), env(safe-area-inset-top)) var(--space-4) calc(90px + env(safe-area-inset-bottom));
 }
 
+/* The filter control has two forms and only one is ever shown. Below 640px the
+   chips wrapped to three rows and cost 90px of a 812px screen; the select is a
+   single 36px row. Above 640px there is room to show every shape at once, and
+   seeing them all beats a picker that hides them. */
+.filterSelectWrap {
+  display: block;
+  padding: 2px 0 var(--space-3);
+  flex-shrink: 0;
+}
+
+.filterSelect {
+  width: 100%;
+  height: var(--control-h);
+  padding: 0 34px 0 14px;
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  appearance: none;
+  /* Chevron drawn in CSS so the control needs no icon asset and no JS. */
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 18px) center, calc(100% - 13px) center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
 /* Chips wrap onto extra rows at every width — the old mobile horizontal
    scroll hid filters off-screen. Wrapping keeps every tag visible. */
 .chips {
-  display: flex;
+  display: none;
   align-items: center;
   flex-wrap: wrap;
   gap: var(--space-2);
   padding: 2px 0 var(--space-3);
   scrollbar-width: none;
   flex-shrink: 0;
+}
+
+@media (min-width: 640px) {
+  .filterSelectWrap {
+    display: none;
+  }
+
+  .chips {
+    display: flex;
+  }
 }
 
 .chip,
@@ -450,65 +491,74 @@
     gap: 8px;
   }
 
+  /* Search shares the row with the layout toggles and the share trigger
+     rather than taking one of its own: at 375px they come to ~318px of the
+     335px available, so a whole 44px row was being spent on nothing. It flexes
+     down as the fixed-width controls need room, and min-width:0 is what lets
+     it actually shrink instead of overflowing. */
   .headerActions :global([data-testid='search-container']) {
-    flex: 1 1 100%;
+    /* 1 1 0, not 1 1 auto: an auto basis resolves to the container's own
+       width:100%, which claims the whole line and wraps everything else onto
+       the next one — the exact row this was meant to reclaim. A zero basis
+       makes it take only what is left after the fixed-width controls. */
+    flex: 1 1 0;
+    min-width: 0;
     max-width: none;
   }
 }
 
-.exportAllButton {
-  background: rgba(255, 255, 255, 0.15);
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: var(--radius-base);
-  padding: 6px 12px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.exportAllButton:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.25);
-}
-
-.exportAllButton:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 
 .toggleGroup {
   display: inline-flex;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  height: var(--control-h);
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  border: 1px solid var(--border);
   border-radius: var(--pill);
-  padding: 3px;
+  padding: 2px;
   align-items: center;
+}
+
+/* Every bar control keeps a 44px tap target even though its visual box is
+   36px, using the same trick .chip already used. Without this, shrinking the
+   boxes for visual consistency would push them under the minimum touch size —
+   the icon toggles were already at 28px. */
+.toggleBtn::after,
+.toggleBtnActive::after,
+.toggleBtnTab::after,
+.toggleBtnActiveTab::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc((var(--control-tap) - var(--control-h)) / -2);
+  bottom: calc((var(--control-tap) - var(--control-h)) / -2);
 }
 
 .toggleBtn,
 .toggleBtnActive {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: calc(var(--control-h) - 6px);
+  height: calc(var(--control-h) - 6px);
   border-radius: 50%;
   border: none;
   background: transparent;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-subdued);
   cursor: pointer;
   transition: background 150ms ease, color 150ms ease, transform 100ms ease;
 }
 
 .toggleBtn:hover {
-  color: rgba(255, 255, 255, 0.85);
-  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  background: color-mix(in srgb, currentColor 6%, transparent);
 }
 
 .toggleBtnActive {
-  background: rgba(255, 255, 255, 0.9);
-  color: #111;
+  background: var(--text);
+  color: var(--c-950);
 }
 
 .toggleBtn:active,
@@ -518,10 +568,11 @@
 
 .toggleBtnTab,
 .toggleBtnActiveTab {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 28px;
+  height: var(--control-h);
   border-radius: var(--pill);
   padding: 0 14px;
   border: none;

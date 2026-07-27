@@ -22,6 +22,13 @@ interface BoardShareProps {
    * it keeps the standard glass surface. */
   color?: string
   position?: 'fixed' | 'inline' | 'viewer'
+  /** Bulk "Export Posts" (zip of 1080x1350 PNGs). Optional because only the
+   * gallery header offers it. It lives in this menu rather than as its own
+   * header button: it is a slow bulk action, and as a labelled pill next to
+   * the icon-only share trigger it was the odd one out in a row where nothing
+   * shared a size. */
+  onExportAll?: () => void
+  exportingAll?: boolean
 }
 
 function getSingleShareLink(gradient: Gradient): string {
@@ -42,6 +49,8 @@ export function BoardShare({
   chromeVisible = true,
   color,
   position = 'fixed',
+  onExportAll,
+  exportingAll = false,
 }: BoardShareProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [showMore, setShowMore] = useState(false)
@@ -241,6 +250,21 @@ export function BoardShare({
                 <span className={styles.menuItemText}>Export Image…</span>
                 <span className={styles.menuItemHint}>Wallpaper, Story, OG sizes</span>
               </button>
+
+              {onExportAll && (
+                <button
+                  type="button"
+                  data-testid="export-all-posts"
+                  className={styles.menuItem}
+                  onClick={() => { setIsOpen(false); onExportAll() }}
+                  disabled={exportingAll || saved.length === 0}
+                >
+                  <span className={styles.menuItemText}>
+                    {exportingAll ? 'Zipping…' : 'Export Posts…'}
+                  </span>
+                  <span className={styles.menuItemHint}>ZIP of 1080×1350 PNGs</span>
+                </button>
+              )}
 
               <button
                 type="button"

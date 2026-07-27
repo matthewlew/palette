@@ -19,6 +19,20 @@
    --bg resolved to #fff and gave white-on-white in GeometryTabs .filterActive
    and a white EditMode sheet. Mode is now declared, not inferred. */
 :root {
+  /* One height for every bar control — pills, icon buttons, inputs, selects.
+   *
+   * The gallery header used to mix 44 / 29 / 28 / 28px in a single row, on two
+   * different baselines, so nothing lined up and the labelled Export pill
+   * loomed over the icon-only share trigger. A single token is what makes
+   * "these are the same kind of thing" true rather than approximately true.
+   *
+   * 36 is the visual box. Tap targets stay at 44 via the ::after expansion the
+   * chips already use, so shrinking the box does NOT shrink the hit area —
+   * some of these controls were 28-29px, i.e. under the minimum, while looking
+   * bigger. */
+  --control-h: 36px;
+  --control-tap: 44px;
+
   font: 18px/145% var(--th-body);
   letter-spacing: 0.18px;
   color-scheme: dark;

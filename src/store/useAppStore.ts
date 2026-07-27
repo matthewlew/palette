@@ -3,10 +3,7 @@ import { persist } from 'zustand/middleware'
 import type {
   Gradient,
   ViewMode,
-  Collection,
-  CollectionLevers,
 } from './types'
-import { NEUTRAL_LEVERS } from './types'
 import { DEFAULT_COLOR_SET, type ColorSet } from '../lib/colorSets'
 import { namePalette } from '../lib/naming'
 
@@ -74,15 +71,6 @@ interface AppState {
   setActiveColorSet: (colorSet: ColorSet) => void
   galleryLayout: 'grid' | 'masonry'
   setGalleryLayout: (layout: 'grid' | 'masonry') => void
-  collections: Collection[]
-  activeCollectionId: string | null
-  createCollection: (name?: string) => string
-  renameCollection: (id: string, name: string) => void
-  deleteCollection: (id: string) => void
-  addToCollection: (collectionId: string, gradientId: string) => void
-  removeFromCollection: (collectionId: string, gradientId: string) => void
-  setActiveCollection: (id: string | null) => void
-  setCollectionLevers: (id: string, levers: CollectionLevers) => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -130,14 +118,6 @@ export const useAppStore = create<AppState>()(
         if (index === -1) return
         set({
           saved: saved.filter((g) => g.id !== id),
-          // A collection is a subset of `saved`, so a hard delete must prune
-          // the id from every collection (undo restores the gradient but not
-          // its old memberships — acceptable for Phase 1).
-          collections: get().collections.map((c) =>
-            c.gradientIds.includes(id)
-              ? { ...c, gradientIds: c.gradientIds.filter((gid) => gid !== id) }
-              : c
-          ),
           lastDeleted: { gradient: saved[index], index },
           // A fresh deletion starts a new undo chain.
           lastUndone: null,
@@ -254,62 +234,6 @@ export const useAppStore = create<AppState>()(
       setActiveColorSet: (colorSet) => set({ activeColorSet: colorSet }),
       galleryLayout: 'masonry',
       setGalleryLayout: (layout) => set({ galleryLayout: layout }),
-      collections: [],
-      activeCollectionId: null,
-      createCollection: (name) => {
-        const id = crypto.randomUUID()
-        const collection: Collection = {
-          id,
-          name: name?.trim() || 'New Collection',
-          createdAt: Date.now(),
-          gradientIds: [],
-          levers: { ...NEUTRAL_LEVERS },
-        }
-        set({ collections: [...get().collections, collection] })
-        return id
-      },
-      renameCollection: (id, name) => {
-        const trimmed = name.trim()
-        if (!trimmed) return
-        set({
-          collections: get().collections.map((c) =>
-            c.id === id ? { ...c, name: trimmed } : c
-          ),
-        })
-      },
-      deleteCollection: (id) => {
-        set({
-          collections: get().collections.filter((c) => c.id !== id),
-          activeCollectionId:
-            get().activeCollectionId === id ? null : get().activeCollectionId,
-        })
-      },
-      addToCollection: (collectionId, gradientId) => {
-        set({
-          collections: get().collections.map((c) =>
-            c.id === collectionId && !c.gradientIds.includes(gradientId)
-              ? { ...c, gradientIds: [...c.gradientIds, gradientId] }
-              : c
-          ),
-        })
-      },
-      removeFromCollection: (collectionId, gradientId) => {
-        set({
-          collections: get().collections.map((c) =>
-            c.id === collectionId
-              ? { ...c, gradientIds: c.gradientIds.filter((gid) => gid !== gradientId) }
-              : c
-          ),
-        })
-      },
-      setActiveCollection: (id) => set({ activeCollectionId: id }),
-      setCollectionLevers: (id, levers) => {
-        set({
-          collections: get().collections.map((c) =>
-            c.id === id ? { ...c, levers } : c
-          ),
-        })
-      },
     }),
     {
       name: 'palette-saved-gradients',
@@ -317,8 +241,6 @@ export const useAppStore = create<AppState>()(
         saved: state.saved,
         noiseEnabled: state.noiseEnabled,
         galleryLayout: state.galleryLayout,
-        collections: state.collections,
-        activeCollectionId: state.activeCollectionId,
       }),
       // v1 drops the removed flutedEnabled flag from boards persisted before
       // that filter was deleted, so stale keys don't live in localStorage
@@ -330,14 +252,13 @@ export const useAppStore = create<AppState>()(
       // that feature was dropped, so its keys don't linger in localStorage.
       // v6 backfills missing ids and names for legacy saved gradients
       // (some predate the database schema or the naming engine).
-      version: 6,
+      // v7 removes boards/collections after that feature was deleted.
+      version: 7,
       migrate: (persisted, version) => {
         const state = persisted as {
           saved?: Gradient[]
           noiseEnabled?: boolean
           galleryLayout?: 'grid' | 'masonry'
-          collections?: Collection[]
-          activeCollectionId?: string | null
         }
         if (Array.isArray(state.saved)) {
           state.saved = state.saved.map((g) => {
@@ -361,13 +282,15 @@ export const useAppStore = create<AppState>()(
         if (!state.galleryLayout || version < 2) {
           state.galleryLayout = 'masonry'
         }
-        // v3: collections are new — default them for older persisted state.
-        if (!Array.isArray(state.collections)) state.collections = []
-        if (state.activeCollectionId === undefined) state.activeCollectionId = null
         // v5: the Daily Drops feature was removed — drop its persisted keys.
         const legacy = state as Record<string, unknown>
         delete legacy.keywordBindings
         delete legacy.curatedDrops
+        // v7: boards/collections were removed — drop their persisted keys so
+        // they don't sit in localStorage forever. Saved gradients are NOT
+        // touched: a collection was only ever a list of ids into `saved`.
+        delete legacy.collections
+        delete legacy.activeCollectionId
         return state
       },
     }
