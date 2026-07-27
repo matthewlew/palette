@@ -59,20 +59,23 @@
 /* Collapsed: the sheet peeks rather than disappearing. Tapping the handle —
    which stays visible and tappable — restores the full panel.
 
-   166px is not arbitrary: it is the handle plus exactly ONE full row of shape
-   tabs. At the 375px breakpoint the grid is 3-up; measured IN THE COLLAPSED
-   STATE the first row ends at 162px and the second begins at 170px, so 166
-   lands in the gap between them. Measure collapsed, not expanded — the rule
-   below drops the handle's 8px bottom margin, which shifts every row up by
-   that much, and sizing off the expanded layout leaves a sliver of the second
-   row's thumbnails showing. Clipping on a row boundary is the point: a sliced
-   row reads as broken rather than as "there is more below".
+   103px is the handle plus the shape row, which below 768px is now ALL SIX
+   shapes on one line (GeometryTabs goes 6-up wherever this sheet exists).
+   Measured in the COLLAPSED state: the shape row ends at 100px and the first
+   filter row begins at 106px, so 103 lands in the gap and nothing is sliced.
+   This only holds because GeometryTabs pins the preview square to a fixed
+   44px — with a max-width the row grew 6px on a wide bottom sheet and no
+   single value worked at both ends.
 
-   It was 28px (the bare handle). That gave the preview the whole screen but
-   left a sliver too short to read as a panel at all, so the collapsed state
-   looked like a rendering glitch instead of a control you could pull up. */
+   Measure collapsed, not expanded — the rule below drops the handle's 8px
+   bottom margin, which shifts every row up by that much. Sizing off the
+   expanded layout leaves a sliver of the next row showing, which reads as
+   broken rather than as "there is more below". This number has moved twice for
+   exactly that reason (28px showed only the bare handle; 166px was one row of
+   the old 3-up grid, i.e. half the shapes) — re-measure it if the tab grid
+   changes again. */
 .sheet.collapsed {
-  max-height: 166px;
+  max-height: 103px;
   overflow: hidden;
   transition: max-height 200ms ease, opacity 200ms ease, transform 200ms ease;
 }
@@ -82,6 +85,12 @@
 }
 
 .sheetHandle {
+  /* flex: none, or it VANISHES. The sheet is a column flex container with a
+     max-height while collapsed, so its items shrink to fit — and a 4px item
+     with the default flex-shrink:1 shrinks straight to 0. The grab handle was
+     computing to height 0px and simply was not there, which is why the peek
+     looked like a cut-off panel rather than something you could pull. */
+  flex: none;
   width: 36px;
   height: 4px;
   border-radius: 2px;

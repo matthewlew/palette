@@ -98,3 +98,56 @@
   /* Prevent the preview itself from squishing */
   flex-shrink: 0;
 }
+
+/* All six shapes on one row wherever the sheet is a BOTTOM sheet.
+
+ * The breakpoint is 767px, matching EditMode's own 768px switch to the desktop
+ * side panel, not an arbitrary phone width: the collapsed peek is a fixed pixel
+ * height, so the shape row has to be the same height everywhere that peek
+ * applies. That is also why .previewBox is capped below — without it a 767px
+ * track would give a 119px square, the row would be ~147px tall, and the 107px
+ * peek would slice straight through it.
+ *
+ * Three columns meant two rows of tabs, which is what made the sheet tall
+ * enough to swallow the screen, and meant the collapsed peek could only ever
+ * show half the shapes. Six columns give a ~54px track at 375px; the widest
+ * label ("Angular") measures 42px at 11px, so the labels still fit rather than
+ * being dropped. The preview squares shrink with the track.
+ *
+ * The filter chips share this grid, so they take span 2 — three per row
+ * instead of inheriting the six-column track and turning into stubs. */
+@media (max-width: 767px) {
+  .tabs {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 6px;
+    padding: 10px;
+  }
+
+  .tab,
+  .tabActive {
+    padding: 4px 2px 6px;
+    font-size: 11px;
+  }
+
+  .tabInner {
+    gap: 5px;
+  }
+
+  /* FIXED, not a max-width. The collapsed peek in EditMode is a single pixel
+     height, so the shape row must be exactly as tall at 760px as at 375px. A
+     cap does not achieve that: the box fills the track until it reaches the
+     cap, so it measured 48.2px at 375 and 54px at 760 — a 6px swing, enough
+     that no single peek value could clear the row at one width without slicing
+     it at the other. Pinning the size removes the variable. */
+  .previewBox {
+    width: 44px;
+    align-self: center;
+  }
+
+  .filter,
+  .filterActive {
+    grid-column: span 2;
+    min-height: 40px;
+    font-size: 12px;
+  }
+}
