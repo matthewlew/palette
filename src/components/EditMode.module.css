@@ -59,29 +59,36 @@
 /* Collapsed: the sheet peeks rather than disappearing. Tapping the handle —
    which stays visible and tappable — restores the full panel.
 
-   103px is the handle plus the shape row, which below 768px is now ALL SIX
-   shapes on one line (GeometryTabs goes 6-up wherever this sheet exists).
-   Measured in the COLLAPSED state: the shape row ends at 100px and the first
-   filter row begins at 106px, so 103 lands in the gap and nothing is sliced.
-   This only holds because GeometryTabs pins the preview square to a fixed
-   44px — with a max-width the row grew 6px on a wide bottom sheet and no
-   single value worked at both ends.
+   The peek is CONTENT-SIZED, not a magic number. Everything below the
+   Shape/Effect sections is display:none while collapsed, so the sheet is
+   exactly the handle plus the segmented control plus whichever section is
+   active, and nothing can be sliced by a hard-coded height.
 
-   Measure collapsed, not expanded — the rule below drops the handle's 8px
-   bottom margin, which shifts every row up by that much. Sizing off the
-   expanded layout leaves a sliver of the next row showing, which reads as
-   broken rather than as "there is more below". This number has moved twice for
-   exactly that reason (28px showed only the bare handle; 166px was one row of
-   the old 3-up grid, i.e. half the shapes) — re-measure it if the tab grid
-   changes again. */
+   That matters because the two sections are not the same height (Shape is one
+   74px row of six squares, Effect is two rows of chips at 88px) and the rows
+   below them therefore start at a different offset per tab. There is no single
+   pixel value that clears the taller section AND stops short of the colour-stop
+   row for the shorter one — this number was re-measured four times (28, 166,
+   103, 148) before that became clear. Sizing to content removes the class of
+   bug rather than the instance.
+
+   max-height stays only as a CEILING, so the collapse still animates and a
+   future section can't quietly grow the peek to fill the screen. */
 .sheet.collapsed {
-  max-height: 103px;
+  max-height: 220px;
   overflow: hidden;
   transition: max-height 200ms ease, opacity 200ms ease, transform 200ms ease;
 }
 
 .sheet.collapsed .sheetHandle {
   margin-bottom: 0;
+}
+
+/* The colour-stop editor, its hint, and the keyboard hints — the half of the
+   sheet the peek is not showing. Hidden rather than clipped so the peek has no
+   sliced rows and needs no measuring. */
+.sheet.collapsed .belowSections {
+  display: none;
 }
 
 .sheetHandle {

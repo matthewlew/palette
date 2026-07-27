@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { buildGradientCss, type GradientType, type GradientStop } from '../lib/gradient'
 import type { Gradient } from '../store/types'
 import { TurrellSquare } from './TurrellSquare'
@@ -43,6 +43,13 @@ const TABS: { type: GradientType; label: string }[] = [
 // arrive here on a gradient loaded from a pre-filter-chip save.
 const FILTERS_UNSUPPORTED: GradientType[] = ['mirror', 'repeat']
 
+/** The sheet's two halves. Tabs on mobile, stacked headings on desktop. */
+type SectionId = 'shape' | 'effect'
+const SECTIONS: { id: SectionId; label: string }[] = [
+  { id: 'shape', label: 'Shape' },
+  { id: 'effect', label: 'Effect' },
+]
+
 export function GeometryTabs({
   gradient,
   stops,
@@ -58,6 +65,9 @@ export function GeometryTabs({
   onCycleOrder,
 }: GeometryTabsProps) {
   const tabsRef = useRef<HTMLDivElement>(null)
+  // Only consulted on mobile — the desktop media query shows both panels
+  // regardless, so this state is inert there rather than needing a branch.
+  const [section, setSection] = useState<SectionId>('shape')
 
   function handleWheel(e: React.WheelEvent) {
     const el = tabsRef.current
@@ -94,7 +104,40 @@ export function GeometryTabs({
   const smoothDisabled = gradient.type === 'square'
 
   return (
-    <div data-noscroll-hide="true" ref={tabsRef} className={styles.tabs} onWheel={handleWheel}>
+    <div data-noscroll-hide="true" ref={tabsRef} className={styles.sections} onWheel={handleWheel}>
+      {/* Mobile only. The collapsed sheet peeks ~100px, so everything below the
+          shape row was behind `overflow: hidden` with no scroll and no label —
+          214px of controls reachable only by finding a 36x4px grab handle.
+          Naming the sections and letting you switch between them makes the
+          hidden half both visible and reachable without expanding. Desktop
+          renders both sections stacked instead (see the media query). */}
+      <div className={styles.sectionTabs} role="tablist" aria-label="Editor sections">
+        {SECTIONS.map(({ id, label }) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            id={`section-tab-${id}`}
+            data-testid={`section-tab-${id}`}
+            aria-selected={section === id}
+            aria-controls={`section-panel-${id}`}
+            className={section === id ? styles.sectionTabActive : styles.sectionTab}
+            onClick={() => setSection(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <section
+        id="section-panel-shape"
+        data-testid="section-panel-shape"
+        role="tabpanel"
+        aria-labelledby="section-tab-shape"
+        className={section === 'shape' ? styles.panel : styles.panelInactive}
+      >
+        <h3 className={styles.sectionHeading}>Shape</h3>
+        <div className={styles.tabs}>
       {TABS.map((tab) => (
         <button
           key={tab.type}
@@ -129,6 +172,18 @@ export function GeometryTabs({
           </div>
         </button>
       ))}
+        </div>
+      </section>
+
+      <section
+        id="section-panel-effect"
+        data-testid="section-panel-effect"
+        role="tabpanel"
+        aria-labelledby="section-tab-effect"
+        className={section === 'effect' ? styles.panel : styles.panelInactive}
+      >
+        <h3 className={styles.sectionHeading}>Effect</h3>
+        <div className={styles.filters}>
       <button
         type="button"
         data-testid="filter-repeat"
@@ -178,6 +233,8 @@ export function GeometryTabs({
           Order: {orderLabel}
         </button>
       )}
+        </div>
+      </section>
     </div>
   )
 }

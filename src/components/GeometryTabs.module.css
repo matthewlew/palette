@@ -1,9 +1,91 @@
-.tabs {
+/* The sheet's two halves: Shape (the six geometries) and Effect (the filter
+   chips). They render the same on both breakpoints; only the NAVIGATION
+   differs — a segmented control on mobile, plain stacked headings on desktop,
+   where the side panel has the height to show everything at once. */
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px 12px;
+}
+
+.sectionTabs {
+  display: flex;
+  gap: 4px;
+  align-self: center;
+  padding: 2px;
+  border-radius: var(--pill);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  border: 1px solid var(--border);
+}
+
+.sectionTab,
+.sectionTabActive {
+  min-height: 28px;
+  padding: 0 18px;
+  border: none;
+  border-radius: var(--pill);
+  background: transparent;
+  color: var(--text-subdued);
+  font-family: var(--th-body);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.sectionTabActive {
+  background: var(--text);
+  color: var(--c-950);
+}
+
+/* Headings belong to the desktop layout, where both panels are on screen and
+   need naming. On mobile the segmented control already names them. */
+.sectionHeading {
+  display: none;
+  margin: 0 0 8px;
+  font-family: var(--th-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-subdued);
+}
+
+.panel {
+  display: block;
+}
+
+/* Hidden on MOBILE only — the media query below puts it back for desktop, so
+   the tab state can stay a plain boolean instead of being branched on width. */
+.panelInactive {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .sectionTabs {
+    display: none;
+  }
+
+  .panelInactive {
+    display: block;
+  }
+
+  .sectionHeading {
+    display: block;
+  }
+
+  .sections {
+    gap: 16px;
+  }
+}
+
+.tabs,
+.filters {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   align-items: stretch;
   gap: 8px;
-  padding: 12px;
 }
 
 /* Same design-system pill as the other toggle chips (gallery filters, tab
@@ -114,13 +196,13 @@
  * label ("Angular") measures 42px at 11px, so the labels still fit rather than
  * being dropped. The preview squares shrink with the track.
  *
- * The filter chips share this grid, so they take span 2 — three per row
- * instead of inheriting the six-column track and turning into stubs. */
+ * Only the SHAPE grid goes 6-up. The Effect chips have their own grid and stay
+ * 3-up, because they are text pills whose labels ("Repeat x2", "Order:
+ * Original") need the width. */
 @media (max-width: 767px) {
   .tabs {
     grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 6px;
-    padding: 10px;
   }
 
   .tab,
@@ -146,7 +228,6 @@
 
   .filter,
   .filterActive {
-    grid-column: span 2;
     min-height: 40px;
     font-size: 12px;
   }

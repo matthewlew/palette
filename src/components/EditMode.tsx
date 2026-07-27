@@ -882,7 +882,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           onCycleOrder={handleSortCycle}
         />
 
-        <div className={styles.blockArea}>
+        <div className={[styles.blockArea, styles.belowSections].join(' ')}>
           <FlowEditor
             stops={editableStops}
             onMove={handleMoveStop}
@@ -897,12 +897,14 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
             like Repeat/Smooth/Hard/Rotate, so it now sits with them in
             GeometryTabs — which also gives the mobile preview back the 91px
             this row cost. Only the hint is left. */}
-        <div className={styles.stopActions}>
+        <div className={[styles.stopActions, styles.belowSections].join(' ')}>
           <span className={styles.stopHint}>Tap a blank spot to add · drag down to remove</span>
         </div>
         {/* Keyboard hints live in the panel (desktop only, hidden on touch via
             the component's own media query) rather than floating on the canvas. */}
-        <ShortcutHints items={EDIT_SHORTCUTS} placement="inline" color="currentColor" />
+        <div className={styles.belowSections}>
+          <ShortcutHints items={EDIT_SHORTCUTS} placement="inline" color="currentColor" />
+        </div>
         {/* Off-screen native picker, opened programmatically from a stop tap or
             the Add color button — the explicit-color path that replaces the
             swatch tray. */}

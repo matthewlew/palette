@@ -87,3 +87,74 @@ const dummyGradient = (type: any) => ({ id: 'g1', type, stops: dummyStops, rever
     expect(screen.queryByText('Square')).not.toBeInTheDocument()
   })
 })
+
+describe('GeometryTabs Shape/Effect sections', () => {
+  const stops = [
+    { hex: '#ffffff', position: 0 },
+    { hex: '#000000', position: 100 },
+  ]
+  const gradient = {
+    id: 'g1', type: 'linear' as const, stops,
+    reversed: false, hardStops: false, repeatEnabled: false,
+  }
+  const render_ = (extra = {}) =>
+    render(
+      <GeometryTabs
+        gradient={gradient as never}
+        stops={stops}
+        onSelectType={vi.fn()}
+        onToggleReversed={vi.fn()}
+        orderLabel="Original"
+        order="original"
+        onCycleOrder={vi.fn()}
+        {...extra}
+      />
+    )
+
+  it('starts on Shape, with the Effect panel present but not shown', () => {
+    // Both panels stay in the DOM: the desktop media query reveals the
+    // inactive one, so hiding it must be a class and not a conditional render.
+    render_()
+    expect(screen.getByTestId('section-tab-shape')).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByTestId('section-tab-effect')).toHaveAttribute('aria-selected', 'false')
+    expect(screen.getByTestId('section-panel-effect')).toBeInTheDocument()
+    expect(screen.getByTestId('filter-repeat')).toBeInTheDocument()
+  })
+
+  it('switches to Effect on tap', () => {
+    render_()
+    fireEvent.click(screen.getByTestId('section-tab-effect'))
+    expect(screen.getByTestId('section-tab-effect')).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByTestId('section-tab-shape')).toHaveAttribute('aria-selected', 'false')
+  })
+
+  it('puts the six shapes in Shape and the modifiers in Effect', () => {
+    // The split is the point: the peek shows one section at a time, so a
+    // control in the wrong half is a control the user cannot find.
+    render_()
+    const shape = screen.getByTestId('section-panel-shape')
+    const effect = screen.getByTestId('section-panel-effect')
+    for (const label of ['Linear', 'Radial', 'Angular', 'Turrell', 'Mirror', 'Fan']) {
+      expect(shape).toContainElement(screen.getByText(label))
+    }
+    for (const id of ['filter-repeat', 'filter-smooth', 'filter-hard', 'filter-rotate', 'sort-button']) {
+      expect(effect).toContainElement(screen.getByTestId(id))
+    }
+  })
+
+  it('keeps every control operable regardless of which section is showing', () => {
+    // Switching sections must not unmount anything — the desktop layout shows
+    // both at once, and unmounting would also drop focus and state.
+    const onToggleRepeat = vi.fn()
+    render_({ onToggleRepeat })
+    fireEvent.click(screen.getByTestId('filter-repeat'))
+    expect(onToggleRepeat).toHaveBeenCalledTimes(1)
+  })
+
+  it('wires the tabs to their panels for assistive tech', () => {
+    render_()
+    expect(screen.getByTestId('section-tab-shape')).toHaveAttribute('aria-controls', 'section-panel-shape')
+    expect(screen.getByTestId('section-panel-shape')).toHaveAttribute('role', 'tabpanel')
+    expect(screen.getByTestId('section-panel-shape')).toHaveAttribute('aria-labelledby', 'section-tab-shape')
+  })
+})
