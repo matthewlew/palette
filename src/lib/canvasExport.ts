@@ -268,7 +268,7 @@ export async function downloadGradientAsPng(gradient: Gradient, width: number, h
   const canvas = document.createElement('canvas')
   renderGradientToCanvas(canvas, gradient, width, height)
 
-  const filename = `${(gradient.name ?? 'gradient').toLowerCase().replace(/\s+/g, '-')}-${width}x${height}.png`
+  const filename = `${(gradient.name ?? 'gradient').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'gradient'}-${width}x${height}.png`
   await shareOrDownloadCanvas(canvas, filename, gradient.name ?? 'Gradient')
 }
 
