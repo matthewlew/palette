@@ -169,7 +169,7 @@ export function SavedBrowser({ saved, onSelect, onClose }: SavedBrowserProps) {
         const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
         if (blob) {
           const name = gradient.name ?? namePalette(gradient.stops.map(s => s.hex))
-          const slug = name.toLowerCase().replace(/\s+/g, '-')
+          const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'gradient'
           const filename = `${slug}-post.png`
           zip.file(filename, blob)
         }

@@ -556,7 +556,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
         await renderVignetteToCanvas(canvas, gradient, 1080, 1350, 'post')
         const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
         if (blob) {
-          const slug = (gradient.name ?? 'gradient').toLowerCase().replace(/\s+/g, '-')
+          const slug = (gradient.name ?? 'gradient').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'gradient'
           const filename = `${slug}-post.png`
           zip.file(filename, blob)
         }

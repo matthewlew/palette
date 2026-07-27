@@ -99,7 +99,7 @@ export function BoardShare({
     try {
       const canvas = document.createElement('canvas')
       await renderVignetteToCanvas(canvas, current, 1080, 1350, 'post')
-      const slug = (current.name ?? 'gradient').toLowerCase().replace(/\s+/g, '-')
+      const slug = (current.name ?? 'gradient').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'gradient'
       await shareOrDownloadCanvas(canvas, `${slug}-post.png`, current.name ?? 'Gradient')
     } catch (e) {
       console.error('Share as image failed', e)
