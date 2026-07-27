@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import type { Gradient } from '../store/types'
 import type { GradientType } from '../lib/gradient'
 import { COLOR_NOUNS, type HueFamily } from '../lib/namingWords'
+import { parseQuery } from '../lib/shapeSearch'
 import styles from './SearchBar.module.css'
 
 /** Search hits, split by where they came from. Yours are matched locally and
@@ -26,16 +27,18 @@ interface SearchBarProps {
   onCancel?: () => void;
 }
 
-/** Local name match. Deliberately dumber than the community query — it is a
- * substring test on the name you gave it, which is what you are reaching for
- * when you search your own small library. */
+/** Local match: shape words filter by geometry, everything else is a substring
+ * test on the name. Deliberately dumber than the community query on names —
+ * that is what you are reaching for in your own small library — but it honours
+ * shapes identically, through the same parseQuery. */
 function matchSaved(saved: Gradient[], query: string): Gradient[] {
-  const q = query.trim().toLowerCase()
-  if (!q) return []
-  const words = q.split(/\s+/)
+  const { shapes, terms } = parseQuery(query)
+  if (shapes.length === 0 && terms.length === 0) return []
   return saved.filter((g) => {
+    if (shapes.length > 0 && !shapes.includes(g.type)) return false
+    if (terms.length === 0) return true
     const name = (g.name ?? '').toLowerCase()
-    return words.every((w) => name.includes(w))
+    return terms.every((w) => name.includes(w))
   })
 }
 
@@ -66,11 +69,18 @@ export function SearchBar({ onResults, saved = [], onActiveChange, onCancel }: S
         let queryBuilder = supabase
           .from('palettes')
           .select('*')
-          
-        const words = query.trim().split(/\s+/)
-        for (const word of words) {
+
+        // Shape words filter on the `shape` column; whatever is left is matched
+        // against the name. Searching "radial" used to look for the WORD radial
+        // in generated display names and miss every actual radial gradient.
+        const { shapes, terms } = parseQuery(query)
+        if (shapes.length > 0) {
+          queryBuilder = queryBuilder.in('shape', shapes)
+        }
+
+        for (const word of terms) {
           const lowerWord = word.toLowerCase()
-          
+
           let familyKey: HueFamily | null = null
           if (lowerWord === 'red') familyKey = 'red'
           else if (lowerWord === 'orange') familyKey = 'orange'
@@ -97,7 +107,7 @@ export function SearchBar({ onResults, saved = [], onActiveChange, onCancel }: S
             queryBuilder = queryBuilder.ilike('display_name', `%${word}%`)
           }
         }
-        
+
         const { data, error } = await queryBuilder.limit(20)
 
         if (error) throw error

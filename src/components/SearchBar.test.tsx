@@ -22,6 +22,10 @@ const saved: Gradient[] = [
     stops: [{ hex: '#111111', position: 0 }, { hex: '#eeeeee', position: 100 }] },
   { id: 's2', name: 'Cold Steel', type: 'linear',
     stops: [{ hex: '#222222', position: 0 }, { hex: '#dddddd', position: 100 }] },
+  { id: 's3', name: 'Quiet Dune', type: 'radial',
+    stops: [{ hex: '#333333', position: 0 }, { hex: '#cccccc', position: 100 }] },
+  { id: 's4', name: 'Warm Tide', type: 'mirror',
+    stops: [{ hex: '#444444', position: 0 }, { hex: '#bbbbbb', position: 100 }] },
 ]
 
 beforeEach(() => vi.useFakeTimers())
@@ -93,6 +97,41 @@ describe('SearchBar', () => {
     expect(onCancel).toHaveBeenCalledTimes(1)
     expect(onResults).toHaveBeenLastCalledWith(null)
     expect((screen.getByTestId('search-input') as HTMLInputElement).value).toBe('')
+  })
+
+  it('finds palettes by SHAPE, not just by name', () => {
+    // "radial" used to look for the word radial in generated names and miss
+    // every actual radial gradient. None of these palettes is named for its
+    // geometry, which is the point.
+    const onResults = vi.fn()
+    render(<SearchBar onResults={onResults} saved={saved} />)
+    fireEvent.change(screen.getByTestId('search-input'), { target: { value: 'radial' } })
+    expect(onResults).toHaveBeenLastCalledWith({ mine: [saved[2]], community: [] })
+  })
+
+  it('accepts the words people actually use for a shape', () => {
+    const onResults = vi.fn()
+    render(<SearchBar onResults={onResults} saved={saved} />)
+    const input = screen.getByTestId('search-input')
+    fireEvent.change(input, { target: { value: 'circular' } })
+    expect(onResults).toHaveBeenLastCalledWith({ mine: [saved[2]], community: [] })
+    fireEvent.change(input, { target: { value: 'lines' } })
+    expect(onResults).toHaveBeenLastCalledWith({ mine: [saved[0], saved[1]], community: [] })
+  })
+
+  it('combines a shape with a name term', () => {
+    const onResults = vi.fn()
+    render(<SearchBar onResults={onResults} saved={saved} />)
+    // "warm" alone matches the linear AND the mirror; adding the shape narrows.
+    fireEvent.change(screen.getByTestId('search-input'), { target: { value: 'warm mirror' } })
+    expect(onResults).toHaveBeenLastCalledWith({ mine: [saved[3]], community: [] })
+  })
+
+  it('treats several shapes as OR, since a palette has only one', () => {
+    const onResults = vi.fn()
+    render(<SearchBar onResults={onResults} saved={saved} />)
+    fireEvent.change(screen.getByTestId('search-input'), { target: { value: 'radial mirror' } })
+    expect(onResults).toHaveBeenLastCalledWith({ mine: [saved[2], saved[3]], community: [] })
   })
 
   it('has no Cancel unless a caller wires one', () => {
