@@ -33,6 +33,14 @@
   --control-h: 36px;
   --control-tap: 44px;
 
+  /* Minimum font-size for a focusable field. iOS Safari zooms the viewport in
+   * when you focus an input whose computed font-size is under 16px — and it
+   * does not zoom back out, so one tap on Search left the whole app magnified
+   * and horizontally scrollable. The only fixes are a 16px field or
+   * maximum-scale=1 on the viewport meta; the latter disables pinch-zoom for
+   * everyone, which trades an annoyance for an accessibility failure. */
+  --field-min-font: 16px;
+
   font: 18px/145% var(--th-body);
   letter-spacing: 0.18px;
   color-scheme: dark;
@@ -91,6 +99,32 @@
   justify-content: center;
   cursor: pointer;
   transition: transform 150ms ease-out, opacity 400ms ease, background 150ms ease;
+}
+
+/* Touch devices and narrow viewports only, so the desktop UI keeps its intended
+   13-15px fields. Both conditions, matching the pattern ShortcutHints already
+   uses: an iPad with a trackpad reports `pointer: fine` and still zooms, and an
+   emulator can report the opposite — either signal alone misses a real case.
+
+   Set globally rather than per component because this is a property of the
+   PLATFORM, not of any one field. The search box (13px), the shape filter
+   select (13px) and the title rename (15px) were all under the threshold, and
+   the next field added would have been too. */
+@media (pointer: coarse), (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    /* !important is load-bearing, not laziness. Every field here is styled by a
+       CSS module, and a class selector (0,1,0) outranks a bare element selector
+       (0,0,1) — without this the rule is a silent no-op and the fields stay at
+       13px while looking fixed. Raising specificity instead is not possible:
+       even `html body input` is (0,0,3), still under any single class.
+
+       This is also the right shape for the override. It is a platform
+       accessibility floor, not a design choice, and nothing should be allowed
+       to opt a field back under it. */
+    font-size: var(--field-min-font) !important;
+  }
 }
 
 .ghost-chip:hover {
