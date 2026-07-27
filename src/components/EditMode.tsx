@@ -86,7 +86,17 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   onExitRef.current = onExit
   // Dragging the sheet down collapses it to a full-screen gradient view that's
   // still in edit mode (a pull-tab restores it); only Back/Esc actually exits.
-  const [collapsed, setCollapsed] = useState(false)
+  //
+  // It also STARTS collapsed on the mobile bottom-sheet layout: even after the
+  // Order chip moved out, the open sheet takes over half a phone viewport, so
+  // entering edit mode used to hand you a gradient you could barely see. The
+  // handle is visible and tapping it (or the canvas) opens the controls.
+  // Desktop is a fixed side panel that never collapses, so it opens as before.
+  const [collapsed, setCollapsed] = useState(
+    () => typeof window !== 'undefined'
+      && typeof window.matchMedia === 'function'
+      && !window.matchMedia('(min-width: 768px)').matches,
+  )
   const collapseRef = useRef<(v: boolean) => void>(() => {})
   collapseRef.current = setCollapsed
   const [activeStopId, setActiveStopId] = useState<string | null>(null)
@@ -867,6 +877,9 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           onToggleSmooth={handleToggleSmooth}
           onRotateFan={handleRotateFan}
           onRotate={handleRotateAngle}
+          order={activeOrder}
+          orderLabel={ORDER_LABELS[activeOrder]}
+          onCycleOrder={handleSortCycle}
         />
 
         <div className={styles.blockArea}>
@@ -880,16 +893,11 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
             activeStopId={activeStopId}
           />
         </div>
+        {/* The Order button used to live here in its own row. It is a modifier
+            like Repeat/Smooth/Hard/Rotate, so it now sits with them in
+            GeometryTabs — which also gives the mobile preview back the 91px
+            this row cost. Only the hint is left. */}
         <div className={styles.stopActions}>
-          <button
-            type="button"
-            data-testid="sort-button"
-            aria-label={`Stop order: ${activeOrder}. Tap to change`}
-            className={styles.sortButton}
-            onClick={handleSortCycle}
-          >
-            Order: {ORDER_LABELS[activeOrder]}
-          </button>
           <span className={styles.stopHint}>Tap a blank spot to add · drag down to remove</span>
         </div>
         {/* Keyboard hints live in the panel (desktop only, hidden on touch via

@@ -374,6 +374,45 @@ describe('EditMode', () => {
     expect(sheet).toContainElement(screen.getByTestId('sort-button'))
   })
 
+  it('starts collapsed on the mobile bottom-sheet layout', () => {
+    // The open sheet takes roughly two thirds of a phone viewport, so entering
+    // edit mode used to hand you a gradient you could barely see. Collapsed,
+    // the preview gets the screen and the handle is still there to open it.
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }))
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    expect(screen.getByTestId('edit-sheet').className).toMatch(/collapsed/)
+    vi.unstubAllGlobals()
+  })
+
+  it('starts expanded on the desktop side-panel layout, which never collapses', () => {
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }))
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    expect(screen.getByTestId('edit-sheet').className).not.toMatch(/collapsed/)
+    vi.unstubAllGlobals()
+  })
+
+  it('tapping the handle on mobile opens the collapsed sheet rather than exiting', () => {
+    const onExit = vi.fn()
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }))
+    render(<EditMode gradient={gradient} onExit={onExit} />)
+    const sheet = screen.getByTestId('edit-sheet')
+    expect(sheet.className).toMatch(/collapsed/)
+    fireEvent.click(screen.getByTestId('sheet-handle'))
+    expect(sheet.className).not.toMatch(/collapsed/)
+    expect(onExit).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
+  })
+
+  it('puts the Order control in the modifier chip row, not its own row', () => {
+    // It is a modifier like Repeat/Smooth/Hard/Rotate, and its own row cost
+    // the mobile sheet 91px that the preview needed back.
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    const sort = screen.getByTestId('sort-button')
+    expect(sort.closest('[data-noscroll-hide="true"]')).not.toBeNull()
+    expect(sort).toHaveAttribute('aria-label', 'Stop order: original. Tap to change')
+    expect(sort.textContent).toBe('Order: Original')
+  })
+
   it('renders a grabber handle at the top of the sheet that exits on desktop', () => {
     const onExit = vi.fn()
     // On desktop (min-width: 768px matches), tapping the handle exits.

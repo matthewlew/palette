@@ -15,6 +15,15 @@ interface GeometryTabsProps {
   /** Re-tapping the active Fan tab rotates its anchor edge. */
   onRotateFan?: () => void
   onRotate?: () => void
+  /** Current stop order, shown on the Order chip. It sits with the other
+   * modifier chips rather than in its own row under the flow editor: it is
+   * a modifier like the rest, and on mobile its old row cost the sheet 91px
+   * of a viewport the preview needed back. */
+  orderLabel?: string
+  /** The raw order key. Kept separate from orderLabel so the accessible name
+   * stays exactly what it was before the chip moved. */
+  order?: string
+  onCycleOrder?: () => void
 }
 
 const TABS: { type: GradientType; label: string }[] = [
@@ -44,6 +53,9 @@ export function GeometryTabs({
   onToggleSmooth,
   onRotateFan,
   onRotate,
+  orderLabel,
+  order,
+  onCycleOrder,
 }: GeometryTabsProps) {
   const tabsRef = useRef<HTMLDivElement>(null)
 
@@ -155,6 +167,17 @@ export function GeometryTabs({
       >
         Rotate
       </button>
+      {orderLabel && (
+        <button
+          type="button"
+          data-testid="sort-button"
+          aria-label={`Stop order: ${order ?? orderLabel}. Tap to change`}
+          className={styles.filter}
+          onClick={onCycleOrder}
+        >
+          Order: {orderLabel}
+        </button>
+      )}
     </div>
   )
 }
