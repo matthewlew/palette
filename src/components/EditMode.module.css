@@ -56,11 +56,23 @@
   transform: translateY(16px);
 }
 
-/* Collapsed: the sheet shrinks to just its grab handle so the flex:1 preview
-   fills the screen (a full-screen view that's still in edit mode). Tapping the
-   handle — which stays visible and tappable — restores the panel. */
+/* Collapsed: the sheet peeks rather than disappearing. Tapping the handle —
+   which stays visible and tappable — restores the full panel.
+
+   166px is not arbitrary: it is the handle plus exactly ONE full row of shape
+   tabs. At the 375px breakpoint the grid is 3-up; measured IN THE COLLAPSED
+   STATE the first row ends at 162px and the second begins at 170px, so 166
+   lands in the gap between them. Measure collapsed, not expanded — the rule
+   below drops the handle's 8px bottom margin, which shifts every row up by
+   that much, and sizing off the expanded layout leaves a sliver of the second
+   row's thumbnails showing. Clipping on a row boundary is the point: a sliced
+   row reads as broken rather than as "there is more below".
+
+   It was 28px (the bare handle). That gave the preview the whole screen but
+   left a sliver too short to read as a panel at all, so the collapsed state
+   looked like a rendering glitch instead of a control you could pull up. */
 .sheet.collapsed {
-  max-height: 28px;
+  max-height: 166px;
   overflow: hidden;
   transition: max-height 200ms ease, opacity 200ms ease, transform 200ms ease;
 }
