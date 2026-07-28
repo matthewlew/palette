@@ -72,6 +72,17 @@ describe('GradientPage', () => {
 
 
 describe('GradientPage back to gallery', () => {
+  it('leaves the full-screen view with a Close control, matching the gallery viewer', () => {
+    // The gallery's full-screen viewer closes with a ✕ in this exact corner,
+    // and these are the same kind of surface. A back chevron promised a step
+    // backwards through history, which is not what it does.
+    render(
+      <GradientPage gradient={gradient} liked={false} onToggleLike={vi.fn()} onEdit={vi.fn()} onBack={vi.fn()} />
+    )
+    expect(screen.getByTestId('feed-back')).toHaveAttribute('aria-label', 'Close')
+    expect(screen.queryByLabelText('Back to gallery')).toBeNull()
+  })
+
   it('renders a back button only when a caller wires onBack', () => {
     // Other GradientPage surfaces have their own close chrome; they must not
     // grow a second back control just because the feed wanted one.

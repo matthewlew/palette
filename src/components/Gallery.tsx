@@ -15,6 +15,7 @@ import { PaletteTitle } from './PaletteTitle'
 import { NoiseOverlay } from './NoiseOverlay'
 import { ScrollTicker } from './ScrollTicker'
 import { SearchBar, type SearchResults } from './SearchBar'
+import { Hint } from './Hint'
 import JSZip from 'jszip'
 import { renderVignetteToCanvas } from '../lib/vignette'
 import styles from './Gallery.module.css'
@@ -271,6 +272,11 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport }: View
   const touchStartYRef = useRef<number | null>(null)
   const wheelAccumRef = useRef(0)
   const wheelResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // The whole backdrop closes the viewer, which is the fastest way out and the
+  // least visible — nothing about a full-bleed gradient says "tappable", so on
+  // a phone the only discoverable exit was a 44px ✕ in the corner. Shown once,
+  // then never again (the key persists), like every other first-run hint.
+  const closeHint = useHint('viewer-close')
 
   // Index within the list the viewer is scrolling through. Falls back to 0 if
   // the open gradient was filtered out from under the viewer.
@@ -288,6 +294,15 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport }: View
     return () => {
       if (wheelResetTimerRef.current) clearTimeout(wheelResetTimerRef.current)
     }
+  }, [])
+
+  // Same 5s life as the edit-mode hint: long enough to read, short enough that
+  // it isn't sitting on the palette you opened the viewer to look at.
+  useEffect(() => {
+    if (!closeHint.visible) return
+    const timer = setTimeout(() => closeHint.dismiss(), 5000)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function handleWheel(e: React.WheelEvent) {
@@ -361,7 +376,12 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport }: View
       aria-label={live.name ?? 'Gradient'}
       className={styles.viewer}
       style={{ backgroundImage: tileBackground(live) }}
-      onClick={onClose}
+      onClick={() => {
+        // Doing it is learning it — once they've tapped out, the hint has
+        // served its purpose and never returns.
+        closeHint.dismiss()
+        onClose()
+      }}
       onWheel={handleWheel}
       onTouchStart={(e) => {
         touchStartYRef.current = e.touches[0]?.clientY ?? null
@@ -391,10 +411,13 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport }: View
         className={`${styles.viewerClose} ghost-chip`}
         style={{ color: closeColor }}
         aria-label="Close"
-        onClick={(e) => { e.stopPropagation(); onClose(); }}
+        onClick={(e) => { e.stopPropagation(); closeHint.dismiss(); onClose(); }}
       >
         ✕
       </button>
+      {closeHint.visible && (
+        <Hint text="Tap anywhere to go back to your gallery" visible placement="raised" />
+      )}
       {/* Same scroll ticker as the Create feed, but labelled with the
           palette's name instead of a position number — the marks track where
           you are as you scroll between saved gradients. */}
@@ -511,6 +534,29 @@ const ONBOARDING_TYPES: { type: GradientType; label: string }[] = [
   { type: 'fan', label: 'Fan' },
 ]
 
+/** How the Yours tab is ordered. See the state declaration for why 'custom'
+ * is the default. */
+type SavesOrder = 'custom' | 'recent'
+
+const SAVES_ORDERS: { id: SavesOrder; label: string; hint: string }[] = [
+  { id: 'custom', label: 'Custom', hint: 'Your own order — drag tiles to rearrange' },
+  { id: 'recent', label: 'Recent', hint: 'Newest saves first' },
+]
+
+/**
+ * Newest first. Saves from before createdAt was recorded sort last rather than
+ * first: an absent timestamp is unknown, not old, and floating a pile of
+ * undated palettes above this morning's work would make the control look
+ * broken. Ties keep their existing (hand-arranged) order, since sort is stable.
+ */
+function byMostRecent(gradients: Gradient[]): Gradient[] {
+  // -1, not -Infinity: two undated palettes would subtract to NaN, and a
+  // comparator that returns NaN sorts arbitrarily. Every real timestamp is a
+  // positive epoch, so -1 is below all of them and equal to itself.
+  const stamp = (g: Gradient) => g.createdAt ?? -1
+  return [...gradients].sort((a, b) => stamp(b) - stamp(a))
+}
+
 interface GalleryProps {
   onRiff: (gradient: Gradient) => void
   onImport?: (jsonText: string) => void
@@ -534,7 +580,19 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   const [activeTab, setActiveTab] = useState<'saves' | 'community'>(
     useAppStore.getState().saved.length === 0 ? 'community' : 'saves'
   )
-  const { gradients: communityGradients, loading: communityLoading, deleteGradient: deleteCommunityGradient } = useCommunityGradients()
+  const {
+    gradients: communityGradients,
+    loading: communityLoading,
+    loadingMore: communityLoadingMore,
+    hasMore: communityHasMore,
+    loadMore: loadMoreCommunity,
+    deleteGradient: deleteCommunityGradient,
+  } = useCommunityGradients()
+  // 'custom' is the hand-arranged order the drag-reorder writes — the default,
+  // because a gallery you have arranged should stay arranged. 'recent' is the
+  // other question people actually ask of their own saves ("what did I just
+  // make?"), which the manual order can't answer once it has been rearranged.
+  const [savesOrder, setSavesOrder] = useState<SavesOrder>('custom')
   const isAdmin = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('admin') === 'true'
   const [open, setOpen] = useState<Gradient | null>(null)
   const [exporting, setExporting] = useState(false)
@@ -633,9 +691,14 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
     onViewerOpenChange?.(open !== null)
   }, [open, onViewerOpenChange])
 
-  const filtered = saved.filter((gradient) => matchesFilters(gradient, typeFilter))
+  const filteredSaves = saved.filter((gradient) => matchesFilters(gradient, typeFilter))
+  const filtered = savesOrder === 'recent' ? byMostRecent(filteredSaves) : filteredSaves
   const filteredCommunity = communityGradients.filter((gradient) => matchesFilters(gradient, typeFilter))
   const hasFilters = typeFilter !== null
+  // Dragging writes into the hand-arranged order, so it can only mean anything
+  // while that order is what's on screen. Under Recent a drop would either be
+  // discarded or silently reshuffle a list the user can't see the effect of.
+  const canReorder = !hasFilters && activeTab === 'saves' && savesOrder === 'custom'
 
   // Counts for the filter UI. Shapes with nothing to show are dropped rather
   // than rendered as a dead "0" option — but the CURRENTLY selected shape is
@@ -876,45 +939,74 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
         </div>
       ) : (
         <>
-          {/* Filters render twice, and only one is ever visible (CSS media
-              query, not JS): a native <select> on mobile and the chip row on
-              desktop. The chips cost 90px over three rows at 375px and seven of
-              the fifteen read "0" — a select is one 36px row, uses the OS
-              picker, and cannot overflow. Zero-count options are omitted, so
-              every choice leads somewhere. */}
-          <div className={styles.filterSelectWrap}>
-            <select
-              data-testid="filter-select"
-              aria-label="Filter by gradient shape"
-              className={styles.filterSelect}
-              value={typeFilter ?? 'all'}
-              onChange={(e) => setTypeFilter(e.target.value === 'all' ? null : e.target.value as GradientType)}
-            >
-              <option value="all">All shapes ({totalCount})</option>
-              {availableTypeChips.map(({ type, label, count }) => (
-                <option key={type} value={type}>{label} ({count})</option>
-              ))}
-            </select>
-          </div>
+          {/* One row: what's in the list (filter) and what order it's in
+              (sort). The filter half renders twice and only one is ever
+              visible (CSS media query, not JS): a native <select> on mobile
+              and the chip row on desktop. The chips cost 90px over three rows
+              at 375px and seven of the fifteen read "0" — a select is one 36px
+              row, uses the OS picker, and cannot overflow. Zero-count options
+              are omitted, so every choice leads somewhere.
 
-          <div className={styles.chips}>
-            <button
-              type="button"
-              className={!hasFilters ? styles.chipOn : styles.chip}
-              onClick={() => setTypeFilter(null)}
-            >
-              All <span className={styles.chipCount}>{totalCount}</span>
-            </button>
-            {availableTypeChips.map(({ type, label, count }) => (
-              <button
-                key={type}
-                type="button"
-                className={typeFilter === type ? styles.chipOn : styles.chip}
-                onClick={() => setTypeFilter(typeFilter === type ? null : type)}
+              The sort half does NOT need that treatment — two options fit any
+              width — so it's one segmented control on both breakpoints. */}
+          <div className={styles.filterBar}>
+            <div className={styles.filterSelectWrap}>
+              <select
+                data-testid="filter-select"
+                aria-label="Filter by gradient shape"
+                className={styles.filterSelect}
+                value={typeFilter ?? 'all'}
+                onChange={(e) => setTypeFilter(e.target.value === 'all' ? null : e.target.value as GradientType)}
               >
-                {label} <span className={styles.chipCount}>{count}</span>
+                <option value="all">All shapes ({totalCount})</option>
+                {availableTypeChips.map(({ type, label, count }) => (
+                  <option key={type} value={type}>{label} ({count})</option>
+                ))}
+              </select>
+            </div>
+
+            <div className={styles.chips}>
+              <button
+                type="button"
+                className={!hasFilters ? styles.chipOn : styles.chip}
+                onClick={() => setTypeFilter(null)}
+              >
+                All <span className={styles.chipCount}>{totalCount}</span>
               </button>
-            ))}
+              {availableTypeChips.map(({ type, label, count }) => (
+                <button
+                  key={type}
+                  type="button"
+                  className={typeFilter === type ? styles.chipOn : styles.chip}
+                  onClick={() => setTypeFilter(typeFilter === type ? null : type)}
+                >
+                  {label} <span className={styles.chipCount}>{count}</span>
+                </button>
+              ))}
+            </div>
+
+            {activeTab === 'saves' && (
+              <div
+                className={styles.sortGroup}
+                role="group"
+                aria-label="Sort your palettes"
+                data-testid="saves-order"
+              >
+                {SAVES_ORDERS.map(({ id, label, hint }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    data-testid={`saves-order-${id}`}
+                    aria-pressed={savesOrder === id}
+                    title={hint}
+                    className={savesOrder === id ? styles.toggleBtnActiveTab : styles.toggleBtnTab}
+                    onClick={() => setSavesOrder(id)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {currentViewGradients.length === 0 ? (
@@ -957,7 +1049,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
                   galleryLayout={galleryLayout}
                   onRiff={onRiff}
                   onDelete={activeTab === 'saves' ? removeSavedGradientById : (isAdmin ? deleteCommunityGradient : undefined)}
-                  draggable={!hasFilters && activeTab === 'saves'}
+                  draggable={canReorder}
                   isDragging={draggingId === gradient.id}
                   isDragOver={dragOverId === gradient.id}
                   onDragStartTile={handleDragStartTile}
@@ -966,6 +1058,25 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
                   onDragEndTile={clearDrag}
                 />
               ))}
+            </div>
+          )}
+
+          {/* Community only, and never over search results — those are their
+              own query against the whole table, not a window onto this list.
+              Rendered outside the empty/grid branch so a filter that matches
+              nothing on the pages loaded so far can still be answered by
+              fetching more, instead of dead-ending on "No matches here". */}
+          {activeTab === 'community' && !searchFlat && communityHasMore && (
+            <div className={styles.loadMoreRow}>
+              <button
+                type="button"
+                data-testid="community-load-more"
+                className={styles.loadMoreButton}
+                disabled={communityLoadingMore}
+                onClick={loadMoreCommunity}
+              >
+                {communityLoadingMore ? 'Loading…' : 'Load more'}
+              </button>
             </div>
           )}
         </>

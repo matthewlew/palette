@@ -122,8 +122,8 @@
   view-transition-name: feed-back;
 }
 
-/* Optically centre the chevron: nudge left so its visual mass sits centred. */
+/* The chevron needed a -2px nudge to look centred; an ✕ is symmetric and
+   centres on its own. */
 .backButton svg {
   display: block;
-  margin-left: -2px;
 }
