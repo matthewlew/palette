@@ -52,6 +52,20 @@ describe('writeGradientToClipboard', () => {
     expect(store.has('text/html')).toBe(false)
   })
 
+  it('escapes CDATA terminators in the JSON payload to prevent breakout', () => {
+    const { event, store } = fakeEvent()
+    const evilGradient = { ...gradient, name: ']]><script>alert(1)</script>' }
+    writeGradientToClipboard(event, evilGradient)
+    const svg = store.get('text/plain')!
+
+    // The literal terminator should not exist outside of the enclosing ]]>
+    const matches = svg.match(/\]\]>/g)
+    expect(matches).toHaveLength(1)
+
+    // The JSON payload should contain the escaped version
+    expect(svg).toContain('\\u005D\\u005D\\u003E<script>alert(1)</script>')
+  })
+
   it('embeds a PNG raster (not a linear gradient) for conic/layered types', () => {
     const { event, store } = fakeEvent()
     writeGradientToClipboard(event, { ...gradient, type: 'angular' })

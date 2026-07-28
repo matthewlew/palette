@@ -1,0 +1,4 @@
+## 2025-02-14 - CDATA Breakout Vulnerability in Clipboard SVG Payloads
+**Vulnerability:** A Cross-Site Scripting (XSS) vulnerability was found where user-provided gradient names could contain the sequence `]]>`, allowing them to break out of the CDATA block used to embed JSON data inside a copied SVG's `<metadata>` tag. When such a copied SVG was viewed, the payload outside the CDATA block could be interpreted as active content.
+**Learning:** JSON stringification does not escape `]]>` by default. When embedding JSON directly into XML constructs like CDATA, one must account for XML parsing semantics where specific sequences like `]]>` terminate contexts, leading to potential markup injection.
+**Prevention:** Always escape the CDATA terminator (`]]>`) when embedding unsanitized JSON data within CDATA blocks (e.g., using `.replace(/\]\]>/g, '\\u005D\\u005D\\u003E')`).
