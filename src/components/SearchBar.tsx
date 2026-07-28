@@ -116,7 +116,11 @@ export function SearchBar({ onResults, saved = [], onActiveChange, onCancel }: S
           // Shared with the community feed (lib/paletteRow.ts) — this used to
           // be a second copy of the same mapping, which is how search results
           // would have ended up showing every palette at zero likes.
-          const gradients: Gradient[] = data.map(toGradient)
+          // Rows that cannot be drawn map to null and are dropped; rendering
+          // one throws and takes the whole page down.
+          const gradients: Gradient[] = data
+            .map(toGradient)
+            .filter((g): g is Gradient => g !== null)
           onResults({ mine, community: gradients })
         }
       } catch (err) {

@@ -10,6 +10,7 @@ import type { GalleryLayout } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
 import { likePalette, unlikePalette } from '../lib/likes'
 import { HeartButton, LikeCountBadge } from './HeartButton'
+import { TileBoundary } from './TileBoundary'
 import { namePalette } from '../lib/naming'
 import { titleColorAt, paletteInkOn } from '../lib/titleColor'
 import { TurrellSquare } from './TurrellSquare'
@@ -101,15 +102,16 @@ function SearchGroup({
       <h2 className={styles.searchGroupHeading}>{heading}</h2>
       <div ref={ref} className={gridClass(galleryLayout)}>
         {gradients.map((g, i) => (
-          <Tile
-            key={g.id}
-            gradient={g}
-            index={i}
-            onOpen={onOpen}
-            galleryLayout={galleryLayout}
-            onRiff={onRiff}
-            likes={likes}
-          />
+          <TileBoundary key={g.id} label={g.id}>
+            <Tile
+              gradient={g}
+              index={i}
+              onOpen={onOpen}
+              galleryLayout={galleryLayout}
+              onRiff={onRiff}
+              likes={likes}
+            />
+          </TileBoundary>
         ))}
       </div>
     </section>
@@ -1173,23 +1175,24 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
               className={gridClass(galleryLayout)}
             >
               {currentViewGradients.map((gradient, index) => (
-                <Tile
-                  key={gradient.id}
-                  gradient={gradient}
-                  index={index}
-                  onOpen={setOpen}
-                  galleryLayout={galleryLayout}
-                  onRiff={onRiff}
-                  onDelete={activeTab === 'saves' ? removeSavedGradientById : (isAdmin ? deleteCommunityGradient : undefined)}
-                  draggable={canReorder}
-                  isDragging={draggingId === gradient.id}
-                  isDragOver={dragOverId === gradient.id}
-                  onDragStartTile={handleDragStartTile}
-                  onDragEnterTile={handleDragEnterTile}
-                  onDropTile={handleDropTile}
-                  onDragEndTile={clearDrag}
-                  likes={likes}
-                />
+                <TileBoundary key={gradient.id} label={gradient.id}>
+                  <Tile
+                    gradient={gradient}
+                    index={index}
+                    onOpen={setOpen}
+                    galleryLayout={galleryLayout}
+                    onRiff={onRiff}
+                    onDelete={activeTab === 'saves' ? removeSavedGradientById : (isAdmin ? deleteCommunityGradient : undefined)}
+                    draggable={canReorder}
+                    isDragging={draggingId === gradient.id}
+                    isDragOver={dragOverId === gradient.id}
+                    onDragStartTile={handleDragStartTile}
+                    onDragEnterTile={handleDragEnterTile}
+                    onDropTile={handleDropTile}
+                    onDragEndTile={clearDrag}
+                    likes={likes}
+                  />
+                </TileBoundary>
               ))}
             </div>
           )}
