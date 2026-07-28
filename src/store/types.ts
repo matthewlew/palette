@@ -24,6 +24,9 @@ export interface Gradient {
   angle?: number
   createdAt?: number
   note?: string
+  /** How many people have liked this in the community feed. Only meaningful on
+   * gradients read from the shared table — a local save has no row to count. */
+  likeCount?: number
 }
 
 // 'create' is the home surface (the rolodex feed); 'gallery' is your saved

@@ -1,50 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Gradient } from '../store/types'
-import type { GradientType } from '../lib/gradient'
+import { toGradient, paletteDna as dna, type PaletteRow } from '../lib/paletteRow'
 
 /** Rows per request. Also the size of the first page, so the initial view is
  * unchanged from when 50 was the whole list — the rest is now reachable
  * instead of discarded. */
 export const COMMUNITY_PAGE_SIZE = 50
-
-type PaletteRow = {
-  id: string
-  display_name: string
-  colors: string[]
-  offsets: unknown
-  shape: string
-  angle: number | null
-  created_at: string
-}
-
-function toGradient(row: PaletteRow): Gradient {
-  const offsets: number[] | null = Array.isArray(row.offsets) ? row.offsets : null
-  const stops = row.colors.map((hex: string, i: number) => ({
-    hex,
-    position: offsets?.[i] ?? (row.colors.length === 1 ? 0 : Math.round((i / (row.colors.length - 1)) * 100)),
-    id: `stop-${i}`,
-  }))
-
-  return {
-    id: row.id,
-    name: row.display_name,
-    type: row.shape as GradientType,
-    stops,
-    angle: row.angle ?? undefined, // null = centred; see publishPalette
-    fanAnchor: 'bottom',
-    reversed: false,
-    hardStops: false,
-    repeatEnabled: false,
-    createdAt: new Date(row.created_at).getTime(),
-  }
-}
-
-/** Two palettes with the same shape and the same colors in the same order are
- * the same palette, however many people published it. */
-function dna(g: Gradient): string {
-  return `${g.type}-${g.stops.map((s) => s.hex).join('-')}`
-}
 
 /**
  * The community feed, one page at a time.
