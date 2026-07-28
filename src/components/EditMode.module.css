@@ -80,6 +80,16 @@
   transition: max-height 200ms ease, opacity 200ms ease, transform 200ms ease;
 }
 
+/* Mid-drag. The inline height is the sheet's size for the duration, so the
+   collapsed ceiling must not also be in play, and nothing else may transition —
+   a transition on height would lag the thumb, and one on transform fights the
+   settle animation the gesture drives itself. */
+.sheet.dragging {
+  max-height: none;
+  overflow: hidden;
+  transition: none;
+}
+
 .sheet.collapsed .sheetHandle {
   margin-bottom: 0;
 }
