@@ -7,6 +7,11 @@ import type {
 import { DEFAULT_COLOR_SET, type ColorSet } from '../lib/colorSets'
 import { namePalette } from '../lib/naming'
 
+/** 'grid' is the uniform 4:5 grid, 'masonry' the Pinterest-style ragged one,
+ * 'dense' the captionless square pack — three across on a phone, for scanning
+ * a lot of gradients rather than reading a few. */
+export type GalleryLayout = 'grid' | 'masonry' | 'dense'
+
 function gradientSignature(gradient: Gradient): string {
   const sortedStops = [...gradient.stops].sort((a, b) => a.position - b.position)
   const stopsSig = sortedStops.map((s) => `${s.hex}@${s.position}`).join(',')
@@ -69,8 +74,16 @@ interface AppState {
   exitEditMode: () => void
   setMode: (mode: ViewMode) => void
   setActiveColorSet: (colorSet: ColorSet) => void
-  galleryLayout: 'grid' | 'masonry'
-  setGalleryLayout: (layout: 'grid' | 'masonry') => void
+  galleryLayout: GalleryLayout
+  setGalleryLayout: (layout: GalleryLayout) => void
+  /** Ids of community palettes this browser has liked. Persisted because that
+   * is the whole account model: the server attributes a like to an anonymous
+   * client id (see lib/clientId.ts) and this is the local mirror, so hearts
+   * survive a reload without anyone signing in. */
+  likedPaletteIds: string[]
+  /** Flips the local like state and returns what it became, so the caller can
+   * drive the optimistic count and the network write off one source of truth. */
+  toggleLikedPalette: (id: string) => boolean
 }
 
 export const useAppStore = create<AppState>()(
@@ -234,6 +247,13 @@ export const useAppStore = create<AppState>()(
       setActiveColorSet: (colorSet) => set({ activeColorSet: colorSet }),
       galleryLayout: 'masonry',
       setGalleryLayout: (layout) => set({ galleryLayout: layout }),
+      likedPaletteIds: [],
+      toggleLikedPalette: (id) => {
+        const liked = get().likedPaletteIds
+        const wasLiked = liked.includes(id)
+        set({ likedPaletteIds: wasLiked ? liked.filter((x) => x !== id) : [...liked, id] })
+        return !wasLiked
+      },
     }),
     {
       name: 'palette-saved-gradients',
@@ -241,6 +261,7 @@ export const useAppStore = create<AppState>()(
         saved: state.saved,
         noiseEnabled: state.noiseEnabled,
         galleryLayout: state.galleryLayout,
+        likedPaletteIds: state.likedPaletteIds,
       }),
       // v1 drops the removed flutedEnabled flag from boards persisted before
       // that filter was deleted, so stale keys don't live in localStorage
@@ -258,7 +279,8 @@ export const useAppStore = create<AppState>()(
         const state = persisted as {
           saved?: Gradient[]
           noiseEnabled?: boolean
-          galleryLayout?: 'grid' | 'masonry'
+          galleryLayout?: GalleryLayout
+          likedPaletteIds?: string[]
         }
         if (Array.isArray(state.saved)) {
           state.saved = state.saved.map((g) => {
@@ -291,6 +313,12 @@ export const useAppStore = create<AppState>()(
         // touched: a collection was only ever a list of ids into `saved`.
         delete legacy.collections
         delete legacy.activeCollectionId
+        // Boards persisted before likes existed have no such key; an absent one
+        // must not reach the store as undefined, where every `.includes` on it
+        // would throw.
+        if (!Array.isArray(state.likedPaletteIds)) {
+          state.likedPaletteIds = []
+        }
         return state
       },
     }

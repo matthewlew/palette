@@ -1,0 +1,93 @@
+.heart {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--th-body);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  transition: color 160ms ease, background 160ms ease, transform 120ms ease;
+}
+
+.heart:active {
+  transform: scale(0.92);
+}
+
+/* Overlaid on a thumbnail, so it carries its own scrim rather than trusting
+   whatever colours happen to be under it. */
+.tile {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: var(--pill);
+  background: rgba(0, 0, 0, 0.42);
+  color: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* The pill is 32px so it doesn't crowd a two-across tile; this takes the hit
+   area out to the 44px minimum without growing anything you can see. */
+.tile::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+
+@media (hover: hover) {
+  .tile:hover {
+    background: rgba(0, 0, 0, 0.6);
+  }
+}
+
+.viewer {
+  /* ghost-chip/ghost-pill supply the shape; only the icon+count layout is ours. */
+  gap: 6px;
+}
+
+.liked {
+  /* The one saturated colour in a gallery whose whole subject is colour. Kept
+     to the icon and count, not a filled pill, so it doesn't compete with the
+     palette it sits on. */
+  color: #ff4d6d;
+}
+
+.tile.liked {
+  border-color: rgba(255, 77, 109, 0.5);
+}
+
+.count {
+  /* Steadies the pill width as a count grows, so a row of tiles doesn't
+     visibly reflow when one of them ticks over. */
+  min-width: 1ch;
+  text-align: left;
+}
+
+/* Read-only counterpart for the dense grid — see LikeCountBadge. */
+.badge {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: var(--pill);
+  background: rgba(0, 0, 0, 0.45);
+  color: rgba(255, 255, 255, 0.9);
+  font-family: var(--th-body);
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}

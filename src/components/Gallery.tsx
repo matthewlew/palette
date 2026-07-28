@@ -6,7 +6,10 @@ import { useHint } from '../hooks/useHint'
 import { useMasonryRowSpans } from '../hooks/useMasonryRowSpans'
 import { useFlipReorder } from '../hooks/useFlipReorder'
 import { useAppStore } from '../store/useAppStore'
+import type { GalleryLayout } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
+import { likePalette, unlikePalette } from '../lib/likes'
+import { HeartButton, LikeCountBadge } from './HeartButton'
 import { namePalette } from '../lib/naming'
 import { titleColorAt, paletteInkOn } from '../lib/titleColor'
 import { TurrellSquare } from './TurrellSquare'
@@ -37,6 +40,33 @@ const TYPE_CHIPS: { type: GradientType; label: string }[] = [
 // index.css); tile ink is chosen to read against it.
 const GALLERY_SURFACE = '#101014'
 
+/** The grid that holds the tiles, and the tile inside it, for each layout. */
+function gridClass(layout: GalleryLayout): string {
+  if (layout === 'masonry') return styles.masonryGrid
+  if (layout === 'dense') return styles.denseGrid
+  return styles.grid
+}
+
+function tileClass(layout: GalleryLayout): string {
+  if (layout === 'masonry') return styles.masonryTile
+  if (layout === 'dense') return styles.denseTile
+  return styles.tile
+}
+
+/**
+ * Everything a tile or the viewer needs to show and change a like.
+ *
+ * Passed as one object rather than four props because likes are all-or-nothing
+ * per palette: `canLike` is false for your own saves, which have no row in the
+ * shared table for a like to attach to, and the rest is then moot.
+ */
+interface LikeApi {
+  canLike: (gradient: Gradient) => boolean
+  isLiked: (id: string) => boolean
+  countFor: (gradient: Gradient) => number
+  toggle: (gradient: Gradient) => void
+}
+
 function formatDate(timestamp?: number): string | null {
   if (!timestamp) return null
   const date = new Date(timestamp)
@@ -50,14 +80,15 @@ function formatDate(timestamp?: number): string | null {
  * kept the default 8px row and piled on top of each other. A group that owns
  * its ref scales to however many groups there are. */
 function SearchGroup({
-  testId, heading, gradients, galleryLayout, onOpen, onRiff,
+  testId, heading, gradients, galleryLayout, onOpen, onRiff, likes,
 }: {
   testId: string
   heading: string
   gradients: Gradient[]
-  galleryLayout: 'grid' | 'masonry'
+  galleryLayout: GalleryLayout
   onOpen: (g: Gradient) => void
   onRiff: (g: Gradient) => void
+  likes?: LikeApi
 }) {
   const ref = useRef<HTMLDivElement>(null)
   useMasonryRowSpans(ref, galleryLayout === 'masonry', [
@@ -68,7 +99,7 @@ function SearchGroup({
   return (
     <section data-testid={testId}>
       <h2 className={styles.searchGroupHeading}>{heading}</h2>
-      <div ref={ref} className={galleryLayout === 'masonry' ? styles.masonryGrid : styles.grid}>
+      <div ref={ref} className={gridClass(galleryLayout)}>
         {gradients.map((g, i) => (
           <Tile
             key={g.id}
@@ -77,6 +108,7 @@ function SearchGroup({
             onOpen={onOpen}
             galleryLayout={galleryLayout}
             onRiff={onRiff}
+            likes={likes}
           />
         ))}
       </div>
@@ -115,13 +147,16 @@ function Tile({
   onDragEnterTile,
   onDropTile,
   onDragEndTile,
+  likes,
 }: {
   gradient: Gradient
   index: number
   onOpen: (gradient: Gradient) => void
-  galleryLayout: 'grid' | 'masonry'
+  galleryLayout: GalleryLayout
   onRiff: (gradient: Gradient) => void
   onDelete?: (id: string) => void
+  /** Absent on your own saves — see LikeApi. */
+  likes?: LikeApi
   // Drag-to-reorder within the "All" grid. Optional so board-detail and
   // feed tiles can render without it. dragStart also sets the gradient id on
   // the dataTransfer, which is what a collection cover reads on drop, so
@@ -146,6 +181,14 @@ function Tile({
   // surface (see paletteInkOn), instead of a flat white for every tile.
   const tileInk = paletteInkOn(gradient, GALLERY_SURFACE)
 
+  const likeable = likes?.canLike(gradient) ?? false
+  const likeCount = likeable ? likes!.countFor(gradient) : 0
+  const displayName = gradient.name ?? namePalette(gradient.stops.map((s) => s.hex))
+  // Three tiles across a phone leaves no room for a second tap target that
+  // isn't in the way of the one that opens the palette, so dense shows the
+  // count and keeps the heart in the viewer, one tap away.
+  const showHeart = likeable && galleryLayout !== 'dense'
+
   return (
     // A div with button semantics, not a real <button>: the hover overlay's
     // Edit action is a button, and buttons can't nest inside buttons.
@@ -155,7 +198,7 @@ function Tile({
       data-testid="gallery-tile"
       data-tile-id={gradient.id}
       className={[
-        galleryLayout === 'masonry' ? styles.masonryTile : styles.tile,
+        tileClass(galleryLayout),
         draggable ? styles.tileDraggable : '',
         isDragging ? styles.tileDragging : '',
         isDragOver ? styles.tileDragOver : '',
@@ -163,7 +206,13 @@ function Tile({
         .filter(Boolean)
         .join(' ')}
       style={{ animationDelay: `${index * 35}ms` }}
-      aria-label={`${gradient.name ?? namePalette(gradient.stops.map(s => s.hex))}, ${gradient.type} gradient`}
+      // The dense badge is decorative (aria-hidden), so the count rides on the
+      // tile's own name — otherwise the one layout with no caption would also
+      // be the one with no like count for a screen reader.
+      aria-label={
+        `${displayName}, ${gradient.type} gradient` +
+        (likeable && likeCount > 0 ? `, ${likeCount} ${likeCount === 1 ? 'like' : 'likes'}` : '')
+      }
       draggable={draggable}
       onDragStart={(e) => {
         if (e.dataTransfer) {
@@ -197,7 +246,8 @@ function Tile({
         className={styles.tilePreview}
         style={{
           backgroundImage: tileBackground(gradient),
-          aspectRatio: galleryLayout === 'masonry' ? aspectRatio : '4 / 5',
+          aspectRatio:
+            galleryLayout === 'masonry' ? aspectRatio : galleryLayout === 'dense' ? '1 / 1' : '4 / 5',
           viewTransitionName: `palette-card-${gradient.id}`,
         }}
       >
@@ -230,6 +280,15 @@ function Tile({
             </button>
           </div>
         )}
+        {showHeart && (
+          <HeartButton
+            liked={likes!.isLiked(gradient.id)}
+            count={likeCount}
+            label={displayName}
+            onToggle={() => likes!.toggle(gradient)}
+          />
+        )}
+        {likeable && galleryLayout === 'dense' && <LikeCountBadge count={likeCount} />}
       </div>
       <div className={styles.tileMeta}>
         <span className={styles.tileName} style={{ color: tileInk }}>
@@ -255,6 +314,8 @@ interface ViewerProps {
   onClose: () => void
   onRiff: (gradient: Gradient) => void
   onImport: (jsonText: string) => void
+  /** Absent on your own saves — see LikeApi. */
+  likes?: LikeApi
 }
 
 // Scroll/swipe past this to step to the neighbouring gradient. Wheel deltas
@@ -262,7 +323,7 @@ interface ViewerProps {
 const WHEEL_STEP_THRESHOLD = 90
 const TOUCH_STEP_PX = 60
 
-function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport }: ViewerProps) {
+function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes }: ViewerProps) {
   const saved = useAppStore((s) => s.saved)
   const renameSavedGradient = useAppStore((s) => s.renameSavedGradient)
   const noiseEnabled = useAppStore((s) => s.noiseEnabled)
@@ -474,6 +535,18 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport }: View
         </div>
       )}
       <div className={styles.viewerActionsBar} onClick={(e) => e.stopPropagation()}>
+        {/* First in the bar, and the only place the heart appears in the dense
+            layout — the tiles there are too small to carry one. */}
+        {likes?.canLike(live) && (
+          <HeartButton
+            variant="viewer"
+            liked={likes.isLiked(live.id)}
+            count={likes.countFor(live)}
+            label={live.name ?? namePalette(live.stops.map((s) => s.hex))}
+            color={actionColor}
+            onToggle={() => likes.toggle(live)}
+          />
+        )}
         {!isSaved ? (
           <button
             type="button"
@@ -601,6 +674,13 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   const [searchResults, setSearchResults] = useState<SearchResults | null>(null)
+  const likedPaletteIds = useAppStore((s) => s.likedPaletteIds)
+  const toggleLikedPalette = useAppStore((s) => s.toggleLikedPalette)
+  // Optimistic ±1s against the counts that came back with the rows, held here
+  // rather than inside the feed hook because search results are separate state
+  // with their own copy of the same palette — one map covers both, and a like
+  // made in one place is visible in the other.
+  const [likeDeltas, setLikeDeltas] = useState<Record<string, number>>({})
   // Mobile only: a live query takes over the screen (see .searching below).
   const [searchOpen, setSearchOpen] = useState(false)
 
@@ -716,6 +796,35 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   const searchFlat = searchResults ? [...searchResults.mine, ...searchResults.community] : null
   const currentViewGradients = searchFlat
     ?? (activeTab === 'community' ? filteredCommunity : filtered)
+
+  // A like needs a row in the shared table to attach to, so only palettes that
+  // came from it can carry one. Your own saves have local ids and no row —
+  // "liking" one would be a heart nobody else could ever see.
+  const communityIds = new Set([
+    ...communityGradients.map((g) => g.id),
+    ...(searchResults?.community.map((g) => g.id) ?? []),
+  ])
+
+  const likes: LikeApi = {
+    canLike: (gradient) => communityIds.has(gradient.id),
+    isLiked: (id) => likedPaletteIds.includes(id),
+    countFor: (gradient) => Math.max(0, (gradient.likeCount ?? 0) + (likeDeltas[gradient.id] ?? 0)),
+    toggle: async (gradient) => {
+      const id = gradient.id
+      const nowLiked = toggleLikedPalette(id)
+      const delta = nowLiked ? 1 : -1
+      setLikeDeltas((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + delta }))
+
+      const ok = nowLiked ? await likePalette(id) : await unlikePalette(id)
+      if (ok) return
+      // A like is a shared signal. Leaving the heart filled after the write
+      // failed would tell the user something untrue about what everyone else
+      // can see, so it goes back — including when the table doesn't exist yet
+      // because migration 0002 hasn't been applied.
+      toggleLikedPalette(id)
+      setLikeDeltas((prev) => ({ ...prev, [id]: (prev[id] ?? 0) - delta }))
+    },
+  }
 
 
 
@@ -867,6 +976,28 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
                 <rect x="3" y="16" width="7" height="5" />
               </svg>
             </button>
+            <button
+              type="button"
+              data-testid="layout-dense"
+              className={galleryLayout === 'dense' ? styles.toggleBtnActive : styles.toggleBtn}
+              onClick={() => setGalleryLayout('dense')}
+              aria-label="Show dense grid layout"
+              title="Dense layout — more gradients, no captions"
+            >
+              {/* Nine cells to the grid icon's four: the icon says how much
+                  more fits on screen, which is the only reason to pick it. */}
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="5" height="5" />
+                <rect x="9.5" y="3" width="5" height="5" />
+                <rect x="16" y="3" width="5" height="5" />
+                <rect x="3" y="9.5" width="5" height="5" />
+                <rect x="9.5" y="9.5" width="5" height="5" />
+                <rect x="16" y="9.5" width="5" height="5" />
+                <rect x="3" y="16" width="5" height="5" />
+                <rect x="9.5" y="16" width="5" height="5" />
+                <rect x="16" y="16" width="5" height="5" />
+              </svg>
+            </button>
           </div>
           <BoardShare
             saved={saved}
@@ -904,6 +1035,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
                 galleryLayout={galleryLayout}
                 onOpen={setOpen}
                 onRiff={onRiff}
+                likes={likes}
               />
             </>
           )}
@@ -1038,7 +1170,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
               ref={gridRef}
               key={`${typeFilter ?? 'all'}-${activeTab}`}
               onKeyDown={handleGridKeyDown}
-              className={galleryLayout === 'masonry' ? styles.masonryGrid : styles.grid}
+              className={gridClass(galleryLayout)}
             >
               {currentViewGradients.map((gradient, index) => (
                 <Tile
@@ -1056,6 +1188,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
                   onDragEnterTile={handleDragEnterTile}
                   onDropTile={handleDropTile}
                   onDragEndTile={clearDrag}
+                  likes={likes}
                 />
               ))}
             </div>
@@ -1106,6 +1239,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
           onClose={() => setOpen(null)}
           onRiff={onRiff}
           onImport={onImport ?? (() => {})}
+          likes={likes}
         />
       )}
     </div>

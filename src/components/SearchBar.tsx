@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Gradient } from '../store/types'
-import type { GradientType } from '../lib/gradient'
+import { toGradient } from '../lib/paletteRow'
 import { COLOR_NOUNS, type HueFamily } from '../lib/namingWords'
 import { parseQuery } from '../lib/shapeSearch'
 import styles from './SearchBar.module.css'
@@ -113,31 +113,10 @@ export function SearchBar({ onResults, saved = [], onActiveChange, onCancel }: S
         if (error) throw error
 
         if (data) {
-          const gradients: Gradient[] = data.map(row => {
-            // Use persisted stop offsets when present so uneven spacing renders
-            // accurately; fall back to even spacing for older rows.
-            const offsets: number[] | null = Array.isArray(row.offsets) ? row.offsets : null
-            const stops = row.colors.map((hex: string, i: number) => ({
-              hex,
-              position: offsets?.[i] ?? (row.colors.length === 1 ? 0 : Math.round((i / (row.colors.length - 1)) * 100)),
-              id: `stop-${i}`
-            }));
-
-            return {
-              id: row.id,
-              name: row.display_name,
-              type: row.shape as GradientType,
-              stops,
-              // Restore rotation / radial-origin so the preview matches what was
-              // saved (previously dropped, so rotated gradients rendered wrong).
-              angle: row.angle ?? undefined,   // null = centred; see publishPalette
-              fanAnchor: 'bottom',
-              reversed: false,
-              hardStops: false,
-              repeatEnabled: false,
-              createdAt: new Date(row.created_at).getTime()
-            }
-          })
+          // Shared with the community feed (lib/paletteRow.ts) — this used to
+          // be a second copy of the same mapping, which is how search results
+          // would have ended up showing every palette at zero likes.
+          const gradients: Gradient[] = data.map(toGradient)
           onResults({ mine, community: gradients })
         }
       } catch (err) {

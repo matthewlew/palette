@@ -765,9 +765,68 @@
   }
 }
 
-@media (min-width: 1400px) {
-  .masonryGrid {
+/* DENSE — the scanning layout.
+ *
+ * Three squares across a phone, hairline gutters, no captions: the point is to
+ * see as many gradients at once as the screen can hold, and a gradient is a
+ * colour, not a document — it survives being small far better than it survives
+ * being one of six. The other two layouts are for reading a gallery; this one
+ * is for finding something in it.
+ *
+ * Column counts climb faster than .grid's at every breakpoint for the same
+ * reason: on a 1400px display, five 260px tiles is not a dense grid. */
+.denseGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2px;
+  /* Out to the screen edges, which is where the density actually comes from —
+     two 16px rails cost most of a fourth column at 390px. Cancels .container's
+     horizontal padding exactly; if that padding changes, this follows it. */
+  margin-left: calc(-1 * var(--space-4));
+  margin-right: calc(-1 * var(--space-4));
+}
+
+.denseTile {
+  composes: tile;
+  width: 100%;
+  gap: 0;
+}
+
+/* Square, edge to edge, no rounding: rounded corners on a 2px gutter read as
+   damage rather than as style. */
+.denseTile .tilePreview {
+  border-radius: 0;
+}
+
+/* No captions. The name is still on the tile's aria-label, and in the viewer
+   a tap away — what's dropped is the 34px of chrome under every thumbnail,
+   which at this size was taller than it was informative. */
+.denseTile .tileMeta {
+  display: none;
+}
+
+@media (min-width: 600px) {
+  .denseGrid {
     grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .denseTile .tilePreview {
+    border-radius: var(--radius-sm, 6px);
+  }
+}
+
+@media (min-width: 1000px) {
+  .denseGrid {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1400px) {
+  .denseGrid {
+    grid-template-columns: repeat(9, minmax(0, 1fr));
   }
 }
 
