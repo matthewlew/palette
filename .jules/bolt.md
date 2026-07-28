@@ -1,0 +1,3 @@
+## 2024-07-28 - Memoize TurrellSquare layers calculation
+**Learning:** Found an expensive calculation bottleneck specific to this codebase where `TurrellSquare` recalculates layer geometries (`factor`, `widthPercent`, `heightPercent`) across all components on every re-render. Since `TurrellSquare` instances are rendered heavily in the Gallery, this results in significant unnecessary CPU usage when interacting with other app state (like filtering or opening a drawer) since those calculations only depend on the static `initialStops`, `reversed`, `repeatEnabled` and `angle`.
+**Action:** Used `useMemo` to cache the calculated array, sorting, and outer hex, explicitly declaring dependencies to avoid regenerating the layout unless the underlying geometry parameters change.
