@@ -22,9 +22,12 @@ const PAYLOAD_RE = /<!\[CDATA\[palette:([\s\S]*?)\]\]>/
 
 /** Embed the Palette JSON in the SVG's <metadata> so a copy is both a vector
  * (for design tools) and a lossless Palette payload. CDATA carries the JSON
- * verbatim; JSON never contains the "]]>" terminator, so it stays valid XML. */
+ * verbatim; we escape the "]]>" terminator (which could be in a user-provided
+ * name) so it doesn't break out of the CDATA block and stays valid XML. */
 function embedPayload(svg: string, json: string): string {
-  const metadata = `<metadata><![CDATA[${PAYLOAD_PREFIX}${json}]]></metadata>`
+  // Prevent CDATA breakout attacks (e.g. name = "]]><script>alert(1)</script>")
+  const safeJson = json.replace(/\]\]>/g, '\\u005D\\u005D\\u003E')
+  const metadata = `<metadata><![CDATA[${PAYLOAD_PREFIX}${safeJson}]]></metadata>`
   // Insert right after the opening <svg ...> tag.
   return svg.replace(/(<svg[^>]*>)/, `$1${metadata}`)
 }
