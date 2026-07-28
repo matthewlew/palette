@@ -24,7 +24,7 @@ interface GradientPageProps {
   onEdit: () => void
   /** Leaves the full-screen feed for the gallery. Optional: the button only
    * renders where a caller wires it, so other GradientPage surfaces (which
-   * have their own close/back chrome) don't grow a second one. */
+   * have their own close chrome) don't grow a second one. */
   onBack?: () => void
   /** When false, the like button fades out for uninterrupted viewing. */
   chromeVisible?: boolean
@@ -118,17 +118,22 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, onBack, ch
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
     >
+      {/* A ✕, not a chevron. The gallery's full-screen viewer already closes
+          with a ✕ in this exact spot, and these are the same kind of surface —
+          a palette filling the screen, with the gallery behind it. A back
+          arrow promised a step backwards through somewhere you'd been, which
+          is not what it does: it leaves the full-screen view. */}
       {onBack && (
         <button
           type="button"
           data-testid="feed-back"
-          aria-label="Back to gallery"
+          aria-label="Close"
           className={[styles.backButton, 'ghost-chip', !chromeVisible && styles.editHidden].filter(Boolean).join(' ')}
           style={{ color: backColor }}
           onClick={onBack}
         >
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M15 5l-7 7 7 7" />
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M6 6l12 12M18 6L6 18" />
           </svg>
         </button>
       )}

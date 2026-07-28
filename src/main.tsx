@@ -12,6 +12,11 @@ import 'lew-design-system/lds.css'
 import 'lew-design-system/themes/palette.css'
 import './index.css'
 import { App } from './App.tsx'
+import { installFieldZoomLock } from './lib/fieldZoomLock'
+
+// Before render: it only binds document-level focus listeners, and a field
+// focused during the first paint should already be covered.
+installFieldZoomLock()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

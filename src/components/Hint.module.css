@@ -12,3 +12,14 @@
   z-index: 10;
   white-space: nowrap;
 }
+
+/* Above the gallery viewer's action pills, which sit at bottom 74px + inset
+   and stand 44px tall. Clearing their top edge, not guessing at it. */
+.hint.raised {
+  bottom: calc(130px + env(safe-area-inset-bottom));
+  /* Three pills wide is most of a phone; the hint can wrap rather than run
+     off the edge, unlike the single-line hints over the full-bleed feed. */
+  white-space: normal;
+  max-width: min(80vw, 320px);
+  text-align: center;
+}

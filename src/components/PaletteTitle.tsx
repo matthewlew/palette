@@ -59,6 +59,16 @@ export function PaletteTitle({ name, onRename, hidden = false, color = '#ffffff'
           style={{ color, borderColor: color }}
           value={draft}
           maxLength={40}
+          // A palette name is a name, not prose: autocorrect rewriting
+          // "Cobalt Solstice" mid-type, or a red spelling squiggle under it,
+          // both read as the field belonging to some other app. `done` also
+          // labels the keyboard's return key for what Enter actually does
+          // here, which is commit and close.
+          enterKeyHint="done"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="words"
+          spellCheck={false}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => {

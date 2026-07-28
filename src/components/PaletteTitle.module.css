@@ -44,6 +44,18 @@
   transition: border-color 150ms ease;
 }
 
+/* The global field floor in index.css lifts .input to 16px on touch (so the
+   browser does not zoom the app when it takes focus), which left the label
+   behind at 15px — the title visibly changed size the instant it became
+   editable. That seam is the exact thing the shared shape below exists to
+   hide, so the label comes up with the field. Same test as the floor itself,
+   so the two can never disagree. */
+@media (pointer: coarse), (max-width: 767px) {
+  .pill {
+    font-size: var(--field-min-font);
+  }
+}
+
 /* Nothing said this title was editable — it is plain text with no chrome, so
    the rename was invisible until you happened to click it. Hover now outlines
    it as the text field it becomes, which is also what the editing state looks

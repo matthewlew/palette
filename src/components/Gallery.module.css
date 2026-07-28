@@ -35,9 +35,11 @@
  * The 768px bound matches every other mobile branch in the app; above it the
  * header has room for search and the gallery at once. */
 @media (max-width: 767px) {
+  /* The whole filter/sort row, not its halves: hiding only the filter would
+     leave the sort control floating on its own over the results. Neither
+     describes a search — the query owns what's on screen and in what order. */
   .searching .titleArea,
-  .searching .filterSelectWrap,
-  .searching .chips {
+  .searching .filterBar {
     display: none;
   }
 
@@ -55,6 +57,38 @@
    chips wrapped to three rows and cost 90px of a 812px screen; the select is a
    single 36px row. Above 640px there is room to show every shape at once, and
    seeing them all beats a picker that hides them. */
+/* Filter and sort share one row. `align-items: flex-start` because the two
+   halves are different heights on desktop (the chips wrap, the sort control
+   is a single 36px pill) and a stretched sort group would grow with them. */
+.filterBar {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+/* Takes the space the sort control doesn't. min-width:0 or the select's own
+   intrinsic width refuses to shrink and pushes sort off a narrow screen. */
+.filterBar > .filterSelectWrap,
+.filterBar > .chips {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.sortGroup {
+  display: inline-flex;
+  flex: 0 0 auto;
+  /* Matches the 2px top padding on the filter half so both sit on one line. */
+  margin-top: 2px;
+  height: var(--control-h);
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--pill);
+  padding: 2px;
+  align-items: center;
+}
+
 .filterSelectWrap {
   display: block;
   padding: 2px 0 var(--space-3);
@@ -288,6 +322,41 @@
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
+}
+
+/* Foot of the community list. Outlined rather than the solid white
+   .emptyAction: this is a "there is more" affordance you scroll past, not the
+   one thing left to do on an empty screen. */
+.loadMoreRow {
+  display: flex;
+  justify-content: center;
+  /* No safe-area inset here — .container already reserves the bottom bar. */
+  padding: var(--space-3) 0 var(--space-4);
+  flex-shrink: 0;
+}
+
+.loadMoreButton {
+  min-height: 44px;
+  padding: 0 24px;
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--th-body);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, opacity 150ms ease;
+}
+
+.loadMoreButton:hover:not(:disabled) {
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  border-color: var(--text-subdued);
+}
+
+.loadMoreButton:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .onboarding {
