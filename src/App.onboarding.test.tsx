@@ -117,3 +117,60 @@ describe('Onboarding — picking a shape from an empty Gallery', () => {
     expect(current.id).toBeTruthy()
   })
 })
+
+describe('Onboarding — the Community first-run strip', () => {
+  it('offers a way to create on the tab a new user actually lands on', async () => {
+    // Community is the sensible default (an empty Yours is a blank room), but
+    // it left the only entry to creating as a dim "Create" in the bottom bar.
+    render(<App />)
+    const strip = await screen.findByTestId('community-starter')
+    expect(strip).toBeInTheDocument()
+    expect(strip).toHaveTextContent(/make your own/i)
+  })
+
+  it('starts a Create session from the strip, same as the full picker', async () => {
+    render(<App />)
+    await screen.findByTestId('community-starter')
+    fireEvent.click(screen.getByTestId('start-fan'))
+
+    await waitFor(() => expect(useAppStore.getState().mode).toBe('create'))
+    expect(useAppStore.getState().current?.type).toBe('fan')
+    expect(feedSession.lockedType).toBe('fan')
+  })
+
+  it('is gone for good once anything is saved — scaffolding, not furniture', async () => {
+    useAppStore.setState({
+      saved: [{
+        id: 'g1', type: 'linear', name: 'Mine', createdAt: 1,
+        stops: [{ hex: '#ff0000', position: 0 }, { hex: '#0000ff', position: 100 }],
+      }],
+    })
+    render(<App />)
+    // Let the community fetch settle so the absence is a real one.
+    await waitFor(() => expect(screen.getByTestId('gallery')).toBeInTheDocument())
+    expect(screen.queryByTestId('community-starter')).not.toBeInTheDocument()
+  })
+
+  it('stays out of the Yours tab, which has the full picker already', async () => {
+    render(<App />)
+    await screen.findByTestId('community-starter')
+    fireEvent.click(screen.getByRole('button', { name: /^Yours/ }))
+
+    expect(screen.queryByTestId('community-starter')).not.toBeInTheDocument()
+    expect(screen.getByText('Create a gradient')).toBeInTheDocument()
+  })
+
+  it('offers the same shapes as the full picker, in the same order', async () => {
+    // One component renders both (ShapeChoices); this pins that they have not
+    // been allowed to drift back apart.
+    render(<App />)
+    await screen.findByTestId('community-starter')
+    const inStrip = screen.getAllByTestId(/^start-/).map((b) => b.getAttribute('data-testid'))
+
+    fireEvent.click(screen.getByRole('button', { name: /^Yours/ }))
+    const inFull = screen.getAllByTestId(/^start-/).map((b) => b.getAttribute('data-testid'))
+
+    expect(inStrip).toEqual(inFull)
+    expect(inStrip).toEqual(['start-linear', 'start-radial', 'start-angular', 'start-square', 'start-fan'])
+  })
+})
