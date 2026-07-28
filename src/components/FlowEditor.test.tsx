@@ -134,6 +134,31 @@ describe('FlowEditor', () => {
     expect(onRemoveStop).not.toHaveBeenCalled()
   })
 
+  it('cancels touch events that start on a handle so an edge drag cannot trigger browser back', () => {
+    // A stop parked at 0% sits near the screen edge, inside the browser's
+    // back-swipe zone. Only a cancelled touch sequence suppresses that
+    // gesture — `touch-action: none` stops page scrolling, not navigation.
+    render(<FlowEditor stops={stops} onMove={vi.fn()} onTapStop={vi.fn()} />)
+    const handle = screen.getByLabelText('Stop #ff0000')
+
+    const start = new TouchEvent('touchstart', { bubbles: true, cancelable: true })
+    handle.dispatchEvent(start)
+    expect(start.defaultPrevented).toBe(true)
+
+    const move = new TouchEvent('touchmove', { bubbles: true, cancelable: true })
+    handle.dispatchEvent(move)
+    expect(move.defaultPrevented).toBe(true)
+  })
+
+  it('leaves touches on the bare track alone so they stay ordinary taps', () => {
+    render(<FlowEditor stops={stops} onMove={vi.fn()} onTapStop={vi.fn()} />)
+    const track = screen.getByTestId('flow-editor')
+
+    const start = new TouchEvent('touchstart', { bubbles: true, cancelable: true })
+    track.dispatchEvent(start)
+    expect(start.defaultPrevented).toBe(false)
+  })
+
   it('dims the handle once the drag exceeds the delete threshold', () => {
     render(<FlowEditor stops={stops} onMove={vi.fn()} onTapStop={vi.fn()} onRemoveStop={vi.fn()} />)
     const handle = screen.getByLabelText('Stop #00ff00')

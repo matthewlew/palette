@@ -84,6 +84,13 @@
   margin-bottom: 0;
 }
 
+/* A little more presence while collapsed: this is the pull-tab, and the peek
+   is the state you most need to get out of. */
+.sheet.collapsed .sheetHandle::after {
+  width: 44px;
+  background: rgba(128, 128, 128, 0.55);
+}
+
 /* The colour-stop editor, its hint, and the keyboard hints — the half of the
    sheet the peek is not showing. Hidden rather than clipped so the peek has no
    sliced rows and needs no measuring. */
@@ -91,21 +98,41 @@
   display: none;
 }
 
+/* The BUTTON is a full-width, thumb-sized strip; the 36x4px pill is only its
+   ::after. They used to be the same box, which meant the one control that
+   opens the collapsed sheet was a 36x4px target — well under half the 44px
+   minimum, and the reason people reached for the gradient instead. Widening
+   the strip also gives the pull-up gesture somewhere obvious to start. */
 .sheetHandle {
   /* flex: none, or it VANISHES. The sheet is a column flex container with a
-     max-height while collapsed, so its items shrink to fit — and a 4px item
+     max-height while collapsed, so its items shrink to fit — and a short item
      with the default flex-shrink:1 shrinks straight to 0. The grab handle was
      computing to height 0px and simply was not there, which is why the peek
      looked like a cut-off panel rather than something you could pull. */
   flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 28px;
+  border: none;
+  background: transparent;
+  margin: 0 0 4px;
+  padding: 0;
+  cursor: grab;
+  /* The pull-up/pull-down gesture owns vertical drags that start here, so the
+     browser must not claim them for scrolling first. */
+  touch-action: none;
+}
+
+.sheetHandle::after {
+  content: '';
+  display: block;
   width: 36px;
   height: 4px;
   border-radius: 2px;
-  border: none;
   background: rgba(128, 128, 128, 0.4);
-  margin: 0 auto 8px;
-  padding: 0;
-  cursor: pointer;
+  transition: width 200ms ease, background 200ms ease;
 }
 
 /* On tablet/desktop the controls move to a side panel so the gradient keeps

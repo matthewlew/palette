@@ -54,6 +54,11 @@ const EDIT_SHORTCUTS: ShortcutHintItem[] = [
   { keys: ['Esc'], label: 'Back' },
 ]
 
+// How far the collapsed sheet has to be pulled up before it opens. Short
+// enough that a flick reads as a pull, long enough that a tap that wobbles a
+// few pixels stays a tap (the handle's own click still toggles).
+const EXPAND_DRAG_PX = 28
+
 interface EditModeProps {
   gradient: Gradient
   onExit: () => void
@@ -99,6 +104,10 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   )
   const collapseRef = useRef<(v: boolean) => void>(() => {})
   collapseRef.current = setCollapsed
+  // The drag gesture is bound once as native listeners, so it reads the
+  // current collapsed state through a ref rather than a stale closure.
+  const collapsedRef = useRef(collapsed)
+  collapsedRef.current = collapsed
   const [activeStopId, setActiveStopId] = useState<string | null>(null)
   // Crossfades the preview's colors when a canvas-handle swap reorders them,
   // so the color blocks visibly trade places instead of hard-jumping.
@@ -151,17 +160,30 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gradient.id, gradient.type])
 
-  // Dragging the sheet downward shrinks its real height so the flexed
-  // preview grows live (a true move/resize, not a dissolve); releasing past
-  // 30% of the sheet's height exits edit mode. Bound as non-passive DOM
-  // listeners so preventDefault() reliably stops the page itself scrolling.
-  // Drags that start on the flow-editor stop handles are exempt — those own
-  // their own vertical (drag-to-delete) gesture.
+  // The sheet is dragged in BOTH directions, because it has two resting
+  // states and a one-way gesture stranded you in the collapsed one:
+  //
+  //  - Open, dragged DOWN: shrinks its real height so the flexed preview grows
+  //    live (a true move/resize, not a dissolve); releasing past 30% of the
+  //    sheet's height collapses it to the full-screen gradient view.
+  //  - Collapsed, dragged UP: opens the panel. This used to do nothing at all,
+  //    so the only ways back out of the peek were a 36x4px grab handle or
+  //    tapping the gradient — which is what made the collapsed state feel like
+  //    a trap. It commits mid-drag (as soon as the pull clears the threshold)
+  //    rather than on release, so the panel is already on its way up under
+  //    your finger.
+  //  - Collapsed, dragged DOWN: nothing. There's nothing below the peek to go
+  //    to, and the old code still ran the live shrink here, which read as
+  //    "this collapses further" and then sprang back.
+  //
+  // Bound as non-passive DOM listeners so preventDefault() reliably stops the
+  // page itself scrolling. Drags that start on the flow-editor stop handles are
+  // exempt — those own their own vertical (drag-to-delete) gesture.
   useEffect(() => {
     const el = sheetRef.current
     if (!el) return
-    // The drag-to-dismiss gesture only makes sense for the bottom-sheet
-    // layout; at tablet/desktop widths the sheet is a fixed side panel.
+    // The drag gesture only makes sense for the bottom-sheet layout; at
+    // tablet/desktop widths the sheet is a fixed side panel.
     if (typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 768px)').matches) return
     let startY = 0
     let baseHeight = 0
@@ -180,7 +202,20 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
       if (!dragging) return
       const y = e.touches[0]?.clientY
       if (y == null) return
-      dragY = Math.max(0, y - startY)
+      dragY = y - startY
+
+      if (collapsedRef.current) {
+        if (dragY <= -EXPAND_DRAG_PX) {
+          e.preventDefault()
+          // End the gesture here: the sheet is now open and mid-transition, so
+          // continuing to track this drag would measure a height that's still
+          // animating and could immediately re-collapse it.
+          dragging = false
+          collapseRef.current(false)
+        }
+        return
+      }
+
       if (dragY > 0) {
         e.preventDefault()
         el!.style.height = `${Math.max(0, baseHeight - dragY)}px`
@@ -195,7 +230,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
       // CSS class transform, and a leftover inline height would fight it.
       el!.style.height = ''
       el!.style.overflow = ''
-      if (dragY > baseHeight * 0.3) {
+      if (!collapsedRef.current && dragY > baseHeight * 0.3) {
         // Collapse to a full-screen gradient view (still editing) rather than
         // exiting — a deliberate Back/Esc is what leaves edit mode.
         collapseRef.current(true)

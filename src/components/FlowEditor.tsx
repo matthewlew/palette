@@ -1,4 +1,4 @@
-import { useRef, useState, type RefObject } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { toGradientStops, type EditableStop } from '../lib/stopOrdering'
 import styles from './FlowEditor.module.css'
 
@@ -79,6 +79,36 @@ export function FlowEditor({ stops, onMove, onTapStop, onRemoveStop, onAddStopAt
       onTapStop(id)
     }
   }
+
+  // `touch-action: none` stops the PAGE scrolling under a stop drag, but it
+  // does not stop the browser's own edge-swipe back navigation — that is
+  // chrome-level, and on a stop parked near 0% it hijacked the drag entirely.
+  // Cancelling touchstart/touchmove is what suppresses it, and that has to be
+  // a non-passive native listener: React routes touch events through the root
+  // as passive, so preventDefault() from a JSX handler is ignored.
+  //
+  // Pointer events are unaffected by a cancelled touch sequence, so the drag
+  // below keeps working exactly as it did — only the compatibility mouse
+  // events and the browser gesture are suppressed.
+  useEffect(() => {
+    const el = trackRef.current
+    if (!el) return
+
+    function onTouch(e: TouchEvent) {
+      if (!e.cancelable) return
+      const startedOnHandle = (e.target as Element | null)?.closest?.('[data-testid="flow-handle"]')
+      if (startedOnHandle || draggingIdRef.current) {
+        e.preventDefault()
+      }
+    }
+
+    el.addEventListener('touchstart', onTouch, { passive: false })
+    el.addEventListener('touchmove', onTouch, { passive: false })
+    return () => {
+      el.removeEventListener('touchstart', onTouch)
+      el.removeEventListener('touchmove', onTouch)
+    }
+  }, [trackRef])
 
   function handleKeyDown(e: React.KeyboardEvent, stop: EditableStop) {
     const step = e.shiftKey ? 10 : 1

@@ -479,6 +479,58 @@ describe('EditMode', () => {
     vi.unstubAllGlobals()
   })
 
+  it('opens the collapsed sheet when it is dragged up', () => {
+    // The peek used to be a one-way door: the drag gesture only handled
+    // downward, so the only ways out were a 4px-tall grab handle or tapping
+    // the gradient. Pulling up on it opens the panel.
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }))
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    const sheet = screen.getByTestId('edit-sheet')
+    expect(sheet.className).toContain('collapsed')
+
+    fireEvent.touchStart(sheet, { touches: [{ clientY: 500 }] })
+    fireEvent.touchMove(sheet, { touches: [{ clientY: 450 }] })
+    fireEvent.touchEnd(sheet)
+
+    expect(sheet.className).not.toContain('collapsed')
+    vi.unstubAllGlobals()
+  })
+
+  it('keeps the collapsed sheet collapsed for an upward nudge below the threshold', () => {
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }))
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    const sheet = screen.getByTestId('edit-sheet')
+
+    fireEvent.touchStart(sheet, { touches: [{ clientY: 500 }] })
+    fireEvent.touchMove(sheet, { touches: [{ clientY: 490 }] })
+    fireEvent.touchEnd(sheet)
+
+    expect(sheet.className).toContain('collapsed')
+    vi.unstubAllGlobals()
+  })
+
+  it('ignores a downward drag on the already-collapsed sheet instead of faking a resize', () => {
+    // There is nothing below the peek to collapse to; the old code still ran
+    // the live height shrink here, so the sheet appeared to go away and then
+    // sprang back on release.
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }))
+    const onExit = vi.fn()
+    render(<EditMode gradient={gradient} onExit={onExit} />)
+    const sheet = screen.getByTestId('edit-sheet')
+    Object.defineProperty(sheet, 'offsetHeight', { configurable: true, value: 200 })
+
+    fireEvent.touchStart(sheet, { touches: [{ clientY: 100 }] })
+    fireEvent.touchMove(sheet, { touches: [{ clientY: 300 }] })
+
+    expect(sheet.style.height).toBe('')
+
+    fireEvent.touchEnd(sheet)
+
+    expect(sheet.className).toContain('collapsed')
+    expect(onExit).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
+  })
+
   it('does not collapse for a small sheet drag, and restores the sheet height', () => {
     const onExit = vi.fn()
     render(<EditMode gradient={gradient} onExit={onExit} />)
