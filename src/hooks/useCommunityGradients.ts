@@ -55,7 +55,10 @@ export function useCommunityGradients() {
 
       const fresh: Gradient[] = []
       for (const row of rows) {
+        // Null = a row that cannot be drawn (see isRenderableRow). Dropping it
+        // costs one tile; rendering it throws and takes the gallery with it.
         const gradient = toGradient(row)
+        if (!gradient) continue
         const key = dna(gradient)
         if (seenDnaRef.current.has(key)) continue
         seenDnaRef.current.add(key)

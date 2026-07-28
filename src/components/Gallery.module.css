@@ -420,6 +420,88 @@
   background-position: center;
 }
 
+/* THE FIRST-RUN STRIP on the Community tab.
+   One line of copy over one row of shapes — deliberately not the full-page
+   onboarding, because Community has content behind it that should stay
+   visible. Sized to cost about 90px, which is affordable exactly once: it
+   renders only while nothing is saved. */
+.starter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  margin-bottom: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  flex-shrink: 0;
+}
+
+.starterTitle {
+  font-family: var(--th-display);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+/* Inline with the title rather than a second line: the instruction is three
+   words and does not deserve its own row on a phone. */
+.starterSub {
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Scrolls rather than wraps. Five shapes will not fit across a 390px screen,
+   and a second row here would cost more than the strip is worth. */
+.starterChoices {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  /* Room for the focus ring, which a clipped overflow would otherwise cut. */
+  padding: 2px;
+  margin: -2px;
+}
+
+.starterChoices::-webkit-scrollbar {
+  display: none;
+}
+
+.starterChoices .onboardingChoice {
+  flex: 0 0 auto;
+  gap: 5px;
+  padding: 6px;
+  font-size: 11px;
+}
+
+.starterChoices .onboardingSwatch {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md, 8px);
+}
+
+/* Hover lift is for a grid of large targets; in a scrolling row it fights the
+   scroll and clips against the container. */
+@media (hover: hover) {
+  .starterChoices .onboardingChoice:hover {
+    transform: none;
+  }
+}
+
+@media (min-width: 600px) {
+  .starter {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-4);
+  }
+
+  .starterTitle {
+    flex: 0 0 auto;
+  }
+}
+
 .viewer {
   position: fixed;
   inset: 0;

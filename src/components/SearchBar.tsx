@@ -116,7 +116,11 @@ export function SearchBar({ onResults, saved = [], onActiveChange, onCancel }: S
           // Shared with the community feed (lib/paletteRow.ts) — this used to
           // be a second copy of the same mapping, which is how search results
           // would have ended up showing every palette at zero likes.
-          const gradients: Gradient[] = data.map(toGradient)
+          // Rows that cannot be drawn map to null and are dropped; rendering
+          // one throws and takes the whole page down.
+          const gradients: Gradient[] = data
+            .map(toGradient)
+            .filter((g): g is Gradient => g !== null)
           onResults({ mine, community: gradients })
         }
       } catch (err) {
@@ -169,7 +173,16 @@ export function SearchBar({ onResults, saved = [], onActiveChange, onCancel }: S
       )}
       {loading && <span className={styles.loading}>Searching...</span>}
       </div>
-      {onCancel && (
+      {/* Only while there is a search to cancel. It used to render whenever a
+          caller passed onCancel — which the Gallery always does — so an empty
+          field sat next to a Cancel that cancelled nothing, taking ~70px out
+          of a header row that had already been cut to fit.
+
+          `query.trim()`, not `query`: it must appear and disappear in step
+          with the full-screen search takeover, and that is the test the effect
+          above uses to decide whether a search is running at all. Whitespace
+          alone is not a search, so it must not summon the way out of one. */}
+      {onCancel && query.trim() && (
         <button
           type="button"
           data-testid="search-cancel"

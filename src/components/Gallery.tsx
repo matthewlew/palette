@@ -10,6 +10,7 @@ import type { GalleryLayout } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
 import { likePalette, unlikePalette } from '../lib/likes'
 import { HeartButton, LikeCountBadge } from './HeartButton'
+import { TileBoundary } from './TileBoundary'
 import { namePalette } from '../lib/naming'
 import { titleColorAt, paletteInkOn } from '../lib/titleColor'
 import { TurrellSquare } from './TurrellSquare'
@@ -101,15 +102,16 @@ function SearchGroup({
       <h2 className={styles.searchGroupHeading}>{heading}</h2>
       <div ref={ref} className={gridClass(galleryLayout)}>
         {gradients.map((g, i) => (
-          <Tile
-            key={g.id}
-            gradient={g}
-            index={i}
-            onOpen={onOpen}
-            galleryLayout={galleryLayout}
-            onRiff={onRiff}
-            likes={likes}
-          />
+          <TileBoundary key={g.id} label={g.id}>
+            <Tile
+              gradient={g}
+              index={i}
+              onOpen={onOpen}
+              galleryLayout={galleryLayout}
+              onRiff={onRiff}
+              likes={likes}
+            />
+          </TileBoundary>
         ))}
       </div>
     </section>
@@ -599,6 +601,50 @@ const ONBOARDING_STOPS = [
   { hex: '#3ad0ff', position: 100 },
 ]
 
+/**
+ * The shapes as a row of tappable swatches — the one way into creating from
+ * the Gallery.
+ *
+ * Shared by the empty-Yours onboarding and the compact Community strip rather
+ * than written twice, so both offer the same shapes in the same order at two
+ * sizes. Two copies would drift the moment a shape is added.
+ */
+function ShapeChoices({
+  onStartType,
+  compact = false,
+}: {
+  onStartType?: (type: GradientType) => void
+  compact?: boolean
+}) {
+  return (
+    <div className={compact ? styles.starterChoices : styles.onboardingChoices}>
+      {ONBOARDING_TYPES.map(({ type, label }) => (
+        <button
+          key={type}
+          type="button"
+          data-testid={`start-${type}`}
+          className={styles.onboardingChoice}
+          onClick={() => onStartType?.(type)}
+        >
+          <span
+            className={styles.onboardingSwatch}
+            aria-hidden="true"
+            style={{
+              backgroundImage: buildGradientCss(
+                type === 'square' ? 'linear' : type,
+                ONBOARDING_STOPS,
+                false,
+                { angle: 90 }
+              ),
+            }}
+          />
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 const ONBOARDING_TYPES: { type: GradientType; label: string }[] = [
   { type: 'linear', label: 'Linear' },
   { type: 'radial', label: 'Radial' },
@@ -1044,30 +1090,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
         <div className={styles.onboarding}>
           <p className={styles.onboardingTitle}>Create a gradient</p>
           <p className={styles.onboardingSub}>Pick a shape to start — your saves land here.</p>
-          <div className={styles.onboardingChoices}>
-            {ONBOARDING_TYPES.map(({ type, label }) => (
-              <button
-                key={type}
-                type="button"
-                className={styles.onboardingChoice}
-                onClick={() => onStartType?.(type)}
-              >
-                <span
-                  className={styles.onboardingSwatch}
-                  aria-hidden="true"
-                  style={{
-                    backgroundImage: buildGradientCss(
-                      type === 'square' ? 'linear' : type,
-                      ONBOARDING_STOPS,
-                      false,
-                      { angle: 90 }
-                    ),
-                  }}
-                />
-                {label}
-              </button>
-            ))}
-          </div>
+          <ShapeChoices onStartType={onStartType} />
         </div>
       ) : (
         <>
@@ -1081,6 +1104,23 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
 
               The sort half does NOT need that treatment — two options fit any
               width — so it's one segmented control on both breakpoints. */}
+          {/* First-run entry point, on the tab a new user actually lands on.
+              Community is the sensible default — an empty Yours is a blank
+              room — but it left the only way into creating as a dim "Create"
+              in the bottom bar, next to a highlighted "Gallery". This offers
+              the same shape picker the empty Yours tab does, in one row.
+
+              Gone for good on the first save: it is scaffolding, and a
+              returning user's screen should be their palettes. */}
+          {activeTab === 'community' && !searchFlat && saved.length === 0 && (
+            <div className={styles.starter} data-testid="community-starter">
+              <p className={styles.starterTitle}>
+                Make your own <span className={styles.starterSub}>— pick a shape</span>
+              </p>
+              <ShapeChoices onStartType={onStartType} compact />
+            </div>
+          )}
+
           <div className={styles.filterBar}>
             <div className={styles.filterSelectWrap}>
               <select
@@ -1173,23 +1213,24 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
               className={gridClass(galleryLayout)}
             >
               {currentViewGradients.map((gradient, index) => (
-                <Tile
-                  key={gradient.id}
-                  gradient={gradient}
-                  index={index}
-                  onOpen={setOpen}
-                  galleryLayout={galleryLayout}
-                  onRiff={onRiff}
-                  onDelete={activeTab === 'saves' ? removeSavedGradientById : (isAdmin ? deleteCommunityGradient : undefined)}
-                  draggable={canReorder}
-                  isDragging={draggingId === gradient.id}
-                  isDragOver={dragOverId === gradient.id}
-                  onDragStartTile={handleDragStartTile}
-                  onDragEnterTile={handleDragEnterTile}
-                  onDropTile={handleDropTile}
-                  onDragEndTile={clearDrag}
-                  likes={likes}
-                />
+                <TileBoundary key={gradient.id} label={gradient.id}>
+                  <Tile
+                    gradient={gradient}
+                    index={index}
+                    onOpen={setOpen}
+                    galleryLayout={galleryLayout}
+                    onRiff={onRiff}
+                    onDelete={activeTab === 'saves' ? removeSavedGradientById : (isAdmin ? deleteCommunityGradient : undefined)}
+                    draggable={canReorder}
+                    isDragging={draggingId === gradient.id}
+                    isDragOver={dragOverId === gradient.id}
+                    onDragStartTile={handleDragStartTile}
+                    onDragEnterTile={handleDragEnterTile}
+                    onDropTile={handleDropTile}
+                    onDragEndTile={clearDrag}
+                    likes={likes}
+                  />
+                </TileBoundary>
               ))}
             </div>
           )}

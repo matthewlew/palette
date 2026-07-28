@@ -134,6 +134,41 @@ describe('SearchBar', () => {
     expect(onResults).toHaveBeenLastCalledWith({ mine: [saved[2], saved[3]], community: [] })
   })
 
+  it('shows no Cancel while the field is empty — there is nothing to cancel', () => {
+    // It used to render whenever onCancel was passed, which the Gallery always
+    // does, so a dead Cancel sat beside an empty search box at every width and
+    // cost ~70px of a header row that had already been cut to fit.
+    const onCancel = vi.fn()
+    render(<SearchBar onResults={vi.fn()} saved={saved} onCancel={onCancel} />)
+    expect(screen.queryByTestId('search-cancel')).toBeNull()
+  })
+
+  it('brings Cancel in with the query and takes it away again', () => {
+    const onCancel = vi.fn()
+    render(<SearchBar onResults={vi.fn()} saved={saved} onCancel={onCancel} />)
+    const input = screen.getByTestId('search-input')
+
+    fireEvent.change(input, { target: { value: 'clay' } })
+    expect(screen.getByTestId('search-cancel')).toBeInTheDocument()
+
+    fireEvent.change(input, { target: { value: '' } })
+    expect(screen.queryByTestId('search-cancel')).toBeNull()
+  })
+
+  it('treats whitespace as no search, so it summons no way out of one', () => {
+    // Matches the condition the effect uses to decide a search is running —
+    // the two must agree, or Cancel appears without the full-screen takeover
+    // it exists to escape.
+    const onActiveChange = vi.fn()
+    render(
+      <SearchBar onResults={vi.fn()} saved={saved} onCancel={vi.fn()} onActiveChange={onActiveChange} />
+    )
+    fireEvent.change(screen.getByTestId('search-input'), { target: { value: '   ' } })
+
+    expect(onActiveChange).toHaveBeenLastCalledWith(false)
+    expect(screen.queryByTestId('search-cancel')).toBeNull()
+  })
+
   it('has no Cancel unless a caller wires one', () => {
     render(<SearchBar onResults={vi.fn()} saved={saved} />)
     expect(screen.queryByTestId('search-cancel')).toBeNull()

@@ -54,10 +54,54 @@ const EDIT_SHORTCUTS: ShortcutHintItem[] = [
   { keys: ['Esc'], label: 'Back' },
 ]
 
-// How far the collapsed sheet has to be pulled up before it opens. Short
-// enough that a flick reads as a pull, long enough that a tap that wobbles a
-// few pixels stays a tap (the handle's own click still toggles).
-const EXPAND_DRAG_PX = 28
+// Past a detent the sheet still moves, but only a third as far — the standard
+// rubber band. It exists so a drag in the "wrong" direction is answered with
+// resistance instead of nothing: dead controls read as broken controls.
+const RUBBER_BAND = 0.33
+
+// A flick faster than this decides the destination on its own, however short it
+// was. px/ms, measured off real dispatched touch drags: a deliberate short
+// flick lands between 0.33 and 0.45, and a slow deliberate drag around 0.12.
+// 0.35 sits in the gap — comfortably above anything accidental, below the
+// slowest thing a person would call a flick.
+const FLICK_VELOCITY = 0.35
+
+// How long the sheet takes to settle onto a detent after release. Matches the
+// max-height transition the collapsed class already used.
+const SETTLE_MS = 200
+
+// Movement under this is a tap, not a drag — the handle's own click still
+// toggles, and a thumb that wobbles a few pixels should not move the sheet.
+const DRAG_SLOP_PX = 6
+
+/** Hold `value` between two detents, but keep moving past them at a fraction of
+ * the distance. The clamp is what stops the sheet sliding somewhere it cannot
+ * rest and springing back; the give is what stops the ends feeling broken. */
+export function clampWithRubberBand(value: number, min: number, max: number): number {
+  if (value < min) return min - (min - value) * RUBBER_BAND
+  if (value > max) return max + (value - max) * RUBBER_BAND
+  return value
+}
+
+/**
+ * Which detent a released drag settles onto: 'peek' or 'open'.
+ *
+ * Velocity first, position second. A short fast flick beats a long slow drag,
+ * which is how every other sheet on the platform behaves and what makes a
+ * half-open sheet feel thrown rather than dropped. `velocity` is px/ms and
+ * positive downward, matching clientY.
+ */
+export function chooseDetent(
+  height: number,
+  peekH: number,
+  openH: number,
+  velocity: number,
+): 'peek' | 'open' {
+  if (velocity > FLICK_VELOCITY) return 'peek'
+  if (velocity < -FLICK_VELOCITY) return 'open'
+  // Ties go to open: the sheet is the controls, and the user dragged it there.
+  return height - peekH < openH - height ? 'peek' : 'open'
+}
 
 interface EditModeProps {
   gradient: Gradient
@@ -108,6 +152,15 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   // current collapsed state through a ref rather than a stale closure.
   const collapsedRef = useRef(collapsed)
   collapsedRef.current = collapsed
+  // True only while a drag or its settle animation is in flight. It drops the
+  // collapsed class so the whole panel is in the layout and the inline height
+  // can reveal it continuously — see the gesture effect below.
+  const [sheetDragging, setSheetDragging] = useState(false)
+  const setDraggingRef = useRef<(v: boolean) => void>(() => {})
+  setDraggingRef.current = setSheetDragging
+  // Last measured peek height. Survives the sheet being open, so a drag that
+  // starts from open still knows where the lower detent is.
+  const peekHRef = useRef(0)
   const [activeStopId, setActiveStopId] = useState<string | null>(null)
   // Crossfades the preview's colors when a canvas-handle swap reorders them,
   // so the color blocks visibly trade places instead of hard-jumping.
@@ -160,21 +213,29 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gradient.id, gradient.type])
 
-  // The sheet is dragged in BOTH directions, because it has two resting
-  // states and a one-way gesture stranded you in the collapsed one:
+  // ONE gesture, not four.
   //
-  //  - Open, dragged DOWN: shrinks its real height so the flexed preview grows
-  //    live (a true move/resize, not a dissolve); releasing past 30% of the
-  //    sheet's height collapses it to the full-screen gradient view.
-  //  - Collapsed, dragged UP: opens the panel. This used to do nothing at all,
-  //    so the only ways back out of the peek were a 36x4px grab handle or
-  //    tapping the gradient — which is what made the collapsed state feel like
-  //    a trap. It commits mid-drag (as soon as the pull clears the threshold)
-  //    rather than on release, so the panel is already on its way up under
-  //    your finger.
-  //  - Collapsed, dragged DOWN: nothing. There's nothing below the peek to go
-  //    to, and the old code still ran the live shrink here, which read as
-  //    "this collapses further" and then sprang back.
+  // The sheet has two resting heights — peek (the handle, the Shape/Effect
+  // switch, and the active section) and open (all of it). The previous version
+  // handled each state-and-direction pair differently: open-dragged-down
+  // resized live, collapsed-dragged-up jumped at a 28px threshold,
+  // collapsed-dragged-down did literally nothing, and open-dragged-up did
+  // nothing. Four quadrants, three mental models, and two of them silent — so
+  // the sheet felt locked in one state, jerky in another, and dead in a third.
+  //
+  // Now every quadrant is the same thing: the sheet's height follows your
+  // thumb, clamped to the two detents, with a rubber band past either end so a
+  // drag with nowhere to go answers with resistance instead of nothing. On
+  // release it settles onto whichever detent it is nearer, or whichever way a
+  // flick was thrown.
+  //
+  // The collapsed CLASS is dropped for the duration of the drag and the height
+  // driven inline instead. The class hides the lower half outright
+  // (display:none, so the peek can never show a sliced row), which is right at
+  // rest and impossible to interpolate through — you cannot reveal in stages
+  // what is not in the layout. Dropping it renders everything and lets the
+  // inline height do the clipping, which is what makes the reveal continuous
+  // in both directions.
   //
   // Bound as non-passive DOM listeners so preventDefault() reliably stops the
   // page itself scrolling. Drags that start on the flow-editor stop handles are
@@ -185,65 +246,159 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     // The drag gesture only makes sense for the bottom-sheet layout; at
     // tablet/desktop widths the sheet is a fixed side panel.
     if (typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 768px)').matches) return
+
     let startY = 0
-    let baseHeight = 0
-    let dragY = 0
-    let dragging = false
+    let lastY = 0
+    let lastT = 0
+    let velocity = 0
+    let peekH = 0
+    let openH = 0
+    let active = false
+    let moved = false
+    let settling = false
+
+    const px = (v: string) => parseFloat(v) || 0
+
+    /** The peek height, derived rather than hard-coded — sizing to content is
+     * what stopped the peek slicing a row when the Shape and Effect sections
+     * turned out to be different heights.
+     *
+     * Measured directly when the sheet is collapsed, which is the honest
+     * number and where the mobile sheet starts. Once known it is remembered,
+     * because reconstructing it from the open sheet means summing children and
+     * that is only ever an approximation of what the class actually does. */
+    function measurePeek(): number {
+      if (collapsedRef.current && el!.offsetHeight > 0) {
+        peekHRef.current = el!.offsetHeight
+        return peekHRef.current
+      }
+      if (peekHRef.current > 0) return peekHRef.current
+      const cs = getComputedStyle(el!)
+      let h = px(cs.paddingTop) + px(cs.paddingBottom)
+      for (const child of Array.from(el!.children) as HTMLElement[]) {
+        if (child.classList.contains(styles.belowSections)) continue
+        const ccs = getComputedStyle(child)
+        h += child.offsetHeight + px(ccs.marginTop) + px(ccs.marginBottom)
+      }
+      return h
+    }
+
+    // performance.now(), not event.timeStamp: the timeStamp origin is not
+    // consistent across engines, and it cannot be driven from a test, which
+    // means the flick rule would go unverified.
+    const now = () => performance.now()
+
+    /** The full height of the open panel — measured with the collapsed class
+     * OFF, because that class hides the lower half with display:none and
+     * display:none is not in the layout at all. Reading scrollHeight through it
+     * returned the PEEK height, so from a collapsed start the sheet believed
+     * its two detents were the same number: every upward drag was really just
+     * rubber band, and it opened only because `h - peek < open - h` happens to
+     * be false when the two are equal.
+     *
+     * Remove, read, restore, all in one synchronous block — nothing paints in
+     * between, so this costs a reflow and nothing else. */
+    function measureOpen(): number {
+      const had = el!.classList.contains(styles.collapsed)
+      if (had) el!.classList.remove(styles.collapsed)
+      const h = el!.scrollHeight
+      if (had) el!.classList.add(styles.collapsed)
+      return h
+    }
 
     function handleTouchStart(e: TouchEvent) {
+      if (settling) return
       if ((e.target as HTMLElement).closest('[data-testid="flow-handle"]')) return
       startY = e.touches[0]?.clientY ?? 0
-      baseHeight = el!.offsetHeight
-      dragY = 0
-      dragging = true
+      lastY = startY
+      lastT = now()
+      velocity = 0
+      moved = false
+      active = true
+      peekH = measurePeek()
+      openH = Math.max(measureOpen(), peekH)
     }
 
     function handleTouchMove(e: TouchEvent) {
-      if (!dragging) return
+      if (!active) return
       const y = e.touches[0]?.clientY
       if (y == null) return
-      dragY = y - startY
 
-      if (collapsedRef.current) {
-        if (dragY <= -EXPAND_DRAG_PX) {
-          e.preventDefault()
-          // End the gesture here: the sheet is now open and mid-transition, so
-          // continuing to track this drag would measure a height that's still
-          // animating and could immediately re-collapse it.
-          dragging = false
-          collapseRef.current(false)
-        }
-        return
-      }
+      const t = now()
+      const dt = t - lastT
+      if (dt > 0) velocity = (y - lastY) / dt
+      lastY = y
+      lastT = t
 
-      if (dragY > 0) {
-        e.preventDefault()
-        el!.style.height = `${Math.max(0, baseHeight - dragY)}px`
+      const dragY = y - startY
+      if (!moved) {
+        if (Math.abs(dragY) < DRAG_SLOP_PX) return
+        moved = true
+        // Hand the height over to the drag. Setting it to the CURRENT height
+        // first means dropping the collapsed class cannot make the sheet jump.
+        el!.style.height = `${collapsedRef.current ? peekH : openH}px`
         el!.style.overflow = 'hidden'
+        setDraggingRef.current(true)
       }
+
+      e.preventDefault()
+      const from = collapsedRef.current ? peekH : openH
+      // Never below zero. A negative height is an invalid CSS value, so the
+      // CSSOM drops the assignment entirely and the sheet freezes at whatever
+      // it last held — the drag looks broken precisely when it is pulled
+      // hardest. Only reachable when the peek measures near zero, which is
+      // exactly when a rubber band undershoots.
+      const next = Math.max(0, clampWithRubberBand(from - dragY, peekH, openH))
+      el!.style.height = `${next}px`
     }
 
     function handleTouchEnd() {
-      if (!dragging) return
-      dragging = false
-      // Clear the inline height first either way; the collapse is driven by a
-      // CSS class transform, and a leftover inline height would fight it.
-      el!.style.height = ''
-      el!.style.overflow = ''
-      if (!collapsedRef.current && dragY > baseHeight * 0.3) {
-        // Collapse to a full-screen gradient view (still editing) rather than
-        // exiting — a deliberate Back/Esc is what leaves edit mode.
-        collapseRef.current(true)
+      if (!active) return
+      active = false
+      if (!moved) return
+
+      // offsetHeight, not getBoundingClientRect: the latter reports 0 wherever
+      // there is no real layout engine, which silently sends every released
+      // drag to the same detent under test.
+      const toPeek = chooseDetent(el!.offsetHeight, peekH, openH, velocity) === 'peek'
+      settleTo(toPeek ? peekH : openH, toPeek)
+    }
+
+    /** Animate to a detent, then hand control back to the class. */
+    function settleTo(targetH: number, toPeek: boolean) {
+      settling = true
+      let finished = false
+      const finish = () => {
+        if (finished) return
+        finished = true
+        el!.removeEventListener('transitionend', onEnd)
+        el!.style.transition = ''
+        el!.style.height = ''
+        el!.style.overflow = ''
+        collapseRef.current(toPeek)
+        setDraggingRef.current(false)
+        settling = false
       }
+      const onEnd = (ev: TransitionEvent) => {
+        if (ev.propertyName === 'height') finish()
+      }
+      el!.addEventListener('transitionend', onEnd)
+      el!.style.transition = `height ${SETTLE_MS}ms cubic-bezier(0.2, 0.8, 0.2, 1)`
+      el!.style.height = `${targetH}px`
+      // transitionend never fires when the height is already the target (a drag
+      // released exactly on a detent, or reduced-motion), so never wait on it.
+      window.setTimeout(finish, SETTLE_MS + 60)
     }
 
     el.addEventListener('touchstart', handleTouchStart, { passive: true })
     el.addEventListener('touchmove', handleTouchMove, { passive: false })
     el.addEventListener('touchend', handleTouchEnd)
+    el.addEventListener('touchcancel', handleTouchEnd)
     return () => {
       el.removeEventListener('touchstart', handleTouchStart)
       el.removeEventListener('touchmove', handleTouchMove)
       el.removeEventListener('touchend', handleTouchEnd)
+      el.removeEventListener('touchcancel', handleTouchEnd)
     }
   }, [])
 
@@ -879,7 +1034,14 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
       <div
         data-testid="edit-sheet"
         ref={sheetRef}
-        className={[styles.sheet, chromeHidden && styles.hidden, collapsed && styles.collapsed].filter(Boolean).join(' ')}
+        className={[
+          styles.sheet,
+          chromeHidden && styles.hidden,
+          // While dragging, the inline height owns the sheet's size and the
+          // whole panel must be in the layout to be revealed a pixel at a time.
+          collapsed && !sheetDragging && styles.collapsed,
+          sheetDragging && styles.dragging,
+        ].filter(Boolean).join(' ')}
         onPointerDown={(e) => {
           if (e.target === e.currentTarget) {
             setActiveStopId(null)

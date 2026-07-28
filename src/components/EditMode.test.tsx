@@ -1,8 +1,52 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, cleanup, act } from '@testing-library/react'
-import { EditMode } from './EditMode'
+import { render, screen, fireEvent, cleanup, act, waitFor } from '@testing-library/react'
+import { EditMode, clampWithRubberBand, chooseDetent } from './EditMode'
 import { useAppStore } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
+
+/** jsdom has no layout, so the sheet's two detents have to be declared.
+ * `peek` is what the collapsed sheet measures; `open` is its full content. */
+function sizeSheet(sheet: HTMLElement, { peek, open }: { peek: number; open: number }) {
+  let current = peek
+  Object.defineProperty(sheet, 'offsetHeight', {
+    configurable: true,
+    // Reads back whatever the drag last wrote, so the settle decision sees a
+    // real height rather than the constant 0 jsdom would otherwise report.
+    get: () => (sheet.style.height ? parseFloat(sheet.style.height) : current),
+    set: (v: number) => { current = v },
+  })
+  Object.defineProperty(sheet, 'scrollHeight', { configurable: true, get: () => open })
+}
+
+/** Open the sheet the way a user does — it starts collapsed on mobile. */
+function openSheet(): HTMLElement {
+  fireEvent.click(screen.getByTestId('sheet-handle'))
+  return screen.getByTestId('edit-sheet')
+}
+
+/** Drive the gesture with a controlled clock.
+ *
+ * fireEvent ignores a `timeStamp` in its init (Event.timeStamp is readonly),
+ * so events fired back to back land microseconds apart and EVERY drag reads as
+ * a flick. Stubbing performance.now is what makes the position rule and the
+ * flick rule separately testable — `msPerStep` large is a slow deliberate
+ * drag, small is a flick.
+ */
+function drag(sheet: HTMLElement, fromY: number, toY: number, msPerStep = 500) {
+  const real = performance.now
+  let t = 0
+  performance.now = () => t
+  try {
+    fireEvent.touchStart(sheet, { touches: [{ clientY: fromY }] })
+    t += msPerStep
+    fireEvent.touchMove(sheet, { touches: [{ clientY: (fromY + toY) / 2 }] })
+    t += msPerStep
+    fireEvent.touchMove(sheet, { touches: [{ clientY: toY }] })
+    fireEvent.touchEnd(sheet)
+  } finally {
+    performance.now = real
+  }
+}
 
 const gradient: Gradient = {
   id: 'g1',
@@ -446,20 +490,22 @@ describe('EditMode', () => {
     expect(onExit).not.toHaveBeenCalled()
   })
 
-  it('collapses (not exits) when the sheet is dragged down past 30% of its height', () => {
+  it('settles to the peek (not an exit) when the open sheet is dragged most of the way down', async () => {
     const onExit = vi.fn()
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }))
     render(<EditMode gradient={gradient} onExit={onExit} />)
-    const sheet = screen.getByTestId('edit-sheet')
-    Object.defineProperty(sheet, 'offsetHeight', { configurable: true, value: 200 })
+    const sheet = openSheet()
+    sizeSheet(sheet, { peek: 100, open: 300 })
 
-    fireEvent.touchStart(sheet, { touches: [{ clientY: 100 }] })
-    fireEvent.touchMove(sheet, { touches: [{ clientY: 200 }] })
-    fireEvent.touchEnd(sheet)
+    drag(sheet, 100, 280)
 
-    // Dragging past 30% collapses the sheet to a full-screen gradient view
-    // (still in edit mode), rather than exiting. Use Back/Esc to exit.
+    // Collapses to the full-screen gradient view, still in edit mode. Only a
+    // deliberate Back/Esc leaves edit mode.
+    await waitFor(() => expect(sheet.className).toContain('collapsed'))
     expect(onExit).not.toHaveBeenCalled()
-    expect(sheet.className).toContain('collapsed')
+    // And the drag never leaves an inline height behind to fight the class.
+    expect(sheet.style.height).toBe('')
+    vi.unstubAllGlobals()
   })
 
   it('skips the drag-to-dismiss gesture at tablet/desktop widths (matchMedia min-width: 768px matches)', () => {
@@ -496,54 +542,78 @@ describe('EditMode', () => {
     vi.unstubAllGlobals()
   })
 
-  it('keeps the collapsed sheet collapsed for an upward nudge below the threshold', () => {
+  it('treats a wobble under the slop as a tap, not a drag', async () => {
+    // The handle's own click toggles the sheet; a thumb that shifts a few
+    // pixels while tapping it must not also start moving the sheet.
     vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }))
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
     const sheet = screen.getByTestId('edit-sheet')
+    sizeSheet(sheet, { peek: 100, open: 300 })
 
-    fireEvent.touchStart(sheet, { touches: [{ clientY: 500 }] })
-    fireEvent.touchMove(sheet, { touches: [{ clientY: 490 }] })
-    fireEvent.touchEnd(sheet)
+    drag(sheet, 500, 496)
 
     expect(sheet.className).toContain('collapsed')
+    expect(sheet.className).not.toContain('dragging')
+    expect(sheet.style.height).toBe('')
     vi.unstubAllGlobals()
   })
 
-  it('ignores a downward drag on the already-collapsed sheet instead of faking a resize', () => {
-    // There is nothing below the peek to collapse to; the old code still ran
-    // the live height shrink here, so the sheet appeared to go away and then
-    // sprang back on release.
+  it('answers a downward drag on the collapsed sheet with resistance, not silence', async () => {
+    // There is nothing below the peek, but doing NOTHING is what made the
+    // sheet feel broken — "sometimes it does something and sometimes it
+    // doesn't". It now tracks the thumb with a rubber band and returns.
     vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }))
     const onExit = vi.fn()
     render(<EditMode gradient={gradient} onExit={onExit} />)
     const sheet = screen.getByTestId('edit-sheet')
-    Object.defineProperty(sheet, 'offsetHeight', { configurable: true, value: 200 })
+    sizeSheet(sheet, { peek: 100, open: 300 })
 
     fireEvent.touchStart(sheet, { touches: [{ clientY: 100 }] })
-    fireEvent.touchMove(sheet, { touches: [{ clientY: 300 }] })
+    fireEvent.touchMove(sheet, { touches: [{ clientY: 300 }], timeStamp: 100 })
 
-    expect(sheet.style.height).toBe('')
+    // It moved — and stayed within a rubber band of the peek rather than
+    // sliding to somewhere it cannot rest.
+    const mid = parseFloat(sheet.style.height)
+    expect(mid).toBeLessThan(100)
+    expect(mid).toBeGreaterThan(20)
 
     fireEvent.touchEnd(sheet)
 
-    expect(sheet.className).toContain('collapsed')
+    await waitFor(() => expect(sheet.className).toContain('collapsed'))
+    expect(sheet.style.height).toBe('')
     expect(onExit).not.toHaveBeenCalled()
     vi.unstubAllGlobals()
   })
 
-  it('does not collapse for a small sheet drag, and restores the sheet height', () => {
+  it('runs the whole cycle on one gesture: peek -> open -> back, with short drags returning', async () => {
+    // The point of the rebuild. Every quadrant is the same gesture, so a round
+    // trip is one test rather than four with different rules.
     const onExit = vi.fn()
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }))
     render(<EditMode gradient={gradient} onExit={onExit} />)
     const sheet = screen.getByTestId('edit-sheet')
-    Object.defineProperty(sheet, 'offsetHeight', { configurable: true, value: 200 })
+    sizeSheet(sheet, { peek: 100, open: 300 })
+    expect(sheet.className).toContain('collapsed')
 
-    fireEvent.touchStart(sheet, { touches: [{ clientY: 100 }] })
-    fireEvent.touchMove(sheet, { touches: [{ clientY: 130 }] })
-    fireEvent.touchEnd(sheet)
+    // Pull up most of the way: opens. Wait on the inline height clearing —
+    // that is the end of the settle. The collapsed class drops the moment the
+    // drag starts, so waiting on it would pass mid-gesture.
+    drag(sheet, 400, 220)
+    await waitFor(() => expect(sheet.style.height).toBe(''))
+    expect(sheet.className).not.toContain('collapsed')
+
+    // A short pull down from open does not reach the halfway mark: stays open.
+    drag(sheet, 100, 130)
+    await waitFor(() => expect(sheet.style.height).toBe(''))
+    expect(sheet.className).not.toContain('collapsed')
+
+    // All the way down: back to the peek.
+    drag(sheet, 100, 280)
+    await waitFor(() => expect(sheet.style.height).toBe(''))
+    expect(sheet.className).toContain('collapsed')
 
     expect(onExit).not.toHaveBeenCalled()
-    expect(sheet.className).not.toContain('collapsed')
-    expect(sheet.style.height).toBe('')
+    vi.unstubAllGlobals()
   })
 
   it('tapping a stop handle selects it and recolors it in place via the color picker', () => {
@@ -730,5 +800,147 @@ describe('EditMode canvas handles', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe('the sheet gesture, as arithmetic', () => {
+  // Extracted from the drag handler so the two rules that decide where the
+  // sheet ends up can be checked without a layout engine.
+  describe('clampWithRubberBand', () => {
+    it('passes values between the detents straight through', () => {
+      expect(clampWithRubberBand(150, 100, 300)).toBe(150)
+      expect(clampWithRubberBand(100, 100, 300)).toBe(100)
+      expect(clampWithRubberBand(300, 100, 300)).toBe(300)
+    })
+
+    it('gives past a detent instead of stopping dead', () => {
+      // The old sheet did nothing at all here, which is what "sometimes it
+      // doesn't do anything" meant. It should move, just not freely.
+      const below = clampWithRubberBand(0, 100, 300)
+      expect(below).toBeLessThan(100)
+      expect(below).toBeGreaterThan(0)
+
+      const above = clampWithRubberBand(400, 100, 300)
+      expect(above).toBeGreaterThan(300)
+      expect(above).toBeLessThan(400)
+    })
+
+    it('resists more the further past the end it is pushed', () => {
+      const near = 100 - clampWithRubberBand(50, 100, 300)
+      const far = 100 - clampWithRubberBand(0, 100, 300)
+      expect(far).toBeGreaterThan(near)
+      // Never a free ride: the overshoot is always a fraction of the drag.
+      expect(far).toBeLessThan(100)
+    })
+  })
+
+  describe('chooseDetent', () => {
+    it('settles to whichever detent is nearer', () => {
+      expect(chooseDetent(120, 100, 300, 0)).toBe('peek')
+      expect(chooseDetent(280, 100, 300, 0)).toBe('open')
+    })
+
+    it('gives an exact halfway release to open — the sheet is the controls', () => {
+      expect(chooseDetent(200, 100, 300, 0)).toBe('open')
+    })
+
+    it('lets a fast flick beat position, in both directions', () => {
+      // Thrown down from nearly open: goes to the peek anyway.
+      expect(chooseDetent(290, 100, 300, 2)).toBe('peek')
+      // Thrown up from nearly closed: opens anyway.
+      expect(chooseDetent(110, 100, 300, -2)).toBe('open')
+    })
+
+    it('ignores a slow drift, however long', () => {
+      expect(chooseDetent(290, 100, 300, 0.1)).toBe('open')
+      expect(chooseDetent(110, 100, 300, -0.1)).toBe('peek')
+    })
+  })
+})
+
+describe('EditMode sheet — one gesture in every direction', () => {
+  beforeEach(() => {
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }))
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('opens on a short upward flick, which position alone would have refused', () => {
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    const sheet = screen.getByTestId('edit-sheet')
+    sizeSheet(sheet, { peek: 100, open: 300 })
+
+    // 20px of travel, thrown fast. Nearest-detent would keep this at the peek.
+    drag(sheet, 400, 380, 4)
+
+    return waitFor(() => {
+      expect(sheet.style.height).toBe('')
+      expect(sheet.className).not.toContain('collapsed')
+    })
+  })
+
+  it('marks the sheet as dragging so the collapsed class stops clipping mid-gesture', () => {
+    // The collapsed class hides the lower half with display:none, which cannot
+    // be interpolated through — dropping it for the drag is what makes the
+    // reveal continuous rather than a jump at a threshold.
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    const sheet = screen.getByTestId('edit-sheet')
+    sizeSheet(sheet, { peek: 100, open: 300 })
+
+    fireEvent.touchStart(sheet, { touches: [{ clientY: 400 }] })
+    fireEvent.touchMove(sheet, { touches: [{ clientY: 340 }] })
+
+    expect(sheet.className).toContain('dragging')
+    expect(sheet.className).not.toContain('collapsed')
+    // Tracking the thumb, not jumping to a detent.
+    expect(parseFloat(sheet.style.height)).toBeGreaterThan(100)
+    expect(parseFloat(sheet.style.height)).toBeLessThan(300)
+
+    fireEvent.touchEnd(sheet)
+  })
+
+  it('never slides past the peek and springs back, which is what read as broken', async () => {
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    const sheet = screen.getByTestId('edit-sheet')
+    sizeSheet(sheet, { peek: 100, open: 300 })
+    // Open it by dragging, not by clicking the handle: the drag is what
+    // measures the peek where it actually renders. Wait for the settle — a
+    // gesture started mid-settle is deliberately ignored.
+    drag(sheet, 400, 220)
+    await waitFor(() => expect(sheet.style.height).toBe(''))
+
+    // Pull 350px when only 200px of travel exists.
+    fireEvent.touchStart(sheet, { touches: [{ clientY: 100 }] })
+    fireEvent.touchMove(sheet, { touches: [{ clientY: 450 }] })
+
+    // Held near the peek, resisting. The old sheet shrank freely toward zero
+    // and then jumped back up to the peek on release — the "it slides but not
+    // all the way down" complaint was that spring.
+    const held = parseFloat(sheet.style.height)
+    expect(held).toBeLessThan(100)
+    expect(held).toBeGreaterThan(0)
+    // Far short of where an unclamped drag would have put it (300 - 350).
+    expect(held).toBeGreaterThan(300 - 350)
+
+    fireEvent.touchEnd(sheet)
+    await waitFor(() => expect(sheet.style.height).toBe(''))
+    expect(sheet.className).toContain('collapsed')
+  })
+
+  it('leaves a drag that starts on a flow handle alone', () => {
+    // Stop handles own their own vertical gesture (drag-to-delete).
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    const sheet = screen.getByTestId('edit-sheet')
+    sizeSheet(sheet, { peek: 100, open: 300 })
+    const handle = screen.getAllByTestId('flow-handle')[0]
+
+    // Fired ON the handle so it bubbles to the sheet with the handle as the
+    // real target — a `target` in fireEvent's init does not reassign it.
+    fireEvent.touchStart(handle, { touches: [{ clientY: 400 }] })
+    fireEvent.touchMove(handle, { touches: [{ clientY: 300 }] })
+
+    expect(sheet.style.height).toBe('')
+    expect(sheet.className).not.toContain('dragging')
   })
 })

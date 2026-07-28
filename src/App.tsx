@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAppStore } from './store/useAppStore'
 import { Hint } from './components/Hint'
-import { Feed, riffIntoFeed } from './components/Feed'
+import { Feed, riffIntoFeed, makeGradient, startFeedWithType } from './components/Feed'
 import { Gallery } from './components/Gallery'
 import { TabBar } from './components/TabBar'
 import { EditMode } from './components/EditMode'
@@ -135,6 +135,26 @@ export function App() {
     })
   }
 
+  /** Onboarding: an empty Gallery offers the shapes instead of dead filters,
+   * and picking one starts a fresh Create session locked to it.
+   *
+   * This is a whole surface's only call to action, and it was doing nothing:
+   * Gallery called `onStartType?.()` and App never passed the prop, so the
+   * optional call swallowed every tap. The pieces were all here — Feed has
+   * exported `startFeedWithType` for exactly this since it was written.
+   *
+   * Create, not edit. Riffing from a saved palette jumps to the editor because
+   * you already have something to change; here there is nothing yet, and the
+   * feed is where gradients come from. */
+  function handleStartType(type: GradientType) {
+    const gradient = makeGradient(type, useAppStore.getState().activeColorSet)
+    withViewTransition(() => {
+      startFeedWithType(gradient)
+      setCurrentGradient(gradient)
+      setMode('create')
+    })
+  }
+
   // App-wide Cmd/Ctrl+C copy and Cmd/Ctrl+V paste. Native clipboard events let
   // us write multiple formats synchronously and read them back on paste.
   useEffect(() => {
@@ -191,7 +211,9 @@ export function App() {
           <Feed chromeVisible={chromeVisible} />
         </>
       )}
-      {mode === 'gallery' && <Gallery onRiff={handleRiff} onImport={handleImportJson} />}
+      {mode === 'gallery' && (
+        <Gallery onRiff={handleRiff} onImport={handleImportJson} onStartType={handleStartType} />
+      )}
       {/* Edit mode renders its own shortcut hints inside the panel. */}
       {mode === 'create' && (
         <ShortcutHints
