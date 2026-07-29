@@ -45,34 +45,32 @@ describe('grain toggle', () => {
     expect(useAppStore.getState().noiseEnabled).toBe(true)
   })
 
-  it('the grain button in GradientPage toggles the overlay on', () => {
+  // Grain is a setting, not a piece of canvas chrome: the floating round
+  // toggle is gone from both surfaces and lives as an Effect chip in the edit
+  // sheet. The feed still RENDERS the overlay — it just doesn't offer the
+  // control there.
+  it('GradientPage renders the overlay when noise is on, with no floating toggle', () => {
     render(<GradientPage gradient={gradient} liked={false} onToggleLike={vi.fn()} onEdit={vi.fn()} />)
     expect(screen.queryByTestId('noise-overlay')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByTestId('grain-button'))
+    expect(screen.queryByTestId('grain-button')).not.toBeInTheDocument()
+
+    cleanup()
+    useAppStore.getState().toggleNoise()
+    render(<GradientPage gradient={gradient} liked={false} onToggleLike={vi.fn()} onEdit={vi.fn()} />)
     expect(screen.getByTestId('noise-overlay')).toBeInTheDocument()
   })
 
-  it('tapping the grain button does not enter edit mode', () => {
-    const onEdit = vi.fn()
-    render(<GradientPage gradient={gradient} liked={false} onToggleLike={vi.fn()} onEdit={onEdit} />)
-    const button = screen.getByTestId('grain-button')
-    fireEvent.pointerDown(button, { clientX: 5, clientY: 5 })
-    fireEvent.pointerUp(button, { clientX: 5, clientY: 5 })
-    expect(onEdit).not.toHaveBeenCalled()
-  })
-
-  it('EditMode toggles grain from the Effect chips, not a button floating on the canvas', () => {
-    // Grain is an effect like Repeat/Smooth/Hard. While it floated in the
-    // preview's corner, the Effect tab was not actually the list of effects —
-    // and the one control that changed the picture sat on top of the picture.
-    useAppStore.getState().toggleNoise()
+  it('the sheet Grain chip toggles the overlay without exiting edit mode', () => {
     const onExit = vi.fn()
     render(<EditMode gradient={gradient} onExit={onExit} />)
-    expect(screen.getByTestId('noise-overlay')).toBeInTheDocument()
+    expect(screen.queryByTestId('noise-overlay')).not.toBeInTheDocument()
     expect(screen.queryByTestId('grain-button')).not.toBeInTheDocument()
 
     const chip = screen.getByTestId('filter-grain')
     expect(screen.getByTestId('edit-sheet')).toContainElement(chip)
+    fireEvent.click(chip)
+    expect(useAppStore.getState().noiseEnabled).toBe(true)
+    expect(screen.getByTestId('noise-overlay')).toBeInTheDocument()
     expect(chip).toHaveAttribute('aria-pressed', 'true')
 
     fireEvent.click(chip)

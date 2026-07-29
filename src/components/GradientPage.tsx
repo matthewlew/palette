@@ -6,8 +6,9 @@ import { titleColorAt } from '../lib/titleColor'
 import { TurrellSquare } from './TurrellSquare'
 import { PaletteTitle } from './PaletteTitle'
 import { LikeButton } from './LikeButton'
-import { GrainButton } from './GrainButton'
 import { PlayButton } from './PlayButton'
+import { LockedColors } from './LockedColors'
+import { MEDIA_CHIP, MEDIA_ICON } from '../lib/mediaChrome'
 import { publishPalette } from '../lib/publishPalette'
 import { useStopDrift } from '../lib/useStopDrift'
 import { canDrift } from '../lib/stopDrift'
@@ -33,9 +34,12 @@ interface GradientPageProps {
 export function GradientPage({ gradient, liked, onToggleLike, onEdit, onBack, chromeVisible = true }: GradientPageProps) {
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null)
   const noiseEnabled = useAppStore((s) => s.noiseEnabled)
-  const toggleNoise = useAppStore((s) => s.toggleNoise)
   const motionEnabled = useAppStore((s) => s.motionEnabled)
   const toggleMotion = useAppStore((s) => s.toggleMotion)
+  const lockedColors = useAppStore((s) => s.lockedColors)
+  const clearColorLocks = useAppStore((s) => s.clearColorLocks)
+  const lockedPositions = useAppStore((s) => s.lockedPositions)
+  const clearPositionLocks = useAppStore((s) => s.clearPositionLocks)
   // Writes background-image straight to the element each frame, so the drift
   // never re-renders the tree (and never re-samples the title's ink).
   const driftRef = useStopDrift(gradient, motionEnabled)
@@ -59,18 +63,11 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, onBack, ch
     }
   }
 
-  // Each glass element samples the gradient where it actually sits, so e.g.
-  // the title can stay light while the corner buttons flip dark. Coordinates
-  // are rough normalized anchors — tone only needs the right neighborhood.
+  // The TITLE still samples the gradient where it sits — it is bare text with
+  // nothing behind it, so it has to adapt or it disappears. The buttons no
+  // longer do: they carry their own surface now (see .ghost-chip) and pinning
+  // their ink is the whole point of that change.
   const titleColor = titleColorAt(gradient, 0.5, 0.06)
-  const cornerColor = titleColorAt(gradient, 0.93, 0.85)
-  // Sampled where each control ACTUALLY sits. editColor was (0.94, 0.5) — the
-  // right edge at mid-height, where the Edit button lived before it moved to
-  // the bottom-left corner. Sampling the old spot picks the ink against a part
-  // of the gradient the button is nowhere near, which is how it ended up
-  // washed out on gradients whose two sides differ.
-  const editColor = titleColorAt(gradient, 0.06, 0.85)
-  const backColor = titleColorAt(gradient, 0.06, 0.05)
 
   function handlePointerDown(e: React.PointerEvent) {
     pointerStartRef.current = { x: e.clientX, y: e.clientY }
@@ -128,8 +125,7 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, onBack, ch
           type="button"
           data-testid="feed-back"
           aria-label="Close"
-          className={[styles.backButton, 'ghost-chip', !chromeVisible && styles.editHidden].filter(Boolean).join(' ')}
-          style={{ color: backColor }}
+          className={[styles.backButton, MEDIA_ICON, !chromeVisible && styles.editHidden].filter(Boolean).join(' ')}
           onClick={onBack}
         >
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -147,21 +143,28 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, onBack, ch
         />
       )}
       <NoiseOverlay visible={noiseEnabled} />
+      <LockedColors
+        locked={lockedColors}
+        lockedPositions={lockedPositions}
+        onClear={() => {
+          clearColorLocks()
+          clearPositionLocks()
+        }}
+        hidden={!chromeVisible}
+      />
       <PaletteTitle
         name={gradient.name ?? namePalette(gradient.stops.map((s) => s.hex))}
         onRename={renameCurrentGradient}
         hidden={!chromeVisible}
         color={titleColor}
       />
-      <GrainButton enabled={noiseEnabled} onToggle={toggleNoise} hidden={!chromeVisible} color={cornerColor} />
       <PlayButton
         playing={motionEnabled}
         onToggle={toggleMotion}
         hidden={!chromeVisible}
-        color={cornerColor}
         available={driftable}
       />
-      <LikeButton liked={liked} onToggle={handleSave} hidden={!chromeVisible} color={cornerColor} />
+      <LikeButton liked={liked} onToggle={handleSave} hidden={!chromeVisible} gradient={gradient} />
       {/* Explicit, TikTok-style edit affordance, bottom LEFT. Tapping the
           gradient anywhere already opens the editor, but that's not
           discoverable — this labels the action. It sat mid-height on the right
@@ -172,8 +175,7 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, onBack, ch
         type="button"
         data-testid="edit-fab"
         aria-label="Edit gradient"
-        className={[styles.editButton, 'ghost-chip', !chromeVisible && styles.editHidden].filter(Boolean).join(' ')}
-        style={{ color: editColor }}
+        className={[styles.editButton, MEDIA_CHIP, !chromeVisible && styles.editHidden].filter(Boolean).join(' ')}
         onClick={onEdit}
       >
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

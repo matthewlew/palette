@@ -8,6 +8,7 @@ import type { Gradient } from '../store/types'
 import { renderVignetteToCanvas } from '../lib/vignette'
 import { shareOrDownloadCanvas } from '../lib/canvasExport'
 import { ExportModal } from './ExportModal'
+import { MEDIA_ICON } from '../lib/mediaChrome'
 import styles from './BoardShare.module.css'
 
 interface BoardShareProps {
@@ -16,12 +17,15 @@ interface BoardShareProps {
   current?: Gradient | null
   onImport: (jsonText: string) => void
   chromeVisible?: boolean
-  /** Palette-derived foreground for the trigger (same strategy as the
-   * title). When set the trigger renders as a minimal ghost chip on the
-   * gradient; when absent (e.g. Gallery header, over the app background)
-   * it keeps the standard glass surface. */
-  color?: string
-  position?: 'fixed' | 'inline' | 'viewer'
+  /** Where the trigger sits, which is also what it looks like: `fixed` and
+   * `viewer` float it over a gradient, so it takes the shared .ghost-chip
+   * treatment along with back/save/edit; `inline` puts it in the Gallery
+   * header bar, where it is a bar control sized to --control-h instead.
+   *
+   * This used to be decided by whether a `color` prop was passed, back when
+   * floating chrome sampled a palette-derived ink per corner. The ink is fixed
+   * now (see .ghost-chip), so the surface is chosen by where it lives. */
+  position?: 'fixed' | 'inline' | 'viewer' | 'editor'
   /** Bulk "Export Posts" (zip of 1080x1350 PNGs). Optional because only the
    * gallery header offers it. It lives in this menu rather than as its own
    * header button: it is a slow bulk action, and as a labelled pill next to
@@ -47,7 +51,6 @@ export function BoardShare({
   current = null,
   onImport,
   chromeVisible = true,
-  color,
   position = 'fixed',
   onExportAll,
   exportingAll = false,
@@ -161,6 +164,8 @@ export function BoardShare({
       ? styles.inline
       : position === 'viewer'
       ? styles.viewer
+      : position === 'editor'
+      ? styles.editor
       : styles.fixed
 
   const hasCurrent = current !== null
@@ -173,8 +178,7 @@ export function BoardShare({
     >
       <button
         type="button"
-        className={color ? `${styles.triggerBase} ghost-chip` : styles.triggerButton}
-        style={color ? { color } : undefined}
+        className={position === 'inline' ? styles.triggerButton : `${styles.triggerBase} ${MEDIA_ICON}`}
         onClick={() => { setIsOpen(!isOpen); setShowMore(false) }}
         aria-label="Share options"
         aria-expanded={isOpen}

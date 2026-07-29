@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { generateGradientStops, evenPositions, normalizeStopLayout, MIN_STOPS, MAX_STOPS } from './palette'
+import { generateGradientStops } from './palette'
 import { DEFAULT_COLOR_SET } from './colorSets'
 import { scorePalette } from './paletteScore'
 import { hexToOklch } from './oklch'
@@ -31,36 +31,13 @@ describe('generateGradientStops', () => {
     expect(a.map((s) => s.hex).join(',')).not.toBe(b.map((s) => s.hex).join(','))
   })
 
-  it('generates onto exactly the layout it is given', () => {
-    // The stop lock: scrubbing the rolodex varies the colours while leaving
-    // both how many stops there are and where they sit alone.
-    for (let n = MIN_STOPS; n <= MAX_STOPS; n++) {
-      expect(generateGradientStops(DEFAULT_COLOR_SET, evenPositions(n))).toHaveLength(n)
-    }
-    const uneven = [0, 8, 12, 91, 100]
-    expect(generateGradientStops(DEFAULT_COLOR_SET, uneven).map((s) => s.position)).toEqual(uneven)
-  })
-
   it('spaces an unlocked palette evenly from 0 to 100', () => {
-    expect(evenPositions(5)).toEqual([0, 25, 50, 75, 100])
-    expect(generateGradientStops(DEFAULT_COLOR_SET, evenPositions(5)).map((s) => s.position))
-      .toEqual([0, 25, 50, 75, 100])
-  })
-
-  it('repairs a layout the generator could not build on', () => {
-    // A one-stop ladder divides by zero in the position maths and yields NaN%
-    // stops, which render as nothing at all; above 8 the editor refuses to add,
-    // so the palette could not be edited back down. Out-of-order or
-    // out-of-track positions make CSS clamp them silently, so the gradient
-    // stops matching the handles that produced it.
-    expect(normalizeStopLayout([50])).toEqual(evenPositions(MIN_STOPS))
-    expect(normalizeStopLayout([])).toEqual(evenPositions(MIN_STOPS))
-    expect(normalizeStopLayout(Array(12).fill(0))).toHaveLength(MAX_STOPS)
-    expect(normalizeStopLayout([80, 10, 40])).toEqual([10, 40, 80])
-    expect(normalizeStopLayout([-20, 50, 140])).toEqual([0, 50, 100])
-    expect(normalizeStopLayout([NaN, 50, 100])).toEqual([0, 50, 100])
-    for (const stop of generateGradientStops(DEFAULT_COLOR_SET, [50])) {
-      expect(Number.isFinite(stop.position)).toBe(true)
+    for (let i = 0; i < 20; i++) {
+      const stops = generateGradientStops(DEFAULT_COLOR_SET)
+      const n = stops.length
+      stops.forEach((stop, i) => {
+        expect(stop.position).toBe(Math.round((i / (n - 1)) * 100))
+      })
     }
   })
 
@@ -70,6 +47,76 @@ describe('generateGradientStops', () => {
     for (const stop of stops) {
       expect(stop.hex).toMatch(/^#[0-9a-f]{6}$/)
     }
+  })
+})
+
+describe('generateGradientStops with locked colors', () => {
+  it('keeps a locked color at its index, verbatim, every time', () => {
+    for (let i = 0; i < 30; i++) {
+      const stops = generateGradientStops(DEFAULT_COLOR_SET, { 1: '#c2410c' })
+      // Verbatim matters: hex → Oklch → hex is lossy, and a pinned color that
+      // drifts by a digit on every scroll is not pinned.
+      expect(stops[1].hex).toBe('#c2410c')
+    }
+  })
+
+  it('grows the stop count so a high locked index still exists', () => {
+    for (let i = 0; i < 30; i++) {
+      const stops = generateGradientStops(DEFAULT_COLOR_SET, { 6: '#123456' })
+      expect(stops.length).toBeGreaterThanOrEqual(7)
+      expect(stops[6].hex).toBe('#123456')
+    }
+  })
+
+  it('still varies the unlocked colors', () => {
+    const runs = Array.from({ length: 12 }, () =>
+      generateGradientStops(DEFAULT_COLOR_SET, { 0: '#000000' }).map((s) => s.hex).join(',')
+    )
+    expect(new Set(runs).size).toBeGreaterThan(1)
+  })
+
+  it('keeps multiple locks at once', () => {
+    const stops = generateGradientStops(DEFAULT_COLOR_SET, { 0: '#ff0000', 2: '#0000ff' })
+    expect(stops[0].hex).toBe('#ff0000')
+    expect(stops[2].hex).toBe('#0000ff')
+  })
+
+  it('behaves exactly as before with no locks', () => {
+    const stops = generateGradientStops(DEFAULT_COLOR_SET, {})
+    expect(stops.length).toBeGreaterThanOrEqual(3)
+    expect(stops.length).toBeLessThanOrEqual(6)
+  })
+})
+
+describe('generateGradientStops with locked positions', () => {
+  it('keeps a locked position at its index every time', () => {
+    for (let i = 0; i < 30; i++) {
+      const stops = generateGradientStops(DEFAULT_COLOR_SET, {}, { 1: 62 })
+      expect(stops[1].position).toBe(62)
+    }
+  })
+
+  it('grows the stop count so a high locked position index still exists', () => {
+    for (let i = 0; i < 30; i++) {
+      const stops = generateGradientStops(DEFAULT_COLOR_SET, {}, { 6: 40 })
+      expect(stops.length).toBeGreaterThanOrEqual(7)
+      expect(stops[6].position).toBe(40)
+    }
+  })
+
+  it('still spaces the unlocked positions on the even ladder', () => {
+    const stops = generateGradientStops(DEFAULT_COLOR_SET, {}, { 1: 62 })
+    const n = stops.length
+    stops.forEach((stop, i) => {
+      if (i === 1) return
+      expect(stop.position).toBe(Math.round((i / (n - 1)) * 100))
+    })
+  })
+
+  it('honours color and position locks together', () => {
+    const stops = generateGradientStops(DEFAULT_COLOR_SET, { 0: '#ff0000' }, { 2: 75 })
+    expect(stops[0].hex).toBe('#ff0000')
+    expect(stops[2].position).toBe(75)
   })
 })
 

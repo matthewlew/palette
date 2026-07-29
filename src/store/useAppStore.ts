@@ -5,8 +5,8 @@ import type {
   ViewMode,
 } from './types'
 import { DEFAULT_COLOR_SET, type ColorSet } from '../lib/colorSets'
+import type { ColorLocks, PositionLocks } from '../lib/palette'
 import { namePalette } from '../lib/naming'
-import { normalizeStopLayout } from '../lib/palette'
 
 /** 'grid' is the uniform 4:5 grid, 'masonry' the Pinterest-style ragged one,
  * 'dense' the captionless square pack — three across on a phone, for scanning
@@ -38,6 +38,40 @@ interface AppState {
    * gradient that starts moving on load is a surprise, not a feature. */
   motionEnabled: boolean
   toggleMotion: () => void
+  /** Colors pinned by the user, keyed by stop index. Every newly generated
+   * gradient keeps these and builds the rest around them, so you can hold the
+   * one color you liked and keep scrolling for the others.
+   *
+   * Keyed by INDEX rather than by stop id because the whole point is to
+   * survive generation, and every generated gradient has brand-new ids. Not
+   * persisted: a lock is a working state for the session you're in, and
+   * reopening the app to a feed that silently refuses to change one color
+   * would be indistinguishable from a bug. */
+  lockedColors: ColorLocks
+  toggleColorLock: (index: number, hex: string) => void
+  /** Keeps a pinned color current when the user edits that stop by hand —
+   * otherwise the lock would immediately overwrite the edit on the next roll. */
+  syncColorLock: (index: number, hex: string) => void
+  /** Drops the lock at `index` and shifts the ones above it down, so removing
+   * a stop doesn't leave locks pointing at the wrong colors. */
+  releaseColorLockAt: (index: number) => void
+  clearColorLocks: () => void
+  /** Stop POSITIONS pinned by the user, keyed the same way — index to a 0-100
+   * percentage. The colour locks' counterpart: `lockedColors` holds what a
+   * stop is, this holds where it sits.
+   *
+   * Two things read it. Generation, so a pinned stop lands on its percentage
+   * in every new palette rather than on the even ladder. And re-spacing, so
+   * Reset spacing and the automatic re-spread on add/delete route around the
+   * pinned ones instead of dragging them back — which is the whole point: you
+   * can nail one stop to 25% and still let the app arrange everything else. */
+  lockedPositions: PositionLocks
+  togglePositionLock: (index: number, position: number) => void
+  /** Keeps a pinned position current when that stop is dragged, so the pin
+   * follows the handle instead of yanking it back on the next roll. */
+  syncPositionLock: (index: number, position: number) => void
+  releasePositionLockAt: (index: number) => void
+  clearPositionLocks: () => void
   setCurrentGradient: (gradient: Gradient) => void
   saveGradient: (gradient: Gradient) => void
   isGradientSaved: (gradient: Gradient) => boolean
@@ -79,25 +113,6 @@ interface AppState {
   setActiveColorSet: (colorSet: ColorSet) => void
   galleryLayout: GalleryLayout
   setGalleryLayout: (layout: GalleryLayout) => void
-  /** When set, the Create feed generates gradients onto exactly this ladder of
-   * stop positions instead of a random 3-6 evenly spaced — "keep showing me
-   * four-colour palettes, spaced like this one, while I scroll".
-   *
-   * The POSITIONS, not just a count. A count alone still re-spaced every
-   * generated palette evenly, so locking a gradient whose stops had been
-   * dragged into place gave back the right number of stops in the wrong places
-   * — the lock preserved the least interesting half of the thing you locked.
-   *
-   * Not persisted: it is a property of a browsing session, like the locked
-   * shape, and a lock silently still on from last week would look like the
-   * generator had stopped working.
-   *
-   * It holds a value rather than a flag so the lock knows what it is locked to.
-   * Editing the stops in any way — adding, removing, dragging one along the
-   * track — moves it, which is what keeps it a preference ("like this, from now
-   * on") rather than a cage. */
-  lockedStopLayout: number[] | null
-  setLockedStopLayout: (layout: readonly number[] | null) => void
   /** Ids of community palettes this browser has liked. Persisted because that
    * is the whole account model: the server attributes a like to an anonymous
    * client id (see lib/clientId.ts) and this is the local mirror, so hearts
@@ -119,12 +134,74 @@ export const useAppStore = create<AppState>()(
       toggleNoise: () => set({ noiseEnabled: !get().noiseEnabled }),
       motionEnabled: false,
       toggleMotion: () => set({ motionEnabled: !get().motionEnabled }),
+      lockedColors: {},
+      toggleColorLock: (index, hex) => {
+        const next = { ...get().lockedColors }
+        if (next[index] !== undefined) {
+          delete next[index]
+        } else {
+          next[index] = hex
+        }
+        set({ lockedColors: next })
+      },
+      syncColorLock: (index, hex) => {
+        const current = get().lockedColors
+        if (current[index] === undefined) return
+        set({ lockedColors: { ...current, [index]: hex } })
+      },
+      releaseColorLockAt: (index) => {
+        const current = get().lockedColors
+        const next: ColorLocks = {}
+        for (const key of Object.keys(current)) {
+          const at = Number(key)
+          if (at === index) continue
+          next[at > index ? at - 1 : at] = current[at]
+        }
+        set({ lockedColors: next })
+      },
+      clearColorLocks: () => set({ lockedColors: {} }),
+      lockedPositions: {},
+      togglePositionLock: (index, position) => {
+        const next = { ...get().lockedPositions }
+        if (next[index] !== undefined) {
+          delete next[index]
+        } else {
+          next[index] = position
+        }
+        set({ lockedPositions: next })
+      },
+      syncPositionLock: (index, position) => {
+        const current = get().lockedPositions
+        if (current[index] === undefined) return
+        set({ lockedPositions: { ...current, [index]: position } })
+      },
+      releasePositionLockAt: (index) => {
+        const current = get().lockedPositions
+        const next: PositionLocks = {}
+        for (const key of Object.keys(current)) {
+          const at = Number(key)
+          if (at === index) continue
+          next[at > index ? at - 1 : at] = current[at]
+        }
+        set({ lockedPositions: next })
+      },
+      clearPositionLocks: () => set({ lockedPositions: {} }),
       setCurrentGradient: (gradient) => set({ current: gradient }),
       saveGradient: (gradient) => {
         const signature = gradientSignature(gradient)
         const alreadySaved = get().saved.some((g) => gradientSignature(g) === signature)
         if (alreadySaved) return
-        const name = gradient.name ?? namePalette(gradient.stops.map((s) => s.hex))
+        // Name against the board, not in a vacuum: two palettes that hash to
+        // the same template would otherwise both land as e.g. "Faded Indigo
+        // Nocturne", and a Gallery with repeats reads as a generator rather
+        // than a collection.
+        const name =
+          gradient.name ??
+          namePalette(gradient.stops.map((s) => s.hex), {
+            taken: get()
+              .saved.map((g) => g.name)
+              .filter((n): n is string => !!n),
+          })
         // Store a copy with a fresh id: edit-mode commits reuse the gradient
         // id across signature changes, so saving before and after an edit
         // would otherwise put two entries with the same id (= duplicate React
@@ -277,9 +354,6 @@ export const useAppStore = create<AppState>()(
       setActiveColorSet: (colorSet) => set({ activeColorSet: colorSet }),
       galleryLayout: 'masonry',
       setGalleryLayout: (layout) => set({ galleryLayout: layout }),
-      lockedStopLayout: null,
-      setLockedStopLayout: (layout) =>
-        set({ lockedStopLayout: layout === null ? null : normalizeStopLayout(layout) }),
       likedPaletteIds: [],
       toggleLikedPalette: (id) => {
         const liked = get().likedPaletteIds

@@ -1,4 +1,20 @@
+/* The app's primary navigation, sized like it. The tabs were 36px inside a 4px
+   tray, which put them a step below the 44px Save pill they sit opposite —
+   the least prominent control on screen was the one that switches between the
+   app's two halves. Tabs now match the tap target (--target-min), and the tray
+   gets a wider surround so the bar reads as a floating object rather than
+   shrink-wrap. The Save pill deliberately does NOT grow with it: it stays one
+   ordinary 44px button. */
 .bar {
+  /* Its own transition group.
+   *
+   * Without a name the bar is captured INSIDE the root snapshot, and the root
+   * cross-fades on every surface switch — so tapping Create made the whole tab
+   * tray fade out and back in, i.e. the control you just pressed blinked out
+   * from under your finger. Naming it hoists it out of the root and it holds
+   * still while the surfaces behind it change, exactly like palette-title and
+   * like-button. */
+  view-transition-name: tab-bar;
   position: fixed;
   /* The same terms --tabbar-top is built from, so anything floating above the
      bar clears its real footprint instead of a copied number. */
@@ -7,8 +23,8 @@
   transform: translateX(-50%);
   z-index: 30;
   display: flex;
-  gap: 4px;
-  padding: 4px;
+  gap: 6px;
+  padding: 6px;
   border-radius: var(--pill);
   /* Smart foreground adoption, same recipe as .ghost-chip: the ink is the
      palette-derived foreground (set inline via `color`), and the fill/border
@@ -52,27 +68,66 @@
   .overCanvas {
     opacity: 1;
     pointer-events: auto;
-    left: calc((100vw - 340px) / 2);
+    left: calc((100vw - var(--edit-panel-w)) / 2);
   }
 }
 
-.tab {
+/* Wins over BOTH .hidden and .overCanvas on specificity (two classes to their
+   one), so it doesn't depend on source order surviving a future edit. Used
+   while a save is in flight: the bar is the destination, and a thumbnail
+   landing in something the user can't see communicates nothing. */
+.bar.revealed {
+  opacity: 1;
+  transition: opacity 220ms ease;
+}
+
+/* One box for both states. The active tab differs by fill, border and weight —
+   never by size — so selecting a tab must not resize it or shove its
+   neighbour. Padding used to be 20 vs 22 AND the weight 500 vs 600, so
+   "Gallery" grew on both counts every time it became current; see .tabText for
+   how the weight change is stopped from resizing anything. */
+.tab,
+.tabOn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 36px;
-  padding: 0 16px;
+  height: var(--target-min);
+  padding: 0 20px;
   border: 1px solid transparent;
   border-radius: var(--pill);
   background: transparent;
   color: color-mix(in srgb, currentColor 68%, transparent);
   font-family: var(--th-display);
-  font-size: 13px;
-  font-weight: 500;
+  font-size: var(--size-3);
+  font-weight: var(--weight-medium);
   white-space: nowrap;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Reserves the BOLD width whatever the current weight is.
+ *
+ * The active tab is semibold and the inactive one medium, so the label's
+ * measured width changed with selection and the pill (and everything after it
+ * in the flex row) moved. The ::after carries the same string at the heavier
+ * weight, contributes its width to the box and nothing else — zero height,
+ * hidden, unclickable — so the label is always as wide as its widest state and
+ * the switch is purely a change of ink.
+ *
+ * data-text has to be set by the component; attr() cannot read text content. */
+.tabText {
+  display: inline-block;
+}
+
+.tabText::after {
+  content: attr(data-text);
+  display: block;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  font-weight: var(--weight-semibold);
+  pointer-events: none;
 }
 
 .tab:hover {
@@ -80,24 +135,13 @@
   background: color-mix(in srgb, currentColor 8%, transparent);
 }
 
+/* Selected: ink, fill and edge only — the box is .tab's, unchanged. */
 .tabOn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: 36px;
-  padding: 0 18px;
-  border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
-  border-radius: var(--pill);
+  border-color: color-mix(in srgb, currentColor 28%, transparent);
   background: color-mix(in srgb, currentColor 18%, rgba(20, 20, 24, 0.45));
   color: currentColor;
-  font-family: var(--th-display);
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-  cursor: pointer;
+  font-weight: var(--weight-semibold);
   box-shadow: var(--shadow-sm);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .tabContent {
@@ -112,15 +156,15 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 44px;
-  padding: 0 18px;
+  height: var(--target-min);
+  padding: 0 20px;
   border: 1px solid transparent;
   border-radius: var(--pill);
   background: transparent;
   color: currentColor;
   font-family: var(--th-display);
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--size-3);
+  font-weight: var(--weight-semibold);
   white-space: nowrap;
   cursor: pointer;
 }
@@ -136,11 +180,46 @@
 .thumbStack {
   position: relative;
   display: inline-block;
-  width: 18px;
-  height: 18px;
+  /* Scales with the taller tab — an 18px stack inside a 44px pill reads as a
+     stray dot rather than as the destination a save flies into. */
+  width: 22px;
+  height: 22px;
   margin-left: 6px;
   margin-top: 2px;
   flex-shrink: 0;
+}
+
+/* The catch. Fires the instant a save flight reaches the stack, so the two
+   read as one motion: the tile shrinks in, the stack absorbs the impact.
+   `transform-origin: bottom` makes it squash into the bar rather than bounce
+   off it. */
+.landed {
+  animation: thumb-catch 520ms cubic-bezier(0.22, 1.4, 0.35, 1);
+  transform-origin: bottom center;
+}
+
+@keyframes thumb-catch {
+  0% {
+    transform: scale(1);
+  }
+  22% {
+    transform: scale(1.55) translateY(-2px);
+  }
+  48% {
+    transform: scale(0.9);
+  }
+  72% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landed {
+    animation: none;
+  }
 }
 
 .thumb {

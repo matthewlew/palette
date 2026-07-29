@@ -42,7 +42,14 @@
   display: flex;
   flex-direction: column;
   flex: 0 0 auto;
-  padding-top: 6px;
+  /* The preview is `flex: 1; min-height: 0`, so it will happily shrink to
+     nothing to make room for a tall sheet. Capping the sheet and letting IT
+     scroll keeps the gradient — the thing being edited — always on screen,
+     however many stops the Colors list is showing. Desktop overrides this
+     with its own full-height side panel below. */
+  max-height: 62dvh;
+  overflow-y: auto;
+  padding-top: 12px;
   /* Held sideways the sheet still spans the full width, so its chips would run
      under the camera housing on one edge and the home indicator on the other.
      Inset the whole panel rather than each row inside it.
@@ -104,13 +111,16 @@
   }
 
   .sheet {
-    flex: 0 0 340px;
+    flex: 0 0 var(--edit-panel-w);
     /* min-width:auto would let wide children (flow editor, tray) blow the
-       panel past its 340px basis and squeeze the preview out entirely. */
+       panel past its basis and squeeze the preview out entirely. */
     min-width: 0;
-    max-width: 340px;
+    max-width: var(--edit-panel-w);
     order: 2;
     height: 100%;
+    /* Drops the mobile bottom-sheet cap: here the sheet is a full-height side
+       panel and 62dvh would leave a third of it empty. */
+    max-height: none;
     box-sizing: border-box;
     border-radius: var(--radius-xl) 0 0 var(--radius-xl);
     box-shadow: -4px 0 16px rgba(0, 0, 0, 0.12);
@@ -123,7 +133,35 @@
 
   .sheet.hidden {
     transform: translateX(100%);
-    margin-right: -340px;
+    margin-right: calc(-1 * var(--edit-panel-w));
+  }
+
+  /* Enter motion that does not depend on View Transitions.
+   *
+   * The slide-in lived ONLY in `::view-transition-new(edit-sheet)`, so it ran
+   * exactly where the API is implemented and nowhere else — and
+   * `withViewTransition` falls straight through to a plain state update when
+   * `startViewTransition` is missing. On those browsers the panel simply
+   * appeared: a flash, while the exit still read as motion because the sheet
+   * is a live element on the way out.
+   *
+   * Running it as an ordinary mount animation makes the enter correct
+   * everywhere. Where the view transition DOES run it is not doubled: the real
+   * sheet's painting is suppressed while it is captured as a pseudo-element,
+   * both animations are the same 320ms curve, and they start on the same
+   * frame. */
+  .sheet {
+    /* No fill mode on purpose: the animation is active from frame zero (no
+       delay), so the first paint is already the `from` value, and leaving it
+       unfilled means nothing pins `transform` afterwards — `.sheet.hidden`
+       must stay free to use it. */
+    animation: panel-in var(--dur-slow) var(--ease-decelerate);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sheet {
+      animation: none;
+    }
   }
 
   .sheetHandle {
@@ -131,9 +169,14 @@
   }
 }
 
-/* The grain toggle used to float in this corner and needed lifting clear of the
-   Save pill on desktop. It is an Effect chip in the sheet now, so the corner
-   holds Save alone and needs no offset. */
+@keyframes panel-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: none;
+  }
+}
 
 .blockArea {
   position: relative;
@@ -144,12 +187,8 @@
   min-height: 0;
 }
 
-/* The stops row's own controls: the gesture hint, and the lock that governs
-   how many stops the feed hands back and where it puts them.
-   The lock lives HERE rather than among the Effect chips because it is about
-   the stops, and the stops are on screen under both tabs — in Effect it was
-   reachable from only one of the two halves of a control that applies to
-   both, and it was the odd seventh chip in a three-column grid. */
+/* Row that replaced the swatch tray: an explicit Add color action plus a
+   one-line hint for the stop gestures. */
 .stopActions {
   display: flex;
   align-items: center;
@@ -158,99 +197,29 @@
   padding: 6px 12px 10px;
 }
 
-.sortButton {
-  min-height: 40px;
-  padding: 0 18px;
-  border-radius: var(--pill);
-  border: 1px solid var(--border, rgba(255, 255, 255, 0.18));
-  background: transparent;
-  color: var(--text);
-  font-family: var(--th-body);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 150ms ease, border-color 150ms ease;
-}
-
-.sortButton:hover {
-  background: var(--bg-hover);
-  border-color: var(--text-subdued);
-}
-
-/* Same pill recipe as the Effect chips, sized down: it sits beside a hint
-   rather than in a grid of its own kind. */
-.stopLock {
-  flex: 0 0 auto;
-  min-height: 32px;
-  padding: 0 12px;
-  border-radius: var(--pill);
-  border: 1px solid var(--border, rgba(255, 255, 255, 0.18));
-  background: transparent;
-  color: var(--text-subdued);
-  font-family: var(--th-body);
-  font-size: 12px;
-  white-space: nowrap;
-  cursor: pointer;
-  /* 32px box, 44px target — the ::after expansion the chips already use. */
-  position: relative;
-  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
-}
-
-.stopLock::after,
-.stopLockOn::after {
-  content: '';
-  position: absolute;
-  inset: -6px;
-}
-
-.stopLockOn {
-  composes: stopLock;
-  background: var(--text);
-  border-color: var(--text);
-  color: var(--c-950);
-  font-weight: 600;
-}
-
 .stopHint {
-  font-size: 11px;
+  font-size: var(--text-caption);
   color: var(--text-subdued);
   opacity: 0.8;
   min-width: 0;
 }
 
-/* Native color input driven programmatically; kept in the DOM (not
-   display:none) so the picker reliably opens across browsers.
-
-   `pointer-events: none` is gone. A control that cannot be hit-tested is one a
-   browser is entitled to treat as not really there, and refusing to open a
-   picker for it is exactly what iOS was doing while the same code worked with
-   a mouse. At 1x1 it is still impossible to hit by accident.
-
-   Fixed, not absolute: EditMode parks it over the stop being edited so an
-   anchored picker has somewhere to point, and that has to be in viewport
-   coordinates. */
-.colorInput {
-  position: fixed;
-  /* Parked mid-screen until EditMode moves it over the stop being edited. At
-     0,0 it sat under the camera cutout in landscape — invisible and 1x1, so
-     harmless, but it is the one thing in the sheet that could not answer "is
-     everything inside the safe box?" with a yes. */
-  left: 50%;
-  top: 50%;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  border: 0;
-  padding: 0;
+/* Layout delta on an LDS chip. Appears only when the stops have actually
+   drifted off the even ladder — see `evenlySpaced` in EditMode. */
+.resetButton {
+  min-height: 32px;
+  align-self: center;
 }
 
-/* Save now lives on the gradient itself (shared LikeButton pill in the
-   bottom-right corner, same as the create feed) — the sheet no longer has
-   its own Save button. */
+/* The off-screen 1x1 `<input type="color">` that used to live here is gone.
+   It was opened programmatically from a stop tap, and because browsers anchor
+   the OS picker to the input's box, the picker appeared in the sheet's corner
+   rather than next to the color you tapped. Every row in the Colors list now
+   owns a real, visible color input instead — see ColorList. */
 
-/* Save now lives on the gradient itself (shared LikeButton pill in the
-   bottom-right corner, same as the create feed) — the sheet no longer has
-   its own Save button. */
+/* Save lives on the gradient itself (shared LikeButton pill in the
+   bottom-right corner, same as the create feed) — the sheet has no Save
+   button of its own. */
 
 .directionToggle {
   display: flex;

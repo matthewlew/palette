@@ -1,0 +1,61 @@
+.track {
+  position: relative;
+  width: min(320px, 70%);
+  height: 4px;
+  margin: 0 auto;
+  border-radius: var(--pill);
+  overflow: hidden;
+  /* Barely there — the band is the signal, the track only says where it runs. */
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+/* The travelling band. Fading to transparent at both ends means it reads as
+   light moving THROUGH the track rather than as a block sliding along it, so
+   there is no hard edge to notice when it wraps. */
+.band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 55%;
+  border-radius: var(--pill);
+  animation: sweep 2.6s linear infinite;
+}
+
+/* Deliberately uneven: the band covers 170% of the track in the first third of
+   the cycle, then 35% in the next third, then 135% in the last. Linear timing
+   with uneven keyframe spacing is what produces that — a dash, a crawl, a dash
+   — which reads as work happening in bursts, the honest shape of a network
+   fetch. A constant slide reads as a fixed-length progress bar and implies a
+   completion time this has no way of knowing. */
+@keyframes sweep {
+  0% {
+    transform: translateX(-110%);
+  }
+  34% {
+    transform: translateX(60%);
+  }
+  67% {
+    transform: translateX(95%);
+  }
+  100% {
+    transform: translateX(230%);
+  }
+}
+
+/* No travel, no illusion of progress: hold the band still and let it breathe,
+   which still says "busy" without moving anything across the screen. */
+@media (prefers-reduced-motion: reduce) {
+  .band {
+    animation: none;
+    left: 22%;
+    opacity: 0.7;
+  }
+}
+
+.label {
+  margin-top: 12px;
+  font-size: var(--text-caption);
+  color: var(--text-subdued);
+  text-align: center;
+}

@@ -8,6 +8,7 @@ import { EditMode } from './components/EditMode'
 import { ShortcutHints, type ShortcutHintItem } from './components/ShortcutHints'
 import { UndoToast } from './components/UndoToast'
 import { BoardShare } from './components/BoardShare'
+import { SaveFlightLayer } from './components/SaveFlight'
 import { decodeFromFragment, fromImportJson, importGradient } from './lib/gradientCodec'
 import { writeGradientToClipboard, readGradientsFromClipboard } from './lib/clipboard'
 import { titleColorAt } from './lib/titleColor'
@@ -206,7 +207,6 @@ export function App() {
             current={current}
             onImport={handleImportJson}
             chromeVisible={chromeVisible}
-            color={current ? titleColorAt(current, 0.94, 0.05) : undefined}
           />
           <Feed chromeVisible={chromeVisible} />
         </>
@@ -244,6 +244,9 @@ export function App() {
           })
         }}
       />
+      {/* Root-level so a save can fly out of the edit sheet or the feed and
+          across to the tab bar without being clipped by either. */}
+      <SaveFlightLayer />
       {toastText && <Hint text={toastText} visible={!!toastText} />}
       {importToast && (
         <UndoToast

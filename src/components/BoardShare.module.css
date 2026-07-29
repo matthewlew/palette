@@ -16,6 +16,25 @@
   display: inline-block;
 }
 
+/* The editor's copy. Identical to .fixed on a phone, where the sheet is at the
+   BOTTOM and the top-right corner is canvas — but on the desktop layout the
+   right --edit-panel-w of the viewport is the control panel, so a
+   viewport-anchored trigger landed on top of the Shape tiles rather than on
+   the gradient. Stepping in by the panel width puts it back on the canvas, in
+   the same corner it occupies on every other surface. */
+.editor {
+  composes: container;
+  position: fixed;
+  top: max(16px, var(--safe-t));
+  right: var(--edge-r);
+}
+
+@media (min-width: 768px) {
+  .editor {
+    right: calc(var(--edit-panel-w) + var(--edge-r));
+  }
+}
+
 /* Same top-right anchor as .fixed — the share trigger must not move
    between the feed and the full-screen viewer (close sits top-left). */
 .viewer {

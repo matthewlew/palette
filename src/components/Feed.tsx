@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAppStore } from '../store/useAppStore'
-import { generateGradientStops } from '../lib/palette'
+import { generateGradientStops, type ColorLocks, type PositionLocks } from '../lib/palette'
 import { GradientPage } from './GradientPage'
 import { SELECTABLE_GEOMETRY, type GradientType, nextRotationAngle, defaultAngleForType, angleForTypeChange } from '../lib/gradient'
 import type { Gradient } from '../store/types'
@@ -8,6 +8,7 @@ import type { ColorSet } from '../lib/colorSets'
 import { withViewTransition } from '../lib/viewTransition'
 import { decayVelocity, shouldStartMomentum } from '../lib/momentum'
 import { tickHaptic, primeHaptics } from '../lib/haptics'
+import { launchSaveFlight, saveFlightOrigin } from '../lib/saveFlight'
 import { Hint } from './Hint'
 import { useHint } from '../hooks/useHint'
 import { ScrollTicker } from './ScrollTicker'
@@ -23,13 +24,13 @@ function pickRandomType(): GradientType {
   return RANDOM_TYPES[Math.floor(Math.random() * RANDOM_TYPES.length)]
 }
 
-/** @param layout Exact colour-stop positions, or undefined for the usual random
- * 3-6 evenly spaced. Callers pass
- * `useAppStore.getState().lockedStopLayout ?? undefined` — read at the call
- * site rather than inside here, so the one factory every surface generates
- * through stays a function of its arguments. */
-export function makeGradient(type: GradientType, colorSet: ColorSet, layout?: readonly number[]): Gradient {
-  const stops = generateGradientStops(colorSet, layout)
+export function makeGradient(
+  type: GradientType,
+  colorSet: ColorSet,
+  locks: ColorLocks = {},
+  positionLocks: PositionLocks = {}
+): Gradient {
+  const stops = generateGradientStops(colorSet, locks, positionLocks)
   return {
     id: crypto.randomUUID(),
     type,
@@ -48,7 +49,7 @@ const STEP_PX = 60
 // Horizontal travel (wheel delta / touch drag) per one shape step, so a
 // deliberate sideways swipe flips the geometry once rather than racing through
 // the whole list.
-const SHAPE_STEP_PX = 80
+export const SHAPE_STEP_PX = 80
 
 // Session state that must survive Feed unmounting/remounting when the app
 // swaps between explore mode (<Feed/>) and edit mode (<EditMode/>). Module-
@@ -121,6 +122,17 @@ interface FeedProps {
 export function Feed({ chromeVisible = true }: FeedProps) {
   const current = useAppStore((s) => s.current)
   const activeColorSet = useAppStore((s) => s.activeColorSet)
+  const lockedColors = useAppStore((s) => s.lockedColors)
+  const lockedPositions = useAppStore((s) => s.lockedPositions)
+  // Both read through refs inside goTo. The wheel/touch listeners are bound
+  // once (their effect deps are deliberately minimal), so a value closed over
+  // at mount would freeze — and a pin the user set two seconds ago being
+  // ignored by the very next scroll is the one failure this feature can't
+  // have.
+  const lockedColorsRef = useRef(lockedColors)
+  lockedColorsRef.current = lockedColors
+  const lockedPositionsRef = useRef(lockedPositions)
+  lockedPositionsRef.current = lockedPositions
   const setCurrentGradient = useAppStore((s) => s.setCurrentGradient)
   const isGradientSaved = useAppStore((s) => s.isGradientSaved)
   const toggleSaveGradient = useAppStore((s) => s.toggleSaveGradient)
@@ -194,8 +206,8 @@ export function Feed({ chromeVisible = true }: FeedProps) {
         feedSession.lockedType = typeToUse
       }
       let angleToUse = feedSession.lockedAngle ?? defaultAngleForType(typeToUse)
-      const initial = current ?? { 
-        ...makeGradient(typeToUse, activeColorSet, useAppStore.getState().lockedStopLayout ?? undefined),
+      const initial = current ?? {
+        ...makeGradient(typeToUse, activeColorSet, lockedColors, lockedPositions),
         angle: angleToUse,
         hardStops: feedSession.lockedHardStops ?? false,
         repeatEnabled: feedSession.lockedRepeatEnabled ?? false,
@@ -265,14 +277,14 @@ export function Feed({ chromeVisible = true }: FeedProps) {
 
     if (newIndex >= history.length) {
       // Forward past the end of history: generate a brand-new gradient,
-      // keeping the same locked shape for this Feed session. Each tick is a
-      // completely new gradient, not a nudge from the previous one.
+      // keeping the same locked shape (and any pinned colors) for this Feed
+      // session. Each tick is a completely new gradient, not a nudge from the
+      // previous one.
       const typeToUse = feedSession.lockedType!
-      const fresh: Gradient = { 
-        // The stop lock, if the user set one in the editor: scrubbing the
-        // rolodex then varies the colours without varying how many stops there
-        // are or where they sit.
-        ...makeGradient(typeToUse, activeColorSet, useAppStore.getState().lockedStopLayout ?? undefined), 
+      const fresh: Gradient = {
+        // The colour/position pins, if the user set any in the editor:
+        // scrubbing the rolodex then varies whatever isn't pinned.
+        ...makeGradient(typeToUse, activeColorSet, lockedColorsRef.current, lockedPositionsRef.current),
         angle: feedSession.lockedAngle ?? defaultAngleForType(typeToUse),
         hardStops: feedSession.lockedHardStops ?? false,
         repeatEnabled: feedSession.lockedRepeatEnabled ?? false,
@@ -551,7 +563,13 @@ export function Feed({ chromeVisible = true }: FeedProps) {
         e.preventDefault()
         const state = useAppStore.getState()
         const shown = feedSession.history[feedSession.index]
-        if (shown) state.toggleSaveGradient(shown)
+        if (shown) {
+          // Fly the thumbnail into the Gallery tab exactly as a click on the
+          // Save pill does — see saveFlightOrigin. Only on the way IN;
+          // un-saving is a correction, not something to celebrate.
+          if (!state.isGradientSaved(shown)) launchSaveFlight(shown, saveFlightOrigin())
+          state.toggleSaveGradient(shown)
+        }
       } else if ((e.key === 'Enter' && !onButton) || e.key === 'e' || e.key === 'E') {
         e.preventDefault()
         withViewTransition(useAppStore.getState().enterEditMode)

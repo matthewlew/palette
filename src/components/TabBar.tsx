@@ -1,6 +1,8 @@
+import { useEffect, useRef, useState } from 'react'
 import type { ViewMode } from '../store/types'
 import type { Gradient } from '../store/types'
 import { buildGradientCss } from '../lib/gradient'
+import { onSaveFlight, onSaveFlightArrival } from '../lib/saveFlight'
 import { TurrellSquare } from './TurrellSquare'
 import { useScrolling } from '../hooks/useScrolling'
 import styles from './TabBar.module.css'
@@ -21,6 +23,11 @@ interface TabBarProps {
 }
 
 const STACK_SIZE = 3
+/** How long the bar stays forced-visible after a save flight launches: the
+ * flight itself, plus a beat to see where it landed. */
+const REVEAL_MS = 1600
+/** Matches the .landed keyframe duration. */
+const LANDED_MS = 520
 
 function thumbStyle(gradient: Gradient): React.CSSProperties | undefined {
   return gradient.type === 'square'
@@ -48,13 +55,52 @@ export function TabBar({
   // out behind it as a stack.
   const stack = recentGradients.slice(-STACK_SIZE)
   const scrolling = useScrolling()
+  // A save can be fired from a surface where the bar is deliberately out of
+  // sight — the mobile edit sheet hides it, and the create feed fades it on
+  // idle. Flying a thumbnail into a target the user cannot see is worse than
+  // no animation at all, so a launch forces the bar back for the duration.
+  const [revealed, setRevealed] = useState(false)
+  // Set at the moment of contact, not on a guessed delay: the flight layer
+  // announces its own arrival.
+  const [landed, setLanded] = useState(false)
+  const revealTimer = useRef<number | null>(null)
+  const landedTimer = useRef<number | null>(null)
+
+  useEffect(() => {
+    const stopFlight = onSaveFlight(() => {
+      setRevealed(true)
+      if (revealTimer.current) clearTimeout(revealTimer.current)
+      revealTimer.current = window.setTimeout(() => setRevealed(false), REVEAL_MS)
+    })
+    const stopArrival = onSaveFlightArrival(() => {
+      // Restart the keyframe on a rapid second save rather than letting the
+      // first run swallow it.
+      setLanded(false)
+      if (landedTimer.current) clearTimeout(landedTimer.current)
+      requestAnimationFrame(() => setLanded(true))
+      landedTimer.current = window.setTimeout(() => setLanded(false), LANDED_MS)
+    })
+    return () => {
+      stopFlight()
+      stopArrival()
+      if (revealTimer.current) clearTimeout(revealTimer.current)
+      if (landedTimer.current) clearTimeout(landedTimer.current)
+    }
+  }, [])
+
   const isHidden = hidden || (panelOpen && scrolling)
+  const galleryLabel = savedCount > 0 ? `Gallery (${savedCount})` : 'Gallery'
 
   return (
     <nav
       data-testid="tab-bar"
       aria-label="Main"
-      className={[styles.bar, isHidden && styles.hidden, panelOpen && styles.overCanvas]
+      className={[
+        styles.bar,
+        isHidden && styles.hidden,
+        panelOpen && styles.overCanvas,
+        revealed && styles.revealed,
+      ]
         .filter(Boolean)
         .join(' ')}
     >
@@ -67,7 +113,10 @@ export function TabBar({
       >
         <span className={styles.tabContent}>
           {stack.length > 0 && (
-            <span data-testid="tab-gallery-thumb" className={styles.thumbStack}>
+            <span
+              data-testid="tab-gallery-thumb"
+              className={[styles.thumbStack, landed && styles.landed].filter(Boolean).join(' ')}
+            >
               {stack.map((gradient, i) => (
                 <span
                   key={gradient.id}
@@ -90,7 +139,12 @@ export function TabBar({
               ))}
             </span>
           )}
-          Gallery {savedCount > 0 ? `(${savedCount})` : ''}
+          {/* data-text duplicated into the attribute because CSS attr() can't
+              read an element's text — see .tabText, which uses it to reserve
+              the bold width so selecting a tab never resizes it. */}
+          <span className={styles.tabText} data-text={galleryLabel}>
+            {galleryLabel}
+          </span>
         </span>
       </button>
       <button
@@ -100,7 +154,9 @@ export function TabBar({
         aria-current={mode === 'create' ? 'page' : undefined}
         onClick={() => onChange('create')}
       >
-        Create
+        <span className={styles.tabText} data-text="Create">
+          Create
+        </span>
       </button>
     </nav>
   )

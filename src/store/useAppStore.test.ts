@@ -139,34 +139,6 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().editEnteredFrom).toBe('gallery')
   })
 
-  it('locks and unlocks the feed stop layout', () => {
-    expect(useAppStore.getState().lockedStopLayout).toBeNull()
-    // The POSITIONS, not just a count: a count alone re-spaced every generated
-    // palette evenly, so locking a gradient whose stops had been dragged into
-    // place gave back the right number of stops in the wrong places.
-    useAppStore.getState().setLockedStopLayout([0, 12, 80, 100])
-    expect(useAppStore.getState().lockedStopLayout).toEqual([0, 12, 80, 100])
-    useAppStore.getState().setLockedStopLayout(null)
-    expect(useAppStore.getState().lockedStopLayout).toBeNull()
-  })
-
-  it('repairs a locked layout the generator could not build on', () => {
-    useAppStore.getState().setLockedStopLayout([50])
-    expect(useAppStore.getState().lockedStopLayout).toEqual([0, 100])
-    useAppStore.getState().setLockedStopLayout(Array(12).fill(0))
-    expect(useAppStore.getState().lockedStopLayout).toHaveLength(8)
-    useAppStore.getState().setLockedStopLayout([80, 10, 40])
-    expect(useAppStore.getState().lockedStopLayout).toEqual([10, 40, 80])
-  })
-
-  it('does not persist the stop lock', () => {
-    // A lock still on from last week would look like the generator had broken.
-    useAppStore.getState().setLockedStopLayout([0, 50, 100])
-    const raw = localStorage.getItem('palette-saved-gradients')
-    expect(raw).not.toBeNull()
-    expect(JSON.parse(raw!).state).not.toHaveProperty('lockedStopLayout')
-  })
-
   it('isGradientSaved reflects whether a gradient (by signature) is in saved', () => {
     expect(useAppStore.getState().isGradientSaved(sampleGradient)).toBe(false)
     useAppStore.getState().saveGradient(sampleGradient)
@@ -357,5 +329,53 @@ describe('useAppStore import + undo', () => {
     const { saved, lastImported } = useAppStore.getState()
     expect(saved).toHaveLength(1)
     expect(lastImported?.ids ?? []).toHaveLength(0)
+  })
+})
+
+describe('color locks', () => {
+  beforeEach(() => {
+    useAppStore.setState(useAppStore.getInitialState())
+  })
+
+  it('toggles a lock on and back off', () => {
+    useAppStore.getState().toggleColorLock(1, '#00ff00')
+    expect(useAppStore.getState().lockedColors).toEqual({ 1: '#00ff00' })
+    useAppStore.getState().toggleColorLock(1, '#00ff00')
+    expect(useAppStore.getState().lockedColors).toEqual({})
+  })
+
+  it('syncs a locked color when that stop is edited, and ignores unlocked ones', () => {
+    useAppStore.getState().toggleColorLock(0, '#ff0000')
+    useAppStore.getState().syncColorLock(0, '#123456')
+    useAppStore.getState().syncColorLock(2, '#abcdef')
+    expect(useAppStore.getState().lockedColors).toEqual({ 0: '#123456' })
+  })
+
+  it('shifts higher locks down when a stop is removed', () => {
+    // Locks are keyed by index, so a removal has to close the gap or every
+    // pin above it starts holding the wrong color.
+    useAppStore.setState({ lockedColors: { 0: '#aaaaaa', 2: '#bbbbbb', 3: '#cccccc' } })
+    useAppStore.getState().releaseColorLockAt(1)
+    expect(useAppStore.getState().lockedColors).toEqual({ 0: '#aaaaaa', 1: '#bbbbbb', 2: '#cccccc' })
+  })
+
+  it('drops the lock at the removed index itself', () => {
+    useAppStore.setState({ lockedColors: { 1: '#bbbbbb', 2: '#cccccc' } })
+    useAppStore.getState().releaseColorLockAt(1)
+    expect(useAppStore.getState().lockedColors).toEqual({ 1: '#cccccc' })
+  })
+
+  it('clears every lock at once', () => {
+    useAppStore.setState({ lockedColors: { 0: '#aaaaaa', 1: '#bbbbbb' } })
+    useAppStore.getState().clearColorLocks()
+    expect(useAppStore.getState().lockedColors).toEqual({})
+  })
+
+  it('does not persist locks', () => {
+    // A lock is working state for the session you're in. Reopening the app to
+    // a feed that silently refuses to vary one color would read as a bug.
+    useAppStore.getState().toggleColorLock(0, '#ff0000')
+    const persisted = JSON.parse(localStorage.getItem('palette-saved-gradients') ?? '{}')
+    expect(persisted.state?.lockedColors).toBeUndefined()
   })
 })

@@ -31,10 +31,13 @@ describe('EditMode', () => {
     expect(screen.getByTestId('edit-mode-preview')).toBeInTheDocument()
     expect(screen.getByText('Linear')).toBeInTheDocument()
     expect(screen.getAllByTestId('flow-handle')).toHaveLength(3)
-    // The swatch tray is gone; colors are added by tapping a blank spot on the
-    // flow editor track, and recolored via the hidden native color input.
+    // The swatch tray is gone, and so is the hidden programmatic color input
+    // that replaced it — every stop now has a visible row in the Colors list
+    // with its own swatch and hex field.
     expect(screen.queryAllByTestId('swatch')).toHaveLength(0)
-    expect(screen.getByTestId('color-input')).toBeInTheDocument()
+    expect(screen.queryByTestId('color-input')).not.toBeInTheDocument()
+    expect(screen.getAllByTestId('color-list-row')).toHaveLength(3)
+    expect(screen.getAllByTestId('color-list-swatch')).toHaveLength(3)
   })
 
   it('shows the scroll-position ticker when editing from the Create feed', () => {
@@ -166,20 +169,38 @@ describe('EditMode', () => {
     expect(restoredHex).toEqual(beforeHex)
   })
 
-  it('tapping a stop opens the color picker and recoloring updates it in place', () => {
+  it('tapping a stop selects its row, and its swatch recolors in place', () => {
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
     const handles = screen.getAllByTestId('flow-handle')
     // Tap the middle stop (#00ff00 at 50%) — a pointerdown/up within the tap
     // threshold, not a drag.
     fireEvent.pointerDown(handles[1], { clientX: 10, clientY: 10 })
     fireEvent.pointerUp(handles[1], { clientX: 10, clientY: 10 })
-    fireEvent.change(screen.getByTestId('color-input'), { target: { value: '#123456' } })
+    expect(screen.getAllByTestId('color-list-row')[1].className).toMatch(/rowActive/)
+
+    fireEvent.change(screen.getAllByTestId('color-list-swatch')[1], { target: { value: '#123456' } })
 
     const updated = useAppStore.getState().current!
     // In-place recolor: count and positions untouched, only the tapped hex.
     expect(updated.stops).toHaveLength(3)
     expect(updated.stops.map((s) => s.position)).toEqual([0, 50, 100])
     expect(updated.stops[1].hex).toBe('#123456')
+  })
+
+  it('typing a hex into a row recolors that stop', () => {
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    fireEvent.change(screen.getAllByTestId('color-list-hex')[2], { target: { value: '#abc' } })
+    // Shorthand expands; the other stops are untouched.
+    const stops = useAppStore.getState().current!.stops
+    expect(stops.map((s) => s.hex)).toEqual(['#ff0000', '#00ff00', '#aabbcc'])
+  })
+
+  it('exposes the gradient as copyable CSS', () => {
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    const css = screen.getByTestId('gradient-css') as HTMLTextAreaElement
+    expect(css.value).toContain('background-image: linear-gradient(')
+    expect(css.value).toContain('#ff0000 0%')
+    expect(css.value).toContain('#0000ff 100%')
   })
 
   it('has no Done button; has a back chevron that calls onExit', () => {
@@ -210,17 +231,44 @@ describe('EditMode', () => {
     expect(saveButton.textContent).toBe('✓ Saved')
   })
 
-  it('tapping a blank spot on the flow track opens the picker and adds a stop', () => {
+  it('tapping a blank spot on the flow track adds a stop and selects its row', () => {
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
-    // Colors are added by tapping a blank spot on the flow editor track
-    // (FlowEditor's onAddStopAt), then picking a color from the native input.
+    // Adding a stop no longer pops the OS picker open — the stop lands seeded
+    // from its neighbour and its row is selected, ready to be recolored.
     const flowEditor = screen.getByTestId('flow-editor')
     fireEvent.pointerDown(flowEditor, { clientX: 50, clientY: 5 })
-    fireEvent.change(screen.getByTestId('color-input'), { target: { value: '#abcdef' } })
 
-    const updated = useAppStore.getState().current!
-    expect(updated.stops).toHaveLength(4)
-    expect(updated.stops.some((s) => s.hex === '#abcdef')).toBe(true)
+    expect(useAppStore.getState().current!.stops).toHaveLength(4)
+    expect(screen.getAllByTestId('color-list-row')).toHaveLength(4)
+    const added = screen.getAllByTestId('color-list-row')[3]
+    expect(added.className).toMatch(/rowActive/)
+
+    fireEvent.change(screen.getAllByTestId('color-list-swatch')[3], { target: { value: '#abcdef' } })
+    expect(useAppStore.getState().current!.stops.some((s) => s.hex === '#abcdef')).toBe(true)
+  })
+
+  it('adds a stop from the Colors list, up to the eight-stop ceiling', () => {
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    const add = screen.getByTestId('color-list-add')
+    for (let i = 0; i < 6; i++) fireEvent.click(add)
+    expect(screen.getAllByTestId('color-list-row')).toHaveLength(8)
+    expect(add).toBeDisabled()
+  })
+
+  it('locks a color so generated palettes keep it, and releases it on removal', () => {
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    const locks = screen.getAllByTestId('color-list-lock')
+    fireEvent.click(locks[1])
+    expect(useAppStore.getState().lockedColors).toEqual({ 1: '#00ff00' })
+    expect(locks[1]).toHaveAttribute('aria-pressed', 'true')
+
+    // Editing a pinned stop moves the pin with it — otherwise the next
+    // generated palette would restore the stale color.
+    fireEvent.change(screen.getAllByTestId('color-list-swatch')[1], { target: { value: '#111111' } })
+    expect(useAppStore.getState().lockedColors).toEqual({ 1: '#111111' })
+
+    fireEvent.click(screen.getAllByTestId('color-list-remove')[1])
+    expect(useAppStore.getState().lockedColors).toEqual({})
   })
 
   it('renders an order control showing the ACTIVE order, cycling Original -> Lightness -> Chroma -> Hue -> Original', () => {
@@ -233,7 +281,7 @@ describe('EditMode', () => {
     expect(fab.textContent).toBe('Order: Original')
 
     fireEvent.click(fab)
-    expect(fab.textContent).toBe('Order: Lightness')
+    expect(fab.textContent).toBe('Order: Light')
 
     fireEvent.click(fab)
     expect(fab.textContent).toBe('Order: Chroma')
@@ -300,11 +348,9 @@ describe('EditMode', () => {
     expect(updated.stops.map((s) => s.hex)).toEqual(['#0000ff', '#ff0000', '#00ff00'])
   })
 
-  it('sorting re-ranks the colours across the placements, leaving them alone', () => {
-    // Two independent things: which colour comes first, and where the stops
-    // sit. Sorting used to run through equalizePositions, which assigns
-    // positions by array index — so re-ranking a palette whose stops had been
-    // dragged into place threw that placement away and re-spaced it evenly.
+  it('sorting keeps the existing spacing and re-pairs colors onto it', () => {
+    // A sort must not double as a re-spread: the ladder 5/40/95 is the user's,
+    // and the only thing being asked for is a different color order on it.
     const unequalPositions: Gradient = {
       id: 'g3',
       type: 'linear',
@@ -319,11 +365,11 @@ describe('EditMode', () => {
     fireEvent.click(screen.getByTestId('sort-button'))
     const updated = useAppStore.getState().current!
     expect(updated.stops.map((s) => s.position)).toEqual([5, 40, 95])
-    // Re-ranked dark -> mid -> light, onto the ladder that was already there.
+    // Dark -> mid -> light on the same three positions.
     expect(updated.stops.map((s) => s.hex)).toEqual(['#0000ff', '#ff0000', '#00ff00'])
   })
 
-  it('keeps the on-screen flow handles on their placements through a sort', () => {
+  it('sorting re-pairs the on-screen flow handles too, not just the store', () => {
     const unequalPositions: Gradient = {
       id: 'g3b',
       type: 'linear',
@@ -338,6 +384,11 @@ describe('EditMode', () => {
     fireEvent.click(screen.getByTestId('sort-button'))
     const handles = screen.getAllByRole('slider')
     expect(handles.map((h) => h.getAttribute('aria-valuenow'))).toEqual(['5', '40', '95'])
+    expect(handles.map((h) => h.getAttribute('aria-label'))).toEqual([
+      'Stop #0000ff',
+      'Stop #ff0000',
+      'Stop #00ff00',
+    ])
   })
 
   it('carries the placements through every step of the order cycle and back', () => {
@@ -365,9 +416,55 @@ describe('EditMode', () => {
       .toEqual(['#0000ff', '#00ff00', '#ff0000'])
   })
 
+  it('an even palette still re-spreads when a color is deleted', () => {
+    // The default state keeps its old behaviour: nothing is customized, so
+    // dropping a stop leaves the remaining two spanning the full track.
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    fireEvent.click(screen.getAllByTestId('color-list-remove')[1])
+    expect(useAppStore.getState().current!.stops.map((s) => s.position)).toEqual([0, 100])
+  })
+
+  it('a hand-placed palette keeps its spacing when a color is deleted', () => {
+    const custom: Gradient = {
+      id: 'g3c',
+      type: 'linear',
+      stops: [
+        { hex: '#0000ff', position: 0 },
+        { hex: '#00ff00', position: 20 },
+        { hex: '#ff0000', position: 60 },
+      ],
+      reversed: false,
+    }
+    render(<EditMode gradient={custom} onExit={vi.fn()} />)
+    fireEvent.click(screen.getAllByTestId('color-list-remove')[1])
+    expect(useAppStore.getState().current!.stops.map((s) => s.position)).toEqual([0, 60])
+  })
+
+  it('offers Reset spacing only when the stops are off the even ladder, and restores it', () => {
+    const custom: Gradient = {
+      id: 'g3d',
+      type: 'linear',
+      stops: [
+        { hex: '#0000ff', position: 0 },
+        { hex: '#00ff00', position: 20 },
+        { hex: '#ff0000', position: 60 },
+      ],
+      reversed: false,
+    }
+    const { unmount } = render(<EditMode gradient={custom} onExit={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('reset-distribution'))
+    expect(useAppStore.getState().current!.stops.map((s) => s.position)).toEqual([0, 50, 100])
+    // Even again, so the button retires.
+    expect(screen.queryByTestId('reset-distribution')).not.toBeInTheDocument()
+    unmount()
+
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    expect(screen.queryByTestId('reset-distribution')).not.toBeInTheDocument()
+  })
+
   it('shows the edit hint on mount and dismisses it on pointerdown anywhere in edit mode', () => {
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
-    expect(screen.getByText('Tap a color to recolor')).toBeInTheDocument()
+    expect(screen.getByText('Tap a color to select it')).toBeInTheDocument()
 
     fireEvent.pointerDown(screen.getByTestId('edit-mode'))
 
@@ -377,7 +474,7 @@ describe('EditMode', () => {
   it('auto-dismisses the edit hint after 4 seconds', () => {
     vi.useFakeTimers()
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
-    expect(screen.getByText('Tap a color to recolor')).toBeInTheDocument()
+    expect(screen.getByText('Tap a color to select it')).toBeInTheDocument()
 
     vi.advanceTimersByTime(4000)
 
@@ -385,26 +482,54 @@ describe('EditMode', () => {
     vi.useRealTimers()
   })
 
+  // jsdom lays nothing out, so the track measures 0x0 and every drag would
+  // read as position 0. Give it a real box; TRACK_END is the clientX that maps
+  // to 100 once FlowEditor's 20px edge inset is taken off each side.
+  const TRACK_WIDTH = 400
+  const TRACK_END = 380
+  function measureTrack() {
+    const track = screen.getByTestId('flow-editor')
+    track.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, right: TRACK_WIDTH, bottom: 48, width: TRACK_WIDTH, height: 48, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect
+  }
+
   it('dragging a flow handle updates the store gradient position for that stop in real time', () => {
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    measureTrack()
     const handle = screen.getByLabelText('Stop #00ff00')
 
     fireEvent.pointerDown(handle, { clientX: 10, clientY: 10 })
-    fireEvent.pointerMove(handle, { clientX: 10, clientY: 10 })
+    fireEvent.pointerMove(handle, { clientX: TRACK_END, clientY: 10 })
 
     const updated = useAppStore.getState().current!
     const movedStop = updated.stops.find((s) => s.hex === '#00ff00')!
     expect(movedStop.position).toBe(100)
   })
 
-  it('exiting preserves exact custom positions without re-equalizing', () => {
-    const onExit = vi.fn()
-    render(<EditMode gradient={gradient} onExit={onExit} />)
+  it('a drag at the far edge lands on 100, not past it', () => {
+    // The inset means the track's last 20px all map to 100 rather than
+    // overshooting — the end stop has to be reachable without the dot hanging
+    // into the browser's back-swipe gutter.
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    measureTrack()
     const handle = screen.getByLabelText('Stop #00ff00')
 
     fireEvent.pointerDown(handle, { clientX: 10, clientY: 10 })
-    fireEvent.pointerMove(handle, { clientX: 10, clientY: 10 })
-    fireEvent.pointerUp(handle, { clientX: 10, clientY: 10 })
+    fireEvent.pointerMove(handle, { clientX: TRACK_WIDTH, clientY: 10 })
+
+    const moved = useAppStore.getState().current!.stops.find((s) => s.hex === '#00ff00')!
+    expect(moved.position).toBe(100)
+  })
+
+  it('exiting preserves exact custom positions without re-equalizing', () => {
+    const onExit = vi.fn()
+    render(<EditMode gradient={gradient} onExit={onExit} />)
+    measureTrack()
+    const handle = screen.getByLabelText('Stop #00ff00')
+
+    fireEvent.pointerDown(handle, { clientX: 10, clientY: 10 })
+    fireEvent.pointerMove(handle, { clientX: TRACK_END, clientY: 10 })
+    fireEvent.pointerUp(handle, { clientX: TRACK_END, clientY: 10 })
 
     fireEvent.click(screen.getByLabelText('Back'))
     expect(onExit).toHaveBeenCalledTimes(1)
@@ -412,6 +537,21 @@ describe('EditMode', () => {
     const updated = useAppStore.getState().current!
     const movedStop = updated.stops.find((s) => s.hex === '#00ff00')!
     expect(movedStop.position).toBe(100)
+  })
+
+  it('a dragged stop stops the app re-spreading on the next delete', () => {
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    measureTrack()
+    const handle = screen.getByLabelText('Stop #00ff00')
+    fireEvent.pointerDown(handle, { clientX: 10, clientY: 10 })
+    fireEvent.pointerMove(handle, { clientX: 200, clientY: 10 })
+    fireEvent.pointerUp(handle, { clientX: 200, clientY: 10 })
+
+    const dragged = useAppStore.getState().current!.stops.map((s) => s.position)
+    fireEvent.click(screen.getAllByTestId('color-list-remove')[0])
+    // The survivors keep the exact positions they had; only the deleted one is
+    // gone. Before, this snapped everything back to 0/100.
+    expect(useAppStore.getState().current!.stops.map((s) => s.position)).toEqual(dragged.slice(1))
   })
 
   it('wraps geometry tabs, flow editor, and sort control in a bottom sheet container', () => {
@@ -497,18 +637,18 @@ describe('EditMode', () => {
     expect(onExit).not.toHaveBeenCalled()
   })
 
-  it('tapping a stop handle selects it and recolors it in place via the color picker', () => {
+  it('tapping a stop handle selects it and recolors it in place from its row', () => {
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
     const handle = screen.getAllByTestId('flow-handle')[0]
     expect(handle).toBeInTheDocument()
 
-    // Tap the handle — selects it (active class) and arms the color picker.
+    // Tap the handle — selects it (active class) and highlights its row.
     fireEvent.pointerDown(handle, { clientX: 0, clientY: 0 })
     fireEvent.pointerUp(handle, { clientX: 0, clientY: 0 })
     expect(handle.className).toContain('handleActive')
 
-    // Committing a color from the (hidden) native picker recolors this stop.
-    fireEvent.change(screen.getByTestId('color-input'), { target: { value: '#00ffee' } })
+    // The row's own visible color input is what recolors the stop.
+    fireEvent.change(screen.getAllByTestId('color-list-swatch')[0], { target: { value: '#00ffee' } })
     const updated = useAppStore.getState().current!
     expect(updated.stops[0].hex).toBe('#00ffee') // Initially #ff0000
 

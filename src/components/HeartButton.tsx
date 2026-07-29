@@ -1,14 +1,13 @@
 import styles from './HeartButton.module.css'
+import { MEDIA_CHIP } from '../lib/mediaChrome'
 
 interface HeartButtonProps {
   liked: boolean
   count: number
   onToggle: () => void
   /** 'tile' overlays a gallery thumbnail; 'viewer' sits in the full-screen
-   * action bar and matches the ghost pills beside it. */
+   * action bar and matches the other media chrome beside it. */
   variant?: 'tile' | 'viewer'
-  /** Palette-derived foreground, for the viewer variant. */
-  color?: string
   /** Named in the accessible label so a screen reader hears which palette a
    * heart belongs to — a grid of them is otherwise a row of identical "Like". */
   label?: string
@@ -32,7 +31,6 @@ export function HeartButton({
   count,
   onToggle,
   variant = 'tile',
-  color,
   label,
 }: HeartButtonProps) {
   const noun = count === 1 ? 'like' : 'likes'
@@ -46,13 +44,11 @@ export function HeartButton({
       aria-label={`${liked ? 'Unlike' : 'Like'}${named} ${count} ${noun}`}
       className={[
         styles.heart,
-        variant === 'viewer' ? styles.viewer : styles.tile,
+        variant === 'viewer' ? `${MEDIA_CHIP} ${styles.viewer}` : styles.tile,
         liked ? styles.liked : '',
-        variant === 'viewer' ? 'ghost-chip ghost-pill' : '',
       ]
         .filter(Boolean)
         .join(' ')}
-      style={color ? { color } : undefined}
       // The tile underneath opens the viewer and the viewer backdrop closes it;
       // a like must do neither. pointer events are stopped as well as click
       // because the gallery tile opens on click but GradientPage-style surfaces

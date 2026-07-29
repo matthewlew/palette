@@ -86,6 +86,29 @@ describe('Gallery component viewer interactions', () => {
     expect(screen.queryByTestId('pull-to-edit-hint')).not.toBeInTheDocument()
   })
 
+  it('names only the tile the viewer flies out of, so no other tile paints over the zoom', () => {
+    useAppStore.setState({ saved: twoGradients, mode: 'gallery' })
+    render(<Gallery onRiff={vi.fn()} />)
+    const names = () =>
+      screen
+        .getAllByTestId('gallery-tile')
+        .map((tile) => (tile.firstElementChild as HTMLElement).style.viewTransitionName)
+
+    // At rest nothing is named: a named tile gets its own transition group, and
+    // groups paint in tree order, so any tile after the hero would paint on top
+    // of the card as it grows.
+    expect(names()).toEqual(['none', 'none'])
+
+    fireEvent.click(screen.getByRole('button', { name: /First Palette,/ }))
+    // The viewer owns the shared name while it is mounted — a duplicate would
+    // make the browser skip the transition outright.
+    expect(names()).toEqual(['none', 'none'])
+
+    fireEvent.click(screen.getByRole('button', { name: /close/i }))
+    // Closing hands it back, and still only to the one tile.
+    expect(names()).toEqual(['palette-card', 'none'])
+  })
+
   it('does not step past the ends of the list', () => {
     useAppStore.setState({ saved: twoGradients, mode: 'gallery' })
     render(<Gallery onRiff={vi.fn()} />)

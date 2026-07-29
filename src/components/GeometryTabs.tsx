@@ -111,6 +111,14 @@ export function GeometryTabs({
   // solid Turrell squares.
   const smoothDisabled = gradient.type === 'square'
 
+  // The Effect chips are LDS chips: `.lds-chip` carries the whole visual
+  // recipe (pill, hairline, hover/pressed steps, caption type) and
+  // `--selected` is its filled active state. The local class adds only what
+  // the layout needs on top — full-width grid cell and palette's 44px tap
+  // target, which the theme already publishes as --target-min.
+  const chipClass = (active = false) =>
+    ['lds-chip', styles.filter, active && 'lds-chip--selected'].filter(Boolean).join(' ')
+
   return (
     <div data-noscroll-hide="true" ref={tabsRef} className={styles.sections} onWheel={handleWheel}>
       {/* Mobile only. The collapsed sheet peeks ~100px, so everything below the
@@ -213,7 +221,7 @@ export function GeometryTabs({
         data-testid="filter-repeat"
         aria-pressed={gradient.repeatEnabled}
         disabled={repeatDisabled}
-        className={gradient.repeatEnabled ? styles.filterActive : styles.filter}
+        className={chipClass(gradient.repeatEnabled)}
         onClick={onToggleRepeat}
       >
         Repeat ×2
@@ -223,7 +231,7 @@ export function GeometryTabs({
         data-testid="filter-smooth"
         aria-pressed={gradient.smoothEnabled}
         disabled={smoothDisabled}
-        className={gradient.smoothEnabled ? styles.filterActive : styles.filter}
+        className={chipClass(gradient.smoothEnabled)}
         onClick={onToggleSmooth}
       >
         Smooth
@@ -233,34 +241,40 @@ export function GeometryTabs({
         data-testid="filter-hard"
         aria-pressed={gradient.hardStops}
         disabled={hardDisabled}
-        className={gradient.hardStops ? styles.filterActive : styles.filter}
+        className={chipClass(gradient.hardStops)}
         onClick={onToggleHardStops}
       >
         Hard
       </button>
       <button
         type="button"
-        data-testid="filter-grain"
-        aria-pressed={noiseEnabled}
-        className={noiseEnabled ? styles.filterActive : styles.filter}
-        onClick={onToggleNoise}
-      >
-        Grain
-      </button>
-      <button
-        type="button"
         data-testid="filter-rotate"
-        className={styles.filter}
+        className={chipClass()}
         onClick={onRotate}
       >
         Rotate
+        {/* R already rotates from anywhere in the editor, but nothing said so
+            unless you went looking at the shortcut strip. Marking the key on
+            the control that does the same job is how the two get connected.
+            Hidden on touch by the same media query the strip uses — a key
+            badge on a device with no keyboard is just noise. */}
+        <kbd className={styles.shortcutKey} aria-hidden="true">R</kbd>
+      </button>
+      <button
+        type="button"
+        data-testid="filter-grain"
+        aria-pressed={noiseEnabled}
+        className={chipClass(noiseEnabled)}
+        onClick={onToggleNoise}
+      >
+        Grain
       </button>
       {orderLabel && (
         <button
           type="button"
           data-testid="sort-button"
           aria-label={`Stop order: ${order ?? orderLabel}. Tap to change`}
-          className={styles.filter}
+          className={chipClass()}
           onClick={onCycleOrder}
         >
           Order: {orderLabel}

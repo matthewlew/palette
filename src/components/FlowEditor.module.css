@@ -1,16 +1,16 @@
-/* The 0% and 100% stops sit ON the track's edges, so the track's inset is
-   also the distance from a stop handle to the screen edge. At the old 16px a
-   handle parked at 0% straddled the system back-swipe zone (~20px on iOS,
-   similar on Android), and dragging it right navigated back instead of moving
-   the stop. 28px each side clears that zone; FlowEditor also cancels the
-   gesture outright for the browsers that measure it from the very edge. */
+/* The 14px side padding this used to carry did nothing — every child is
+   absolutely positioned by percentage, so it never saw the padding box. The
+   handles are kept clear of the edges by EDGE_INSET_PX in FlowEditor.tsx
+   instead, which insets the gradient fill by the same amount so the two stay
+   in register. FlowEditor also cancels the touch outright within EDGE_SWIPE_PX
+   of the screen edge, for browsers that measure the back-swipe gutter from the
+   very edge rather than the inset track. */
 .track {
   position: relative;
-  width: calc(100% - 56px);
+  width: calc(100% - 32px);
   margin: 0 auto;
   height: 48px;
-  padding: 0 14px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   box-sizing: border-box;
   /* Vertical drags belong to drag-to-remove, horizontal ones to the stops. */
   touch-action: none;

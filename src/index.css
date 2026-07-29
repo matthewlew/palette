@@ -73,8 +73,33 @@
   --tabbar-gap: 18px;
   --tabbar-top: calc(var(--tabbar-gap) + var(--tabbar-h) + var(--safe-b));
 
-  font: 18px/145% var(--th-body);
-  letter-spacing: 0.18px;
+  /* Width of the editor's desktop side panel. Declared here rather than in
+   * EditMode.module.css because two components have to agree on it: the panel
+   * sets its flex-basis from it, and floating chrome anchored to the right of
+   * the VIEWPORT has to step in by it or it lands on the panel instead of the
+   * canvas. Two copies of 340 is how the share button ended up sitting on top
+   * of the Shape tiles. */
+  --edit-panel-w: 340px;
+
+  /* The blur behind media chrome. A theme knob LDS reads via
+   * `blur(var(--glass-blur, 10px))` in .lds-btn/.lds-chip/.lds-glass; palette
+   * runs 14 everywhere, which is what the old hand-written .ghost-chip and the
+   * tab bar both used. Declared once here instead of repeated per component. */
+  --glass-blur: 14px;
+
+  /* LDS body type, not an invented one.
+   *
+   * This was `font: 18px/145%` with `letter-spacing: 0.18px` — a leftover from
+   * the portfolio template this app started from, and the reason typography
+   * "looked different" from the design system: 18px is a step ABOVE anything
+   * on the LDS scale, so every piece of text that didn't set its own size
+   * (hints, empty states, inherited spans) rendered larger and looser than the
+   * system says it should. theme-palette maps --text-body to 13px precisely
+   * because that is what this app measured at. Inherit it. */
+  font-family: var(--th-body);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  letter-spacing: var(--tracking-body);
   color-scheme: dark;
   color: var(--text-subdued);
   background: var(--c-950);
@@ -82,10 +107,10 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
+  /* The old responsive step-down (18px -> 16px under 1024px) went with the
+     18px base. LDS sizes are absolute px on a fixed scale, deliberately: the
+     scale is the same on every viewport and components that need to shrink say
+     so themselves. */
 }
 
 /* Shared surface for floating chrome buttons (title, share, grain, back,
@@ -107,30 +132,63 @@
   color: #fff;
 }
 
-/* Minimal floating chrome for buttons that sit ON the gradient. One size,
-   one recipe: a 44px round chip whose ink is the palette-derived foreground
-   (set via inline `color`, same strategy as the title) and whose fill and
-   border are faint mixes of that ink — so the gradient stays the focus.
-   Add .ghost-pill for text buttons; .ghost-chip-active marks toggled state. */
+/* Floating chrome for buttons that sit ON the gradient — back, close, share,
+ * save, edit, play. One size, one recipe, and CRUCIALLY one that does not
+ * change with the gradient underneath.
+ *
+ * THIS IS AN LDS MEDIA BUTTON. Call sites carry the system classes (see
+ * MEDIA_CHIP / MEDIA_ICON in lib/mediaChrome.ts) and LDS supplies the whole
+ * recipe: `.emph-media` re-tones the button for artwork — currentColor ink,
+ * a scrim-based translucent fill, a currentColor hairline — and
+ * `.emph-media--on-dark` pins that pair to white-on-black, which is what
+ * stays legible over any gradient. `.lds-btn` adds the pill, the semibold
+ * body type and the --target-min box; `--glass-blur` (declared above) is the
+ * backdrop blur.
+ *
+ * The app used to hand-mix all of that: `color-mix(currentColor 14%, rgba(20,
+ * 20, 24, .45))` fills, a 26% border, a literal 44px, a literal 13px. Every
+ * one of those numbers now has a name in the system, so a chip added next
+ * month gets the same answer without copying a magic value.
+ *
+ * The rule that matters has not changed: call sites must NOT override `color`.
+ * The ink used to be sampled per corner via titleColorAt and passed in inline,
+ * which made four buttons on one screen four different colours, contrasts and
+ * weights — all of them shifting as you scrubbed the feed.
+ *
+ * What's left here is only what LDS leaves to the app.
+ *
+ * Add .ghost-pill for text buttons; .ghost-chip-active marks toggled state. */
 .ghost-chip {
-  height: 44px;
-  min-width: 44px;
-  padding: 0;
-  border-radius: var(--pill);
-  border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
-  background: color-mix(in srgb, currentColor 10%, transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: none;
-  color: currentColor;
-  font-family: var(--th-body);
-  font-size: 13px;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: transform 150ms ease-out, opacity 400ms ease, background 150ms ease;
+  /* Media buttons drop shadow in LDS (it muddies the backdrop for a chip
+     sitting on a photo). palette's chrome sits on gradients that are often
+     bright and busy, and without a shadow the hairline alone loses the edge —
+     so the tight one comes back. */
+  box-shadow: var(--shadow-sm);
+}
+
+/* The ink, and why it needs two classes to land.
+ *
+ * `.emph-media` is designed around `--text: currentColor` — you set `color` on
+ * the element and every token (ink, hairline, subdued) derives from it. The
+ * `--on-dark` helper is how you say "white on a black scrim"… except its
+ * `color:#fff` is a single class (0,1,0) and `.lds-btn.emph-media`'s
+ * `color: var(--text)` is two (0,2,0), so on a BUTTON the helper loses and
+ * `currentColor` resolves to whatever was inherited. That was --text-subdued,
+ * #ACACB7, so every floating chip came out grey-lilac with a 40% grey-lilac
+ * hairline instead of white on white.
+ *
+ * `.lds-btn.ghost-chip` matches that specificity and comes later, so this is
+ * the declaration that wins. Everything else still derives from it — the
+ * hairline is currentColor 40%, the pressed fill is the --on-dark scrim — so
+ * this is the ONE colour the app states, exactly as the emphasis model
+ * intends. Call sites still must not override `color`. */
+.lds-btn.ghost-chip {
+  color: #ffffff;
+  /* Idle-fade opacity and the press-scale, neither of which is a button
+     property LDS models. Background/border keep the system's own timing. */
+  transition: transform 150ms ease-out, opacity 400ms ease,
+    background var(--dur-fast) var(--ease-standard),
+    border-color var(--dur-fast) var(--ease-standard);
 }
 
 /* Touch devices and narrow viewports only, so the desktop UI keeps its intended
@@ -159,21 +217,27 @@
   }
 }
 
-.ghost-chip:hover {
-  background: color-mix(in srgb, currentColor 18%, transparent);
-}
-
+/* LDS's own :active nudges the button down 1px; a chip floating on artwork
+   reads better pressing INTO the surface. */
 .ghost-chip:active {
   transform: scale(0.95);
 }
 
+/* Text buttons: .lds-btn already pads for a label, and .lds-btn--icon is what
+   squares an icon-only chip. Kept as a no-op hook so the (many) call sites
+   that name it stay valid and keep documenting which chips carry a label. */
 .ghost-pill {
-  padding: 0 18px;
+  padding: calc(9px * var(--density)) calc(18px * var(--density));
 }
 
+/* Toggled-on state, one emphasis step up the media ladder: .emph-media already
+   defines --bg-pressed as the strongest of its three scrim mixes, so "on"
+   is the pressed surface held. Reads as brighter with a stronger edge,
+   exactly like .tabOn against .tab in the bar — without inventing a fourth
+   alpha by hand. */
 .ghost-chip-active {
-  background: color-mix(in srgb, currentColor 24%, transparent);
-  border-color: color-mix(in srgb, currentColor 45%, transparent);
+  background: var(--bg-pressed);
+  border-color: color-mix(in srgb, currentColor 65%, transparent);
 }
 
 #root {

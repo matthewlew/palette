@@ -8,23 +8,21 @@
 }
 
 /* In the feed, the saved-palettes stack occupies the bottom-right corner, so
-   the heart (and the grain toggle above it) shift up to sit directly over
-   it. Edit mode has no stack and keeps the buttons' default positions. */
+   the save pill (and play above it) shift up to sit clear of it. Edit mode has
+   no stack and keeps the buttons' default positions.
+ *
+ * Both must move by the SAME amount or they collide: the base stack is
+ * save 16 / play 72, a 56px rhythm for 44px-tall chips, and lifting only one
+ * of them is what previously left two buttons overlapping by 32px. */
 .page :global([data-testid='like-button']) {
   bottom: calc(84px + var(--safe-b));
 }
 
-.page :global([data-testid='grain-button']) {
-  bottom: calc(140px + var(--safe-b));
-}
-
-/* Play has to be lifted by the SAME 68px as the two below it. The base stack
-   is save 16 / grain 72 / play 128 — an even 56px rhythm. The feed lifted save
-   to 84 and grain to 140 for the saved-palettes stack but left play at 128, so
-   play ended up BELOW grain and the two overlapped by 32px (they are 44px
-   tall). 196 restores the rhythm. */
+/* Play has to be lifted by the same 56px rhythm as Like above it (base stack
+   is save 16 / play 72; the feed lifts save to 84 for the saved-palettes
+   stack, so play follows to 140). */
 .page :global([data-testid='play-button']) {
-  bottom: calc(196px + var(--safe-b));
+  bottom: calc(140px + var(--safe-b));
 }
 
 /* Bottom-LEFT, mirroring the grain/play/save cluster on the bottom right. It

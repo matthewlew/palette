@@ -3,32 +3,36 @@ import { useAppStore } from '../store/useAppStore'
 import { buildGradientCss, nextRotationAngle, nextFanRotation, SELECTABLE_GEOMETRY, angleForTypeChange, defaultAngleForType, type GradientType } from '../lib/gradient'
 import {
   toEditableStops,
-  equalizePositions,
+  equalizeEditableStops,
+  isEvenlyDistributed,
+  reassignPositions,
   removeStopAt,
   addStop,
   moveStop,
   toGradientStops,
-  stopLayout,
-  applyToLayout,
   type EditableStop,
 } from '../lib/stopOrdering'
 import { sortByOklch, type SortKey } from '../lib/sortColors'
-import { normalizeStopLayout } from '../lib/palette'
 import { useHint } from '../hooks/useHint'
 import { useScrolling } from '../hooks/useScrolling'
+import { useIsDesktop } from '../hooks/useIsDesktop'
 import { Hint } from './Hint'
+import { ColorList } from './ColorList'
+import { gradientCssSnippet } from '../lib/cssSnippet'
 import { NoiseOverlay } from './NoiseOverlay'
 import { GeometryTabs } from './GeometryTabs'
 import { ShortcutHints, type ShortcutHintItem } from './ShortcutHints'
 import { PaletteTitle } from './PaletteTitle'
 import { BoardShare } from './BoardShare'
 import { namePalette } from '../lib/naming'
+import { launchSaveFlight, saveFlightOrigin } from '../lib/saveFlight'
+import { MEDIA_ICON } from '../lib/mediaChrome'
 import { titleColorAt } from '../lib/titleColor'
 import { LikeButton } from './LikeButton'
 import { FlowEditor } from './FlowEditor'
 import { TurrellSquare } from './TurrellSquare'
 import { ScrollTicker } from './ScrollTicker'
-import { feedSession, makeGradient } from './Feed'
+import { feedSession, makeGradient, SHAPE_STEP_PX } from './Feed'
 import { decayVelocity, shouldStartMomentum } from '../lib/momentum'
 import { tickHaptic, primeHaptics } from '../lib/haptics'
 import type { Gradient } from '../store/types'
@@ -40,12 +44,19 @@ import styles from './EditMode.module.css'
 // palette order, or whatever the user last arranged by hand).
 type OrderKey = SortKey | 'original'
 const ORDER_CYCLE: OrderKey[] = ['original', 'lightness', 'chroma', 'hue']
+// Short enough that the longest ("Order: Original") still fits a third of a
+// 320px sheet without ellipsizing. "Lightness" was the one that didn't — the
+// accessible name still says the full key, see the chip's aria-label.
 const ORDER_LABELS: Record<OrderKey, string> = {
   original: 'Original',
-  lightness: 'Lightness',
+  lightness: 'Light',
   chroma: 'Chroma',
   hue: 'Hue',
 }
+
+/** Ceiling on stops. Beyond this the flow editor's handles overlap and the
+ * palette stops being a palette. */
+const MAX_STOPS = 8
 
 const EDIT_SHORTCUTS: ShortcutHintItem[] = [
   { keys: ['↑', '↓'], label: 'Browse' },
@@ -55,45 +66,6 @@ const EDIT_SHORTCUTS: ShortcutHintItem[] = [
   { keys: ['R'], label: 'Rotate' },
   { keys: ['Esc'], label: 'Back' },
 ]
-
-/**
- * Open the OS colour picker for a hidden `<input type="color">`.
- *
- * showPicker() first. It is the standardised API for exactly this, and unlike
- * a synthetic click it is SPECIFIED to open the picker rather than merely to
- * dispatch a click event — a browser that will not honour it throws
- * (NotAllowedError without user activation, InvalidStateError otherwise)
- * instead of silently doing nothing, which is what makes the fallback
- * reachable rather than decorative.
- *
- * `position` is the stop's 0-100 place on the track. The input is parked over
- * that stop before opening, because a picker anchored to a control has to have
- * somewhere sensible to point at; a 1x1 element left at the origin gets a
- * popover in the corner of the screen.
- */
-export function openColorPicker(
-  input: HTMLInputElement | null,
-  track: HTMLElement | null,
-  position: number,
-) {
-  if (!input) return
-  if (track) {
-    const rect = track.getBoundingClientRect()
-    if (rect.width > 0) {
-      input.style.left = `${rect.left + (rect.width * position) / 100}px`
-      input.style.top = `${rect.top + rect.height / 2}px`
-    }
-  }
-  try {
-    if (typeof input.showPicker === 'function') {
-      input.showPicker()
-      return
-    }
-  } catch {
-    // Refused — fall through to the click, which some engines still honour.
-  }
-  input.click()
-}
 
 interface EditModeProps {
   gradient: Gradient
@@ -109,8 +81,14 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   const toggleSaveGradient = useAppStore((s) => s.toggleSaveGradient)
   const noiseEnabled = useAppStore((s) => s.noiseEnabled)
   const toggleNoise = useAppStore((s) => s.toggleNoise)
-  const lockedStopLayout = useAppStore((s) => s.lockedStopLayout)
-  const setLockedStopLayout = useAppStore((s) => s.setLockedStopLayout)
+  const lockedColors = useAppStore((s) => s.lockedColors)
+  const toggleColorLock = useAppStore((s) => s.toggleColorLock)
+  const syncColorLock = useAppStore((s) => s.syncColorLock)
+  const releaseColorLockAt = useAppStore((s) => s.releaseColorLockAt)
+  const lockedPositions = useAppStore((s) => s.lockedPositions)
+  const togglePositionLock = useAppStore((s) => s.togglePositionLock)
+  const syncPositionLock = useAppStore((s) => s.syncPositionLock)
+  const releasePositionLockAt = useAppStore((s) => s.releasePositionLockAt)
   const renameCurrentGradient = useAppStore((s) => s.renameCurrentGradient)
   // The scroll-position number only means something in the endless Create
   // feed. When editing a saved gradient (opened from the Gallery) it's a
@@ -118,6 +96,18 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   const fromGallery = useAppStore((s) => s.editEnteredFrom === 'gallery')
   const [editableStops, setEditableStops] = useState<EditableStop[]>(() => toEditableStops(gradient.stops))
   const [activeOrder, setActiveOrder] = useState<OrderKey>('original')
+  // Set the moment a stop is dragged (or nudged with the arrow keys). From
+  // then on the spacing belongs to the user: adding or deleting a colour must
+  // NOT re-spread everything, which is what made a single delete undo a
+  // carefully placed set of stops. Cleared by the Reset spacing button.
+  //
+  // Seeded from the gradient itself rather than starting false, because a
+  // palette can arrive already custom — reopening a saved one from the Gallery,
+  // or following a share link. Where the spacing came from is not the point;
+  // that it isn't the default ladder is.
+  const [positionsCustomized, setPositionsCustomized] = useState(
+    () => !isEvenlyDistributed(toEditableStops(gradient.stops))
+  )
   // Stop ids in the user's own order — the baseline "Original" restores to.
   // Refreshed by every hand edit (add/remove), never by a sort.
   const unsortedOrderRef = useRef<string[]>([])
@@ -144,10 +134,6 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   const animatedStops = useAnimatedStops(toGradientStops(editableStops))
   const [canvasCursor, setCanvasCursor] = useState<{ x: number; y: number } | null>(null)
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 })
-  // Hidden native color input, driven programmatically: tapping a stop (or the
-  // Add color button) seeds and opens it, replacing the removed swatch tray.
-  const colorInputRef = useRef<HTMLInputElement>(null)
-  const colorTargetRef = useRef<{ mode: 'recolor'; id: string } | { mode: 'add' } | null>(null)
   const editHint = useHint('edit')
   // Duck the floating chrome (title, save, share, noise) out while scrubbing
   // the rolodex, matching the create feed and the bottom tab bar.
@@ -158,15 +144,26 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   const isDraggingRef = useRef(false)
   const lastHandleDragEndRef = useRef(0)
   const pendingGradientRef = useRef<Gradient | null>(null)
+  const isDesktop = useIsDesktop()
   // Duck the floating chrome (FABs, sheet, back) while a canvas handle is being
   // dragged, so a drag near the bottom edge never collides with them.
-  const chromeHidden = handleDragging
+  //
+  // MOBILE ONLY. On the side-panel layout `.sheet.hidden` slides 340px of
+  // layout off-screen and the flexed preview immediately grows into the space,
+  // which re-measures the canvas and re-anchors every handle — so grabbing a
+  // dot made the whole set jump out from under the pointer, and let go of it
+  // put them back. Two moving parts for a gesture that should have one. The
+  // bottom sheet has the opposite problem (a drag near the bottom edge really
+  // does land on the FABs), so the ducking stays there.
+  const chromeHidden = handleDragging && !isDesktop
 
-  // Per-corner palette-derived foregrounds (same strategy as the title) so
-  // every floating control reads as an extension of the gradient.
+  // The title is bare text on the gradient, so it still samples the palette
+  // where it sits. The floating buttons no longer do — they carry their own
+  // surface (.ghost-chip) with a fixed ink, so back / share / save read as one
+  // set with the tab bar instead of four differently-tinted chips.
   //
   // Sampled from what is ON SCREEN rather than from the last committed
-  // gradient, which is what made the chrome look a beat behind the picture.
+  // gradient, which is what made the title look a beat behind the picture.
   // Two things caused that. A canvas-handle drag deliberately withholds
   // setCurrentGradient until release (see commit), so `gradient` is stale for
   // the entire drag while the preview repaints every frame — the ink simply
@@ -175,10 +172,14 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   // animatedStops is precisely what the preview is painting, so the two now
   // move together by construction.
   const painted = useMemo(() => ({ ...gradient, stops: animatedStops }), [gradient, animatedStops])
-  const backColor = titleColorAt(painted, 0.06, 0.06)
   const titleColor = titleColorAt(painted, 0.5, 0.06)
-  const shareColor = titleColorAt(painted, 0.94, 0.06)
-  const cornerColor = titleColorAt(painted, 0.93, 0.88)
+
+  // See the identical ref in Feed: goTo runs inside listeners bound once at
+  // mount, so the locks it generates against must be read live.
+  const lockedColorsRef = useRef(lockedColors)
+  lockedColorsRef.current = lockedColors
+  const lockedPositionsRef = useRef(lockedPositions)
+  lockedPositionsRef.current = lockedPositions
 
   // Scroll, drag, and keyboard navigation state for editing
   const [tickerIndex, setTickerIndex] = useState(() => feedSession.index)
@@ -188,12 +189,23 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   const velocityRef = useRef(0)
   const lastMoveTimeRef = useRef<number | null>(null)
   const momentumFrameIdRef = useRef<number | null>(null)
+  // Horizontal scroll/swipe → shape step, the same state machine the create
+  // feed runs: wheel deltas accumulate per segment (reset on a pause), and a
+  // touch gesture locks to one axis so a sideways swipe never also scrubs.
+  const wheelXAccumRef = useRef(0)
+  const wheelXResetTimerRef = useRef<number | null>(null)
+  const lastTouchXRef = useRef<number | null>(null)
+  const touchStartXRef = useRef(0)
+  const touchStartYRef = useRef(0)
+  const touchAxisRef = useRef<'none' | 'h' | 'v'>('none')
+  const touchShapeAccumRef = useRef(0)
 
   useEffect(() => {
     const stops = toEditableStops(gradient.stops)
     setEditableStops(stops)
     unsortedOrderRef.current = stops.map((s) => s.id)
     setActiveOrder('original')
+    setPositionsCustomized(!isEvenlyDistributed(stops))
     setTickerIndex(feedSession.index)
     feedSession.lockedType = gradient.type
     feedSession.lockedAngle = gradient.angle
@@ -201,31 +213,6 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gradient.id, gradient.type])
 
-  // The lock follows the palette in front of you — how many stops there are AND
-  // where they sit.
-  //
-  // Locking a layout and then adding a colour, or dragging a stop along the
-  // track, would otherwise leave the feed handing back the old layout and
-  // quietly undoing the edit on the next scrub. Moving the lock instead is what
-  // makes it a preference — "like this, from now on" — rather than a cage you
-  // have to unlock to get out of. Opening a palette with a different layout
-  // reads the same way: the lock is about what you are looking at.
-  //
-  // Keyed on the layout's VALUES, not the array: editableStops is a fresh array
-  // every render, so an identity dep would write to the store on every one.
-  //
-  // NORMALIZED before comparing, which is load-bearing. A dragged stop carries
-  // a fractional position (the track maps pixels to percent and does not
-  // round), the store rounds on write — so comparing a raw 12.5 against a
-  // stored 13 never matches, the effect writes again, and React tears the tree
-  // down with a max-update-depth error the moment you drag a handle while
-  // locked. Both sides through the same normalizer is what gives it a fixpoint.
-  const layoutKey = normalizeStopLayout(stopLayout(editableStops)).join(',')
-  useEffect(() => {
-    if (lockedStopLayout === null) return
-    if (lockedStopLayout.join(',') === layoutKey) return
-    setLockedStopLayout(layoutKey.split(',').map(Number))
-  }, [layoutKey, lockedStopLayout, setLockedStopLayout])
 
   useEffect(() => {
     const timer = setTimeout(() => editHint.dismiss(), 4000)
@@ -235,6 +222,28 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
 
   const STEP_PX = 60
 
+  /** Step the geometry sideways, keeping the colors — the same action the
+   * ←/→ keys and the Shape tiles perform, and the counterpart to goTo's
+   * vertical scrub. The create feed has had this on a horizontal wheel/swipe
+   * since it shipped; the editor only had the keys, so on desktop a trackpad
+   * swipe that worked full-screen did nothing here. */
+  function cycleShape(dir: 1 | -1) {
+    const currentGrad = useAppStore.getState().current
+    if (!currentGrad) return
+    // indexOf can be -1 for a legacy type not in the list; start from 0 so the
+    // step still lands on a valid selectable geometry.
+    const currentIndex = Math.max(0, SELECTABLE_GEOMETRY.indexOf(currentGrad.type))
+    const len = SELECTABLE_GEOMETRY.length
+    const nextType = SELECTABLE_GEOMETRY[(currentIndex + dir + len) % len]
+    feedSession.lockedType = nextType
+    setCurrentGradient({
+      ...currentGrad,
+      type: nextType,
+      stops: toGradientStops(editableStopsRef.current),
+    })
+    tickHaptic()
+  }
+
   function goTo(newIndex: number) {
     const history = feedSession.history
     if (newIndex < 0) return
@@ -242,9 +251,9 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     if (newIndex >= history.length) {
       const typeToUse = feedSession.lockedType ?? gradient.type
       const fresh = {
-        // The same stop lock the Create feed honours — scrubbing from inside
-        // the editor is the same rolodex, so it obeys the same rule.
-        ...makeGradient(typeToUse, activeColorSet, useAppStore.getState().lockedStopLayout ?? undefined),
+        // Via the ref: this runs inside listeners bound once at mount, so a
+        // lock set moments ago must not be read from a stale closure.
+        ...makeGradient(typeToUse, activeColorSet, lockedColorsRef.current, lockedPositionsRef.current),
         angle: feedSession.lockedAngle ?? defaultAngleForType(typeToUse)
       }
       history.push(fresh)
@@ -317,16 +326,30 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     function handleWheel(e: WheelEvent) {
       cancelMomentum()
       e.preventDefault()
-      
-      let dy = e.deltaY
-      if (e.deltaMode === 1) {
-        // DOM_DELTA_LINE
-        dy *= 20
-      } else if (e.deltaMode === 2) {
-        // DOM_DELTA_PAGE
-        dy *= 800
+
+      const scale = e.deltaMode === 1 ? 20 : e.deltaMode === 2 ? 800 : 1
+      const dy = e.deltaY * scale
+      const dx = e.deltaX * scale
+
+      // Horizontal-dominant wheel steps the shape, exactly as it does in the
+      // create feed. Accumulate per swipe segment and reset on a direction
+      // flip or a pause, so one flick steps once instead of racing the list.
+      if (Math.abs(dx) > Math.abs(dy)) {
+        if (Math.sign(dx) !== Math.sign(wheelXAccumRef.current)) wheelXAccumRef.current = 0
+        wheelXAccumRef.current += dx
+        if (wheelXResetTimerRef.current) clearTimeout(wheelXResetTimerRef.current)
+        if (Math.abs(wheelXAccumRef.current) >= SHAPE_STEP_PX) {
+          cycleShape(wheelXAccumRef.current > 0 ? 1 : -1)
+          wheelXAccumRef.current = 0
+        } else {
+          wheelXResetTimerRef.current = window.setTimeout(() => {
+            wheelXAccumRef.current = 0
+          }, 200)
+        }
+        return
       }
-      
+
+      wheelXAccumRef.current = 0
       accumulatedDeltaRef.current += dy
       consumeAccumulatedDelta()
     }
@@ -334,7 +357,13 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     function handleTouchStart(e: TouchEvent) {
       cancelMomentum()
       primeHaptics()
-      lastTouchYRef.current = e.touches[0]?.clientY ?? null
+      const touch = e.touches[0]
+      lastTouchYRef.current = touch?.clientY ?? null
+      lastTouchXRef.current = touch?.clientX ?? null
+      touchStartXRef.current = touch?.clientX ?? 0
+      touchStartYRef.current = touch?.clientY ?? 0
+      touchAxisRef.current = 'none'
+      touchShapeAccumRef.current = 0
       lastMoveTimeRef.current = performance.now()
       velocityRef.current = 0
     }
@@ -342,7 +371,35 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     function handleTouchMove(e: TouchEvent) {
       e.preventDefault()
       const touchY = e.touches[0]?.clientY
+      const touchX = e.touches[0]?.clientX
       const now = performance.now()
+
+      // Lock the gesture to whichever axis it commits to first — sideways
+      // steps the shape, up/down scrubs the rolodex, never both at once.
+      if (touchAxisRef.current === 'none' && touchX != null && touchY != null) {
+        const dxTotal = Math.abs(touchX - touchStartXRef.current)
+        const dyTotal = Math.abs(touchY - touchStartYRef.current)
+        if (Math.max(dxTotal, dyTotal) > 8) {
+          touchAxisRef.current = dxTotal > dyTotal ? 'h' : 'v'
+        }
+      }
+
+      if (touchAxisRef.current === 'h' && touchX != null) {
+        const prevX = lastTouchXRef.current ?? touchX
+        lastTouchXRef.current = touchX
+        touchShapeAccumRef.current += touchX - prevX
+        // Swipe left advances, matching ArrowRight.
+        while (touchShapeAccumRef.current <= -SHAPE_STEP_PX) {
+          touchShapeAccumRef.current += SHAPE_STEP_PX
+          cycleShape(1)
+        }
+        while (touchShapeAccumRef.current >= SHAPE_STEP_PX) {
+          touchShapeAccumRef.current -= SHAPE_STEP_PX
+          cycleShape(-1)
+        }
+        return
+      }
+
       if (touchY == null || lastTouchYRef.current == null) {
         lastTouchYRef.current = touchY ?? null
         lastMoveTimeRef.current = now
@@ -419,6 +476,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
 
     return () => {
       cancelMomentum()
+      if (wheelXResetTimerRef.current) clearTimeout(wheelXResetTimerRef.current)
       el.removeEventListener('wheel', handleWheel)
       el.removeEventListener('touchstart', handleTouchStart)
       el.removeEventListener('touchmove', handleTouchMove)
@@ -484,7 +542,14 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         // activate that button. 's' always saves (buttons don't type it).
         e.preventDefault()
         const state = useAppStore.getState()
-        if (state.current) state.toggleSaveGradient(state.current)
+        if (state.current) {
+          // Same flight the pill fires on click — see saveFlightOrigin. Only
+          // on the way IN, matching LikeButton: un-saving is a correction.
+          if (!state.isGradientSaved(state.current)) {
+            launchSaveFlight(state.current, saveFlightOrigin())
+          }
+          state.toggleSaveGradient(state.current)
+        }
       } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
         e.preventDefault()
         const currentGrad = useAppStore.getState().current
@@ -537,30 +602,40 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     }
   }, [])
 
+  // Auto re-spreading is for the DEFAULT state only. Once a stop has been
+  // dragged, or a colour pinned, the arrangement is something the user built
+  // and the app has no business rewriting it on the next add or delete —
+  // that's the "I moved a stop, deleted a colour, and lost my spacing" bug.
+  // Reset spacing (in the sheet) is how you deliberately go back.
+  const distributionLocked = positionsCustomized || Object.keys(lockedColors).length > 0
+
   function commit(
     nextStops: EditableStop[],
     overrides?: Partial<Pick<Gradient, 'type' | 'reversed'>>,
-    // keepPositions: the caller has already placed the stops and the ladder is
-    // the point (Order re-ranks colours across the placements the user set).
-    // Everything else — add, remove — changes the stop COUNT, where an even
-    // re-space is the only sane answer.
-    opts?: { fromSort?: boolean; keepPositions?: boolean }
+    opts?: { fromSort?: boolean; reorder?: boolean }
   ) {
-    const placed = opts?.keepPositions
-      ? nextStops.map((stop) => ({ hex: stop.hex, position: stop.position }))
-      : equalizePositions(nextStops)
-    setEditableStops(nextStops.map((stop, i) => ({ ...stop, position: placed[i].position })))
+    // Three different things can happen to positions here:
+    //   reorder  — same stops, new sequence: keep the ladder, re-pair colours
+    //              to it, so a sort or a canvas swap survives custom spacing.
+    //   locked   — count changed but the spacing is the user's: leave it be.
+    //   default  — count changed and nothing is customized: re-spread evenly.
+    const spaced = opts?.reorder
+      ? reassignPositions(nextStops)
+      : distributionLocked
+        ? nextStops
+        : equalizeEditableStops(nextStops, lockedPositions)
+    setEditableStops(spaced)
     if (!opts?.fromSort) {
-      unsortedOrderRef.current = nextStops.map((s) => s.id)
+      unsortedOrderRef.current = spaced.map((s) => s.id)
       setActiveOrder('original')
     }
     const nextGrad: Gradient = {
       ...gradient,
       ...overrides,
-      // Sorted by position, because a CSS gradient reads its stops in order and
-      // silently clamps any that go backwards — and a re-ranked palette is in
-      // colour order, not position order.
-      stops: [...placed].sort((a, b) => a.position - b.position),
+      // toGradientStops sorts by position, because a CSS gradient reads its
+      // stops in order and silently clamps any that go backwards — and a
+      // re-ranked palette is in colour order, not position order.
+      stops: toGradientStops(spaced),
     }
     if (isDraggingRef.current) {
       pendingGradientRef.current = nextGrad
@@ -587,6 +662,14 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     if (editableStops.length <= 2) return
     if (activeStopId === id) {
       setActiveStopId(null)
+    }
+    // Locks are keyed by index, so removing a stop has to close the gap —
+    // otherwise every pin above the removed one starts holding the wrong
+    // color.
+    const index = editableStops.findIndex((s) => s.id === id)
+    if (index !== -1) {
+      releaseColorLockAt(index)
+      releasePositionLockAt(index)
     }
     commit(removeStopAt(editableStops, id))
   }
@@ -644,93 +727,91 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     const nextStops = editableStops.map((s) => (s.id === id ? { ...s, hex } : s))
     setEditableStops(nextStops)
     setCurrentGradient({ ...gradient, stops: toGradientStops(nextStops) })
+    // If this stop is pinned, the pin follows the edit. Otherwise the next
+    // scroll would restore the OLD locked color and quietly undo what the
+    // user just typed.
+    const index = nextStops.findIndex((s) => s.id === id)
+    if (index !== -1) syncColorLock(index, hex)
   }
 
-  // Fired when the native color picker commits. Either recolors the tapped
-  // stop or appends a new explicit color, per whatever opened the picker.
-  function handleColorPicked(hex: string) {
-    const target = colorTargetRef.current
-    if (!target) return
-    if (target.mode === 'recolor') {
-      recolorStop(target.id, hex)
-    } else {
-      // The native color input fires change events continuously while the user
-      // drags inside the picker. Append exactly one stop on the first event,
-      // then live-recolor that same stop for the rest of the interaction, so a
-      // single pick can't spam a pile of near-identical stops.
-      const next = addStop(editableStops, hex)
-      const added = next[next.length - 1]
-      commit(next)
-      colorTargetRef.current = { mode: 'recolor', id: added.id }
-    }
+  function handleToggleColorLock(index: number, hex: string) {
+    toggleColorLock(index, hex)
   }
 
-  function handleAddColorAt(position: number) {
-    if (editableStops.length >= 8) return
-    // Sample color from nearest stop (or interpolate in the future)
+  function handleTogglePositionLock(index: number, position: number) {
+    togglePositionLock(index, position)
+  }
+
+  /** Typing a percentage in the Colors list. Same path as dragging the handle,
+   * so it marks the spacing customized and carries any pin with it. */
+  function handleReposition(id: string, position: number) {
+    handleMoveStop(id, position)
+  }
+
+  /** Seed for a new stop: the color of whichever existing stop sits at or
+   * before `position`, so an added stop starts as a neighbour rather than as
+   * a white slab through the middle of the gradient. */
+  function seedHexAt(position: number): string {
     const sorted = [...editableStops].sort((a, b) => a.position - b.position)
-    let seed = '#ffffff'
+    if (sorted.length === 0) return '#ffffff'
+    let seed = sorted[sorted.length - 1].hex
     for (let i = 0; i < sorted.length; i++) {
       if (sorted[i].position >= position) {
         seed = sorted[Math.max(0, i - 1)].hex
         break
       }
-      if (i === sorted.length - 1) {
-        seed = sorted[i].hex
-      }
     }
-    
-    const newStop = { id: Math.random().toString(36).slice(2), hex: seed, position }
-    const next = [...editableStops, newStop]
-    setEditableStops(next)
-    setActiveStopId(newStop.id)
-    colorTargetRef.current = { mode: 'recolor', id: newStop.id }
-    
-    const input = colorInputRef.current
-    if (input) {
-      input.value = seed
-      openColorPicker(input, blockContainerRef.current, position)
-    }
+    return seed
   }
 
-  // Order re-ranks the COLOURS and leaves the placements alone.
-  //
-  // It used to go through commit's equalizePositions, which assigns positions
-  // by array index — so re-ranking a palette whose stops had been dragged into
-  // place threw that placement away and re-spaced everything evenly. Two
-  // independent things were welded together: which colour comes first, and
-  // where the stops sit. The ladder is now carried across the sort.
+  function handleAddColorAt(position: number) {
+    if (editableStops.length >= MAX_STOPS) return
+    const newStop = { id: crypto.randomUUID(), hex: seedHexAt(position), position }
+    const next = [...editableStops, newStop]
+    setEditableStops(next)
+    setCurrentGradient({ ...gradient, stops: toGradientStops(next) })
+    // Selecting it scrolls the Colors list to its row, which is where the new
+    // stop gets its actual color. Tapping the track used to open the OS picker
+    // instead — on desktop that opened in a corner of the screen nowhere near
+    // where you clicked.
+    setActiveStopId(newStop.id)
+  }
+
+  /** The Colors list's own "+ Add": no click position to work from, so it
+   * lands in the widest gap, the same rule the swatch tray used. */
+  function handleAddColor() {
+    if (editableStops.length >= MAX_STOPS) return
+    const next = addStop(editableStops, editableStops[editableStops.length - 1]?.hex ?? '#ffffff')
+    const added = next[next.length - 1]
+    commit(next)
+    setActiveStopId(added.id)
+  }
+
+  // Order re-ranks the COLOURS and leaves the placements alone: commit's
+  // `reorder` option re-pairs the new colour sequence to the existing sorted
+  // ladder instead of re-spacing evenly, so a sort or a canvas-handle swap
+  // survives custom spacing.
   function handleSortCycle() {
     const next = ORDER_CYCLE[(ORDER_CYCLE.indexOf(activeOrder) + 1) % ORDER_CYCLE.length]
-    const ladder = stopLayout(editableStops)
     if (next === 'original') {
       const orderIndex = new Map(unsortedOrderRef.current.map((id, i) => [id, i]))
       const restored = [...editableStops].sort(
         (a, b) => (orderIndex.get(a.id) ?? Infinity) - (orderIndex.get(b.id) ?? Infinity)
       )
-      commit(applyToLayout(restored, ladder), undefined, { fromSort: true, keepPositions: true })
+      commit(restored, undefined, { fromSort: true, reorder: true })
     } else {
-      commit(
-        applyToLayout(sortByOklch(editableStops, (s) => s.hex, next), ladder),
-        undefined,
-        { fromSort: true, keepPositions: true },
-      )
+      commit(sortByOklch(editableStops, (s) => s.hex, next), undefined, { fromSort: true, reorder: true })
     }
     setActiveOrder(next)
   }
 
-  // Tapping a stop opens the OS color picker seeded with its current hex, so a
-  // specific color can be dialed in when the rolodex hasn't surfaced it.
+  // Tapping a stop selects it, which highlights and scrolls to its row in the
+  // Colors list — where the swatch, the hex field and the lock live. It used
+  // to fire a hidden `<input type="color">.click()`; see ColorList for why
+  // that put the OS picker in the wrong corner of a desktop screen.
   function handleTapStop(id: string) {
-    const stop = editableStops.find((s) => s.id === id)
-    if (!stop) return
+    if (!editableStops.some((s) => s.id === id)) return
     setActiveStopId(id)
-    colorTargetRef.current = { mode: 'recolor', id }
-    const input = colorInputRef.current
-    if (input) {
-      input.value = stop.hex
-      openColorPicker(input, blockContainerRef.current, stop.position)
-    }
   }
 
   // Exit-on-tap for the preview, with two guards: taps on child buttons
@@ -769,14 +850,46 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     setCanvasCursor(null)
   }
 
+  // Built from the COMMITTED stops, not `animatedStops`: the copy box must not
+  // churn through interpolation frames while a reorder crossfades, and what
+  // you copy has to be the palette, not a moment inside a transition.
+  const cssSnippet = gradientCssSnippet(gradient, toGradientStops(editableStops))
+
   function handleMoveStop(id: string, position: number) {
     const nextStops = moveStop(editableStops, id, position)
     setEditableStops(nextStops)
+    // The one gesture that means "this spacing is mine now".
+    setPositionsCustomized(true)
+    // A pinned stop's pin follows the handle, exactly as a pinned colour
+    // follows an edit — otherwise the next roll would snap it back and the
+    // drag would look like it had been rejected.
+    const movedIndex = nextStops.findIndex((s) => s.id === id)
+    if (movedIndex !== -1) syncPositionLock(movedIndex, Math.round(nextStops[movedIndex].position))
     setCurrentGradient({
       ...gradient,
       stops: toGradientStops(nextStops),
     })
   }
+
+  /** Puts the stops back on the even ladder and hands automatic re-spreading
+   * back to the app. The deliberate counterpart to never re-spreading behind
+   * the user's back. */
+  function handleResetDistribution() {
+    // Pinned positions survive the reset — that is what pinning one is for.
+    const even = equalizeEditableStops(editableStops, lockedPositions)
+    setEditableStops(even)
+    setPositionsCustomized(false)
+    setCurrentGradient({ ...gradient, stops: toGradientStops(even) })
+  }
+
+  // Offered only when it would actually do something. Pinning a colour also
+  // locks the distribution, and a Reset button that changes nothing visible is
+  // worse than no button.
+  // With a position pinned, Reset spacing always has something to do (put the
+  // UNPINNED stops back on the ladder), so it stays available rather than
+  // hiding the moment the arrangement happens to look even.
+  const evenlySpaced =
+    Object.keys(lockedPositions).length === 0 && isEvenlyDistributed(editableStops)
 
   return (
     <div data-testid="edit-mode" className={styles.container} onPointerDown={() => editHint.dismiss()}>
@@ -784,8 +897,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         type="button"
         data-testid="edit-mode-back"
         aria-label="Back"
-        className={[styles.backButton, 'ghost-chip', chromeHidden && styles.hidden].filter(Boolean).join(' ')}
-        style={{ color: backColor }}
+        className={[styles.backButton, MEDIA_ICON, chromeHidden && styles.hidden].filter(Boolean).join(' ')}
         onClick={onExit}
       >
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -797,7 +909,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         current={gradient}
         onImport={onImport}
         chromeVisible={!chromeHidden}
-        color={shareColor}
+        position="editor"
       />
       <div
         data-testid="edit-mode-preview"
@@ -841,19 +953,14 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           hidden={chromeHidden}
           color={titleColor}
         />
-        {/* Grain used to float here as its own round button. It is an effect
-            like Repeat/Smooth/Hard, and having one of the effects live in a
-            different corner meant the Effect tab was not, in fact, the list of
-            effects — so it moved into that tab. */}
-
-        {/* Save lives on the gradient itself (bottom-right, above grain) on
-            every screen size — the same spot and pill as the create feed —
-            instead of a full-width button inside the sheet. */}
+        {/* Save lives on the gradient itself (bottom-right) on every screen
+            size — the same spot and pill as the create feed — instead of a
+            full-width button inside the sheet. */}
         <LikeButton
           liked={isGradientSaved}
           onToggle={() => toggleSaveGradient(gradient)}
           hidden={chromeHidden}
-          color={cornerColor}
+          gradient={gradient}
         />
         <CanvasHandles
           stops={editableStops}
@@ -865,7 +972,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           cursor={canvasCursor}
           size={canvasSize}
           hidden={scrolling}
-          onReorder={(next) => commit(next)}
+          onReorder={(next) => commit(next, undefined, { reorder: true })}
           onDraggingChange={(dragging) => {
             const wasDragging = isDraggingRef.current
             isDraggingRef.current = dragging
@@ -931,43 +1038,47 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
             GeometryTabs — which also gives the mobile preview back the 91px
             this row cost. Only the hint is left. */}
         <div className={styles.stopActions}>
-          <span className={styles.stopHint}>Tap to add · drag down to remove</span>
-          <button
-            type="button"
-            data-testid="filter-stop-lock"
-            aria-pressed={lockedStopLayout !== null}
-            aria-label={
-              lockedStopLayout !== null
-                ? `Stops locked to ${editableStops.length}, in their current places. Tap to unlock`
-                : `Stops unlocked. Tap to lock to ${editableStops.length}, in their current places`
-            }
-            className={lockedStopLayout !== null ? styles.stopLockOn : styles.stopLock}
-            onClick={() =>
-              setLockedStopLayout(lockedStopLayout === null ? stopLayout(editableStops) : null)
-            }
-          >
-            {lockedStopLayout !== null ? `Stops: ${editableStops.length} locked` : 'Stops: any'}
-          </button>
+          <span className={styles.stopHint}>Tap a blank spot to add · drag down to remove</span>
+          {/* Only when the spacing has actually drifted off the even ladder —
+              this is the escape hatch for the "stop re-spreading my stops"
+              rule, not a permanent control. */}
+          {!evenlySpaced && (
+            <button
+              type="button"
+              data-testid="reset-distribution"
+              className={`lds-chip ${styles.resetButton}`}
+              onClick={handleResetDistribution}
+            >
+              Reset spacing
+            </button>
+          )}
         </div>
+        {/* The palette, readable. Below the flow editor because the editor is
+            the spatial view (where each color sits) and this is the literal
+            one (what each color IS). */}
+        <ColorList
+          stops={editableStops}
+          lockedColors={lockedColors}
+          lockedPositions={lockedPositions}
+          onRecolor={recolorStop}
+          onReposition={handleReposition}
+          onToggleLock={handleToggleColorLock}
+          onTogglePositionLock={handleTogglePositionLock}
+          onRemove={handleRemove}
+          onAdd={handleAddColor}
+          cssText={cssSnippet}
+          activeStopId={activeStopId}
+          onSelect={setActiveStopId}
+        />
         {/* Keyboard hints live in the panel (desktop only, hidden on touch via
             the component's own media query) rather than floating on the canvas. */}
         <div>
           <ShortcutHints items={EDIT_SHORTCUTS} placement="inline" color="currentColor" />
         </div>
-        {/* Off-screen native picker, opened programmatically from a stop tap or
-            the Add color button — the explicit-color path that replaces the
-            swatch tray. */}
-        <input
-          ref={colorInputRef}
-          type="color"
-          aria-hidden="true"
-          tabIndex={-1}
-          data-testid="color-input"
-          className={styles.colorInput}
-          onChange={(e) => handleColorPicked(e.target.value)}
-        />
       </div>
-      {!chromeHidden && editHint.visible && <Hint text="Tap a color to recolor" visible={editHint.visible && !chromeHidden} />}
+      {/* "Recolor" was the old promise: tapping a stop fired the OS picker.
+          It now selects the stop and takes you to its row in the Colors list. */}
+      {!chromeHidden && editHint.visible && <Hint text="Tap a color to select it" visible={editHint.visible && !chromeHidden} />}
     </div>
   )
 }

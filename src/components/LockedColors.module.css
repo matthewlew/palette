@@ -1,0 +1,47 @@
+/* Top-left, one row below the back chevron. Position only — the surface is
+   the shared .ghost-chip, so it reads as part of the same set of controls.
+
+   Deliberately NOT in the bottom-left column with the Edit button: that column
+   is touch-only (the edit FAB is hidden where there's a keyboard, and the
+   shortcut strip takes its place), so anything stacked there would need two
+   different offsets for the same corner. The top-left row is empty on every
+   breakpoint. */
+.chip {
+  position: absolute;
+  top: calc(70px + var(--safe-t));
+  left: var(--edge-l);
+  z-index: 3;
+  /* Shorter than a standalone control: this is a status readout you can act
+     on, not a primary action, and it must not compete with the back chevron
+     directly above it. */
+  height: 32px;
+  min-width: 0;
+  gap: 6px;
+  padding: 0 10px;
+  transition: opacity 200ms ease;
+}
+
+.swatches {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Position pins have nothing to swatch, so they read as a count. */
+.positionCount {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-caption);
+  opacity: 0.85;
+}

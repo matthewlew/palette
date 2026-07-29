@@ -268,8 +268,31 @@ export function CanvasHandles({
       }
     }
     if (type === 'linear' || type === 'mirror') {
-      // Handles live on the center line (matching stopAnchor's x=0.5); a drag
-      // slides vertically and stays centered.
+      // Rotated: the colour axis is not vertical, so neither is the track.
+      //
+      // stopAnchor places a linear stop at `applyRotation({x: 0.5, y: p},
+      // angle)`, i.e. along the direction (-sin, cos) through the canvas
+      // centre in NORMALIZED space. Projecting the drag onto a fixed vertical
+      // instead meant a handle on a 45 degree gradient slid straight down
+      // while its siblings sat on a diagonal — the dot left the track it was
+      // supposed to be riding.
+      //
+      // Normalized, not pixels: the anchors are placed as (a.x·width,
+      // a.y·height), so a projection done in pixel space would follow a
+      // different diagonal on any non-square canvas.
+      if (angle) {
+        const rad = (angle * Math.PI) / 180
+        const dx = -Math.sin(rad)
+        const dy = Math.cos(rad)
+        const nx = pt.x / size.width - 0.5
+        const ny = pt.y / size.height - 0.5
+        // Clamped to the half-extent the axis actually spans (p runs 0..1
+        // about the centre), so a drag past the end parks at the end.
+        const t = Math.min(0.5, Math.max(-0.5, nx * dx + ny * dy))
+        return { x: (0.5 + dx * t) * size.width, y: (0.5 + dy * t) * size.height }
+      }
+      // Unrotated: handles live on the centre line (stopAnchor's x=0.5), so a
+      // drag slides vertically and stays centred.
       return { x: cx, y: pt.y }
     }
     if (type === 'angular') {

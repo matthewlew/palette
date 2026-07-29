@@ -39,4 +39,33 @@ describe('namePalette', () => {
   it('throws on an empty hex list', () => {
     expect(() => namePalette([])).toThrow()
   })
+
+  it('avoids names already taken', () => {
+    const hexes = ['#ff0000', '#0000ff', '#ffff00']
+    const first = namePalette(hexes)
+    const second = namePalette(hexes, { taken: [first] })
+    expect(second).not.toBe(first)
+    // Case-insensitive: a hand-renamed palette shouldn't collide on casing.
+    const third = namePalette(hexes, { taken: [first.toUpperCase(), second] })
+    expect(third).not.toBe(first)
+    expect(third).not.toBe(second)
+  })
+
+  it('leaves an uncollided name exactly as it was', () => {
+    // Share links and stored rows depend on a palette naming itself the same
+    // way whether or not a board was passed in.
+    const hexes = ['#123456', '#abcdef']
+    expect(namePalette(hexes, { taken: ['Something Else'] })).toBe(namePalette(hexes))
+  })
+
+  it('keeps names distinct across a board-sized run of palettes', () => {
+    const taken: string[] = []
+    for (let i = 0; i < 120; i++) {
+      const hexes = [1, 2, 3].map(
+        (n) => `#${(((i + 7) * n * 2654435 + n * 91) % 16777216).toString(16).padStart(6, '0')}`
+      )
+      taken.push(namePalette(hexes, { taken }))
+    }
+    expect(new Set(taken).size).toBe(taken.length)
+  })
 })

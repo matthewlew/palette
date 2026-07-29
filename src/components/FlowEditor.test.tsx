@@ -50,11 +50,16 @@ describe('FlowEditor', () => {
     expect(onMove).toHaveBeenCalledWith('b', 60)
   })
 
-  it('positions handles horizontally via left%', () => {
+  it('positions handles horizontally, inset from both edges', () => {
+    // Not a bare `50%`: positions are mapped through a 20px inset on each side
+    // so the end handles keep their whole 28px dot clear of the viewport edge
+    // (and out of the browser's back-swipe gutter). The gradient fill uses the
+    // same mapping, so a handle still sits on the color it marks.
     render(<FlowEditor stops={stops} onMove={vi.fn()} onTapStop={vi.fn()} />)
-    const handle = screen.getByLabelText('Stop #00ff00')
-    expect(handle.style.left).toBe('50%')
-    expect(handle.style.top).toBe('')
+    expect(screen.getByLabelText('Stop #ff0000').style.left).toBe('calc(20px + 0 * (100% - 40px))')
+    expect(screen.getByLabelText('Stop #00ff00').style.left).toBe('calc(20px + 0.5 * (100% - 40px))')
+    expect(screen.getByLabelText('Stop #0000ff').style.left).toBe('calc(20px + 1 * (100% - 40px))')
+    expect(screen.getByLabelText('Stop #00ff00').style.top).toBe('')
   })
 
   it('sets aria-orientation="horizontal" on every handle', () => {

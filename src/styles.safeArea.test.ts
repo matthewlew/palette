@@ -73,7 +73,6 @@ describe('safe-area handling', () => {
       ['src/components/EditMode.module.css', '--edge-l'],
       ['src/components/GradientPage.module.css', '--edge-l'],
       ['src/components/LikeButton.module.css', '--edge-r'],
-      ['src/components/GrainButton.module.css', '--edge-r'],
       ['src/components/PlayButton.module.css', '--edge-r'],
       ['src/components/BoardShare.module.css', '--edge-r'],
       ['src/components/Gallery.module.css', '--edge-l'],

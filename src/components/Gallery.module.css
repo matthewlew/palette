@@ -625,6 +625,13 @@
   gap: 10px;
 }
 
+/* "✓ Saved" is a status, not a control: same chip so the row keeps one
+   rhythm, dimmed ink and no pointer so it doesn't read as pressable. */
+.viewerSavedNote {
+  color: rgba(255, 255, 255, 0.55);
+  cursor: default;
+}
+
 
 
 
@@ -915,10 +922,15 @@
   }
 }
 
+/* No scrim and no blur: the actions carry their own surface (see .tileHoverBtn
+   below), so darkening the whole thumbnail to hold them was never doing any
+   legibility work — it was hiding the artwork you are hovering in order to
+   look at. It also had to be animated away on every tap, one more moving
+   layer under a zoom that is already moving the tile itself. Only the buttons
+   fade now. */
 .tileHoverOverlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
   display: flex;
   /* Anchored to the bottom of the thumbnail rather than centered, so Delete
      sits away from where the eye/cursor lands on the tile — reduces the odds
@@ -930,8 +942,6 @@
   opacity: 0;
   transition: opacity 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
   pointer-events: none;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
 }
 
 @media (hover: hover) {

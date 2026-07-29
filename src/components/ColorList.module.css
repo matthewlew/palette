@@ -1,0 +1,298 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 12px 0;
+  text-align: left;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Matches GeometryTabs' .sectionHeading so the sheet reads as one panel of
+   sections rather than a stack of differently-titled widgets. */
+.heading {
+  margin: 0;
+  font-family: var(--th-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-subdued);
+}
+
+.addButton {
+  min-height: 26px;
+  padding: 0 12px;
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--th-body);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.addButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  border-color: var(--text-subdued);
+}
+
+.addButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  /* Eight stops is the ceiling; past about five rows the mobile sheet would
+     push the flow editor off screen, so the list scrolls inside itself. */
+  max-height: 216px;
+  overflow-y: auto;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  /* Tight, because the row now carries seven controls (swatch, hex, position,
+     two locks, copy, remove) inside a 340px panel. */
+  gap: 4px;
+  padding: 3px 2px;
+  border-radius: var(--radius-base);
+  border: 1px solid transparent;
+}
+
+.row:hover {
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+}
+
+/* The selection shared with the canvas handles and the flow editor. */
+.rowActive {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  border-color: var(--border);
+}
+
+/* A native colour input styled down to a plain swatch. The default control is
+   a bordered button with inset padding, so the colour itself ends up a small
+   rectangle floating inside chrome — these three ::-webkit rules strip that
+   back to the colour and nothing else. */
+.swatch {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--text) 25%, transparent);
+  border-radius: var(--radius-sm);
+  background: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.swatch::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.swatch::-webkit-color-swatch {
+  border: none;
+  border-radius: 3px;
+}
+
+.swatch::-moz-color-swatch {
+  border: none;
+  border-radius: 3px;
+}
+
+.hex {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* Tabular figures so the codes form a column and can be compared at a
+     glance — the reason for showing them at all. */
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+.hex:hover {
+  border-color: var(--border);
+}
+
+.hex:focus {
+  outline: none;
+  border-color: var(--text-subdued);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+/* The stop's percentage. Fixed width with the unit as a static suffix, so the
+   number never reflows the row as it goes 5 -> 50 -> 100. */
+.positionWrap {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding-right: 4px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+}
+
+.positionWrap:hover {
+  border-color: var(--border);
+}
+
+.positionWrap:focus-within {
+  border-color: var(--text-subdued);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.position {
+  /* Fits "100" at the 16px the coarse-pointer floor forces on every field. */
+  width: 30px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  text-align: right;
+}
+
+.position:focus {
+  outline: none;
+}
+
+.positionUnit {
+  color: var(--text-subdued);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  padding-left: 1px;
+}
+
+.iconButton {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-subdued);
+  cursor: pointer;
+  transition: color 150ms ease, background 150ms ease, border-color 150ms ease;
+}
+
+/* The visible box is 26px so the row stays compact, but the TAP target is the
+   44px minimum — the same ::after expansion the chips use elsewhere. */
+.iconButton::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: var(--control-tap);
+  height: var(--control-tap);
+}
+
+.iconButton:hover:not(:disabled) {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+}
+
+.iconButton:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Locked. A pinned colour is a standing instruction to the generator, so it
+   is the one state in this row that stays lit rather than only on hover. */
+.iconButtonOn {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 14%, transparent);
+  border-color: var(--border);
+}
+
+.cssBlock {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 4px;
+}
+
+.cssLabel {
+  font-family: var(--th-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-subdued);
+}
+
+.cssArea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: none;
+  padding: 8px 8px 30px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-base);
+  background: color-mix(in srgb, var(--c-950) 60%, transparent);
+  color: var(--text-subdued);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.45;
+  /* Wrapping matters: a gradient with six stops is a long single line, and a
+     horizontally-scrolling box hides most of what you came to read. */
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.cssArea:focus {
+  outline: none;
+  border-color: var(--text-subdued);
+  color: var(--text);
+}
+
+/* Sits inside the box's reserved bottom padding rather than under it — the
+   sheet has no vertical room to spare, especially on mobile. */
+.copyCss {
+  position: absolute;
+  right: 6px;
+  bottom: 10px;
+  min-height: 22px;
+  padding: 0 10px;
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--text);
+  font-family: var(--th-body);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.copyCss:hover {
+  background: color-mix(in srgb, var(--text) 10%, var(--background));
+}

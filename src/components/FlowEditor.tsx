@@ -6,8 +6,30 @@ const TAP_MOVEMENT_THRESHOLD_PX = 6
 const REMOVE_DISTANCE_PX = 56
 
 // How close to a screen edge a touch has to start for iOS to claim it for its
-// back/forward navigation. Only touches in this band need cancelling.
+// back/forward navigation. Only touches in this band need cancelling — see
+// the touchstart/touchmove listeners below, which are the belt to
+// EDGE_INSET_PX's suspenders.
 const EDGE_SWIPE_PX = 30
+
+/**
+ * How far in from the track's edges position 0 and position 100 actually sit.
+ *
+ * The handles are 28px circles centred on their position, so at 0% and 100%
+ * half the dot used to hang outside the track — and with the track only 16px
+ * from the sheet edge, that put the first and last dots ~2px from the edge of
+ * a phone screen. That is inside the browser's back-swipe gutter: grabbing the
+ * end stop navigated the page back instead of dragging.
+ *
+ * Bigger than the 14px radius so the dot clears the gutter rather than merely
+ * touching it. The whole track — gradient fill and handles alike — is mapped
+ * through this inset, so a handle still sits exactly on the colour it marks.
+ */
+const EDGE_INSET_PX = 20
+
+/** Maps a 0-100 stop position to a CSS length inside the inset track. */
+function trackOffset(position: number): string {
+  return `calc(${EDGE_INSET_PX}px + (100% - ${EDGE_INSET_PX * 2}px) * ${position / 100})`
+}
 
 interface FlowEditorProps {
   stops: EditableStop[]
@@ -27,16 +49,19 @@ export function FlowEditor({ stops, onMove, onTapStop, onRemoveStop, onAddStopAt
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [removeCandidateId, setRemoveCandidateId] = useState<string | null>(null)
 
-  // Horizontal strip: left-to-right mirrors the stop positions 0-100.
+  // Horizontal strip: left-to-right mirrors the stop positions 0-100, through
+  // the same inset the handles use so the fill stays under its dots.
   const gradientCss = `linear-gradient(90deg, ${toGradientStops(stops)
-    .map((s) => `${s.hex} ${s.position}%`)
+    .map((s) => `${s.hex} ${trackOffset(s.position)}`)
     .join(', ')})`
 
   function positionFromClientX(clientX: number): number {
     const el = trackRef.current
     if (!el) return 0
     const rect = el.getBoundingClientRect()
-    const raw = ((clientX - rect.left) / rect.width) * 100
+    const span = rect.width - EDGE_INSET_PX * 2
+    if (span <= 0) return 0
+    const raw = ((clientX - rect.left - EDGE_INSET_PX) / span) * 100
     return Math.min(100, Math.max(0, raw))
   }
 
@@ -167,8 +192,8 @@ export function FlowEditor({ stops, onMove, onTapStop, onRemoveStop, onAddStopAt
           data-testid="flow-handle"
           className={stop.id === activeStopId ? `${styles.handle} ${styles.handleActive}` : styles.handle}
           style={{
-            left: `${stop.position}%`,
-            transition: draggingId === stop.id ? 'none' : 'left 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.2s, background-color 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)',
+            left: trackOffset(stop.position),
+            transition: draggingId === stop.id ? 'none' : 'left 0.4s var(--ease-standard), transform 0.2s, background-color 0.4s var(--ease-standard)',
             backgroundColor: stop.hex,
             opacity: removeCandidateId === stop.id ? 0.35 : 1,
             transform: removeCandidateId === stop.id

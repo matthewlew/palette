@@ -1,3 +1,4 @@
+import { MEDIA_ICON, MEDIA_ON } from '../lib/mediaChrome'
 import styles from './PlayButton.module.css'
 
 interface PlayButtonProps {
@@ -5,24 +6,21 @@ interface PlayButtonProps {
   onToggle: () => void
   /** Fades the button out alongside the rest of the chrome. */
   hidden?: boolean
-  /** Palette-derived foreground (same strategy as the title). */
-  color?: string
   /** False when every stop is too close to a neighbour to have room to move. */
   available?: boolean
 }
 
-/** Round toggle for the ambient stop drift, stacked above the grain button. */
+/** Round toggle for the ambient stop drift, above the save pill. */
 export function PlayButton({
   playing,
   onToggle,
   hidden = false,
-  color = '#ffffff',
   available = true,
 }: PlayButtonProps) {
   const className = [
     styles.playButton,
-    'ghost-chip',
-    playing && 'ghost-chip-active',
+    MEDIA_ICON,
+    playing && MEDIA_ON,
     hidden && styles.hidden,
   ]
     .filter(Boolean)
@@ -37,7 +35,6 @@ export function PlayButton({
       disabled={!available}
       title={available ? undefined : 'These stops sit too close together to animate'}
       className={className}
-      style={{ color }}
       onPointerDown={(e) => e.stopPropagation()}
       onPointerUp={(e) => e.stopPropagation()}
       onClick={(e) => {

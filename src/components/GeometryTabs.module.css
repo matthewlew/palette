@@ -28,10 +28,11 @@
   background: transparent;
   color: var(--text-subdued);
   font-family: var(--th-body);
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--text-body);
+  font-weight: var(--weight-semibold);
   cursor: pointer;
-  transition: background 150ms ease, color 150ms ease;
+  transition: background var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard);
 }
 
 .sectionTabActive {
@@ -45,9 +46,9 @@
   display: none;
   margin: 0 0 8px;
   font-family: var(--th-body);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  font-size: var(--text-caption);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-widest);
   text-transform: uppercase;
   color: var(--text-subdued);
 }
@@ -112,10 +113,19 @@
   }
 }
 
+/* minmax(0, 1fr), NOT 1fr.
+ *
+ * A bare `1fr` is `minmax(auto, 1fr)`, so the widest nowrap item in a column
+ * raises that column's floor and the other two shrink to pay for it. The Order
+ * chip's label changes width every time you tap it ("Order: Original" ->
+ * "Order: Hue"), so cycling the sort visibly resized the entire chip grid and
+ * shoved Repeat/Smooth/Hard sideways — the control moving under your finger
+ * between taps. Pinning the floor to 0 makes the three columns exactly equal
+ * whatever the labels say. */
 .tabs,
 .filters {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: stretch;
   gap: 8px;
 }
@@ -132,9 +142,11 @@
   border: 1px solid var(--border, rgba(255, 255, 255, 0.18));
   background: transparent;
   color: var(--text-subdued);
-  font-size: 12px;
+  font-size: var(--size-1);
   cursor: pointer;
-  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+  transition: background var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard),
+    border-color var(--dur-fast) var(--ease-standard);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -153,41 +165,73 @@
   font-weight: 600;
 }
 
+/* Layout delta only — the chip itself is `.lds-chip` (+ `.lds-chip--selected`
+   when on), which owns the pill, the hairline, the hover/pressed steps and the
+   type. What LDS deliberately leaves open is size: its chip is a compact
+   inline tag, and palette's rule is that anything in the sheet is at least one
+   tap target tall. --target-min is the theme's own name for that number.
+
+   min-width: 0 lets the grid cell shrink below its content, which is the other
+   half of the minmax(0, 1fr) fix above; the ellipsis is the backstop if a
+   future label really is too long for a third of a narrow sheet. */
 .filter {
-  flex: 0 0 auto;
   width: 100%;
-  min-height: 44px;
-  padding: 0 4px;
-  border-radius: var(--pill);
-  border: 1px solid var(--border, rgba(255, 255, 255, 0.18));
-  background: transparent;
-  color: var(--text-subdued);
-  font-size: 13px;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+  min-width: 0;
+  min-height: var(--target-min);
+  justify-content: center;
+  gap: 8px;
+  padding: 0 10px;
+  font-size: var(--text-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.filter:hover:not(:disabled) {
-  color: var(--text);
+/* Two columns for the Effect chips on the side panel, three everywhere else.
+   The panel is a fixed 340px, so a third of it is ~98px of content box — and
+   "Order: Original" needs 108px at 13px, i.e. the longest label was
+   ellipsizing inside its pill. The phone sheet is WIDER per column (117px at
+   390px) and keeps its 3-up row.
+
+   Shape stays 3-up on the panel either way: its labels are one short word.
+
+   AFTER the `.tabs, .filters` base rule on purpose — same specificity, so
+   source order decides, and the earlier `min-width: 768px` block up top would
+   have lost silently. */
+@media (min-width: 768px) {
+  .filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
-.filterActive {
-  composes: filter;
-  background: var(--text);
-  border-color: var(--text);
-  color: var(--c-950);
-  font-weight: 600;
+/* Keyboard-shortcut badge on a chip whose action also has a hotkey. Same
+   recipe as ShortcutHints' .key so the two read as one convention. */
+.shortcutKey {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+  color: currentColor;
+  opacity: 0.6;
+  font-family: var(--th-mono);
+  font-size: 10px;
+  line-height: 1;
 }
 
-.filterActive:hover:not(:disabled) {
-  color: var(--c-950);
+/* No keyboard, no key badge — matching ShortcutHints' own query. */
+@media (pointer: coarse), (max-width: 767px) {
+  .shortcutKey {
+    display: none;
+  }
 }
 
 .tab:disabled,
 .tabActive:disabled,
-.filter:disabled,
-.filterActive:disabled {
+.filter:disabled {
   opacity: 0.35;
   cursor: not-allowed;
 }
@@ -240,7 +284,7 @@
   .tab,
   .tabActive {
     padding: 4px 2px 6px;
-    font-size: 11px;
+    font-size: var(--text-caption);
   }
 
   .tabInner {
@@ -274,9 +318,9 @@
     justify-content: center;
   }
 
-  .filter,
-  .filterActive {
+  .filter {
     min-height: 40px;
-    font-size: 12px;
+    font-size: var(--size-1);
+    padding: 0 8px;
   }
 }

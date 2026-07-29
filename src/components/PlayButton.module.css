@@ -1,5 +1,6 @@
-/* Position only — the visual recipe is the global .ghost-chip. Third in the
-   bottom-right stack: save (16), grain (72), play (128). */
+/* Position only — the visual recipe is the global .ghost-chip. Second in the
+   bottom-right stack: save (16), play (72). Grain used to sit between them;
+   it is an effect chip in the edit sheet now, so the stack closed up. */
 .playButton {
   /* Own transition group. Everything in this corner sits inside an element
      carrying `view-transition-name: palette-card`, and an unnamed descendant is
@@ -9,7 +10,7 @@
      group and it morphs in place. Same fix as palette-title and edit-fab. */
   view-transition-name: play-button;
   position: absolute;
-  bottom: calc(128px + var(--safe-b));
+  bottom: calc(72px + var(--safe-b));
   right: var(--edge-r);
   z-index: 3;
   width: 44px;

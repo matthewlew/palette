@@ -1,6 +1,6 @@
 import { hexToOklch } from './oklch'
-import type { HueFamily, LightnessBand, Mood } from './namingWords'
-import { COLOR_NOUNS, PLACE_THINGS, MODIFIERS } from './namingWords'
+import type { HueFamily, LightnessBand, Mood, PlaceThing } from './namingWords'
+import { COLOR_NOUNS, PLACE_THINGS, REFERENCES, MODIFIERS } from './namingWords'
 
 function hueFamily(h: number, c: number): HueFamily {
   if (c < 0.03) return 'neutral'
@@ -56,11 +56,37 @@ function pick<T>(rng: () => number, arr: T[]): T {
   return arr[Math.floor(rng() * arr.length)]
 }
 
-export function namePalette(hexes: string[]): string {
+export interface NamePaletteOptions {
+  /** Names already in use (e.g. everything in the Gallery). A collision
+   * re-rolls with a salted seed rather than handing the user a second
+   * "Quiet Ember Ithaca" — see namePalette. */
+  taken?: Iterable<string>
+}
+
+/** Re-roll budget on collision. Deliberately finite: with a board large
+ * enough that 24 salted draws all collide, the pools are genuinely exhausted
+ * and looping harder just burns time to return the same answer. */
+const MAX_ATTEMPTS = 24
+
+export function namePalette(hexes: string[], options: NamePaletteOptions = {}): string {
   if (hexes.length === 0) {
     throw new Error('namePalette requires at least one hex color')
   }
 
+  const taken = options.taken ? new Set([...options.taken].map((n) => n.toLowerCase())) : null
+
+  // Attempt 0 uses the bare hex seed, so an un-collided name stays exactly
+  // what it has always been for a given palette: naming is deterministic, and
+  // share links / stored rows depend on that.
+  let name = ''
+  for (let attempt = 0; attempt < (taken ? MAX_ATTEMPTS : 1); attempt++) {
+    name = buildName(hexes, attempt === 0 ? '' : `~${attempt}`)
+    if (!taken || !taken.has(name.toLowerCase())) return name
+  }
+  return name
+}
+
+function buildName(hexes: string[], salt: string): string {
   const oklchColors = hexes.map(hexToOklch)
   const families = oklchColors.map((c) => hueFamily(c.h, c.c))
   const bands = oklchColors.map((c) => lightnessBand(c.l))
@@ -83,7 +109,7 @@ export function namePalette(hexes: string[]): string {
   const overallBand = lightnessBand(avgLightness)
   const overallMood = moodFromChroma(maxChroma)
 
-  const rng = mulberry32(fnv1a(hexes.join(',')))
+  const rng = mulberry32(fnv1a(hexes.join(',') + salt))
   const used = new Set<string>()
 
   function pickUnique<T extends string>(candidates: T[]): T {
@@ -109,25 +135,40 @@ export function namePalette(hexes: string[]): string {
 
   const accentNoun = pickUnique(COLOR_NOUNS[accentFamily][bands[accentIndex]])
 
-  const filteredPlaces = PLACE_THINGS.filter(
-    (p) =>
-      (!p.families || p.families.includes(dominantFamily)) &&
-      (!p.moods || p.moods.includes(overallMood))
-  )
-  const placePool = filteredPlaces.length > 0 ? filteredPlaces : PLACE_THINGS
-  const place = pickUnique(placePool.map((p) => p.word))
+  // Affinity filter, applied to whichever pool: keep the entries that either
+  // declare no preference or declare one this palette matches.
+  function byAffinity(pool: PlaceThing[]): string[] {
+    const matching = pool.filter(
+      (p) =>
+        (!p.families || p.families.includes(dominantFamily)) &&
+        (!p.moods || p.moods.includes(overallMood))
+    )
+    return (matching.length > 0 ? matching : pool).map((p) => p.word)
+  }
 
+  const place = pickUnique(byAffinity(PLACE_THINGS))
+  const reference = pickUnique(byAffinity(REFERENCES))
   const modifier = pickUnique(MODIFIERS[overallMood])
 
   // Templates follow natural English adjective order — opinion/mood first,
   // color next, concrete head noun last ("Dusty Cobalt Harbor") — so names
   // read as coherent phrases instead of shuffled word piles like
-  // "Cobalt Solstice Slate".
-  const twoWordTemplates = [`${modifier} ${dominantNoun}`, `${accentNoun} ${place}`].filter(
-    (name) => wordCount(name) <= 3
-  )
-  const threeWordTemplates = [`${modifier} ${dominantNoun} ${place}`].filter((name) => wordCount(name) <= 3)
+  // "Cobalt Solstice Slate". A cultural reference occupies the same slot as a
+  // place: it is the head noun, never a modifier, so "Faded Indigo Nocturne"
+  // parses and "Nocturne Faded Indigo" is never generated.
+  const templates = [
+    `${modifier} ${dominantNoun}`,
+    `${accentNoun} ${place}`,
+    `${modifier} ${reference}`,
+    `${dominantNoun} ${reference}`,
+    `${accentNoun} ${reference}`,
+    `${modifier} ${dominantNoun} ${place}`,
+    `${modifier} ${dominantNoun} ${reference}`,
+    `${modifier} ${accentNoun} ${reference}`,
+  ]
 
-  const candidates = [...threeWordTemplates, ...twoWordTemplates]
+  // The cap is a real constraint, not a formality — a stray multi-word entry
+  // in any pool would otherwise ship four-word names.
+  const candidates = templates.filter((name) => wordCount(name) <= 3)
   return pick(rng, candidates)
 }

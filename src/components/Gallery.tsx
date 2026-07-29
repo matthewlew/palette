@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { buildGradientCss } from '../lib/gradient'
 import type { GradientType } from '../lib/gradient'
 import { useCommunityGradients, type CommunityOrder } from '../hooks/useCommunityGradients'
@@ -20,8 +21,11 @@ import { NoiseOverlay } from './NoiseOverlay'
 import { ScrollTicker } from './ScrollTicker'
 import { SearchBar, type SearchResults } from './SearchBar'
 import { Hint } from './Hint'
+import { LoadingBar } from './LoadingBar'
 import JSZip from 'jszip'
 import { renderVignetteToCanvas } from '../lib/vignette'
+import { MEDIA_CHIP, MEDIA_ICON, MEDIA_ON } from '../lib/mediaChrome'
+import { withViewTransition } from '../lib/viewTransition'
 import styles from './Gallery.module.css'
 
 // Shape filters. Labels are explicit rather than derived from the type string so
@@ -81,7 +85,7 @@ function formatDate(timestamp?: number): string | null {
  * kept the default 8px row and piled on top of each other. A group that owns
  * its ref scales to however many groups there are. */
 function SearchGroup({
-  testId, heading, gradients, galleryLayout, onOpen, onRiff, likes,
+  testId, heading, gradients, galleryLayout, onOpen, onRiff, likes, heroId, viewerOpen,
 }: {
   testId: string
   heading: string
@@ -90,6 +94,8 @@ function SearchGroup({
   onOpen: (g: Gradient) => void
   onRiff: (g: Gradient) => void
   likes?: LikeApi
+  heroId?: string | null
+  viewerOpen?: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
   useMasonryRowSpans(ref, galleryLayout === 'masonry', [
@@ -110,6 +116,8 @@ function SearchGroup({
               galleryLayout={galleryLayout}
               onRiff={onRiff}
               likes={likes}
+              isHero={heroId === g.id}
+              viewerOpen={viewerOpen}
             />
           </TileBoundary>
         ))}
@@ -150,6 +158,8 @@ function Tile({
   onDropTile,
   onDragEndTile,
   likes,
+  isHero = false,
+  viewerOpen = false,
 }: {
   gradient: Gradient
   index: number
@@ -170,6 +180,12 @@ function Tile({
   onDragEnterTile?: (id: string) => void
   onDropTile?: (id: string) => void
   onDragEndTile?: () => void
+  /** This is the tile the full-screen viewer opens from / returns to. */
+  isHero?: boolean
+  /** The viewer is mounted, so it — not the tile — owns the shared
+   * `palette-card` name. Two elements carrying one view-transition-name makes
+   * the browser skip the transition outright. */
+  viewerOpen?: boolean
 }) {
   const noiseEnabled = useAppStore((s) => s.noiseEnabled)
 
@@ -250,7 +266,19 @@ function Tile({
           backgroundImage: tileBackground(gradient),
           aspectRatio:
             galleryLayout === 'masonry' ? aspectRatio : galleryLayout === 'dense' ? '1 / 1' : '4 / 5',
-          viewTransitionName: `palette-card-${gradient.id}`,
+          // The hero tile borrows the SHARED `palette-card` name, the same one
+          // the full-screen viewer carries, so opening morphs the thumbnail
+          // into the full-screen view (and closing morphs it back) instead of
+          // cross-fading two unrelated pictures — the Photos-app zoom. It hands
+          // the name over while the viewer is mounted, because a duplicate name
+          // makes the browser skip the transition outright.
+          //
+          // Every OTHER tile must stay nameless. Naming them gave each its own
+          // ::view-transition-group, and groups paint in tree order — so every
+          // tile after the hero painted ON TOP of the card as it grew, and the
+          // zoom came apart for every tile but the last one in the grid.
+          // Unnamed, they stay inside the root snapshot, which paints below.
+          viewTransitionName: isHero && !viewerOpen ? 'palette-card' : 'none',
         }}
       >
         {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={6} angle={gradient.angle} />}
@@ -387,11 +415,11 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes 
   // The `gradient` prop is the snapshot captured when the tile was tapped;
   // renames land in `saved`, so read the live copy for display.
   const live = saved.find((g) => g.id === gradient.id) ?? gradient
+  // Only the title samples the palette now — it is bare text over the
+  // gradient. The buttons carry their own surface (.ghost-chip) and keep a
+  // fixed ink, so the viewer's close / share / action row matches the tab bar
+  // and the create-feed chrome instead of restyling itself per gradient.
   const titleColor = titleColorAt(live, 0.5, 0.06)
-  // Per-corner palette foregrounds, same strategy as the title.
-  const closeColor = titleColorAt(live, 0.06, 0.06)
-  const shareColor = titleColorAt(live, 0.94, 0.06)
-  const actionColor = titleColorAt(live, 0.9, 0.92)
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -471,8 +499,7 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes 
       <NoiseOverlay visible={noiseEnabled} />
       <button
         type="button"
-        className={`${styles.viewerClose} ghost-chip`}
-        style={{ color: closeColor }}
+        className={`${styles.viewerClose} ${MEDIA_ICON}`}
         aria-label="Close"
         onClick={(e) => { e.stopPropagation(); closeHint.dismiss(); onClose(); }}
       >
@@ -494,7 +521,6 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes 
           current={live}
           onImport={onImport}
           position="viewer"
-          color={shareColor}
         />
       </div>
       {/* Same chrome as the create flow: the palette-colored title at the
@@ -545,32 +571,24 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes 
             liked={likes.isLiked(live.id)}
             count={likes.countFor(live)}
             label={live.name ?? namePalette(live.stops.map((s) => s.hex))}
-            color={actionColor}
             onToggle={() => likes.toggle(live)}
           />
         )}
         {!isSaved ? (
           <button
             type="button"
-            className="ghost-chip ghost-pill ghost-chip-active"
-            style={{ color: '#fff', backgroundColor: 'rgba(255, 255, 255, 0.2)' }}
+            className={`${MEDIA_CHIP} ${MEDIA_ON}`}
             onClick={() => toggleSaveGradient(live)}
           >
             Save to Gallery
           </button>
         ) : (
-          <span
-            className="ghost-chip ghost-pill"
-            style={{ color: 'rgba(255, 255, 255, 0.5)' }}
-          >
-            ✓ Saved
-          </span>
+          <span className={`${MEDIA_CHIP} ${styles.viewerSavedNote}`}>✓ Saved</span>
         )}
         {isSaved && (
           <button
             type="button"
-            className="ghost-chip ghost-pill"
-            style={{ color: actionColor }}
+            className={MEDIA_CHIP}
             onClick={() => {
               removeSavedGradientById(gradient.id)
               onClose()
@@ -581,8 +599,7 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes 
         )}
         <button
           type="button"
-          className="ghost-chip ghost-pill"
-          style={{ color: actionColor }}
+          className={MEDIA_CHIP}
           onClick={() => onRiff(live)}
         >
           Edit
@@ -725,6 +742,36 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   const [savesOrder, setSavesOrder] = useState<SavesOrder>('custom')
   const isAdmin = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('admin') === 'true'
   const [open, setOpen] = useState<Gradient | null>(null)
+  // Which tile the viewer flew out of. Held separately from `open` because the
+  // two must disagree for exactly one frame at each end of the transition: the
+  // tile has to already be wearing the shared `palette-card` name when the OLD
+  // state is captured, and must have handed it to the viewer by the time the
+  // NEW state is.
+  const [heroId, setHeroId] = useState<string | null>(null)
+
+  /** Open the full-screen viewer as a zoom out of the tapped thumbnail.
+   *
+   * The flushSync is load-bearing: it paints the shared name onto the tile
+   * BEFORE startViewTransition captures the old state. Setting both in one
+   * update would capture an old state where no element owned the name, and the
+   * viewer would fade in from nothing instead of growing out of the tile. */
+  function openViewer(gradient: Gradient) {
+    flushSync(() => setHeroId(gradient.id))
+    withViewTransition(() => setOpen(gradient))
+  }
+
+  /** Shrink back into the tile it came from. The tile reclaims the name as the
+   * viewer unmounts, so this is the same morph played backwards. */
+  function closeViewer() {
+    withViewTransition(() => setOpen(null))
+  }
+
+  /** Scrolling to a neighbour inside the viewer moves the landing tile with
+   * it, so closing returns to the palette you are actually looking at. */
+  function navigateViewer(gradient: Gradient) {
+    setHeroId(gradient.id)
+    setOpen(gradient)
+  }
   const [exporting, setExporting] = useState(false)
   const reorderSaved = useAppStore((s) => s.reorderSaved)
   const dragIdRef = useRef<string | null>(null)
@@ -1082,17 +1129,21 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
                 heading="Yours"
                 gradients={searchResults.mine}
                 galleryLayout={galleryLayout}
-                onOpen={setOpen}
+                onOpen={openViewer}
                 onRiff={onRiff}
+                heroId={heroId}
+                viewerOpen={open !== null}
               />
               <SearchGroup
                 testId="search-group-community"
                 heading="Community"
                 gradients={searchResults.community}
                 galleryLayout={galleryLayout}
-                onOpen={setOpen}
+                onOpen={openViewer}
                 onRiff={onRiff}
                 likes={likes}
+                heroId={heroId}
+                viewerOpen={open !== null}
               />
             </>
           )}
@@ -1220,7 +1271,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
           {currentViewGradients.length === 0 ? (
             <div className={styles.empty}>
               {activeTab === 'community' && communityLoading ? (
-                <p className={styles.emptyText}>Loading community gradients...</p>
+                <LoadingBar label="Loading community gradients" />
               ) : hasFilters && (activeTab === 'community' ? communityGradients.length > 0 : saved.length > 0) ? (
                 <>
                   <p className={styles.emptyText}>No matches here.</p>
@@ -1253,7 +1304,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
                   <Tile
                     gradient={gradient}
                     index={index}
-                    onOpen={setOpen}
+                    onOpen={openViewer}
                     galleryLayout={galleryLayout}
                     onRiff={onRiff}
                     onDelete={activeTab === 'saves' ? removeSavedGradientById : (isAdmin ? deleteCommunityGradient : undefined)}
@@ -1265,6 +1316,8 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
                     onDropTile={handleDropTile}
                     onDragEndTile={clearDrag}
                     likes={likes}
+                    isHero={heroId === gradient.id}
+                    viewerOpen={open !== null}
                   />
                 </TileBoundary>
               ))}
@@ -1312,8 +1365,8 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
         <Viewer
           gradient={open}
           items={currentViewGradients}
-          onNavigate={setOpen}
-          onClose={() => setOpen(null)}
+          onNavigate={navigateViewer}
+          onClose={closeViewer}
           onRiff={onRiff}
           onImport={onImport ?? (() => {})}
           likes={likes}

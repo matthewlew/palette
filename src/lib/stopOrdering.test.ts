@@ -1,5 +1,17 @@
 import { describe, it, expect } from 'vitest'
-import { toEditableStops, equalizePositions, removeStopAt, addStop, removeLastByHex, moveStop, toGradientStops } from './stopOrdering'
+import {
+  toEditableStops,
+  equalizePositions,
+  equalizeEditableStops,
+  isEvenlyDistributed,
+  reassignPositions,
+  removeStopAt,
+  addStop,
+  removeLastByHex,
+  moveStop,
+  toGradientStops,
+} from './stopOrdering'
+import type { EditableStop } from './stopOrdering'
 import type { GradientStop } from './gradient'
 
 describe('toEditableStops', () => {
@@ -143,5 +155,84 @@ describe('toGradientStops', () => {
     ]
     const roundTripped = toGradientStops(toEditableStops(original))
     expect(roundTripped).toEqual(original)
+  })
+})
+
+describe('isEvenlyDistributed', () => {
+  const at = (...positions: number[]): EditableStop[] =>
+    positions.map((position, i) => ({ id: String(i), hex: '#000000', position }))
+
+  it('accepts the ladder equalize produces, rounding and all', () => {
+    // 7 stops round to 0/17/33/50/67/83/100 — half of those are already a
+    // point off the exact fraction, which is why the check has a tolerance.
+    for (const count of [2, 3, 4, 5, 6, 7, 8]) {
+      const even = equalizeEditableStops(at(...Array.from({ length: count }, () => 0)))
+      expect(isEvenlyDistributed(even)).toBe(true)
+    }
+  })
+
+  it('rejects a hand-placed ladder', () => {
+    expect(isEvenlyDistributed(at(0, 20, 60))).toBe(false)
+    expect(isEvenlyDistributed(at(5, 40, 95))).toBe(false)
+  })
+
+  it('reads the SORTED ladder, so a reorder is not mistaken for customizing', () => {
+    // Same three positions, colors re-paired to them by a sort.
+    expect(isEvenlyDistributed(at(100, 0, 50))).toBe(true)
+  })
+
+  it('treats 0 and 1 stops as even — there is no spacing to be wrong about', () => {
+    expect(isEvenlyDistributed([])).toBe(true)
+    expect(isEvenlyDistributed(at(37))).toBe(true)
+  })
+})
+
+describe('reassignPositions', () => {
+  it('keeps the ladder and gives stop i the i-th step', () => {
+    const stops: EditableStop[] = [
+      { id: 'a', hex: '#aaaaaa', position: 95 },
+      { id: 'b', hex: '#bbbbbb', position: 5 },
+      { id: 'c', hex: '#cccccc', position: 40 },
+    ]
+    const next = reassignPositions(stops)
+    expect(next.map((s) => s.position)).toEqual([5, 40, 95])
+    // Array order — i.e. which color goes where — is untouched.
+    expect(next.map((s) => s.hex)).toEqual(['#aaaaaa', '#bbbbbb', '#cccccc'])
+  })
+
+  it('is equalize when the ladder was already even', () => {
+    const even: EditableStop[] = [
+      { id: 'a', hex: '#aaaaaa', position: 100 },
+      { id: 'b', hex: '#bbbbbb', position: 0 },
+      { id: 'c', hex: '#cccccc', position: 50 },
+    ]
+    expect(reassignPositions(even).map((s) => s.position)).toEqual([0, 50, 100])
+  })
+})
+
+describe('equalizeEditableStops', () => {
+  it('spreads evenly by array order while keeping ids', () => {
+    const stops: EditableStop[] = [
+      { id: 'a', hex: '#aaaaaa', position: 12 },
+      { id: 'b', hex: '#bbbbbb', position: 13 },
+      { id: 'c', hex: '#cccccc', position: 14 },
+    ]
+    expect(equalizeEditableStops(stops)).toEqual([
+      { id: 'a', hex: '#aaaaaa', position: 0 },
+      { id: 'b', hex: '#bbbbbb', position: 50 },
+      { id: 'c', hex: '#cccccc', position: 100 },
+    ])
+  })
+
+  it('agrees with equalizePositions', () => {
+    const stops = toEditableStops([
+      { hex: '#111111', position: 3 },
+      { hex: '#222222', position: 9 },
+      { hex: '#333333', position: 80 },
+      { hex: '#444444', position: 81 },
+    ])
+    expect(equalizeEditableStops(stops).map((s) => ({ hex: s.hex, position: s.position }))).toEqual(
+      equalizePositions(stops)
+    )
   })
 })

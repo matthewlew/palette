@@ -1,7 +1,16 @@
-import { oklchToHex, type Oklch } from './oklch'
+import { hexToOklch, oklchToHex, type Oklch } from './oklch'
 import type { ColorSet } from './colorSets'
 import type { GradientStop } from './gradient'
 import { scorePalette } from './paletteScore'
+
+/** Colors the user has pinned, keyed by their index in the stop list. Every
+ * generated palette keeps these exactly, and builds the rest around them. */
+export type ColorLocks = Record<number, string>
+
+/** Stop positions the user has pinned, keyed by index, as 0-100 percentages.
+ * The colour locks' counterpart: this holds WHERE a stop sits rather than what
+ * it is, and generation honours it the same way. */
+export type PositionLocks = Record<number, number>
 
 function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]
@@ -41,54 +50,48 @@ function pickByScore(candidates: Oklch[][]): Oklch[] {
 
 const CANDIDATE_COUNT = 8
 
-/** The range the editor itself allows: it refuses to remove below 2 and to add
- * above 8, so a lock outside that could ask for a palette you could not then
- * edit back out of. */
-export const MIN_STOPS = 2
-export const MAX_STOPS = 8
+export function generateGradientStops(
+  colorSet: ColorSet,
+  locks: ColorLocks = {},
+  positionLocks: PositionLocks = {}
+): GradientStop[] {
+  const lockedIndices = Object.keys(locks).map(Number).filter((i) => Number.isInteger(i) && i >= 0)
+  const lockedPositionIndices = Object.keys(positionLocks)
+    .map(Number)
+    .filter((i) => Number.isInteger(i) && i >= 0)
+  const random = 3 + Math.floor(Math.random() * 4) // 3-6
+  // A lock at index 4 means there must BE an index 4. Without this floor the
+  // pinned color (or position) silently vanishes whenever the roll comes up
+  // short.
+  const stopCount = Math.max(
+    random,
+    ...lockedIndices.map((i) => i + 1),
+    ...lockedPositionIndices.map((i) => i + 1)
+  )
 
-/** The even ladder a freshly generated gradient sits on. */
-export function evenPositions(count: number): number[] {
-  const n = Math.min(MAX_STOPS, Math.max(MIN_STOPS, Math.round(count)))
-  return Array.from({ length: n }, (_, i) => Math.round((i / (n - 1)) * 100))
-}
-
-/**
- * A stop layout the generator can actually build on: the right length,
- * ascending, and inside the track.
- *
- * Nothing here is trusted, because the layout arrives from persisted-ish state
- * and from live editing. A single-stop ladder divides by zero in evenPositions
- * and yields NaN% stops, which render as nothing; positions out of order make
- * CSS clamp them silently, so the gradient stops matching the handles that
- * produced it.
- */
-export function normalizeStopLayout(layout: readonly number[]): number[] {
-  if (layout.length < MIN_STOPS || layout.length > MAX_STOPS) return evenPositions(layout.length)
-  return layout
-    .map((p) => (Number.isFinite(p) ? Math.min(100, Math.max(0, Math.round(p))) : 0))
-    .sort((a, b) => a - b)
-}
-
-/**
- * @param layout Exact stop positions to generate onto. Omit for the usual
- * random 3-6 evenly spaced. Passed when the feed's stops are locked, so
- * scrubbing the rolodex varies the colours while leaving both how many stops
- * there are and where they sit exactly as the user placed them.
- */
-export function generateGradientStops(colorSet: ColorSet, layout?: readonly number[]): GradientStop[] {
-  const positions = layout
-    ? normalizeStopLayout(layout)
-    : evenPositions(3 + Math.floor(Math.random() * 4)) // 3-6
+  // Locked colors participate in scoring rather than being pasted on at the
+  // end: the whole point of a lock is that the generator works AROUND it, and
+  // a candidate is only worth picking if it harmonises with what's pinned.
+  function applyLocks(colors: Oklch[]): Oklch[] {
+    for (const index of lockedIndices) {
+      if (index < colors.length) colors[index] = hexToOklch(locks[index])
+    }
+    return colors
+  }
 
   const candidates: Oklch[][] = []
   for (let i = 0; i < CANDIDATE_COUNT; i++) {
-    candidates.push(buildCandidateColors(colorSet, positions.length))
+    candidates.push(applyLocks(buildCandidateColors(colorSet, stopCount)))
   }
   const colors = pickByScore(candidates)
 
   return colors.map((color, i) => ({
-    hex: oklchToHex(color),
-    position: positions[i],
+    // The locked hex is written back verbatim, not round-tripped through
+    // Oklch: hex → Oklch → hex is lossy by a digit or two, and a "locked"
+    // color that drifts every scroll is not locked.
+    hex: locks[i] ?? oklchToHex(color),
+    // A pinned position holds across every roll; everything else falls back to
+    // the even ladder, which is what an untouched palette has always used.
+    position: positionLocks[i] ?? Math.round((i / (stopCount - 1)) * 100),
   }))
 }
