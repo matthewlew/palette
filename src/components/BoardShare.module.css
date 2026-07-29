@@ -6,8 +6,8 @@
 .fixed {
   composes: container;
   position: fixed;
-  top: max(16px, env(safe-area-inset-top));
-  right: 16px;
+  top: max(16px, var(--safe-t));
+  right: var(--edge-r);
 }
 
 .inline {
@@ -21,8 +21,8 @@
 .viewer {
   composes: container;
   position: fixed;
-  top: max(16px, env(safe-area-inset-top));
-  right: 16px;
+  top: max(16px, var(--safe-t));
+  right: var(--edge-r);
   z-index: 41;
 }
 

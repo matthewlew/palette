@@ -18,6 +18,26 @@ export function equalizePositions(stops: EditableStop[]): GradientStop[] {
   }))
 }
 
+/** The positions `stops` occupy, ascending — the ladder, without the colours. */
+export function stopLayout(stops: readonly EditableStop[]): number[] {
+  return stops.map((s) => s.position).sort((a, b) => a - b)
+}
+
+/**
+ * Pour a colour sequence onto an existing ladder: slot i keeps `layout`'s i-th
+ * position and takes `ordered`'s i-th colour.
+ *
+ * This is what lets Order re-rank the palette without moving anything. Sorting
+ * used to run through equalizePositions, which assigns positions by array index
+ * — so re-ranking a palette whose stops had been dragged into place threw that
+ * placement away and re-spaced everything evenly. The two operations are
+ * independent: which colour comes first, and where the stops sit.
+ */
+export function applyToLayout(ordered: EditableStop[], layout: readonly number[]): EditableStop[] {
+  const ladder = [...layout].sort((a, b) => a - b)
+  return ordered.map((stop, i) => ({ ...stop, position: ladder[i] ?? stop.position }))
+}
+
 export function removeStopAt(stops: EditableStop[], id: string): EditableStop[] {
   return stops.filter((stop) => stop.id !== id)
 }

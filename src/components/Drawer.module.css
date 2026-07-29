@@ -4,7 +4,7 @@
   position: fixed;
   bottom: 0;
   right: 0;
-  padding: 8px calc(16px + env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) 8px;
+  padding: 8px calc(16px + var(--safe-r)) calc(12px + var(--safe-b)) 8px;
   transition: opacity 400ms ease;
   /* The container must never swallow taps aimed elsewhere — only the stack
      button itself is interactive. */

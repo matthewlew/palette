@@ -1,7 +1,17 @@
 .hint {
   position: fixed;
   left: 50%;
-  bottom: 96px;
+  /* Above the tab bar's real footprint, not a copied number.
+   *
+   * This was a flat `bottom: 96px` with no safe-area term at all, while the bar
+   * sits at 18px + its own 44px + the home-indicator inset. On a phone with a
+   * 34px indicator the bar's top edge lands at exactly 96 — so "Tap Save to
+   * keep it" and the tab bar were touching, and any device with a taller
+   * indicator overlapped outright. --tabbar-top carries all three terms. */
+  bottom: calc(var(--tabbar-top) + 12px);
+  /* Landscape puts the cutout on the side; a centred toast can still be wider
+     than the safe box on a short screen. */
+  max-width: calc(100vw - var(--safe-l) - var(--safe-r) - 32px);
   transform: translateX(-50%);
   background: rgba(0, 0, 0, 0.65);
   color: var(--text);
@@ -16,7 +26,7 @@
 /* Above the gallery viewer's action pills, which sit at bottom 74px + inset
    and stand 44px tall. Clearing their top edge, not guessing at it. */
 .hint.raised {
-  bottom: calc(130px + env(safe-area-inset-bottom));
+  bottom: calc(130px + var(--safe-b));
   /* Three pills wide is most of a phone; the hint can wrap rather than run
      off the edge, unlike the single-line hints over the full-bleed feed. */
   white-space: normal;

@@ -23,8 +23,13 @@ function pickRandomType(): GradientType {
   return RANDOM_TYPES[Math.floor(Math.random() * RANDOM_TYPES.length)]
 }
 
-export function makeGradient(type: GradientType, colorSet: ColorSet): Gradient {
-  const stops = generateGradientStops(colorSet)
+/** @param layout Exact colour-stop positions, or undefined for the usual random
+ * 3-6 evenly spaced. Callers pass
+ * `useAppStore.getState().lockedStopLayout ?? undefined` — read at the call
+ * site rather than inside here, so the one factory every surface generates
+ * through stays a function of its arguments. */
+export function makeGradient(type: GradientType, colorSet: ColorSet, layout?: readonly number[]): Gradient {
+  const stops = generateGradientStops(colorSet, layout)
   return {
     id: crypto.randomUUID(),
     type,
@@ -189,7 +194,7 @@ export function Feed({ chromeVisible = true }: FeedProps) {
       }
       let angleToUse = feedSession.lockedAngle ?? (typeToUse === 'radial' ? undefined : 0)
       const initial = current ?? { 
-        ...makeGradient(typeToUse, activeColorSet), 
+        ...makeGradient(typeToUse, activeColorSet, useAppStore.getState().lockedStopLayout ?? undefined),
         angle: angleToUse,
         hardStops: feedSession.lockedHardStops ?? false,
         repeatEnabled: feedSession.lockedRepeatEnabled ?? false,
@@ -263,7 +268,10 @@ export function Feed({ chromeVisible = true }: FeedProps) {
       // completely new gradient, not a nudge from the previous one.
       const typeToUse = feedSession.lockedType!
       const fresh: Gradient = { 
-        ...makeGradient(typeToUse, activeColorSet), 
+        // The stop lock, if the user set one in the editor: scrubbing the
+        // rolodex then varies the colours without varying how many stops there
+        // are or where they sit.
+        ...makeGradient(typeToUse, activeColorSet, useAppStore.getState().lockedStopLayout ?? undefined), 
         angle: feedSession.lockedAngle ?? (typeToUse === 'radial' ? undefined : 0),
         hardStops: feedSession.lockedHardStops ?? false,
         repeatEnabled: feedSession.lockedRepeatEnabled ?? false,

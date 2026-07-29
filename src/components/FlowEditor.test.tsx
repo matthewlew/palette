@@ -134,20 +134,60 @@ describe('FlowEditor', () => {
     expect(onRemoveStop).not.toHaveBeenCalled()
   })
 
-  it('cancels touch events that start on a handle so an edge drag cannot trigger browser back', () => {
+  /** TouchEvent with a real touch point — jsdom needs the list built by hand. */
+  function touch(type: string, clientX: number): TouchEvent {
+    const event = new TouchEvent(type, { bubbles: true, cancelable: true })
+    Object.defineProperty(event, 'touches', {
+      value: [{ clientX, clientY: 0 }],
+      configurable: true,
+    })
+    return event
+  }
+
+  it('cancels a touch starting in the edge band so an edge drag cannot trigger browser back', () => {
     // A stop parked at 0% sits near the screen edge, inside the browser's
     // back-swipe zone. Only a cancelled touch sequence suppresses that
     // gesture — `touch-action: none` stops page scrolling, not navigation.
     render(<FlowEditor stops={stops} onMove={vi.fn()} onTapStop={vi.fn()} />)
     const handle = screen.getByLabelText('Stop #ff0000')
 
-    const start = new TouchEvent('touchstart', { bubbles: true, cancelable: true })
+    const start = touch('touchstart', 8)
     handle.dispatchEvent(start)
     expect(start.defaultPrevented).toBe(true)
 
-    const move = new TouchEvent('touchmove', { bubbles: true, cancelable: true })
+    const move = touch('touchmove', 8)
     handle.dispatchEvent(move)
     expect(move.defaultPrevented).toBe(true)
+  })
+
+  it('leaves a tap away from the edge uncancelled, so the OS colour picker can open', () => {
+    // Cancelling touchstart takes the compatibility click with it, and that
+    // click is the gesture iOS wants to see before it will open a native
+    // picker — so a blanket cancel made tap-to-recolour dead on touch while
+    // the identical code worked with a mouse, which never fires touchstart.
+    // The back-swipe can only start at an edge, so only an edge needs
+    // cancelling.
+    render(<FlowEditor stops={stops} onMove={vi.fn()} onTapStop={vi.fn()} />)
+    const handle = screen.getByLabelText('Stop #00ff00')
+
+    const start = touch('touchstart', Math.round(window.innerWidth / 2))
+    handle.dispatchEvent(start)
+    expect(start.defaultPrevented).toBe(false)
+
+    // A drag from the same spot is still cancelled — that is the scroll and
+    // swipe suppression, and it costs the tap nothing because a tap has no
+    // touchmove.
+    const move = touch('touchmove', Math.round(window.innerWidth / 2))
+    handle.dispatchEvent(move)
+    expect(move.defaultPrevented).toBe(true)
+  })
+
+  it('cancels the trailing edge too, not just the leading one', () => {
+    render(<FlowEditor stops={stops} onMove={vi.fn()} onTapStop={vi.fn()} />)
+    const handle = screen.getByLabelText('Stop #0000ff')
+    const start = touch('touchstart', window.innerWidth - 4)
+    handle.dispatchEvent(start)
+    expect(start.defaultPrevented).toBe(true)
   })
 
   it('leaves touches on the bare track alone so they stay ordinary taps', () => {

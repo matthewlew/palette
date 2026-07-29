@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { generateGradientStops } from './palette'
+import { generateGradientStops, evenPositions, normalizeStopLayout, MIN_STOPS, MAX_STOPS } from './palette'
 import { DEFAULT_COLOR_SET } from './colorSets'
 import { scorePalette } from './paletteScore'
 import { hexToOklch } from './oklch'
@@ -29,6 +29,39 @@ describe('generateGradientStops', () => {
     const a = generateGradientStops(DEFAULT_COLOR_SET)
     const b = generateGradientStops(DEFAULT_COLOR_SET)
     expect(a.map((s) => s.hex).join(',')).not.toBe(b.map((s) => s.hex).join(','))
+  })
+
+  it('generates onto exactly the layout it is given', () => {
+    // The stop lock: scrubbing the rolodex varies the colours while leaving
+    // both how many stops there are and where they sit alone.
+    for (let n = MIN_STOPS; n <= MAX_STOPS; n++) {
+      expect(generateGradientStops(DEFAULT_COLOR_SET, evenPositions(n))).toHaveLength(n)
+    }
+    const uneven = [0, 8, 12, 91, 100]
+    expect(generateGradientStops(DEFAULT_COLOR_SET, uneven).map((s) => s.position)).toEqual(uneven)
+  })
+
+  it('spaces an unlocked palette evenly from 0 to 100', () => {
+    expect(evenPositions(5)).toEqual([0, 25, 50, 75, 100])
+    expect(generateGradientStops(DEFAULT_COLOR_SET, evenPositions(5)).map((s) => s.position))
+      .toEqual([0, 25, 50, 75, 100])
+  })
+
+  it('repairs a layout the generator could not build on', () => {
+    // A one-stop ladder divides by zero in the position maths and yields NaN%
+    // stops, which render as nothing at all; above 8 the editor refuses to add,
+    // so the palette could not be edited back down. Out-of-order or
+    // out-of-track positions make CSS clamp them silently, so the gradient
+    // stops matching the handles that produced it.
+    expect(normalizeStopLayout([50])).toEqual(evenPositions(MIN_STOPS))
+    expect(normalizeStopLayout([])).toEqual(evenPositions(MIN_STOPS))
+    expect(normalizeStopLayout(Array(12).fill(0))).toHaveLength(MAX_STOPS)
+    expect(normalizeStopLayout([80, 10, 40])).toEqual([10, 40, 80])
+    expect(normalizeStopLayout([-20, 50, 140])).toEqual([0, 50, 100])
+    expect(normalizeStopLayout([NaN, 50, 100])).toEqual([0, 50, 100])
+    for (const stop of generateGradientStops(DEFAULT_COLOR_SET, [50])) {
+      expect(Number.isFinite(stop.position)).toBe(true)
+    }
   })
 
   it('samples only from the given color set', () => {

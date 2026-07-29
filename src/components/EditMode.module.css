@@ -9,8 +9,8 @@
    anchor as every other floating control. */
 .backButton {
   position: absolute;
-  top: calc(16px + env(safe-area-inset-top));
-  left: 16px;
+  top: calc(16px + var(--safe-t));
+  left: var(--edge-l);
   z-index: 1;
   width: 44px;
   transition: opacity 200ms ease;
@@ -43,6 +43,11 @@
   flex-direction: column;
   flex: 0 0 auto;
   padding-top: 12px;
+  /* Held sideways the sheet still spans the full width, so its chips would run
+     under the camera housing on one edge and the home indicator on the other.
+     Inset the whole panel rather than each row inside it. */
+  padding-left: var(--safe-l);
+  padding-right: var(--safe-r);
   background: var(--background);
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.12);
@@ -72,10 +77,18 @@
    103, 148) before that became clear. Sizing to content removes the class of
    bug rather than the instance.
 
+   Both sections now measure the same (GeometryTabs stacks them in one grid
+   cell), so the peek is one height rather than one per tab.
+
    max-height stays only as a CEILING, so the collapse still animates and a
-   future section can't quietly grow the peek to fill the screen. */
+   future section can't quietly grow the peek to fill the screen. It has to sit
+   ABOVE the real content height, not near it: the gesture measures the peek by
+   applying this class and reading the result, so a ceiling that clips would
+   quietly become the detent and the peek would show a sliced row again.
+   Measured at 240px with Effect at three chip rows, so 300 is headroom rather
+   than a number the content is already up against. */
 .sheet.collapsed {
-  max-height: 220px;
+  max-height: 300px;
   overflow: hidden;
   transition: max-height 200ms ease, opacity 200ms ease, transform 200ms ease;
 }
@@ -185,13 +198,9 @@
   }
 }
 
-
-
-@media (min-width: 768px) {
-  .preview :global([data-testid='grain-button']) {
-    bottom: calc(84px + env(safe-area-inset-bottom));
-  }
-}
+/* The grain toggle used to float in this corner and needed lifting clear of the
+   Save pill on desktop. It is an Effect chip in the sheet now, so the corner
+   holds Save alone and needs no offset. */
 
 .blockArea {
   position: relative;
@@ -209,7 +218,7 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px calc(12px + env(safe-area-inset-bottom));
+  padding: 8px 16px calc(12px + var(--safe-b));
 }
 
 .sortButton {
@@ -239,13 +248,23 @@
 }
 
 /* Native color input driven programmatically; kept in the DOM (not
-   display:none) so .click() reliably opens the OS picker across browsers. */
+   display:none) so the picker reliably opens across browsers.
+
+   `pointer-events: none` is gone. A control that cannot be hit-tested is one a
+   browser is entitled to treat as not really there, and refusing to open a
+   picker for it is exactly what iOS was doing while the same code worked with
+   a mouse. At 1x1 it is still impossible to hit by accident.
+
+   Fixed, not absolute: EditMode parks it over the stop being edited so an
+   anchored picker has somewhere to point, and that has to be in viewport
+   coordinates. */
 .colorInput {
-  position: absolute;
+  position: fixed;
+  left: 0;
+  top: 0;
   width: 1px;
   height: 1px;
   opacity: 0;
-  pointer-events: none;
   border: 0;
   padding: 0;
 }

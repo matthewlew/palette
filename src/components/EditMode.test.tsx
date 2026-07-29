@@ -18,8 +18,15 @@ function sizeSheet(sheet: HTMLElement, { peek, open }: { peek: number; open: num
   Object.defineProperty(sheet, 'scrollHeight', { configurable: true, get: () => open })
 }
 
-/** Open the sheet the way a user does — it starts collapsed on mobile. */
+/** The sheet now opens OPEN on every layout, so this is just a handle on it.
+ * Kept as a named step so the tests that need the open state say so. */
 function openSheet(): HTMLElement {
+  return screen.getByTestId('edit-sheet')
+}
+
+/** Drop the sheet to its peek — the state entering edit mode used to start in.
+ * Tapping the handle is how a user gets there without a drag. */
+function collapseSheet(): HTMLElement {
   fireEvent.click(screen.getByTestId('sheet-handle'))
   return screen.getByTestId('edit-sheet')
 }
@@ -82,13 +89,13 @@ describe('EditMode', () => {
   })
 
   it('shows the scroll-position ticker when editing from the Create feed', () => {
-    useAppStore.setState({ editReturnMode: 'create' })
+    useAppStore.setState({ editEnteredFrom: 'create' })
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
     expect(screen.getByTestId('scroll-ticker')).toBeInTheDocument()
   })
 
   it('hides the scroll-position ticker when editing a gradient from the Gallery', () => {
-    useAppStore.setState({ editReturnMode: 'gallery' })
+    useAppStore.setState({ editEnteredFrom: 'gallery' })
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
     expect(screen.queryByTestId('scroll-ticker')).not.toBeInTheDocument()
   })
@@ -328,7 +335,11 @@ describe('EditMode', () => {
     expect(updated.stops.map((s) => s.hex)).toEqual(['#0000ff', '#ff0000', '#00ff00'])
   })
 
-  it('sorting by lightness also re-equalizes stop positions evenly', () => {
+  it('sorting re-ranks the colours across the placements, leaving them alone', () => {
+    // Two independent things: which colour comes first, and where the stops
+    // sit. Sorting used to run through equalizePositions, which assigns
+    // positions by array index — so re-ranking a palette whose stops had been
+    // dragged into place threw that placement away and re-spaced it evenly.
     const unequalPositions: Gradient = {
       id: 'g3',
       type: 'linear',
@@ -342,10 +353,12 @@ describe('EditMode', () => {
     render(<EditMode gradient={unequalPositions} onExit={vi.fn()} />)
     fireEvent.click(screen.getByTestId('sort-button'))
     const updated = useAppStore.getState().current!
-    expect(updated.stops.map((s) => s.position)).toEqual([0, 50, 100])
+    expect(updated.stops.map((s) => s.position)).toEqual([5, 40, 95])
+    // Re-ranked dark -> mid -> light, onto the ladder that was already there.
+    expect(updated.stops.map((s) => s.hex)).toEqual(['#0000ff', '#ff0000', '#00ff00'])
   })
 
-  it('sorting also re-equalizes the on-screen flow handle positions, not just the store', () => {
+  it('keeps the on-screen flow handles on their placements through a sort', () => {
     const unequalPositions: Gradient = {
       id: 'g3b',
       type: 'linear',
@@ -359,7 +372,32 @@ describe('EditMode', () => {
     render(<EditMode gradient={unequalPositions} onExit={vi.fn()} />)
     fireEvent.click(screen.getByTestId('sort-button'))
     const handles = screen.getAllByRole('slider')
-    expect(handles.map((h) => h.getAttribute('aria-valuenow'))).toEqual(['0', '50', '100'])
+    expect(handles.map((h) => h.getAttribute('aria-valuenow'))).toEqual(['5', '40', '95'])
+  })
+
+  it('carries the placements through every step of the order cycle and back', () => {
+    // Original -> lightness -> chroma -> hue -> original. A ladder that
+    // survived one sort but not the round trip would still lose the placement,
+    // just later.
+    const unequalPositions: Gradient = {
+      id: 'g3c',
+      type: 'linear',
+      stops: [
+        { hex: '#0000ff', position: 5 },
+        { hex: '#00ff00', position: 40 },
+        { hex: '#ff0000', position: 95 },
+      ],
+      reversed: false,
+    }
+    render(<EditMode gradient={unequalPositions} onExit={vi.fn()} />)
+    for (let i = 0; i < 4; i++) {
+      fireEvent.click(screen.getByTestId('sort-button'))
+      expect(useAppStore.getState().current!.stops.map((s) => s.position)).toEqual([5, 40, 95])
+    }
+    // Back at Original, with the colours in the order they started.
+    expect(screen.getByTestId('sort-button').textContent).toBe('Order: Original')
+    expect(useAppStore.getState().current!.stops.map((s) => s.hex))
+      .toEqual(['#0000ff', '#00ff00', '#ff0000'])
   })
 
   it('shows the edit hint on mount and dismisses it on pointerdown anywhere in edit mode', () => {
@@ -418,13 +456,17 @@ describe('EditMode', () => {
     expect(sheet).toContainElement(screen.getByTestId('sort-button'))
   })
 
-  it('starts collapsed on the mobile bottom-sheet layout', () => {
-    // The open sheet takes roughly two thirds of a phone viewport, so entering
-    // edit mode used to hand you a gradient you could barely see. Collapsed,
-    // the preview gets the screen and the handle is still there to open it.
+  it('opens with the colour stops in reach on the mobile bottom-sheet layout', () => {
+    // It used to start at the peek, which shows the Shape/Effect switch and one
+    // section and nothing else — so tapping a gradient to edit it gave you six
+    // shape buttons and no stops, and the stops needed a second tap on a 4px
+    // grab handle to find. Opening with the controls you came for beats opening
+    // with a bigger picture of the gradient you were already looking at.
     vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }))
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
-    expect(screen.getByTestId('edit-sheet').className).toMatch(/collapsed/)
+    const sheet = screen.getByTestId('edit-sheet')
+    expect(sheet.className).not.toMatch(/collapsed/)
+    expect(sheet).toContainElement(screen.getByTestId('flow-editor'))
     vi.unstubAllGlobals()
   })
 
@@ -435,11 +477,13 @@ describe('EditMode', () => {
     vi.unstubAllGlobals()
   })
 
-  it('tapping the handle on mobile opens the collapsed sheet rather than exiting', () => {
+  it('tapping the handle on mobile toggles the peek rather than exiting', () => {
     const onExit = vi.fn()
     vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }))
     render(<EditMode gradient={gradient} onExit={onExit} />)
     const sheet = screen.getByTestId('edit-sheet')
+    expect(sheet.className).not.toMatch(/collapsed/)
+    fireEvent.click(screen.getByTestId('sheet-handle'))
     expect(sheet.className).toMatch(/collapsed/)
     fireEvent.click(screen.getByTestId('sheet-handle'))
     expect(sheet.className).not.toMatch(/collapsed/)
@@ -531,7 +575,7 @@ describe('EditMode', () => {
     // the gradient. Pulling up on it opens the panel.
     vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }))
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
-    const sheet = screen.getByTestId('edit-sheet')
+    const sheet = collapseSheet()
     expect(sheet.className).toContain('collapsed')
 
     fireEvent.touchStart(sheet, { touches: [{ clientY: 500 }] })
@@ -547,7 +591,7 @@ describe('EditMode', () => {
     // pixels while tapping it must not also start moving the sheet.
     vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }))
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
-    const sheet = screen.getByTestId('edit-sheet')
+    const sheet = collapseSheet()
     sizeSheet(sheet, { peek: 100, open: 300 })
 
     drag(sheet, 500, 496)
@@ -565,7 +609,7 @@ describe('EditMode', () => {
     vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }))
     const onExit = vi.fn()
     render(<EditMode gradient={gradient} onExit={onExit} />)
-    const sheet = screen.getByTestId('edit-sheet')
+    const sheet = collapseSheet()
     sizeSheet(sheet, { peek: 100, open: 300 })
 
     fireEvent.touchStart(sheet, { touches: [{ clientY: 100 }] })
@@ -591,7 +635,7 @@ describe('EditMode', () => {
     const onExit = vi.fn()
     vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }))
     render(<EditMode gradient={gradient} onExit={onExit} />)
-    const sheet = screen.getByTestId('edit-sheet')
+    const sheet = collapseSheet()
     sizeSheet(sheet, { peek: 100, open: 300 })
     expect(sheet.className).toContain('collapsed')
 
@@ -868,7 +912,7 @@ describe('EditMode sheet — one gesture in every direction', () => {
 
   it('opens on a short upward flick, which position alone would have refused', () => {
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
-    const sheet = screen.getByTestId('edit-sheet')
+    const sheet = collapseSheet()
     sizeSheet(sheet, { peek: 100, open: 300 })
 
     // 20px of travel, thrown fast. Nearest-detent would keep this at the peek.
@@ -885,7 +929,7 @@ describe('EditMode sheet — one gesture in every direction', () => {
     // be interpolated through — dropping it for the drag is what makes the
     // reveal continuous rather than a jump at a threshold.
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
-    const sheet = screen.getByTestId('edit-sheet')
+    const sheet = collapseSheet()
     sizeSheet(sheet, { peek: 100, open: 300 })
 
     fireEvent.touchStart(sheet, { touches: [{ clientY: 400 }] })
@@ -902,13 +946,8 @@ describe('EditMode sheet — one gesture in every direction', () => {
 
   it('never slides past the peek and springs back, which is what read as broken', async () => {
     render(<EditMode gradient={gradient} onExit={vi.fn()} />)
-    const sheet = screen.getByTestId('edit-sheet')
+    const sheet = openSheet()
     sizeSheet(sheet, { peek: 100, open: 300 })
-    // Open it by dragging, not by clicking the handle: the drag is what
-    // measures the peek where it actually renders. Wait for the settle — a
-    // gesture started mid-settle is deliberately ignored.
-    drag(sheet, 400, 220)
-    await waitFor(() => expect(sheet.style.height).toBe(''))
 
     // Pull 350px when only 200px of travel exists.
     fireEvent.touchStart(sheet, { touches: [{ clientY: 100 }] })

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { buildGradientCss } from '../lib/gradient'
 import type { GradientType } from '../lib/gradient'
-import { useCommunityGradients } from '../hooks/useCommunityGradients'
+import { useCommunityGradients, type CommunityOrder } from '../hooks/useCommunityGradients'
 import { useHint } from '../hooks/useHint'
 import { useMasonryRowSpans } from '../hooks/useMasonryRowSpans'
 import { useFlipReorder } from '../hooks/useFlipReorder'
@@ -662,6 +662,13 @@ const SAVES_ORDERS: { id: SavesOrder; label: string; hint: string }[] = [
   { id: 'recent', label: 'Recent', hint: 'Newest saves first' },
 ]
 
+/** The community feed's orders. Unlike the Yours sort, which rearranges a list
+ * already in hand, these are queries — see useCommunityGradients. */
+const COMMUNITY_ORDERS: { id: CommunityOrder; label: string; hint: string }[] = [
+  { id: 'recent', label: 'Recent', hint: 'Newest palettes first' },
+  { id: 'popular', label: 'Popular', hint: 'Most liked first' },
+]
+
 /**
  * Newest first. Saves from before createdAt was recorded sort last rather than
  * first: an absent timestamp is unknown, not old, and floating a pile of
@@ -699,6 +706,10 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   const [activeTab, setActiveTab] = useState<'saves' | 'community'>(
     useAppStore.getState().saved.length === 0 ? 'community' : 'saves'
   )
+  // Server-side, so it restarts paging — see useCommunityGradients. 'recent'
+  // stays the default: a feed people return to should lead with what is new,
+  // and an all-time popular list is the same handful of palettes every visit.
+  const [communityOrder, setCommunityOrder] = useState<CommunityOrder>('recent')
   const {
     gradients: communityGradients,
     loading: communityLoading,
@@ -706,7 +717,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
     hasMore: communityHasMore,
     loadMore: loadMoreCommunity,
     deleteGradient: deleteCommunityGradient,
-  } = useCommunityGradients()
+  } = useCommunityGradients(communityOrder)
   // 'custom' is the hand-arranged order the drag-reorder writes — the default,
   // because a gallery you have arranged should stay arranged. 'recent' is the
   // other question people actually ask of their own saves ("what did I just
@@ -1157,7 +1168,11 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
               ))}
             </div>
 
-            {activeTab === 'saves' && (
+            {/* Both tabs sort, through the same control in the same place, so
+                "how is this ordered" is one idea rather than two. What differs
+                is underneath: Yours rearranges a list already in hand, while
+                Community re-queries and restarts paging. */}
+            {activeTab === 'saves' ? (
               <div
                 className={styles.sortGroup}
                 role="group"
@@ -1173,6 +1188,27 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
                     title={hint}
                     className={savesOrder === id ? styles.toggleBtnActiveTab : styles.toggleBtnTab}
                     onClick={() => setSavesOrder(id)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div
+                className={styles.sortGroup}
+                role="group"
+                aria-label="Sort community palettes"
+                data-testid="community-order"
+              >
+                {COMMUNITY_ORDERS.map(({ id, label, hint }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    data-testid={`community-order-${id}`}
+                    aria-pressed={communityOrder === id}
+                    title={hint}
+                    className={communityOrder === id ? styles.toggleBtnActiveTab : styles.toggleBtnTab}
+                    onClick={() => setCommunityOrder(id)}
                   >
                     {label}
                   </button>

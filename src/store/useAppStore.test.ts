@@ -111,13 +111,17 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().mode).toBe('edit')
   })
 
-  it('switches back to create mode', () => {
+  it('leaves edit mode for the gallery, even when edit began in the Create feed', () => {
+    // Returning to the feed put you back on the same full-screen gradient minus
+    // the sheet, which reads as "the controls closed" rather than as going
+    // back — and made the same chevron mean two different depths.
+    useAppStore.getState().setMode('create')
     useAppStore.getState().enterEditMode()
     useAppStore.getState().exitEditMode()
-    expect(useAppStore.getState().mode).toBe('create')
+    expect(useAppStore.getState().mode).toBe('gallery')
   })
 
-  it('returns to the gallery when edit was entered from the gallery', () => {
+  it('leaves edit mode for the gallery when edit was entered from the gallery', () => {
     useAppStore.getState().setMode('gallery')
     useAppStore.getState().setMode('edit')
     expect(useAppStore.getState().mode).toBe('edit')
@@ -125,12 +129,42 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().mode).toBe('gallery')
   })
 
-  it('keeps the original return surface when edit mode is re-entered', () => {
+  it('records the surface edit was opened from, and keeps it on re-entry', () => {
+    // Not a return address any more — it is read to decide whether the rolodex
+    // position counter means anything, which it does not for a named palette
+    // opened from the Gallery.
     useAppStore.getState().setMode('gallery')
     useAppStore.getState().enterEditMode()
     useAppStore.getState().enterEditMode()
-    useAppStore.getState().exitEditMode()
-    expect(useAppStore.getState().mode).toBe('gallery')
+    expect(useAppStore.getState().editEnteredFrom).toBe('gallery')
+  })
+
+  it('locks and unlocks the feed stop layout', () => {
+    expect(useAppStore.getState().lockedStopLayout).toBeNull()
+    // The POSITIONS, not just a count: a count alone re-spaced every generated
+    // palette evenly, so locking a gradient whose stops had been dragged into
+    // place gave back the right number of stops in the wrong places.
+    useAppStore.getState().setLockedStopLayout([0, 12, 80, 100])
+    expect(useAppStore.getState().lockedStopLayout).toEqual([0, 12, 80, 100])
+    useAppStore.getState().setLockedStopLayout(null)
+    expect(useAppStore.getState().lockedStopLayout).toBeNull()
+  })
+
+  it('repairs a locked layout the generator could not build on', () => {
+    useAppStore.getState().setLockedStopLayout([50])
+    expect(useAppStore.getState().lockedStopLayout).toEqual([0, 100])
+    useAppStore.getState().setLockedStopLayout(Array(12).fill(0))
+    expect(useAppStore.getState().lockedStopLayout).toHaveLength(8)
+    useAppStore.getState().setLockedStopLayout([80, 10, 40])
+    expect(useAppStore.getState().lockedStopLayout).toEqual([10, 40, 80])
+  })
+
+  it('does not persist the stop lock', () => {
+    // A lock still on from last week would look like the generator had broken.
+    useAppStore.getState().setLockedStopLayout([0, 50, 100])
+    const raw = localStorage.getItem('palette-saved-gradients')
+    expect(raw).not.toBeNull()
+    expect(JSON.parse(raw!).state).not.toHaveProperty('lockedStopLayout')
   })
 
   it('isGradientSaved reflects whether a gradient (by signature) is in saved', () => {

@@ -137,9 +137,35 @@ describe('GeometryTabs Shape/Effect sections', () => {
     for (const label of ['Linear', 'Radial', 'Angular', 'Turrell', 'Mirror', 'Fan']) {
       expect(shape).toContainElement(screen.getByText(label))
     }
-    for (const id of ['filter-repeat', 'filter-smooth', 'filter-hard', 'filter-rotate', 'sort-button']) {
+    for (const id of ['filter-repeat', 'filter-smooth', 'filter-hard', 'filter-grain', 'filter-rotate', 'sort-button']) {
       expect(effect).toContainElement(screen.getByTestId(id))
     }
+  })
+
+  it('toggles grain from the Effect chips', () => {
+    const onToggleNoise = vi.fn()
+    render_({ noiseEnabled: true, onToggleNoise })
+    const chip = screen.getByTestId('filter-grain')
+    expect(chip).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(chip)
+    expect(onToggleNoise).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps both panels in one layout box so switching tabs cannot resize the sheet', () => {
+    // Shape is one row of six squares and Effect two rows of chips, so a
+    // display:none swap made the sheet jump ~14px per tap — and the collapsed
+    // peek, measured from this content, moved with it. The panels share a
+    // parent (a single grid cell in CSS) and the inactive one stays in the
+    // layout, so the box is always as tall as the taller panel.
+    render_()
+    const shape = screen.getByTestId('section-panel-shape')
+    const effect = screen.getByTestId('section-panel-effect')
+    expect(shape.parentElement).toBe(effect.parentElement)
+
+    // Both are still there after the switch — hidden by class, never unmounted.
+    fireEvent.click(screen.getByTestId('section-tab-effect'))
+    expect(screen.getByTestId('section-panel-shape')).toBeInTheDocument()
+    expect(screen.getByTestId('section-panel-effect')).toBeInTheDocument()
   })
 
   it('keeps every control operable regardless of which section is showing', () => {

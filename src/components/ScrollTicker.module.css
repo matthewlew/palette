@@ -1,6 +1,6 @@
 .ticker {
   position: absolute;
-  right: 10px;
+  right: calc(10px + var(--safe-r));
   top: 50%;
   width: 24px;
   height: 0;

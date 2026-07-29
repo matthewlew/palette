@@ -1,6 +1,8 @@
 .bar {
   position: fixed;
-  bottom: calc(18px + env(safe-area-inset-bottom));
+  /* The same terms --tabbar-top is built from, so anything floating above the
+     bar clears its real footprint instead of a copied number. */
+  bottom: calc(var(--tabbar-gap) + var(--safe-b));
   left: 50%;
   transform: translateX(-50%);
   z-index: 30;
@@ -164,8 +166,8 @@
    corner while creating, mirroring the Save pill at bottom-right. */
 .thumbButton {
   position: fixed;
-  bottom: calc(16px + env(safe-area-inset-bottom));
-  left: 16px;
+  bottom: calc(16px + var(--safe-b));
+  left: var(--edge-l);
   z-index: 30;
   width: 46px;
   height: 46px;

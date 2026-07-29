@@ -1,6 +1,6 @@
 .title {
   position: absolute;
-  top: calc(14px + env(safe-area-inset-top));
+  top: calc(14px + var(--safe-t));
   left: 50%;
   transform: translateX(-50%);
   z-index: 3;

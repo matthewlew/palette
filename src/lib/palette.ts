@@ -41,17 +41,54 @@ function pickByScore(candidates: Oklch[][]): Oklch[] {
 
 const CANDIDATE_COUNT = 8
 
-export function generateGradientStops(colorSet: ColorSet): GradientStop[] {
-  const stopCount = 3 + Math.floor(Math.random() * 4) // 3-6
+/** The range the editor itself allows: it refuses to remove below 2 and to add
+ * above 8, so a lock outside that could ask for a palette you could not then
+ * edit back out of. */
+export const MIN_STOPS = 2
+export const MAX_STOPS = 8
+
+/** The even ladder a freshly generated gradient sits on. */
+export function evenPositions(count: number): number[] {
+  const n = Math.min(MAX_STOPS, Math.max(MIN_STOPS, Math.round(count)))
+  return Array.from({ length: n }, (_, i) => Math.round((i / (n - 1)) * 100))
+}
+
+/**
+ * A stop layout the generator can actually build on: the right length,
+ * ascending, and inside the track.
+ *
+ * Nothing here is trusted, because the layout arrives from persisted-ish state
+ * and from live editing. A single-stop ladder divides by zero in evenPositions
+ * and yields NaN% stops, which render as nothing; positions out of order make
+ * CSS clamp them silently, so the gradient stops matching the handles that
+ * produced it.
+ */
+export function normalizeStopLayout(layout: readonly number[]): number[] {
+  if (layout.length < MIN_STOPS || layout.length > MAX_STOPS) return evenPositions(layout.length)
+  return layout
+    .map((p) => (Number.isFinite(p) ? Math.min(100, Math.max(0, Math.round(p))) : 0))
+    .sort((a, b) => a - b)
+}
+
+/**
+ * @param layout Exact stop positions to generate onto. Omit for the usual
+ * random 3-6 evenly spaced. Passed when the feed's stops are locked, so
+ * scrubbing the rolodex varies the colours while leaving both how many stops
+ * there are and where they sit exactly as the user placed them.
+ */
+export function generateGradientStops(colorSet: ColorSet, layout?: readonly number[]): GradientStop[] {
+  const positions = layout
+    ? normalizeStopLayout(layout)
+    : evenPositions(3 + Math.floor(Math.random() * 4)) // 3-6
 
   const candidates: Oklch[][] = []
   for (let i = 0; i < CANDIDATE_COUNT; i++) {
-    candidates.push(buildCandidateColors(colorSet, stopCount))
+    candidates.push(buildCandidateColors(colorSet, positions.length))
   }
   const colors = pickByScore(candidates)
 
   return colors.map((color, i) => ({
     hex: oklchToHex(color),
-    position: Math.round((i / (stopCount - 1)) * 100),
+    position: positions[i],
   }))
 }

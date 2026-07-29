@@ -18,7 +18,7 @@
   background: rgba(20, 20, 24, 0.94);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+  padding: calc(16px + var(--safe-t)) 16px calc(16px + var(--safe-b));
   color: var(--text);
   z-index: 31;
   animation: slide 260ms cubic-bezier(0.32, 0.72, 0, 1);
@@ -101,8 +101,8 @@
    that opened the gallery. */
 .closeFab {
   position: fixed;
-  right: calc(16px + env(safe-area-inset-right));
-  bottom: calc(16px + env(safe-area-inset-bottom));
+  right: calc(16px + var(--safe-r));
+  bottom: calc(16px + var(--safe-b));
   width: 48px;
   height: 48px;
   border-radius: 50%;
