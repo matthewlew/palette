@@ -125,10 +125,13 @@ describe('Gallery — ordering the Yours tab', () => {
     expect(screen.getAllByTestId('gallery-tile')[0]).toHaveAttribute('draggable', 'false')
   })
 
-  it('offers no sort control on the Community tab, which has one meaningful order', () => {
+  it('hands the Community tab its own orders rather than these', () => {
+    // Custom means nothing for a feed nobody arranged, so the control swaps
+    // rather than persisting — same place, same shape, different options.
     render(<Gallery onRiff={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: /^Community$/ }))
     expect(screen.queryByTestId('saves-order')).not.toBeInTheDocument()
+    expect(screen.getByTestId('community-order')).toBeInTheDocument()
   })
 })
 

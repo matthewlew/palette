@@ -8,6 +8,9 @@ import { toGradient, paletteDna as dna, type PaletteRow } from '../lib/paletteRo
  * instead of discarded. */
 export const COMMUNITY_PAGE_SIZE = 50
 
+/** How the community feed is ordered. Both are server-side — see below. */
+export type CommunityOrder = 'recent' | 'popular'
+
 /**
  * The community feed, one page at a time.
  *
@@ -20,8 +23,14 @@ export const COMMUNITY_PAGE_SIZE = 50
  * `hasMore` is keyed on the RAW row count, not the deduplicated one: a page
  * that happens to be all reposts adds nothing to the list while the feed
  * plainly continues, and treating that as the end would strand the rest.
+ *
+ * ORDERING IS SERVER-SIDE, and has to be. Sorting the pages already loaded
+ * would rank a window rather than the feed — the most-liked palette in the
+ * table is quite likely to be on page five, and no amount of client-side
+ * sorting of pages one and two will surface it. Changing the order therefore
+ * restarts paging from the top.
  */
-export function useCommunityGradients() {
+export function useCommunityGradients(order: CommunityOrder = 'recent') {
   const [gradients, setGradients] = useState<Gradient[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -33,21 +42,45 @@ export function useCommunityGradients() {
   // One request at a time: a double-tapped Load more (or StrictMode's double
   // effect) would otherwise fetch the same page twice.
   const inFlightRef = useRef(false)
+  // Bumped every time the feed restarts. A request carries the generation it
+  // was issued under and its response is dropped if that has moved on.
+  //
+  // Without this, flipping Recent -> Popular -> Recent races: each switch
+  // clears the in-flight guard so the next query can start, and whichever
+  // response lands last wins. The one that lands last is not necessarily the
+  // one you asked for last, so a popular-ordered page could be appended to a
+  // list that is supposed to be in date order.
+  const generationRef = useRef(0)
 
   const fetchPage = useCallback(async () => {
     if (inFlightRef.current) return
     inFlightRef.current = true
+    const generation = generationRef.current
     const from = fetchedRowsRef.current
     if (from > 0) setLoadingMore(true)
 
     try {
-      const { data, error } = await supabase
-        .from('palettes')
-        .select('*')
+      let query = supabase.from('palettes').select('*')
+      // Popular leads with the count and falls back to newest, so that among
+      // the many palettes sharing a like count the fresh ones come first.
+      if (order === 'popular') {
+        query = query.order('likes', { ascending: false, nullsFirst: false })
+      }
+      // `id` last, always. offset/limit paging over a non-unique sort key has
+      // no defined order between equal rows, so the database is free to return
+      // a row on page one AND page two, or on neither. Most palettes share a
+      // like count (nearly all of them zero), which would have made that the
+      // normal case rather than an edge one. A unique final key makes the sort
+      // total and paging deterministic.
+      const { data, error } = await query
         .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
         .range(from, from + COMMUNITY_PAGE_SIZE - 1)
 
       if (error) throw error
+      // Superseded while in flight — the order changed under it. Its rows
+      // belong to a feed that is no longer on screen.
+      if (generation !== generationRef.current) return
 
       const rows: PaletteRow[] = data ?? []
       fetchedRowsRef.current = from + rows.length
@@ -70,13 +103,29 @@ export function useCommunityGradients() {
       // Leave hasMore alone so a failed page stays retryable — the button is
       // the retry. Only a short page means the feed genuinely ended.
     } finally {
-      inFlightRef.current = false
-      setLoading(false)
-      setLoadingMore(false)
+      // A superseded request must not clear the flags belonging to the request
+      // that replaced it — doing so would let a third query start mid-flight
+      // and turn the loading state off while the live one is still running.
+      if (generation === generationRef.current) {
+        inFlightRef.current = false
+        setLoading(false)
+        setLoadingMore(false)
+      }
     }
-  }, [])
+  }, [order])
 
   useEffect(() => {
+    // A new order is a new feed: the cursor, the dedupe memory and the list all
+    // belong to the old one. Keeping any of them would page into the new
+    // ordering at the old offset and silently drop everything the previous
+    // order had already shown.
+    generationRef.current += 1
+    fetchedRowsRef.current = 0
+    seenDnaRef.current = new Set<string>()
+    inFlightRef.current = false
+    setGradients([])
+    setHasMore(false)
+    setLoading(true)
     fetchPage()
   }, [fetchPage])
 
