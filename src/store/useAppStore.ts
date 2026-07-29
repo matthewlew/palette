@@ -6,7 +6,7 @@ import type {
 } from './types'
 import { DEFAULT_COLOR_SET, type ColorSet } from '../lib/colorSets'
 import { namePalette } from '../lib/naming'
-import { MIN_STOPS, MAX_STOPS } from '../lib/palette'
+import { normalizeStopLayout } from '../lib/palette'
 
 /** 'grid' is the uniform 4:5 grid, 'masonry' the Pinterest-style ragged one,
  * 'dense' the captionless square pack — three across on a phone, for scanning
@@ -79,19 +79,25 @@ interface AppState {
   setActiveColorSet: (colorSet: ColorSet) => void
   galleryLayout: GalleryLayout
   setGalleryLayout: (layout: GalleryLayout) => void
-  /** When set, the Create feed generates gradients with exactly this many
-   * colour stops instead of the usual random 3-6 — "keep showing me four-colour
-   * palettes while I scroll".
+  /** When set, the Create feed generates gradients onto exactly this ladder of
+   * stop positions instead of a random 3-6 evenly spaced — "keep showing me
+   * four-colour palettes, spaced like this one, while I scroll".
+   *
+   * The POSITIONS, not just a count. A count alone still re-spaced every
+   * generated palette evenly, so locking a gradient whose stops had been
+   * dragged into place gave back the right number of stops in the wrong places
+   * — the lock preserved the least interesting half of the thing you locked.
    *
    * Not persisted: it is a property of a browsing session, like the locked
    * shape, and a lock silently still on from last week would look like the
    * generator had stopped working.
    *
-   * It is a COUNT rather than a boolean so the lock knows what it is locked to.
-   * Adding or removing a stop in the editor moves it, which is what keeps it a
-   * preference ("this many") rather than a cage. */
-  lockedStopCount: number | null
-  setLockedStopCount: (count: number | null) => void
+   * It holds a value rather than a flag so the lock knows what it is locked to.
+   * Editing the stops in any way — adding, removing, dragging one along the
+   * track — moves it, which is what keeps it a preference ("like this, from now
+   * on") rather than a cage. */
+  lockedStopLayout: number[] | null
+  setLockedStopLayout: (layout: readonly number[] | null) => void
   /** Ids of community palettes this browser has liked. Persisted because that
    * is the whole account model: the server attributes a like to an anonymous
    * client id (see lib/clientId.ts) and this is the local mirror, so hearts
@@ -271,12 +277,9 @@ export const useAppStore = create<AppState>()(
       setActiveColorSet: (colorSet) => set({ activeColorSet: colorSet }),
       galleryLayout: 'masonry',
       setGalleryLayout: (layout) => set({ galleryLayout: layout }),
-      lockedStopCount: null,
-      setLockedStopCount: (count) =>
-        set({
-          lockedStopCount:
-            count === null ? null : Math.min(MAX_STOPS, Math.max(MIN_STOPS, Math.round(count))),
-        }),
+      lockedStopLayout: null,
+      setLockedStopLayout: (layout) =>
+        set({ lockedStopLayout: layout === null ? null : normalizeStopLayout(layout) }),
       likedPaletteIds: [],
       toggleLikedPalette: (id) => {
         const liked = get().likedPaletteIds

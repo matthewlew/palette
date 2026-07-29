@@ -335,7 +335,11 @@ describe('EditMode', () => {
     expect(updated.stops.map((s) => s.hex)).toEqual(['#0000ff', '#ff0000', '#00ff00'])
   })
 
-  it('sorting by lightness also re-equalizes stop positions evenly', () => {
+  it('sorting re-ranks the colours across the placements, leaving them alone', () => {
+    // Two independent things: which colour comes first, and where the stops
+    // sit. Sorting used to run through equalizePositions, which assigns
+    // positions by array index — so re-ranking a palette whose stops had been
+    // dragged into place threw that placement away and re-spaced it evenly.
     const unequalPositions: Gradient = {
       id: 'g3',
       type: 'linear',
@@ -349,10 +353,12 @@ describe('EditMode', () => {
     render(<EditMode gradient={unequalPositions} onExit={vi.fn()} />)
     fireEvent.click(screen.getByTestId('sort-button'))
     const updated = useAppStore.getState().current!
-    expect(updated.stops.map((s) => s.position)).toEqual([0, 50, 100])
+    expect(updated.stops.map((s) => s.position)).toEqual([5, 40, 95])
+    // Re-ranked dark -> mid -> light, onto the ladder that was already there.
+    expect(updated.stops.map((s) => s.hex)).toEqual(['#0000ff', '#ff0000', '#00ff00'])
   })
 
-  it('sorting also re-equalizes the on-screen flow handle positions, not just the store', () => {
+  it('keeps the on-screen flow handles on their placements through a sort', () => {
     const unequalPositions: Gradient = {
       id: 'g3b',
       type: 'linear',
@@ -366,7 +372,32 @@ describe('EditMode', () => {
     render(<EditMode gradient={unequalPositions} onExit={vi.fn()} />)
     fireEvent.click(screen.getByTestId('sort-button'))
     const handles = screen.getAllByRole('slider')
-    expect(handles.map((h) => h.getAttribute('aria-valuenow'))).toEqual(['0', '50', '100'])
+    expect(handles.map((h) => h.getAttribute('aria-valuenow'))).toEqual(['5', '40', '95'])
+  })
+
+  it('carries the placements through every step of the order cycle and back', () => {
+    // Original -> lightness -> chroma -> hue -> original. A ladder that
+    // survived one sort but not the round trip would still lose the placement,
+    // just later.
+    const unequalPositions: Gradient = {
+      id: 'g3c',
+      type: 'linear',
+      stops: [
+        { hex: '#0000ff', position: 5 },
+        { hex: '#00ff00', position: 40 },
+        { hex: '#ff0000', position: 95 },
+      ],
+      reversed: false,
+    }
+    render(<EditMode gradient={unequalPositions} onExit={vi.fn()} />)
+    for (let i = 0; i < 4; i++) {
+      fireEvent.click(screen.getByTestId('sort-button'))
+      expect(useAppStore.getState().current!.stops.map((s) => s.position)).toEqual([5, 40, 95])
+    }
+    // Back at Original, with the colours in the order they started.
+    expect(screen.getByTestId('sort-button').textContent).toBe('Order: Original')
+    expect(useAppStore.getState().current!.stops.map((s) => s.hex))
+      .toEqual(['#0000ff', '#00ff00', '#ff0000'])
   })
 
   it('shows the edit hint on mount and dismisses it on pointerdown anywhere in edit mode', () => {
