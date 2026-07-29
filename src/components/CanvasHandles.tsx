@@ -20,6 +20,9 @@ const DRAG_ARM_DELAY_MS = 150
 // Moving farther than this before the hold elapses cancels the pending drag —
 // the gesture was a swipe/scroll, not a deliberate pick-up.
 const SWIPE_CANCEL_PX = 8
+// Window between two taps on the SAME stop for the second to count as a
+// double-tap rather than an unrelated later tap.
+const DOUBLE_TAP_MS = 350
 
 interface CanvasHandlesProps {
   stops: EditableStop[]
@@ -37,6 +40,10 @@ interface CanvasHandlesProps {
   /** Fired when a handle drag engages/releases, so the parent can duck
    * chrome (FABs) out of the way of a drag near the edges. */
   onDraggingChange?: (dragging: boolean) => void
+  /** Double-tapping (or double-clicking) any stop's dot fires this — the
+   * canvas-side shortcut for the sheet's "Reset spacing" button. Which stop
+   * was tapped doesn't matter; rebalancing is a whole-gradient action. */
+  onResetSpacing?: () => void
   /** If true, instantly hide the handles without transitioning opacity out. */
   hidden?: boolean
   angle?: number
@@ -52,6 +59,7 @@ export function CanvasHandles({
   size,
   onReorder,
   onDraggingChange,
+  onResetSpacing,
   hidden = false,
   angle,
 }: CanvasHandlesProps) {
@@ -60,6 +68,14 @@ export function CanvasHandles({
   const [dragPoint, setDragPoint] = useState<PixelPoint | null>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
   const pendingRef = useRef<{ id: string; spoke: StopAnchorOpts['spoke']; startX: number; startY: number; timer: number } | null>(null)
+  // Tracks whether the gesture in progress is still a candidate for "tap" —
+  // separate from pendingRef, which is about arming the DRAG. A tap can
+  // survive small jitter (see SWIPE_CANCEL_PX) but is voided by the same
+  // swipe distance that cancels a pending drag.
+  const tapRef = useRef<{ id: string; cancelled: boolean } | null>(null)
+  // The stop id + time of the last completed tap, so a second tap on the
+  // SAME stop within DOUBLE_TAP_MS reads as a double-tap.
+  const lastTapRef = useRef<{ id: string; time: number } | null>(null)
 
   useEffect(() => {
     onDraggingChange?.(draggingId !== null)
@@ -170,6 +186,7 @@ export function CanvasHandles({
       setDragPoint(p)
     }, DRAG_ARM_DELAY_MS)
     pendingRef.current = { id, spoke: sp, startX: p.x, startY: p.y, timer }
+    tapRef.current = { id, cancelled: false }
   }
 
   function handlePointerMove(e: React.PointerEvent) {
@@ -184,6 +201,7 @@ export function CanvasHandles({
       const moved = Math.hypot(p.x - pendingRef.current.startX, p.y - pendingRef.current.startY)
       if (moved > SWIPE_CANCEL_PX) {
         clearTimeout(pendingRef.current.timer)
+        if (tapRef.current) tapRef.current.cancelled = true
         pendingRef.current = null
       }
       return
@@ -229,9 +247,33 @@ export function CanvasHandles({
     setDragPoint(null)
   }
 
-  function handlePointerUp(e: React.PointerEvent) {
+  function registerTap(id: string) {
+    const now = Date.now()
+    const last = lastTapRef.current
+    if (last && last.id === id && now - last.time <= DOUBLE_TAP_MS) {
+      lastTapRef.current = null
+      onResetSpacing?.()
+    } else {
+      lastTapRef.current = { id, time: now }
+    }
+  }
+
+  function handlePointerUp(e: React.PointerEvent, id: string) {
+    e.stopPropagation()
+    // A drag (armed and possibly moved) is never a tap, no matter how it ends.
+    const wasDragging = draggingId === id
+    const tap = tapRef.current
+    endDrag()
+    tapRef.current = null
+    if (!wasDragging && tap?.id === id && !tap.cancelled) {
+      registerTap(id)
+    }
+  }
+
+  function handlePointerCancel(e: React.PointerEvent) {
     e.stopPropagation()
     endDrag()
+    tapRef.current = null
   }
 
   function projectToTrack(
@@ -368,8 +410,8 @@ export function CanvasHandles({
             style={{ left: `${at.x}px`, top: `${at.y}px` }}
             onPointerDown={(e) => handlePointerDown(e, stop.id, item.spoke)}
             onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerUp}
+            onPointerUp={(e) => handlePointerUp(e, stop.id)}
+            onPointerCancel={handlePointerCancel}
           >
             {/* Always mounted so opacity dissolves both in and out on hover
                 (unmounting would make it pop). The testid is only present when

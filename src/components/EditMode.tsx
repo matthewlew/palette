@@ -973,6 +973,10 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           size={canvasSize}
           hidden={scrolling}
           onReorder={(next) => commit(next, undefined, { reorder: true })}
+          onResetSpacing={() => {
+            handleResetDistribution()
+            tickHaptic()
+          }}
           onDraggingChange={(dragging) => {
             const wasDragging = isDraggingRef.current
             isDraggingRef.current = dragging

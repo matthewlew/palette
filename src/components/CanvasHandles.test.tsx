@@ -153,6 +153,119 @@ describe('CanvasHandles stuck-drag recovery', () => {
   })
 })
 
+describe('CanvasHandles double-tap to reset spacing', () => {
+  it('fires onResetSpacing on a second quick tap of the same stop', () => {
+    const onResetSpacing = vi.fn()
+    render(
+      <CanvasHandles
+        stops={stops}
+        type="linear"
+        cursor={{ x: 100, y: 0 }}
+        size={size}
+        onReorder={vi.fn()}
+        onResetSpacing={onResetSpacing}
+      />,
+    )
+    const dot = screen.getByTestId('canvas-handle-a')
+    fireEvent.pointerDown(dot, { pointerId: 1, clientX: 100, clientY: 0 })
+    fireEvent.pointerUp(dot, { pointerId: 1, clientX: 100, clientY: 0 })
+    expect(onResetSpacing).not.toHaveBeenCalled()
+
+    act(() => {
+      vi.advanceTimersByTime(100)
+    })
+    fireEvent.pointerDown(dot, { pointerId: 1, clientX: 100, clientY: 0 })
+    fireEvent.pointerUp(dot, { pointerId: 1, clientX: 100, clientY: 0 })
+    expect(onResetSpacing).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not fire when the two taps land on different stops', () => {
+    const onResetSpacing = vi.fn()
+    render(
+      <CanvasHandles
+        stops={stops}
+        type="linear"
+        cursor={{ x: 100, y: 0 }}
+        size={size}
+        onReorder={vi.fn()}
+        onResetSpacing={onResetSpacing}
+      />,
+    )
+    const dotA = screen.getByTestId('canvas-handle-a')
+    const dotB = screen.getByTestId('canvas-handle-b')
+    fireEvent.pointerDown(dotA, { pointerId: 1, clientX: 100, clientY: 0 })
+    fireEvent.pointerUp(dotA, { pointerId: 1, clientX: 100, clientY: 0 })
+    fireEvent.pointerDown(dotB, { pointerId: 1, clientX: 100, clientY: 100 })
+    fireEvent.pointerUp(dotB, { pointerId: 1, clientX: 100, clientY: 100 })
+    expect(onResetSpacing).not.toHaveBeenCalled()
+  })
+
+  it('does not fire when the second tap arrives after the double-tap window', () => {
+    const onResetSpacing = vi.fn()
+    render(
+      <CanvasHandles
+        stops={stops}
+        type="linear"
+        cursor={{ x: 100, y: 0 }}
+        size={size}
+        onReorder={vi.fn()}
+        onResetSpacing={onResetSpacing}
+      />,
+    )
+    const dot = screen.getByTestId('canvas-handle-a')
+    fireEvent.pointerDown(dot, { pointerId: 1, clientX: 100, clientY: 0 })
+    fireEvent.pointerUp(dot, { pointerId: 1, clientX: 100, clientY: 0 })
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+    fireEvent.pointerDown(dot, { pointerId: 1, clientX: 100, clientY: 0 })
+    fireEvent.pointerUp(dot, { pointerId: 1, clientX: 100, clientY: 0 })
+    expect(onResetSpacing).not.toHaveBeenCalled()
+  })
+
+  it('a completed drag does not count as a tap toward a double-tap', () => {
+    const onResetSpacing = vi.fn()
+    render(
+      <CanvasHandles
+        stops={stops}
+        type="linear"
+        cursor={{ x: 100, y: 0 }}
+        size={size}
+        onReorder={vi.fn()}
+        onResetSpacing={onResetSpacing}
+      />,
+    )
+    const dot = screen.getByTestId('canvas-handle-a')
+    armDrag(dot, 100, 0)
+    fireEvent.pointerMove(dot, { pointerId: 1, buttons: 1, clientX: 100, clientY: 200 })
+    fireEvent.pointerUp(dot, { pointerId: 1, clientX: 100, clientY: 200 })
+    fireEvent.pointerDown(dot, { pointerId: 1, clientX: 100, clientY: 200 })
+    fireEvent.pointerUp(dot, { pointerId: 1, clientX: 100, clientY: 200 })
+    expect(onResetSpacing).not.toHaveBeenCalled()
+  })
+
+  it('a cancelled swipe (movement past the slop before the hold elapses) does not count as a tap', () => {
+    const onResetSpacing = vi.fn()
+    render(
+      <CanvasHandles
+        stops={stops}
+        type="linear"
+        cursor={{ x: 100, y: 0 }}
+        size={size}
+        onReorder={vi.fn()}
+        onResetSpacing={onResetSpacing}
+      />,
+    )
+    const dot = screen.getByTestId('canvas-handle-a')
+    fireEvent.pointerDown(dot, { pointerId: 1, clientX: 100, clientY: 0 })
+    fireEvent.pointerMove(dot, { pointerId: 1, buttons: 1, clientX: 100, clientY: 60 })
+    fireEvent.pointerUp(dot, { pointerId: 1, clientX: 100, clientY: 60 })
+    fireEvent.pointerDown(dot, { pointerId: 1, clientX: 100, clientY: 60 })
+    fireEvent.pointerUp(dot, { pointerId: 1, clientX: 100, clientY: 60 })
+    expect(onResetSpacing).not.toHaveBeenCalled()
+  })
+})
+
 describe('CanvasHandles dragging chrome callback', () => {
   it('notifies the parent when a drag engages and releases', () => {
     const onDraggingChange = vi.fn()
