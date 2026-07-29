@@ -61,16 +61,23 @@ describe('grain toggle', () => {
     expect(onEdit).not.toHaveBeenCalled()
   })
 
-  it('EditMode renders the overlay when noise is enabled and its button does not exit', () => {
+  it('EditMode toggles grain from the Effect chips, not a button floating on the canvas', () => {
+    // Grain is an effect like Repeat/Smooth/Hard. While it floated in the
+    // preview's corner, the Effect tab was not actually the list of effects —
+    // and the one control that changed the picture sat on top of the picture.
     useAppStore.getState().toggleNoise()
     const onExit = vi.fn()
     render(<EditMode gradient={gradient} onExit={onExit} />)
     expect(screen.getByTestId('noise-overlay')).toBeInTheDocument()
-    const button = screen.getByTestId('grain-button')
-    fireEvent.pointerDown(button, { clientX: 5, clientY: 5 })
-    fireEvent.pointerUp(button, { clientX: 5, clientY: 5 })
-    fireEvent.click(button)
-    expect(onExit).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('grain-button')).not.toBeInTheDocument()
+
+    const chip = screen.getByTestId('filter-grain')
+    expect(screen.getByTestId('edit-sheet')).toContainElement(chip)
+    expect(chip).toHaveAttribute('aria-pressed', 'true')
+
+    fireEvent.click(chip)
     expect(useAppStore.getState().noiseEnabled).toBe(false)
+    // In the sheet, so it is nowhere near the preview's tap-to-exit.
+    expect(onExit).not.toHaveBeenCalled()
   })
 })

@@ -72,10 +72,16 @@
    103, 148) before that became clear. Sizing to content removes the class of
    bug rather than the instance.
 
+   Both sections now measure the same (GeometryTabs stacks them in one grid
+   cell), so the peek is one height rather than one per tab.
+
    max-height stays only as a CEILING, so the collapse still animates and a
-   future section can't quietly grow the peek to fill the screen. */
+   future section can't quietly grow the peek to fill the screen. It has to sit
+   ABOVE the real content height, not near it: the gesture measures the peek by
+   applying this class and reading the result, so a ceiling that clips would
+   quietly become the detent and the peek would show a sliced row again. */
 .sheet.collapsed {
-  max-height: 220px;
+  max-height: 260px;
   overflow: hidden;
   transition: max-height 200ms ease, opacity 200ms ease, transform 200ms ease;
 }
@@ -185,13 +191,9 @@
   }
 }
 
-
-
-@media (min-width: 768px) {
-  .preview :global([data-testid='grain-button']) {
-    bottom: calc(84px + env(safe-area-inset-bottom));
-  }
-}
+/* The grain toggle used to float in this corner and needed lifting clear of the
+   Save pill on desktop. It is an Effect chip in the sheet now, so the corner
+   holds Save alone and needs no offset. */
 
 .blockArea {
   position: relative;

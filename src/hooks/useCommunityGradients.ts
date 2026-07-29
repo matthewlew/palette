@@ -3,10 +3,14 @@ import { supabase } from '../lib/supabase'
 import type { Gradient } from '../store/types'
 import { toGradient, paletteDna as dna, type PaletteRow } from '../lib/paletteRow'
 
-/** Rows per request. Also the size of the first page, so the initial view is
- * unchanged from when 50 was the whole list — the rest is now reachable
- * instead of discarded. */
-export const COMMUNITY_PAGE_SIZE = 50
+/** Rows per request, and the size of the first page.
+ *
+ * 100, not 50. 50 was chosen when it was the whole list, and it reads fine on a
+ * phone — but a desktop dense grid is six or seven across, so 50 is eight rows
+ * and you hit Load more almost immediately. One page size for both rather than
+ * a breakpoint-dependent one: the cursor counts rows fetched, so a page size
+ * that changed when the window was resized would page over a moving offset. */
+export const COMMUNITY_PAGE_SIZE = 100
 
 /** How the community feed is ordered. Both are server-side — see below. */
 export type CommunityOrder = 'recent' | 'popular'

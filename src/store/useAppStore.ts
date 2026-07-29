@@ -67,9 +67,11 @@ interface AppState {
    * is missing or the ids are equal. */
   reorderSaved: (fromId: string, toId: string) => void
   toggleSaveGradient: (gradient: Gradient) => void
-  /** Where exiting edit mode returns to — the surface edit was entered
-   * from (Create feed or Gallery). */
-  editReturnMode: Exclude<ViewMode, 'edit'>
+  /** Which surface edit mode was opened from — the Create feed or the Gallery.
+   * Read for PRESENTATION only (the rolodex position counter means nothing for
+   * a named palette opened from the Gallery). It is deliberately not where
+   * exiting goes; see exitEditMode. */
+  editEnteredFrom: Exclude<ViewMode, 'edit'>
   enterEditMode: () => void
   exitEditMode: () => void
   setMode: (mode: ViewMode) => void
@@ -229,14 +231,22 @@ export const useAppStore = create<AppState>()(
           get().saveGradient(gradient)
         }
       },
-      editReturnMode: 'create',
+      editEnteredFrom: 'create',
       enterEditMode: () => {
         const mode = get().mode
-        set({ mode: 'edit', editReturnMode: mode === 'edit' ? get().editReturnMode : mode })
+        set({ mode: 'edit', editEnteredFrom: mode === 'edit' ? get().editEnteredFrom : mode })
       },
-      // Exit returns to the surface edit was entered from — riffing from the
-      // Gallery goes back to the Gallery, editing from the feed back to Create.
-      exitEditMode: () => set({ mode: get().editReturnMode }),
+      // Backing out of edit mode lands in the Gallery, wherever edit was opened
+      // from.
+      //
+      // It used to return to the entry surface, which meant leaving an edit
+      // begun in the Create feed dropped you onto the same full-screen gradient
+      // minus the sheet. That does not read as going back — it reads as the
+      // controls closing — and it left one chevron, in one corner, meaning two
+      // different depths depending on invisible history: Create's own back
+      // already goes to the Gallery. One control, one destination. The feed is
+      // still a single tap away on the tab bar.
+      exitEditMode: () => set({ mode: 'gallery' }),
       setMode: (mode) => {
         if (mode === 'edit') {
           get().enterEditMode()

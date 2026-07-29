@@ -14,7 +14,6 @@ import { sortByOklch, type SortKey } from '../lib/sortColors'
 import { useHint } from '../hooks/useHint'
 import { useScrolling } from '../hooks/useScrolling'
 import { Hint } from './Hint'
-import { GrainButton } from './GrainButton'
 import { NoiseOverlay } from './NoiseOverlay'
 import { GeometryTabs } from './GeometryTabs'
 import { ShortcutHints, type ShortcutHintItem } from './ShortcutHints'
@@ -121,7 +120,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   // The scroll-position number only means something in the endless Create
   // feed. When editing a saved gradient (opened from the Gallery) it's a
   // named, one-off palette, so the counter would be meaningless — hide it.
-  const fromGallery = useAppStore((s) => s.editReturnMode === 'gallery')
+  const fromGallery = useAppStore((s) => s.editEnteredFrom === 'gallery')
   const [editableStops, setEditableStops] = useState<EditableStop[]>(() => toEditableStops(gradient.stops))
   const [activeOrder, setActiveOrder] = useState<OrderKey>('original')
   // Stop ids in the user's own order — the baseline "Original" restores to.
@@ -133,19 +132,19 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   const previewRef = useRef<HTMLDivElement>(null)
   const onExitRef = useRef(onExit)
   onExitRef.current = onExit
-  // Dragging the sheet down collapses it to a full-screen gradient view that's
-  // still in edit mode (a pull-tab restores it); only Back/Esc actually exits.
+  // Dragging the sheet down collapses it to a peek — a near-full-screen
+  // gradient view that's still in edit mode (a pull-tab restores it); only
+  // Back/Esc actually exits.
   //
-  // It also STARTS collapsed on the mobile bottom-sheet layout: even after the
-  // Order chip moved out, the open sheet takes over half a phone viewport, so
-  // entering edit mode used to hand you a gradient you could barely see. The
-  // handle is visible and tapping it (or the canvas) opens the controls.
-  // Desktop is a fixed side panel that never collapses, so it opens as before.
-  const [collapsed, setCollapsed] = useState(
-    () => typeof window !== 'undefined'
-      && typeof window.matchMedia === 'function'
-      && !window.matchMedia('(min-width: 768px)').matches,
-  )
+  // It now OPENS OPEN on mobile too. It used to start at the peek so the
+  // preview got the screen, but the peek shows the Shape/Effect switch and one
+  // section, and nothing else — so tapping a gradient to edit it handed you six
+  // shape buttons and no colour stops, and the stops (what most edits are
+  // actually about) needed a second, undiscoverable tap on a 4px grab handle.
+  // Opening with the controls you came for beats opening with a bigger picture
+  // of the gradient you were already looking at; dragging down is still there
+  // the moment you want the picture back.
+  const [collapsed, setCollapsed] = useState(false)
   const collapseRef = useRef<(v: boolean) => void>(() => {})
   collapseRef.current = setCollapsed
   // The drag gesture is bound once as native listeners, so it reads the
@@ -257,30 +256,26 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     let moved = false
     let settling = false
 
-    const px = (v: string) => parseFloat(v) || 0
-
     /** The peek height, derived rather than hard-coded — sizing to content is
      * what stopped the peek slicing a row when the Shape and Effect sections
      * turned out to be different heights.
      *
-     * Measured directly when the sheet is collapsed, which is the honest
-     * number and where the mobile sheet starts. Once known it is remembered,
-     * because reconstructing it from the open sheet means summing children and
-     * that is only ever an approximation of what the class actually does. */
+     * Measured with the collapsed class ON, exactly mirroring measureOpen:
+     * add, read, restore in one synchronous block, so nothing paints in between
+     * and it costs a reflow and nothing else.
+     *
+     * It used to reconstruct the number by summing the children the class does
+     * not hide, which is only ever an approximation of what the class actually
+     * does. That path was a rare fallback while the sheet started collapsed;
+     * now that it opens open it would be the path taken on every first drag, so
+     * it measures the real thing instead. */
     function measurePeek(): number {
-      if (collapsedRef.current && el!.offsetHeight > 0) {
-        peekHRef.current = el!.offsetHeight
-        return peekHRef.current
-      }
-      if (peekHRef.current > 0) return peekHRef.current
-      const cs = getComputedStyle(el!)
-      let h = px(cs.paddingTop) + px(cs.paddingBottom)
-      for (const child of Array.from(el!.children) as HTMLElement[]) {
-        if (child.classList.contains(styles.belowSections)) continue
-        const ccs = getComputedStyle(child)
-        h += child.offsetHeight + px(ccs.marginTop) + px(ccs.marginBottom)
-      }
-      return h
+      const had = el!.classList.contains(styles.collapsed)
+      if (!had) el!.classList.add(styles.collapsed)
+      const h = el!.offsetHeight
+      if (!had) el!.classList.remove(styles.collapsed)
+      if (h > 0) peekHRef.current = h
+      return peekHRef.current
     }
 
     // performance.now(), not event.timeStamp: the timeStamp origin is not
@@ -992,7 +987,10 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           hidden={chromeHidden}
           color={titleColor}
         />
-        <GrainButton enabled={noiseEnabled} onToggle={toggleNoise} hidden={chromeHidden} color={cornerColor} />
+        {/* Grain used to float here as its own round button. It is an effect
+            like Repeat/Smooth/Hard, and having one of the effects live in a
+            different corner meant the Effect tab was not, in fact, the list of
+            effects — so it moved into that tab. */}
 
         {/* Save lives on the gradient itself (bottom-right, above grain) on
             every screen size — the same spot and pill as the create feed —
@@ -1074,6 +1072,8 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           onToggleSmooth={handleToggleSmooth}
           onRotateFan={handleRotateFan}
           onRotate={handleRotateAngle}
+          noiseEnabled={noiseEnabled}
+          onToggleNoise={toggleNoise}
           order={activeOrder}
           orderLabel={ORDER_LABELS[activeOrder]}
           onCycleOrder={handleSortCycle}

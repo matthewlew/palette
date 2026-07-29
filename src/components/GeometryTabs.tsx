@@ -15,6 +15,12 @@ interface GeometryTabsProps {
   /** Re-tapping the active Fan tab rotates its anchor edge. */
   onRotateFan?: () => void
   onRotate?: () => void
+  /** The mono grain overlay. It sits with the other effect chips rather than
+   * floating on the canvas as its own round button: it IS an effect, and one
+   * of them living in a different corner meant this tab was not actually the
+   * list of effects. */
+  noiseEnabled?: boolean
+  onToggleNoise?: () => void
   /** Current stop order, shown on the Order chip. It sits with the other
    * modifier chips rather than in its own row under the flow editor: it is
    * a modifier like the rest, and on mobile its old row cost the sheet 91px
@@ -60,6 +66,8 @@ export function GeometryTabs({
   onToggleSmooth,
   onRotateFan,
   onRotate,
+  noiseEnabled = false,
+  onToggleNoise,
   orderLabel,
   order,
   onCycleOrder,
@@ -129,6 +137,13 @@ export function GeometryTabs({
         ))}
       </div>
 
+      {/* Both panels share one grid cell on mobile, so the sheet is always as
+          tall as the TALLER of them and switching tabs cannot resize it. Shape
+          is one 74px row of six squares and Effect two 40px rows of chips, so
+          the sheet used to jump 14px every time you switched — and the peek
+          detent, which is measured from this content, moved with it. See the
+          .panels/.panelInactive pair in the stylesheet. */}
+      <div className={styles.panels}>
       <section
         id="section-panel-shape"
         data-testid="section-panel-shape"
@@ -216,6 +231,15 @@ export function GeometryTabs({
       </button>
       <button
         type="button"
+        data-testid="filter-grain"
+        aria-pressed={noiseEnabled}
+        className={noiseEnabled ? styles.filterActive : styles.filter}
+        onClick={onToggleNoise}
+      >
+        Grain
+      </button>
+      <button
+        type="button"
         data-testid="filter-rotate"
         className={styles.filter}
         onClick={onRotate}
@@ -235,6 +259,7 @@ export function GeometryTabs({
       )}
         </div>
       </section>
+      </div>
     </div>
   )
 }

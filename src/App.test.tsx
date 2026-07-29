@@ -41,7 +41,7 @@ describe('App', () => {
     expect(screen.getAllByTestId('gallery-tile')).toHaveLength(1)
   })
 
-  it('calls withViewTransition when exiting edit mode', async () => {
+  it('backs out of edit mode to the gallery, inside a view transition', async () => {
     const viewTransitionModule = await import('./lib/viewTransition')
     const spy = vi.spyOn(viewTransitionModule, 'withViewTransition').mockImplementation((update) => update())
 
@@ -59,7 +59,10 @@ describe('App', () => {
     fireEvent.click(screen.getByLabelText('Back'))
 
     expect(spy).toHaveBeenCalledTimes(1)
-    expect(useAppStore.getState().mode).toBe('create')
+    // The gallery, not the feed edit was opened from: returning there put you
+    // back on the same full-screen gradient minus the sheet, which reads as the
+    // controls closing rather than as going back.
+    expect(useAppStore.getState().mode).toBe('gallery')
 
     spy.mockRestore()
   })

@@ -52,14 +52,38 @@
   color: var(--text-subdued);
 }
 
+/* On mobile the two panels are STACKED IN ONE GRID CELL rather than swapped in
+   and out of the flow, so the container is always as tall as the taller of them
+   and the sheet's height does not change when you switch tabs.
+
+   That matters twice over. Shape is a single 74px row of six squares and Effect
+   two 40px rows of chips, so the sheet visibly jumped every time you switched —
+   and the collapsed peek is measured from exactly this content, so the detent
+   the drag gesture settles onto moved with it. */
+.panels {
+  display: grid;
+}
+
+.panels > section {
+  grid-area: 1 / 1;
+}
+
 .panel {
   display: block;
 }
 
 /* Hidden on MOBILE only — the media query below puts it back for desktop, so
-   the tab state can stay a plain boolean instead of being branched on width. */
+   the tab state can stay a plain boolean instead of being branched on width.
+
+   visibility, NOT display: display:none takes the panel out of the layout
+   entirely, so the shared grid cell would collapse to whichever panel happened
+   to be showing and we would be back to a sheet that resizes per tab.
+   visibility keeps it in the layout — it is what sets the height — while still
+   removing it from the accessibility tree and the tab order. */
 .panelInactive {
-  display: none;
+  composes: panel;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 @media (min-width: 768px) {
@@ -67,8 +91,16 @@
     display: none;
   }
 
+  /* The side panel has the height to show both at once, stacked and headed. */
+  .panels {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
   .panelInactive {
-    display: block;
+    visibility: visible;
+    pointer-events: auto;
   }
 
   .sectionHeading {

@@ -111,13 +111,17 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().mode).toBe('edit')
   })
 
-  it('switches back to create mode', () => {
+  it('leaves edit mode for the gallery, even when edit began in the Create feed', () => {
+    // Returning to the feed put you back on the same full-screen gradient minus
+    // the sheet, which reads as "the controls closed" rather than as going
+    // back — and made the same chevron mean two different depths.
+    useAppStore.getState().setMode('create')
     useAppStore.getState().enterEditMode()
     useAppStore.getState().exitEditMode()
-    expect(useAppStore.getState().mode).toBe('create')
+    expect(useAppStore.getState().mode).toBe('gallery')
   })
 
-  it('returns to the gallery when edit was entered from the gallery', () => {
+  it('leaves edit mode for the gallery when edit was entered from the gallery', () => {
     useAppStore.getState().setMode('gallery')
     useAppStore.getState().setMode('edit')
     expect(useAppStore.getState().mode).toBe('edit')
@@ -125,12 +129,14 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().mode).toBe('gallery')
   })
 
-  it('keeps the original return surface when edit mode is re-entered', () => {
+  it('records the surface edit was opened from, and keeps it on re-entry', () => {
+    // Not a return address any more — it is read to decide whether the rolodex
+    // position counter means anything, which it does not for a named palette
+    // opened from the Gallery.
     useAppStore.getState().setMode('gallery')
     useAppStore.getState().enterEditMode()
     useAppStore.getState().enterEditMode()
-    useAppStore.getState().exitEditMode()
-    expect(useAppStore.getState().mode).toBe('gallery')
+    expect(useAppStore.getState().editEnteredFrom).toBe('gallery')
   })
 
   it('isGradientSaved reflects whether a gradient (by signature) is in saved', () => {
