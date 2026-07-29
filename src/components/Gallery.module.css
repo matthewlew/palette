@@ -6,7 +6,10 @@
   background: var(--c-950);
   overflow-y: auto;
   overflow-x: hidden;
-  padding: max(var(--space-3), env(safe-area-inset-top)) var(--space-4) calc(90px + env(safe-area-inset-bottom));
+  padding: max(var(--space-3), var(--safe-t))
+           calc(var(--space-4) + var(--safe-r))
+           calc(90px + var(--safe-b))
+           calc(var(--space-4) + var(--safe-l));
 }
 
 /* Group heading above each half of the search results. */
@@ -521,7 +524,7 @@
    language. High z-index so it also shows over the full-screen viewer. */
 .undoToast {
   position: fixed;
-  bottom: calc(76px + env(safe-area-inset-bottom));
+  bottom: calc(76px + var(--safe-b));
   left: 50%;
   transform: translateX(-50%);
   z-index: 45;
@@ -572,8 +575,8 @@
    trigger can stay pinned top-right in every surface. */
 .viewerClose {
   position: absolute;
-  top: max(16px, env(safe-area-inset-top));
-  left: 16px;
+  top: max(16px, var(--safe-t));
+  left: var(--edge-l);
   width: 44px;
   font-size: 16px;
   z-index: 41;
@@ -587,7 +590,7 @@
      glyphs bottom out ≈41px; a tight line-height (the inherited 1.9 was
      inflating this line into a floating second block) lets the date sit a
      few px under it. */
-  top: calc(44px + env(safe-area-inset-top));
+  top: calc(44px + var(--safe-t));
   left: 50%;
   transform: translateX(-50%);
   z-index: 3;
@@ -615,8 +618,8 @@
  * ~44px pill + 12px gap clears it at every width. */
 .viewerActionsBar {
   position: absolute;
-  bottom: calc(74px + env(safe-area-inset-bottom));
-  right: 16px;
+  bottom: calc(74px + var(--safe-b));
+  right: var(--edge-r);
   z-index: 3;
   display: flex;
   gap: 10px;

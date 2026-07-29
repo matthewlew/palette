@@ -9,8 +9,8 @@
      group and it morphs in place. Same fix as palette-title and edit-fab. */
   view-transition-name: play-button;
   position: absolute;
-  bottom: calc(128px + env(safe-area-inset-bottom));
-  right: 16px;
+  bottom: calc(128px + var(--safe-b));
+  right: var(--edge-r);
   z-index: 3;
   width: 44px;
 }

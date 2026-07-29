@@ -11,11 +11,11 @@
    the heart (and the grain toggle above it) shift up to sit directly over
    it. Edit mode has no stack and keeps the buttons' default positions. */
 .page :global([data-testid='like-button']) {
-  bottom: calc(84px + env(safe-area-inset-bottom));
+  bottom: calc(84px + var(--safe-b));
 }
 
 .page :global([data-testid='grain-button']) {
-  bottom: calc(140px + env(safe-area-inset-bottom));
+  bottom: calc(140px + var(--safe-b));
 }
 
 /* Play has to be lifted by the SAME 68px as the two below it. The base stack
@@ -24,7 +24,7 @@
    play ended up BELOW grain and the two overlapped by 32px (they are 44px
    tall). 196 restores the rhythm. */
 .page :global([data-testid='play-button']) {
-  bottom: calc(196px + env(safe-area-inset-bottom));
+  bottom: calc(196px + var(--safe-b));
 }
 
 /* Bottom-LEFT, mirroring the grain/play/save cluster on the bottom right. It
@@ -43,8 +43,8 @@
    finds it. */
 .editButton {
   position: absolute;
-  left: 16px;
-  bottom: calc(84px + env(safe-area-inset-bottom));
+  left: var(--edge-l);
+  bottom: calc(84px + var(--safe-b));
   /* A ROW, and everything else left to .ghost-chip.
    *
    * This was a column with its own border-radius (16px) and width (44px),
@@ -113,8 +113,8 @@
    It fades with the rest of the chrome while scrolling the feed. */
 .backButton {
   position: absolute;
-  top: calc(16px + env(safe-area-inset-top));
-  left: 16px;
+  top: calc(16px + var(--safe-t));
+  left: var(--edge-l);
   z-index: 3;
   width: 44px;
   transition: opacity 200ms ease;

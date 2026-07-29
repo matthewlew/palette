@@ -41,6 +41,38 @@
    * everyone, which trades an annoyance for an accessibility failure. */
   --field-min-font: 16px;
 
+  /* The display cutouts, as tokens.
+   *
+   * env() was only ever reached for TOP and BOTTOM, which is the portrait
+   * story. Held sideways, an iPhone puts the notch on one short edge and the
+   * home indicator on the other, so the left/right insets go from 0 to ~59px
+   * and every control pinned at `left: 16px` or `right: 16px` slides under the
+   * camera housing. Naming all four means the horizontal pair is as easy to
+   * reach for as the vertical one, and — because a custom property CAN be
+   * overridden while env() cannot — it also makes the notch simulable in a
+   * browser check rather than only observable on a real handset. */
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+
+  /* The gutter every edge-pinned floating control sits at, cutout included. */
+  --edge-l: calc(16px + var(--safe-l));
+  --edge-r: calc(16px + var(--safe-r));
+
+  /* Everything the bottom tab bar occupies, measured from the bottom of the
+   * viewport: its gap from the edge, its own height, and the home-indicator
+   * inset underneath it.
+   *
+   * Anything floating above the bar should clear THIS rather than a
+   * hand-copied number. The hint toast was pinned at a flat `bottom: 96px`
+   * with no inset at all, and 18 + 44 + a 34px home indicator puts the bar's
+   * top edge at exactly 96 — so on any phone with an indicator the toast and
+   * the bar were touching. */
+  --tabbar-h: 46px; /* measured: 4px padding + a 38px row, at every breakpoint */
+  --tabbar-gap: 18px;
+  --tabbar-top: calc(var(--tabbar-gap) + var(--tabbar-h) + var(--safe-b));
+
   font: 18px/145% var(--th-body);
   letter-spacing: 0.18px;
   color-scheme: dark;

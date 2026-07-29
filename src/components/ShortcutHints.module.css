@@ -1,7 +1,7 @@
 .strip {
   position: fixed;
-  left: 16px;
-  bottom: 16px;
+  left: var(--edge-l);
+  bottom: calc(16px + var(--safe-b));
   z-index: 40;
   display: flex;
   align-items: center;

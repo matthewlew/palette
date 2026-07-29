@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from 'react'
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import { buildGradientCss, nextRotationAngle, nextFanRotation, SELECTABLE_GEOMETRY, type GradientType } from '../lib/gradient'
 import {
@@ -188,10 +188,21 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
 
   // Per-corner palette-derived foregrounds (same strategy as the title) so
   // every floating control reads as an extension of the gradient.
-  const backColor = titleColorAt(gradient, 0.06, 0.06)
-  const titleColor = titleColorAt(gradient, 0.5, 0.06)
-  const shareColor = titleColorAt(gradient, 0.94, 0.06)
-  const cornerColor = titleColorAt(gradient, 0.93, 0.88)
+  //
+  // Sampled from what is ON SCREEN rather than from the last committed
+  // gradient, which is what made the chrome look a beat behind the picture.
+  // Two things caused that. A canvas-handle drag deliberately withholds
+  // setCurrentGradient until release (see commit), so `gradient` is stale for
+  // the entire drag while the preview repaints every frame — the ink simply
+  // froze and then snapped. And a colour swap crossfades the background over
+  // 220ms while the ink, read off the committed stops, had already jumped.
+  // animatedStops is precisely what the preview is painting, so the two now
+  // move together by construction.
+  const painted = useMemo(() => ({ ...gradient, stops: animatedStops }), [gradient, animatedStops])
+  const backColor = titleColorAt(painted, 0.06, 0.06)
+  const titleColor = titleColorAt(painted, 0.5, 0.06)
+  const shareColor = titleColorAt(painted, 0.94, 0.06)
+  const cornerColor = titleColorAt(painted, 0.93, 0.88)
 
   // Scroll, drag, and keyboard navigation state for editing
   const [tickerIndex, setTickerIndex] = useState(() => feedSession.index)

@@ -9,8 +9,8 @@
    anchor as every other floating control. */
 .backButton {
   position: absolute;
-  top: calc(16px + env(safe-area-inset-top));
-  left: 16px;
+  top: calc(16px + var(--safe-t));
+  left: var(--edge-l);
   z-index: 1;
   width: 44px;
   transition: opacity 200ms ease;
@@ -43,6 +43,11 @@
   flex-direction: column;
   flex: 0 0 auto;
   padding-top: 12px;
+  /* Held sideways the sheet still spans the full width, so its chips would run
+     under the camera housing on one edge and the home indicator on the other.
+     Inset the whole panel rather than each row inside it. */
+  padding-left: var(--safe-l);
+  padding-right: var(--safe-r);
   background: var(--background);
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.12);
@@ -213,7 +218,7 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px calc(12px + env(safe-area-inset-bottom));
+  padding: 8px 16px calc(12px + var(--safe-b));
 }
 
 .sortButton {
