@@ -184,6 +184,12 @@
   color: var(--c-950);
 }
 
+/* Spans the row rather than leaving a 1-of-3 orphan. Applied alongside
+   .filter/.filterActive, so it carries no visual recipe of its own. */
+.filterWide {
+  grid-column: 1 / -1;
+}
+
 .tab:disabled,
 .tabActive:disabled,
 .filter:disabled,

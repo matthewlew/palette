@@ -79,9 +79,11 @@
    future section can't quietly grow the peek to fill the screen. It has to sit
    ABOVE the real content height, not near it: the gesture measures the peek by
    applying this class and reading the result, so a ceiling that clips would
-   quietly become the detent and the peek would show a sliced row again. */
+   quietly become the detent and the peek would show a sliced row again.
+   Measured at 240px with Effect at three chip rows, so 300 is headroom rather
+   than a number the content is already up against. */
 .sheet.collapsed {
-  max-height: 260px;
+  max-height: 300px;
   overflow: hidden;
   transition: max-height 200ms ease, opacity 200ms ease, transform 200ms ease;
 }

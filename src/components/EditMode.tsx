@@ -116,6 +116,8 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   const toggleSaveGradient = useAppStore((s) => s.toggleSaveGradient)
   const noiseEnabled = useAppStore((s) => s.noiseEnabled)
   const toggleNoise = useAppStore((s) => s.toggleNoise)
+  const lockedStopCount = useAppStore((s) => s.lockedStopCount)
+  const setLockedStopCount = useAppStore((s) => s.setLockedStopCount)
   const renameCurrentGradient = useAppStore((s) => s.renameCurrentGradient)
   // The scroll-position number only means something in the endless Create
   // feed. When editing a saved gradient (opened from the Gallery) it's a
@@ -397,6 +399,20 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     }
   }, [])
 
+  // The lock follows the palette in front of you.
+  //
+  // Locking to a count and then adding a colour would otherwise leave the feed
+  // handing back the old count and quietly undoing the edit on the next scrub.
+  // Moving the lock instead is what makes it a preference — "this many, from
+  // now on" — rather than a cage you have to unlock to get out of. Removing a
+  // stop reads the same way, and so does opening a palette with a different
+  // count: the lock is about what you are looking at.
+  useEffect(() => {
+    if (lockedStopCount === null) return
+    if (editableStops.length === lockedStopCount) return
+    setLockedStopCount(editableStops.length)
+  }, [editableStops.length, lockedStopCount, setLockedStopCount])
+
   useEffect(() => {
     const timer = setTimeout(() => editHint.dismiss(), 4000)
     return () => clearTimeout(timer)
@@ -412,7 +428,9 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     if (newIndex >= history.length) {
       const typeToUse = feedSession.lockedType ?? gradient.type
       const fresh = {
-        ...makeGradient(typeToUse, activeColorSet),
+        // Same stop-count lock the Create feed honours — scrubbing from inside
+        // the editor is the same rolodex, so it has to obey the same rule.
+        ...makeGradient(typeToUse, activeColorSet, useAppStore.getState().lockedStopCount ?? undefined),
         angle: feedSession.lockedAngle ?? (typeToUse === 'radial' ? undefined : 0)
       }
       history.push(fresh)
@@ -1074,6 +1092,11 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           onRotate={handleRotateAngle}
           noiseEnabled={noiseEnabled}
           onToggleNoise={toggleNoise}
+          stopCount={editableStops.length}
+          stopCountLocked={lockedStopCount !== null}
+          onToggleStopCountLock={() =>
+            setLockedStopCount(lockedStopCount === null ? editableStops.length : null)
+          }
           order={activeOrder}
           orderLabel={ORDER_LABELS[activeOrder]}
           onCycleOrder={handleSortCycle}

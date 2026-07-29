@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { generateGradientStops } from './palette'
+import { generateGradientStops, MIN_STOPS, MAX_STOPS } from './palette'
 import { DEFAULT_COLOR_SET } from './colorSets'
 import { scorePalette } from './paletteScore'
 import { hexToOklch } from './oklch'
@@ -29,6 +29,32 @@ describe('generateGradientStops', () => {
     const a = generateGradientStops(DEFAULT_COLOR_SET)
     const b = generateGradientStops(DEFAULT_COLOR_SET)
     expect(a.map((s) => s.hex).join(',')).not.toBe(b.map((s) => s.hex).join(','))
+  })
+
+  it('produces exactly the requested number of stops when one is asked for', () => {
+    // The stop-count lock: scrubbing the rolodex should vary the colours
+    // without varying how many of them there are.
+    for (let n = MIN_STOPS; n <= MAX_STOPS; n++) {
+      expect(generateGradientStops(DEFAULT_COLOR_SET, n)).toHaveLength(n)
+    }
+  })
+
+  it('still spaces a requested count evenly from 0 to 100', () => {
+    const stops = generateGradientStops(DEFAULT_COLOR_SET, 5)
+    expect(stops.map((s) => s.position)).toEqual([0, 25, 50, 75, 100])
+  })
+
+  it('clamps a requested count into the range the editor can actually reach', () => {
+    // 1 divides by zero in the position maths and yields NaN% stops, which
+    // render as nothing at all; above 8 the editor refuses to add, so the
+    // palette could not be edited back down.
+    expect(generateGradientStops(DEFAULT_COLOR_SET, 1)).toHaveLength(MIN_STOPS)
+    expect(generateGradientStops(DEFAULT_COLOR_SET, 0)).toHaveLength(MIN_STOPS)
+    expect(generateGradientStops(DEFAULT_COLOR_SET, -3)).toHaveLength(MIN_STOPS)
+    expect(generateGradientStops(DEFAULT_COLOR_SET, 99)).toHaveLength(MAX_STOPS)
+    for (const stop of generateGradientStops(DEFAULT_COLOR_SET, 1)) {
+      expect(Number.isFinite(stop.position)).toBe(true)
+    }
   })
 
   it('samples only from the given color set', () => {

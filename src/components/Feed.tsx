@@ -23,8 +23,12 @@ function pickRandomType(): GradientType {
   return RANDOM_TYPES[Math.floor(Math.random() * RANDOM_TYPES.length)]
 }
 
-export function makeGradient(type: GradientType, colorSet: ColorSet): Gradient {
-  const stops = generateGradientStops(colorSet)
+/** @param stopCount Exact number of colour stops, or undefined for the usual
+ * random 3-6. Callers pass `useAppStore.getState().lockedStopCount ?? undefined`
+ * — read at the call site rather than inside here, so the one factory every
+ * surface generates through stays a function of its arguments. */
+export function makeGradient(type: GradientType, colorSet: ColorSet, stopCount?: number): Gradient {
+  const stops = generateGradientStops(colorSet, stopCount)
   return {
     id: crypto.randomUUID(),
     type,
@@ -189,7 +193,7 @@ export function Feed({ chromeVisible = true }: FeedProps) {
       }
       let angleToUse = feedSession.lockedAngle ?? (typeToUse === 'radial' ? undefined : 0)
       const initial = current ?? { 
-        ...makeGradient(typeToUse, activeColorSet), 
+        ...makeGradient(typeToUse, activeColorSet, useAppStore.getState().lockedStopCount ?? undefined),
         angle: angleToUse,
         hardStops: feedSession.lockedHardStops ?? false,
         repeatEnabled: feedSession.lockedRepeatEnabled ?? false,
@@ -263,7 +267,9 @@ export function Feed({ chromeVisible = true }: FeedProps) {
       // completely new gradient, not a nudge from the previous one.
       const typeToUse = feedSession.lockedType!
       const fresh: Gradient = { 
-        ...makeGradient(typeToUse, activeColorSet), 
+        // The stop-count lock, if the user set one in the editor: scrubbing
+        // the rolodex then varies the colours without varying how many.
+        ...makeGradient(typeToUse, activeColorSet, useAppStore.getState().lockedStopCount ?? undefined), 
         angle: feedSession.lockedAngle ?? (typeToUse === 'radial' ? undefined : 0),
         hardStops: feedSession.lockedHardStops ?? false,
         repeatEnabled: feedSession.lockedRepeatEnabled ?? false,

@@ -41,17 +41,32 @@ function pickByScore(candidates: Oklch[][]): Oklch[] {
 
 const CANDIDATE_COUNT = 8
 
-export function generateGradientStops(colorSet: ColorSet): GradientStop[] {
-  const stopCount = 3 + Math.floor(Math.random() * 4) // 3-6
+/** The range the editor itself allows: it refuses to remove below 2 and to add
+ * above 8, so a lock outside that could ask for a palette you could not then
+ * edit back out of. */
+export const MIN_STOPS = 2
+export const MAX_STOPS = 8
+
+/**
+ * @param stopCount Exact number of stops to generate. Omit for the usual
+ * random 3-6. Passed when the feed's stop count is locked, so scrubbing the
+ * rolodex varies the colours without varying how many there are.
+ */
+export function generateGradientStops(colorSet: ColorSet, stopCount?: number): GradientStop[] {
+  const count = stopCount === undefined
+    ? 3 + Math.floor(Math.random() * 4) // 3-6
+    // Clamped rather than trusted: a count of 1 divides by zero in the position
+    // maths below and yields a gradient of NaN% stops, which renders as nothing.
+    : Math.min(MAX_STOPS, Math.max(MIN_STOPS, Math.round(stopCount)))
 
   const candidates: Oklch[][] = []
   for (let i = 0; i < CANDIDATE_COUNT; i++) {
-    candidates.push(buildCandidateColors(colorSet, stopCount))
+    candidates.push(buildCandidateColors(colorSet, count))
   }
   const colors = pickByScore(candidates)
 
   return colors.map((color, i) => ({
     hex: oklchToHex(color),
-    position: Math.round((i / (stopCount - 1)) * 100),
+    position: Math.round((i / (count - 1)) * 100),
   }))
 }
