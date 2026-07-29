@@ -248,13 +248,23 @@
 }
 
 /* Native color input driven programmatically; kept in the DOM (not
-   display:none) so .click() reliably opens the OS picker across browsers. */
+   display:none) so the picker reliably opens across browsers.
+
+   `pointer-events: none` is gone. A control that cannot be hit-tested is one a
+   browser is entitled to treat as not really there, and refusing to open a
+   picker for it is exactly what iOS was doing while the same code worked with
+   a mouse. At 1x1 it is still impossible to hit by accident.
+
+   Fixed, not absolute: EditMode parks it over the stop being edited so an
+   anchored picker has somewhere to point, and that has to be in viewport
+   coordinates. */
 .colorInput {
-  position: absolute;
+  position: fixed;
+  left: 0;
+  top: 0;
   width: 1px;
   height: 1px;
   opacity: 0;
-  pointer-events: none;
   border: 0;
   padding: 0;
 }

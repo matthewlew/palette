@@ -5,6 +5,10 @@ import styles from './FlowEditor.module.css'
 const TAP_MOVEMENT_THRESHOLD_PX = 6
 const REMOVE_DISTANCE_PX = 56
 
+// How close to a screen edge a touch has to start for iOS to claim it for its
+// back/forward navigation. Only touches in this band need cancelling.
+const EDGE_SWIPE_PX = 30
+
 interface FlowEditorProps {
   stops: EditableStop[]
   onMove: (id: string, position: number) => void
@@ -83,30 +87,49 @@ export function FlowEditor({ stops, onMove, onTapStop, onRemoveStop, onAddStopAt
   // `touch-action: none` stops the PAGE scrolling under a stop drag, but it
   // does not stop the browser's own edge-swipe back navigation — that is
   // chrome-level, and on a stop parked near 0% it hijacked the drag entirely.
-  // Cancelling touchstart/touchmove is what suppresses it, and that has to be
-  // a non-passive native listener: React routes touch events through the root
-  // as passive, so preventDefault() from a JSX handler is ignored.
+  // Cancelling the touch is what suppresses it, and that has to be a
+  // non-passive native listener: React routes touch events through the root as
+  // passive, so preventDefault() from a JSX handler is ignored.
   //
   // Pointer events are unaffected by a cancelled touch sequence, so the drag
-  // below keeps working exactly as it did — only the compatibility mouse
-  // events and the browser gesture are suppressed.
+  // below keeps working exactly as it did.
+  //
+  // NARROWED, twice over, because the blanket version was cancelling taps as
+  // well as swipes — and a cancelled touchstart takes the compatibility click
+  // with it, which is the gesture iOS wants to see before it will open a
+  // native colour picker. So tapping a stop selected it and then nothing
+  // happened, on touch only; the same tap with a mouse worked, because a mouse
+  // never fires touchstart at all.
+  //
+  // touchstart is now cancelled only in the edge band, which is the only place
+  // the back-swipe can start, and touchmove only once a drag is actually under
+  // way. Both are exactly where the original fix was aimed.
   useEffect(() => {
     const el = trackRef.current
     if (!el) return
 
-    function onTouch(e: TouchEvent) {
-      if (!e.cancelable) return
-      const startedOnHandle = (e.target as Element | null)?.closest?.('[data-testid="flow-handle"]')
-      if (startedOnHandle || draggingIdRef.current) {
-        e.preventDefault()
-      }
+    function startedOnHandle(e: TouchEvent): boolean {
+      return !!(e.target as Element | null)?.closest?.('[data-testid="flow-handle"]')
     }
 
-    el.addEventListener('touchstart', onTouch, { passive: false })
-    el.addEventListener('touchmove', onTouch, { passive: false })
+    function onTouchStart(e: TouchEvent) {
+      if (!e.cancelable || !startedOnHandle(e)) return
+      const x = e.touches[0]?.clientX
+      if (x == null) return
+      const width = typeof window === 'undefined' ? 0 : window.innerWidth
+      if (x <= EDGE_SWIPE_PX || x >= width - EDGE_SWIPE_PX) e.preventDefault()
+    }
+
+    function onTouchMove(e: TouchEvent) {
+      if (!e.cancelable) return
+      if (draggingIdRef.current || startedOnHandle(e)) e.preventDefault()
+    }
+
+    el.addEventListener('touchstart', onTouchStart, { passive: false })
+    el.addEventListener('touchmove', onTouchMove, { passive: false })
     return () => {
-      el.removeEventListener('touchstart', onTouch)
-      el.removeEventListener('touchmove', onTouch)
+      el.removeEventListener('touchstart', onTouchStart)
+      el.removeEventListener('touchmove', onTouchMove)
     }
   }, [trackRef])
 

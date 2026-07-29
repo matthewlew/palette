@@ -105,6 +105,45 @@ export function chooseDetent(
   return height - peekH < openH - height ? 'peek' : 'open'
 }
 
+/**
+ * Open the OS colour picker for a hidden `<input type="color">`.
+ *
+ * showPicker() first. It is the standardised API for exactly this, and unlike
+ * a synthetic click it is SPECIFIED to open the picker rather than merely to
+ * dispatch a click event — a browser that will not honour it throws
+ * (NotAllowedError without user activation, InvalidStateError otherwise)
+ * instead of silently doing nothing, which is what makes the fallback
+ * reachable rather than decorative.
+ *
+ * `position` is the stop's 0-100 place on the track. The input is parked over
+ * that stop before opening, because a picker anchored to a control has to have
+ * somewhere sensible to point at; a 1x1 element left at the origin gets a
+ * popover in the corner of the screen.
+ */
+export function openColorPicker(
+  input: HTMLInputElement | null,
+  track: HTMLElement | null,
+  position: number,
+) {
+  if (!input) return
+  if (track) {
+    const rect = track.getBoundingClientRect()
+    if (rect.width > 0) {
+      input.style.left = `${rect.left + (rect.width * position) / 100}px`
+      input.style.top = `${rect.top + rect.height / 2}px`
+    }
+  }
+  try {
+    if (typeof input.showPicker === 'function') {
+      input.showPicker()
+      return
+    }
+  } catch {
+    // Refused — fall through to the click, which some engines still honour.
+  }
+  input.click()
+}
+
 interface EditModeProps {
   gradient: Gradient
   onExit: () => void
@@ -894,7 +933,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     const input = colorInputRef.current
     if (input) {
       input.value = seed
-      input.click()
+      openColorPicker(input, blockContainerRef.current, position)
     }
   }
 
@@ -934,7 +973,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     const input = colorInputRef.current
     if (input) {
       input.value = stop.hex
-      input.click()
+      openColorPicker(input, blockContainerRef.current, stop.position)
     }
   }
 
