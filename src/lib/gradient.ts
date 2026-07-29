@@ -85,6 +85,41 @@ export const FAN_ANCHOR_CONFIG: Record<FanAnchor, { at: string; from: number; sp
 const ORIGIN_TYPES: ReadonlySet<GradientType> = new Set(['radial', 'square'] as GradientType[])
 
 /**
+ * Where a gradient of this type starts when nothing else has said otherwise.
+ *
+ * `undefined` is CENTRE for the origin types — radial and Turrell — see
+ * getRadialConfig. For every other type 0 is the natural default: linear's "to
+ * bottom", angular's first wedge at the top.
+ *
+ * This exists because 0 means two different things. For linear it is the
+ * default direction; for radial it is "origin at the TOP edge". A new radial
+ * was already born centred, but a new Turrell was born at 0 and so lit from
+ * the top, which reads as an off-centre accident rather than as the nested
+ * squares the shape is for.
+ */
+export function defaultAngleForType(type: GradientType): number | undefined {
+  return ORIGIN_TYPES.has(type) ? undefined : 0
+}
+
+/**
+ * The angle to carry when the SHAPE changes under an existing gradient.
+ *
+ * Within a family it is kept: rotate a radial, switch to Turrell, and it stays
+ * where you put it. Across the origin/direction boundary it resets to the new
+ * type's default, because the number does not mean the same thing on both
+ * sides — carrying linear's 0 into Radial silently reinterpreted it as "top",
+ * so switching shape produced a burst pinned to the top edge.
+ */
+export function angleForTypeChange(
+  from: GradientType,
+  to: GradientType,
+  angle: number | undefined,
+): number | undefined {
+  if (ORIGIN_TYPES.has(from) === ORIGIN_TYPES.has(to)) return angle
+  return defaultAngleForType(to)
+}
+
+/**
  * The next angle for a 45° rotate step.
  *
  * Fan's compass was re-based to match radial's (0 = top, clockwise). It used to

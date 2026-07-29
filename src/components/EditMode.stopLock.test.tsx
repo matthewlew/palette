@@ -74,8 +74,17 @@ describe('EditMode — locking the number of colour stops', () => {
     render(<Harness />)
     expect(lockChip()).toHaveAttribute('aria-pressed', 'false')
     expect(lockChip().textContent).toBe('Stops: any')
-    expect(lockChip()).toHaveAttribute('aria-label', 'Stop count unlocked. Tap to lock to 3')
+    expect(lockChip()).toHaveAttribute('aria-label', 'Stops unlocked. Tap to lock to 3, in their current places')
     expect(useAppStore.getState().lockedStopLayout).toBeNull()
+  })
+
+  it('lives on the stops row, not among the Effect chips', () => {
+    // It governs the stops, and the stops are on screen under both tabs — in
+    // Effect it was reachable from only one half of a control that applies to
+    // both, and it was the odd seventh chip in a three-column grid.
+    render(<Harness />)
+    expect(screen.getByTestId('section-panel-effect')).not.toContainElement(lockChip())
+    expect(screen.getByTestId('edit-sheet')).toContainElement(lockChip())
   })
 
   it('locks to the count of the palette in front of you', () => {
@@ -84,7 +93,7 @@ describe('EditMode — locking the number of colour stops', () => {
     expect(useAppStore.getState().lockedStopLayout).toEqual([0, 50, 100])
     expect(lockChip()).toHaveAttribute('aria-pressed', 'true')
     expect(lockChip().textContent).toBe('Stops: 3 locked')
-    expect(lockChip()).toHaveAttribute('aria-label', 'Stop count locked to 3. Tap to unlock')
+    expect(lockChip()).toHaveAttribute('aria-label', 'Stops locked to 3, in their current places. Tap to unlock')
   })
 
   it('holds the count through a long scrub of the rolodex', () => {

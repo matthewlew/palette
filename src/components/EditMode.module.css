@@ -42,12 +42,18 @@
   display: flex;
   flex-direction: column;
   flex: 0 0 auto;
-  padding-top: 12px;
+  padding-top: 6px;
   /* Held sideways the sheet still spans the full width, so its chips would run
      under the camera housing on one edge and the home indicator on the other.
-     Inset the whole panel rather than each row inside it. */
+     Inset the whole panel rather than each row inside it.
+
+     The BOTTOM inset is on the sheet too, not only on the stop row inside it:
+     the effect chips are the last thing on screen whenever the rows below them
+     are short, and they were sitting 12px off the bottom edge — under the home
+     indicator. */
   padding-left: var(--safe-l);
   padding-right: var(--safe-r);
+  padding-bottom: var(--safe-b);
   background: var(--background);
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.12);
@@ -61,91 +67,19 @@
   transform: translateY(16px);
 }
 
-/* Collapsed: the sheet peeks rather than disappearing. Tapping the handle —
-   which stays visible and tappable — restores the full panel.
-
-   The peek is CONTENT-SIZED, not a magic number. Everything below the
-   Shape/Effect sections is display:none while collapsed, so the sheet is
-   exactly the handle plus the segmented control plus whichever section is
-   active, and nothing can be sliced by a hard-coded height.
-
-   That matters because the two sections are not the same height (Shape is one
-   74px row of six squares, Effect is two rows of chips at 88px) and the rows
-   below them therefore start at a different offset per tab. There is no single
-   pixel value that clears the taller section AND stops short of the colour-stop
-   row for the shorter one — this number was re-measured four times (28, 166,
-   103, 148) before that became clear. Sizing to content removes the class of
-   bug rather than the instance.
-
-   Both sections now measure the same (GeometryTabs stacks them in one grid
-   cell), so the peek is one height rather than one per tab.
-
-   max-height stays only as a CEILING, so the collapse still animates and a
-   future section can't quietly grow the peek to fill the screen. It has to sit
-   ABOVE the real content height, not near it: the gesture measures the peek by
-   applying this class and reading the result, so a ceiling that clips would
-   quietly become the detent and the peek would show a sliced row again.
-   Measured at 240px with Effect at three chip rows, so 300 is headroom rather
-   than a number the content is already up against. */
-.sheet.collapsed {
-  max-height: 300px;
-  overflow: hidden;
-  transition: max-height 200ms ease, opacity 200ms ease, transform 200ms ease;
-}
-
-/* Mid-drag. The inline height is the sheet's size for the duration, so the
-   collapsed ceiling must not also be in play, and nothing else may transition —
-   a transition on height would lag the thumb, and one on transform fights the
-   settle animation the gesture drives itself. */
-.sheet.dragging {
-  max-height: none;
-  overflow: hidden;
-  transition: none;
-}
-
-.sheet.collapsed .sheetHandle {
-  margin-bottom: 0;
-}
-
-/* A little more presence while collapsed: this is the pull-tab, and the peek
-   is the state you most need to get out of. */
-.sheet.collapsed .sheetHandle::after {
-  width: 44px;
-  background: rgba(128, 128, 128, 0.55);
-}
-
-/* The colour-stop editor, its hint, and the keyboard hints — the half of the
-   sheet the peek is not showing. Hidden rather than clipped so the peek has no
-   sliced rows and needs no measuring. */
-.sheet.collapsed .belowSections {
-  display: none;
-}
-
-/* The BUTTON is a full-width, thumb-sized strip; the 36x4px pill is only its
-   ::after. They used to be the same box, which meant the one control that
-   opens the collapsed sheet was a 36x4px target — well under half the 44px
-   minimum, and the reason people reached for the gradient instead. Widening
-   the strip also gives the pull-up gesture somewhere obvious to start. */
+/* The visual cap that says "this is a sheet", and nothing else.
+   14px rather than 28: with one height there is no gesture to give room to,
+   and the strip was the tallest thing in the sheet doing the least. One size,
+   one colour — it used to swell from 36x4 to 44x4 and darken between the two
+   heights, which read as the handle changing its mind. */
 .sheetHandle {
-  /* flex: none, or it VANISHES. The sheet is a column flex container with a
-     max-height while collapsed, so its items shrink to fit — and a short item
-     with the default flex-shrink:1 shrinks straight to 0. The grab handle was
-     computing to height 0px and simply was not there, which is why the peek
-     looked like a cut-off panel rather than something you could pull. */
   flex: none;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 28px;
-  border: none;
-  background: transparent;
-  margin: 0 0 4px;
-  padding: 0;
-  cursor: grab;
-  /* The pull-up/pull-down gesture owns vertical drags that start here, so the
-     browser must not claim them for scrolling first. */
-  touch-action: none;
+  height: 14px;
+  margin: 0 0 2px;
 }
 
 .sheetHandle::after {
@@ -155,7 +89,6 @@
   height: 4px;
   border-radius: 2px;
   background: rgba(128, 128, 128, 0.4);
-  transition: width 200ms ease, background 200ms ease;
 }
 
 /* On tablet/desktop the controls move to a side panel so the gradient keeps
@@ -211,14 +144,18 @@
   min-height: 0;
 }
 
-/* Row that replaced the swatch tray: an explicit Add color action plus a
-   one-line hint for the stop gestures. */
+/* The stops row's own controls: the gesture hint, and the lock that governs
+   how many stops the feed hands back and where it puts them.
+   The lock lives HERE rather than among the Effect chips because it is about
+   the stops, and the stops are on screen under both tabs — in Effect it was
+   reachable from only one of the two halves of a control that applies to
+   both, and it was the odd seventh chip in a three-column grid. */
 .stopActions {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px calc(12px + var(--safe-b));
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 12px 10px;
 }
 
 .sortButton {
@@ -240,11 +177,45 @@
   border-color: var(--text-subdued);
 }
 
+/* Same pill recipe as the Effect chips, sized down: it sits beside a hint
+   rather than in a grid of its own kind. */
+.stopLock {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: var(--pill);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.18));
+  background: transparent;
+  color: var(--text-subdued);
+  font-family: var(--th-body);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  /* 32px box, 44px target — the ::after expansion the chips already use. */
+  position: relative;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+.stopLock::after,
+.stopLockOn::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+
+.stopLockOn {
+  composes: stopLock;
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--c-950);
+  font-weight: 600;
+}
+
 .stopHint {
   font-size: 11px;
   color: var(--text-subdued);
   opacity: 0.8;
-  text-align: center;
+  min-width: 0;
 }
 
 /* Native color input driven programmatically; kept in the DOM (not
@@ -260,8 +231,12 @@
    coordinates. */
 .colorInput {
   position: fixed;
-  left: 0;
-  top: 0;
+  /* Parked mid-screen until EditMode moves it over the stop being edited. At
+     0,0 it sat under the camera cutout in landscape — invisible and 1x1, so
+     harmless, but it is the one thing in the sheet that could not answer "is
+     everything inside the safe box?" with a yes. */
+  left: 50%;
+  top: 50%;
   width: 1px;
   height: 1px;
   opacity: 0;

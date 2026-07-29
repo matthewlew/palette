@@ -1,6 +1,12 @@
 .ticker {
   position: absolute;
-  right: calc(10px + var(--safe-r));
+  /* Hugging the edge, not floating off it.
+     10px on top of the cutout inset put the marks visibly inboard on a phone
+     with no cutout at all — the ticks are 18px wide and the strip is 24px, so
+     10px of gap is more than half a tick of dead space. The inset alone is the
+     right rule: it moves out of the way exactly when a notch is there and sits
+     flush when it is not. 2px keeps the marks off a hard edge. */
+  right: calc(2px + var(--safe-r));
   top: 50%;
   width: 24px;
   height: 0;

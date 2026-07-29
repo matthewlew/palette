@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { useAppStore } from '../store/useAppStore'
-import { buildGradientCss, nextRotationAngle, nextFanRotation, SELECTABLE_GEOMETRY, type GradientType } from '../lib/gradient'
+import { buildGradientCss, nextRotationAngle, nextFanRotation, SELECTABLE_GEOMETRY, angleForTypeChange, defaultAngleForType, type GradientType } from '../lib/gradient'
 import {
   toEditableStops,
   equalizePositions,
@@ -55,55 +55,6 @@ const EDIT_SHORTCUTS: ShortcutHintItem[] = [
   { keys: ['R'], label: 'Rotate' },
   { keys: ['Esc'], label: 'Back' },
 ]
-
-// Past a detent the sheet still moves, but only a third as far — the standard
-// rubber band. It exists so a drag in the "wrong" direction is answered with
-// resistance instead of nothing: dead controls read as broken controls.
-const RUBBER_BAND = 0.33
-
-// A flick faster than this decides the destination on its own, however short it
-// was. px/ms, measured off real dispatched touch drags: a deliberate short
-// flick lands between 0.33 and 0.45, and a slow deliberate drag around 0.12.
-// 0.35 sits in the gap — comfortably above anything accidental, below the
-// slowest thing a person would call a flick.
-const FLICK_VELOCITY = 0.35
-
-// How long the sheet takes to settle onto a detent after release. Matches the
-// max-height transition the collapsed class already used.
-const SETTLE_MS = 200
-
-// Movement under this is a tap, not a drag — the handle's own click still
-// toggles, and a thumb that wobbles a few pixels should not move the sheet.
-const DRAG_SLOP_PX = 6
-
-/** Hold `value` between two detents, but keep moving past them at a fraction of
- * the distance. The clamp is what stops the sheet sliding somewhere it cannot
- * rest and springing back; the give is what stops the ends feeling broken. */
-export function clampWithRubberBand(value: number, min: number, max: number): number {
-  if (value < min) return min - (min - value) * RUBBER_BAND
-  if (value > max) return max + (value - max) * RUBBER_BAND
-  return value
-}
-
-/**
- * Which detent a released drag settles onto: 'peek' or 'open'.
- *
- * Velocity first, position second. A short fast flick beats a long slow drag,
- * which is how every other sheet on the platform behaves and what makes a
- * half-open sheet feel thrown rather than dropped. `velocity` is px/ms and
- * positive downward, matching clientY.
- */
-export function chooseDetent(
-  height: number,
-  peekH: number,
-  openH: number,
-  velocity: number,
-): 'peek' | 'open' {
-  if (velocity > FLICK_VELOCITY) return 'peek'
-  if (velocity < -FLICK_VELOCITY) return 'open'
-  // Ties go to open: the sheet is the controls, and the user dragged it there.
-  return height - peekH < openH - height ? 'peek' : 'open'
-}
 
 /**
  * Open the OS colour picker for a hidden `<input type="color">`.
@@ -176,34 +127,17 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   const previewRef = useRef<HTMLDivElement>(null)
   const onExitRef = useRef(onExit)
   onExitRef.current = onExit
-  // Dragging the sheet down collapses it to a peek — a near-full-screen
-  // gradient view that's still in edit mode (a pull-tab restores it); only
-  // Back/Esc actually exits.
+  // ONE HEIGHT. The sheet had two — a peek showing the Shape/Effect switch and
+  // one section, and an open state adding the colour stops — with a drag
+  // gesture and a grab handle to move between them. It is now just the open
+  // one.
   //
-  // It now OPENS OPEN on mobile too. It used to start at the peek so the
-  // preview got the screen, but the peek shows the Shape/Effect switch and one
-  // section, and nothing else — so tapping a gradient to edit it handed you six
-  // shape buttons and no colour stops, and the stops (what most edits are
-  // actually about) needed a second, undiscoverable tap on a 4px grab handle.
-  // Opening with the controls you came for beats opening with a bigger picture
-  // of the gradient you were already looking at; dragging down is still there
-  // the moment you want the picture back.
-  const [collapsed, setCollapsed] = useState(false)
-  const collapseRef = useRef<(v: boolean) => void>(() => {})
-  collapseRef.current = setCollapsed
-  // The drag gesture is bound once as native listeners, so it reads the
-  // current collapsed state through a ref rather than a stale closure.
-  const collapsedRef = useRef(collapsed)
-  collapsedRef.current = collapsed
-  // True only while a drag or its settle animation is in flight. It drops the
-  // collapsed class so the whole panel is in the layout and the inline height
-  // can reveal it continuously — see the gesture effect below.
-  const [sheetDragging, setSheetDragging] = useState(false)
-  const setDraggingRef = useRef<(v: boolean) => void>(() => {})
-  setDraggingRef.current = setSheetDragging
-  // Last measured peek height. Survives the sheet being open, so a drag that
-  // starts from open still knows where the lower detent is.
-  const peekHRef = useRef(0)
+  // Two heights meant the sheet you got depended on invisible state: the same
+  // surface was 240px or 359px, the grabber changed size between them, and the
+  // stops were present or absent depending on which you were in. A sheet whose
+  // contents come and go is one you have to check before you can use, and the
+  // peek's only real job — seeing more gradient — is what the Create feed and
+  // the gallery are already for.
   const [activeStopId, setActiveStopId] = useState<string | null>(null)
   // Crossfades the preview's colors when a canvas-handle swap reorders them,
   // so the color blocks visibly trade places instead of hard-jumping.
@@ -267,191 +201,6 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gradient.id, gradient.type])
 
-  // ONE gesture, not four.
-  //
-  // The sheet has two resting heights — peek (the handle, the Shape/Effect
-  // switch, and the active section) and open (all of it). The previous version
-  // handled each state-and-direction pair differently: open-dragged-down
-  // resized live, collapsed-dragged-up jumped at a 28px threshold,
-  // collapsed-dragged-down did literally nothing, and open-dragged-up did
-  // nothing. Four quadrants, three mental models, and two of them silent — so
-  // the sheet felt locked in one state, jerky in another, and dead in a third.
-  //
-  // Now every quadrant is the same thing: the sheet's height follows your
-  // thumb, clamped to the two detents, with a rubber band past either end so a
-  // drag with nowhere to go answers with resistance instead of nothing. On
-  // release it settles onto whichever detent it is nearer, or whichever way a
-  // flick was thrown.
-  //
-  // The collapsed CLASS is dropped for the duration of the drag and the height
-  // driven inline instead. The class hides the lower half outright
-  // (display:none, so the peek can never show a sliced row), which is right at
-  // rest and impossible to interpolate through — you cannot reveal in stages
-  // what is not in the layout. Dropping it renders everything and lets the
-  // inline height do the clipping, which is what makes the reveal continuous
-  // in both directions.
-  //
-  // Bound as non-passive DOM listeners so preventDefault() reliably stops the
-  // page itself scrolling. Drags that start on the flow-editor stop handles are
-  // exempt — those own their own vertical (drag-to-delete) gesture.
-  useEffect(() => {
-    const el = sheetRef.current
-    if (!el) return
-    // The drag gesture only makes sense for the bottom-sheet layout; at
-    // tablet/desktop widths the sheet is a fixed side panel.
-    if (typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 768px)').matches) return
-
-    let startY = 0
-    let lastY = 0
-    let lastT = 0
-    let velocity = 0
-    let peekH = 0
-    let openH = 0
-    let active = false
-    let moved = false
-    let settling = false
-
-    /** The peek height, derived rather than hard-coded — sizing to content is
-     * what stopped the peek slicing a row when the Shape and Effect sections
-     * turned out to be different heights.
-     *
-     * Measured with the collapsed class ON, exactly mirroring measureOpen:
-     * add, read, restore in one synchronous block, so nothing paints in between
-     * and it costs a reflow and nothing else.
-     *
-     * It used to reconstruct the number by summing the children the class does
-     * not hide, which is only ever an approximation of what the class actually
-     * does. That path was a rare fallback while the sheet started collapsed;
-     * now that it opens open it would be the path taken on every first drag, so
-     * it measures the real thing instead. */
-    function measurePeek(): number {
-      const had = el!.classList.contains(styles.collapsed)
-      if (!had) el!.classList.add(styles.collapsed)
-      const h = el!.offsetHeight
-      if (!had) el!.classList.remove(styles.collapsed)
-      if (h > 0) peekHRef.current = h
-      return peekHRef.current
-    }
-
-    // performance.now(), not event.timeStamp: the timeStamp origin is not
-    // consistent across engines, and it cannot be driven from a test, which
-    // means the flick rule would go unverified.
-    const now = () => performance.now()
-
-    /** The full height of the open panel — measured with the collapsed class
-     * OFF, because that class hides the lower half with display:none and
-     * display:none is not in the layout at all. Reading scrollHeight through it
-     * returned the PEEK height, so from a collapsed start the sheet believed
-     * its two detents were the same number: every upward drag was really just
-     * rubber band, and it opened only because `h - peek < open - h` happens to
-     * be false when the two are equal.
-     *
-     * Remove, read, restore, all in one synchronous block — nothing paints in
-     * between, so this costs a reflow and nothing else. */
-    function measureOpen(): number {
-      const had = el!.classList.contains(styles.collapsed)
-      if (had) el!.classList.remove(styles.collapsed)
-      const h = el!.scrollHeight
-      if (had) el!.classList.add(styles.collapsed)
-      return h
-    }
-
-    function handleTouchStart(e: TouchEvent) {
-      if (settling) return
-      if ((e.target as HTMLElement).closest('[data-testid="flow-handle"]')) return
-      startY = e.touches[0]?.clientY ?? 0
-      lastY = startY
-      lastT = now()
-      velocity = 0
-      moved = false
-      active = true
-      peekH = measurePeek()
-      openH = Math.max(measureOpen(), peekH)
-    }
-
-    function handleTouchMove(e: TouchEvent) {
-      if (!active) return
-      const y = e.touches[0]?.clientY
-      if (y == null) return
-
-      const t = now()
-      const dt = t - lastT
-      if (dt > 0) velocity = (y - lastY) / dt
-      lastY = y
-      lastT = t
-
-      const dragY = y - startY
-      if (!moved) {
-        if (Math.abs(dragY) < DRAG_SLOP_PX) return
-        moved = true
-        // Hand the height over to the drag. Setting it to the CURRENT height
-        // first means dropping the collapsed class cannot make the sheet jump.
-        el!.style.height = `${collapsedRef.current ? peekH : openH}px`
-        el!.style.overflow = 'hidden'
-        setDraggingRef.current(true)
-      }
-
-      e.preventDefault()
-      const from = collapsedRef.current ? peekH : openH
-      // Never below zero. A negative height is an invalid CSS value, so the
-      // CSSOM drops the assignment entirely and the sheet freezes at whatever
-      // it last held — the drag looks broken precisely when it is pulled
-      // hardest. Only reachable when the peek measures near zero, which is
-      // exactly when a rubber band undershoots.
-      const next = Math.max(0, clampWithRubberBand(from - dragY, peekH, openH))
-      el!.style.height = `${next}px`
-    }
-
-    function handleTouchEnd() {
-      if (!active) return
-      active = false
-      if (!moved) return
-
-      // offsetHeight, not getBoundingClientRect: the latter reports 0 wherever
-      // there is no real layout engine, which silently sends every released
-      // drag to the same detent under test.
-      const toPeek = chooseDetent(el!.offsetHeight, peekH, openH, velocity) === 'peek'
-      settleTo(toPeek ? peekH : openH, toPeek)
-    }
-
-    /** Animate to a detent, then hand control back to the class. */
-    function settleTo(targetH: number, toPeek: boolean) {
-      settling = true
-      let finished = false
-      const finish = () => {
-        if (finished) return
-        finished = true
-        el!.removeEventListener('transitionend', onEnd)
-        el!.style.transition = ''
-        el!.style.height = ''
-        el!.style.overflow = ''
-        collapseRef.current(toPeek)
-        setDraggingRef.current(false)
-        settling = false
-      }
-      const onEnd = (ev: TransitionEvent) => {
-        if (ev.propertyName === 'height') finish()
-      }
-      el!.addEventListener('transitionend', onEnd)
-      el!.style.transition = `height ${SETTLE_MS}ms cubic-bezier(0.2, 0.8, 0.2, 1)`
-      el!.style.height = `${targetH}px`
-      // transitionend never fires when the height is already the target (a drag
-      // released exactly on a detent, or reduced-motion), so never wait on it.
-      window.setTimeout(finish, SETTLE_MS + 60)
-    }
-
-    el.addEventListener('touchstart', handleTouchStart, { passive: true })
-    el.addEventListener('touchmove', handleTouchMove, { passive: false })
-    el.addEventListener('touchend', handleTouchEnd)
-    el.addEventListener('touchcancel', handleTouchEnd)
-    return () => {
-      el.removeEventListener('touchstart', handleTouchStart)
-      el.removeEventListener('touchmove', handleTouchMove)
-      el.removeEventListener('touchend', handleTouchEnd)
-      el.removeEventListener('touchcancel', handleTouchEnd)
-    }
-  }, [])
-
   // The lock follows the palette in front of you — how many stops there are AND
   // where they sit.
   //
@@ -496,7 +245,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         // The same stop lock the Create feed honours — scrubbing from inside
         // the editor is the same rolodex, so it obeys the same rule.
         ...makeGradient(typeToUse, activeColorSet, useAppStore.getState().lockedStopLayout ?? undefined),
-        angle: feedSession.lockedAngle ?? (typeToUse === 'radial' ? undefined : 0)
+        angle: feedSession.lockedAngle ?? defaultAngleForType(typeToUse)
       }
       history.push(fresh)
     }
@@ -748,9 +497,12 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           const nextIndex =
             e.key === 'ArrowRight' ? (currentIndex + 1) % len : (currentIndex - 1 + len) % len
           const nextType = SELECTABLE_GEOMETRY[nextIndex]
+          const nextAngle = angleForTypeChange(currentGrad.type, nextType, currentGrad.angle)
+          feedSession.lockedAngle = nextAngle
           setCurrentGradient({
             ...currentGrad,
             type: nextType,
+            angle: nextAngle,
             stops: toGradientStops(editableStopsRef.current),
           })
         }
@@ -840,7 +592,11 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   }
 
   function handleSelectType(type: GradientType) {
-    commitPreservingPositions({ type })
+    // Switching into radial or Turrell centres the origin unless it was
+    // already an origin type — see angleForTypeChange.
+    const angle = angleForTypeChange(gradient.type, type, gradient.angle)
+    feedSession.lockedAngle = angle
+    commitPreservingPositions({ type, angle })
   }
 
   function handleToggleReversed() {
@@ -999,12 +755,6 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
       const dy = e.clientY - start.y
       if (Math.hypot(dx, dy) > PREVIEW_TAP_THRESHOLD_PX) return
     }
-    // While collapsed to the full-screen view, a tap restores the edit panel
-    // instead of leaving edit mode.
-    if (collapsed) {
-      setCollapsed(false)
-      return
-    }
     onExit()
   }
 
@@ -1136,36 +886,18 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
       <div
         data-testid="edit-sheet"
         ref={sheetRef}
-        className={[
-          styles.sheet,
-          chromeHidden && styles.hidden,
-          // While dragging, the inline height owns the sheet's size and the
-          // whole panel must be in the layout to be revealed a pixel at a time.
-          collapsed && !sheetDragging && styles.collapsed,
-          sheetDragging && styles.dragging,
-        ].filter(Boolean).join(' ')}
+        className={[styles.sheet, chromeHidden && styles.hidden].filter(Boolean).join(' ')}
         onPointerDown={(e) => {
           if (e.target === e.currentTarget) {
             setActiveStopId(null)
           }
         }}
       >
-        <button
-          type="button"
-          data-testid="sheet-handle"
-          aria-label={collapsed ? 'Show controls' : 'Collapse controls'}
-          className={styles.sheetHandle}
-          onClick={() => {
-            // On the desktop side-panel layout the sheet doesn't collapse, so
-            // the handle keeps its exit behavior; on the mobile bottom sheet it
-            // toggles the full-screen (collapsed) view.
-            if (typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 768px)').matches) {
-              onExit()
-            } else {
-              setCollapsed((c) => !c)
-            }
-          }}
-        />
+        {/* Decorative, and deliberately not a button. With one height there is
+            nothing for it to do, and a grabber that answers a tap with nothing
+            is worse than no grabber — it is the visual cap that says "sheet",
+            at half its old height because that space was doing nothing else. */}
+        <div data-testid="sheet-handle" aria-hidden="true" className={styles.sheetHandle} />
         <GeometryTabs
           gradient={gradient}
           stops={animatedStops}
@@ -1178,17 +910,12 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           onRotate={handleRotateAngle}
           noiseEnabled={noiseEnabled}
           onToggleNoise={toggleNoise}
-          stopCount={editableStops.length}
-          stopCountLocked={lockedStopLayout !== null}
-          onToggleStopCountLock={() =>
-            setLockedStopLayout(lockedStopLayout === null ? stopLayout(editableStops) : null)
-          }
           order={activeOrder}
           orderLabel={ORDER_LABELS[activeOrder]}
           onCycleOrder={handleSortCycle}
         />
 
-        <div className={[styles.blockArea, styles.belowSections].join(' ')}>
+        <div className={styles.blockArea}>
           <FlowEditor
             stops={editableStops}
             onMove={handleMoveStop}
@@ -1203,12 +930,28 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
             like Repeat/Smooth/Hard/Rotate, so it now sits with them in
             GeometryTabs — which also gives the mobile preview back the 91px
             this row cost. Only the hint is left. */}
-        <div className={[styles.stopActions, styles.belowSections].join(' ')}>
-          <span className={styles.stopHint}>Tap a blank spot to add · drag down to remove</span>
+        <div className={styles.stopActions}>
+          <span className={styles.stopHint}>Tap to add · drag down to remove</span>
+          <button
+            type="button"
+            data-testid="filter-stop-lock"
+            aria-pressed={lockedStopLayout !== null}
+            aria-label={
+              lockedStopLayout !== null
+                ? `Stops locked to ${editableStops.length}, in their current places. Tap to unlock`
+                : `Stops unlocked. Tap to lock to ${editableStops.length}, in their current places`
+            }
+            className={lockedStopLayout !== null ? styles.stopLockOn : styles.stopLock}
+            onClick={() =>
+              setLockedStopLayout(lockedStopLayout === null ? stopLayout(editableStops) : null)
+            }
+          >
+            {lockedStopLayout !== null ? `Stops: ${editableStops.length} locked` : 'Stops: any'}
+          </button>
         </div>
         {/* Keyboard hints live in the panel (desktop only, hidden on touch via
             the component's own media query) rather than floating on the canvas. */}
-        <div className={styles.belowSections}>
+        <div>
           <ShortcutHints items={EDIT_SHORTCUTS} placement="inline" color="currentColor" />
         </div>
         {/* Off-screen native picker, opened programmatically from a stop tap or
