@@ -184,12 +184,6 @@
   color: var(--c-950);
 }
 
-/* Spans the row rather than leaving a 1-of-3 orphan. Applied alongside
-   .filter/.filterActive, so it carries no visual recipe of its own. */
-.filterWide {
-  grid-column: 1 / -1;
-}
-
 .tab:disabled,
 .tabActive:disabled,
 .filter:disabled,
@@ -251,17 +245,33 @@
 
   .tabInner {
     gap: 5px;
+    justify-content: center;
   }
 
-  /* FIXED, not a max-width. The collapsed peek in EditMode is a single pixel
-     height, so the shape row must be exactly as tall at 760px as at 375px. A
-     cap does not achieve that: the box fills the track until it reaches the
-     cap, so it measured 48.2px at 375 and 54px at 760 — a 6px swing, enough
-     that no single peek value could clear the row at one width without slicing
-     it at the other. Pinning the size removes the variable. */
+  /* Fills the column track instead of sitting at a fixed 44px.
+     The two panels share a grid cell sized by the taller one (Effect), which
+     left the Shape swatches floating in a band of empty space at a size
+     smaller than the row could afford. Letting the square take the track's
+     full width spends that space on the thing you are actually looking at:
+     ~52px at 390px wide, against 44 before.
+
+     A CAP, though, and this is why the old rule pinned it. Six columns of a
+     767px sheet give a 114px track, and a 114px square would make the Shape
+     row half again as tall as Effect — the panels share a cell, so Shape would
+     start driving the sheet's height. 60px keeps the row within a few pixels
+     of Effect's at every width. Growth is NOT flex-driven: in a column flex
+     with centred items, `flex: 1` plus `aspect-ratio` resolves the width from
+     content and collapses the box to 0x0. */
   .previewBox {
-    width: 44px;
+    width: 100%;
+    max-width: 60px;
     align-self: center;
+  }
+
+  .tab,
+  .tabActive {
+    height: 100%;
+    justify-content: center;
   }
 
   .filter,

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { buildGradientCss, type GradientType, type GradientStop } from '../lib/gradient'
+import { buildGradientCss, angleForTypeChange, type GradientType, type GradientStop } from '../lib/gradient'
 import type { Gradient } from '../store/types'
 import { TurrellSquare } from './TurrellSquare'
 import styles from './GeometryTabs.module.css'
@@ -21,14 +21,6 @@ interface GeometryTabsProps {
    * list of effects. */
   noiseEnabled?: boolean
   onToggleNoise?: () => void
-  /** How many colour stops the current gradient has, and whether the feed is
-   * pinned to that number. Locked, scrubbing the rolodex varies the colours
-   * without varying how many there are; unlocked it goes back to a random 3-6.
-   * The chip shows the count because a lock that does not say what it locked to
-   * is a light with no label. */
-  stopCount?: number
-  stopCountLocked?: boolean
-  onToggleStopCountLock?: () => void
   /** Current stop order, shown on the Order chip. It sits with the other
    * modifier chips rather than in its own row under the flow editor: it is
    * a modifier like the rest, and on mobile its old row cost the sheet 91px
@@ -76,9 +68,6 @@ export function GeometryTabs({
   onRotate,
   noiseEnabled = false,
   onToggleNoise,
-  stopCount,
-  stopCountLocked = false,
-  onToggleStopCountLock,
   orderLabel,
   order,
   onCycleOrder,
@@ -164,7 +153,15 @@ export function GeometryTabs({
       >
         <h3 className={styles.sectionHeading}>Shape</h3>
         <div className={styles.tabs}>
-      {TABS.map((tab) => (
+      {TABS.map((tab) => {
+        // The angle this tab would ACTUALLY produce if you tapped it, not the
+        // current gradient's. They differ across the origin boundary: a linear
+        // gradient's 0 means "downwards", and handing that same 0 to the Radial
+        // and Turrell swatches drew them anchored to the top edge — so the two
+        // shapes advertised themselves as the off-centre thing the tap would
+        // no longer give you.
+        const previewAngle = angleForTypeChange(gradient.type, tab.type, gradient.angle)
+        return (
         <button
           key={tab.type}
           type="button"
@@ -180,7 +177,7 @@ export function GeometryTabs({
                   repeat: gradient.repeatEnabled,
                   hard: gradient.hardStops,
                   fanAnchor: gradient.fanAnchor,
-                  angle: gradient.angle,
+                  angle: previewAngle,
                   smooth: gradient.smoothEnabled,
                 }) : undefined
               }}
@@ -190,14 +187,15 @@ export function GeometryTabs({
                   stops={stops} 
                   reversed={gradient.reversed} 
                   repeatEnabled={gradient.repeatEnabled} blurPx={gradient.hardStops ? 0 : 4} 
-                  angle={gradient.angle}
+                  angle={previewAngle}
                 />
               )}
             </div>
             <span>{tab.label}</span>
           </div>
         </button>
-      ))}
+        )
+      })}
         </div>
       </section>
 
@@ -266,26 +264,6 @@ export function GeometryTabs({
           onClick={onCycleOrder}
         >
           Order: {orderLabel}
-        </button>
-      )}
-      {/* Full width on its own row. It is the odd chip out of seven, and it is
-          also the only one here that changes what the FEED does rather than
-          what this gradient looks like — so the ragged row reads as deliberate
-          instead of as a layout accident, and the long label gets its space. */}
-      {stopCount !== undefined && (
-        <button
-          type="button"
-          data-testid="filter-stop-lock"
-          aria-pressed={stopCountLocked}
-          aria-label={
-            stopCountLocked
-              ? `Stop count locked to ${stopCount}. Tap to unlock`
-              : `Stop count unlocked. Tap to lock to ${stopCount}`
-          }
-          className={[stopCountLocked ? styles.filterActive : styles.filter, styles.filterWide].join(' ')}
-          onClick={onToggleStopCountLock}
-        >
-          {stopCountLocked ? `Stops: ${stopCount} locked` : 'Stops: any'}
         </button>
       )}
         </div>

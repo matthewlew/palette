@@ -142,6 +142,27 @@ describe('GeometryTabs Shape/Effect sections', () => {
     }
   })
 
+  it('previews Radial and Turrell centred, at the angle their tap would give', () => {
+    // The swatches used to render with the CURRENT gradient's angle. A linear
+    // gradient's 0 means "downwards"; handing that same 0 to the Radial and
+    // Turrell previews drew them anchored to the top edge, so the two shapes
+    // advertised themselves as the off-centre thing a tap no longer produces.
+    render_({ gradient: { ...gradient, angle: 0 } })
+    const radial = screen.getByRole('button', { name: /Radial/ })
+    const box = radial.querySelector('[class*="previewBox"]') as HTMLElement
+    // A centred radial names no origin; an anchored one says `at top`.
+    expect(box.style.backgroundImage).toContain('radial-gradient')
+    expect(box.style.backgroundImage).not.toMatch(/at (top|bottom|left|right)/)
+  })
+
+  it('keeps a directional swatch on the current angle', () => {
+    render_({ gradient: { ...gradient, angle: 90 } })
+    const angular = screen.getByRole('button', { name: /Angular/ })
+    const box = angular.querySelector('[class*="previewBox"]') as HTMLElement
+    expect(box.style.backgroundImage).toContain('conic-gradient')
+    expect(box.style.backgroundImage).toContain('90deg')
+  })
+
   it('toggles grain from the Effect chips', () => {
     const onToggleNoise = vi.fn()
     render_({ noiseEnabled: true, onToggleNoise })

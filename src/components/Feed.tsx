@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import { generateGradientStops } from '../lib/palette'
 import { GradientPage } from './GradientPage'
-import { SELECTABLE_GEOMETRY, type GradientType, nextRotationAngle } from '../lib/gradient'
+import { SELECTABLE_GEOMETRY, type GradientType, nextRotationAngle, defaultAngleForType, angleForTypeChange } from '../lib/gradient'
 import type { Gradient } from '../store/types'
 import type { ColorSet } from '../lib/colorSets'
 import { withViewTransition } from '../lib/viewTransition'
@@ -38,7 +38,8 @@ export function makeGradient(type: GradientType, colorSet: ColorSet, layout?: re
     hardStops: false,
     repeatEnabled: false,
     fanAnchor: 'bottom',
-    angle: type === 'radial' ? undefined : 0,
+    // undefined is CENTRE for radial and Turrell; 0 for the rest.
+    angle: defaultAngleForType(type),
   }
 }
 
@@ -192,7 +193,7 @@ export function Feed({ chromeVisible = true }: FeedProps) {
         typeToUse = pickRandomType()
         feedSession.lockedType = typeToUse
       }
-      let angleToUse = feedSession.lockedAngle ?? (typeToUse === 'radial' ? undefined : 0)
+      let angleToUse = feedSession.lockedAngle ?? defaultAngleForType(typeToUse)
       const initial = current ?? { 
         ...makeGradient(typeToUse, activeColorSet, useAppStore.getState().lockedStopLayout ?? undefined),
         angle: angleToUse,
@@ -272,7 +273,7 @@ export function Feed({ chromeVisible = true }: FeedProps) {
         // rolodex then varies the colours without varying how many stops there
         // are or where they sit.
         ...makeGradient(typeToUse, activeColorSet, useAppStore.getState().lockedStopLayout ?? undefined), 
-        angle: feedSession.lockedAngle ?? (typeToUse === 'radial' ? undefined : 0),
+        angle: feedSession.lockedAngle ?? defaultAngleForType(typeToUse),
         hardStops: feedSession.lockedHardStops ?? false,
         repeatEnabled: feedSession.lockedRepeatEnabled ?? false,
         reversed: feedSession.lockedReversed ?? false
@@ -297,9 +298,13 @@ export function Feed({ chromeVisible = true }: FeedProps) {
     const currentIndex = Math.max(0, SELECTABLE_GEOMETRY.indexOf(currentGrad.type))
     const len = SELECTABLE_GEOMETRY.length
     const nextType = SELECTABLE_GEOMETRY[(currentIndex + dir + len) % len]
-    const updated = { ...currentGrad, type: nextType }
+    // Crossing into (or out of) radial/Turrell resets the origin, because the
+    // same number means "direction" on one side and "which edge" on the other.
+    const nextAngle = angleForTypeChange(currentGrad.type, nextType, currentGrad.angle)
+    const updated = { ...currentGrad, type: nextType, angle: nextAngle }
     feedSession.history[feedSession.index] = updated
     feedSession.lockedType = nextType
+    feedSession.lockedAngle = nextAngle
     setDisplayed(updated)
     setCurrentGradient(updated)
     tickHaptic()
