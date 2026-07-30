@@ -333,28 +333,21 @@ export function ColorList({
         })}
       </ul>
 
-      <div className={styles.cssBlock}>
-        <label className={styles.cssLabel} htmlFor="gradient-css">
-          CSS
-        </label>
-        <textarea
-          id="gradient-css"
-          data-testid="gradient-css"
-          className={styles.cssArea}
-          readOnly
-          rows={3}
-          value={cssText}
-          onFocus={(e) => e.currentTarget.select()}
-        />
-        <button
-          type="button"
-          data-testid="gradient-css-copy"
-          className={styles.copyCss}
-          onClick={() => cssFeedback.copy(cssText)}
-        >
-          {cssFeedback.copied ? '✓ Copied' : 'Copy CSS'}
-        </button>
-      </div>
+      {/* A read-only textarea used to sit here so the CSS was visible as well
+          as copyable. On touch, placing a finger inside ANY text field —
+          read-only or not — hands the whole gesture to the browser's native
+          text-selection/caret handling, which doesn't hand it back: a scroll
+          that happened to start there stopped scrolling, full stop, with no
+          way to continue it short of lifting off and starting over outside
+          the field. A plain button has no such native gesture to steal. */}
+      <button
+        type="button"
+        data-testid="gradient-css-copy"
+        className={styles.copyCss}
+        onClick={() => cssFeedback.copy(cssText)}
+      >
+        {cssFeedback.copied ? '✓ Copied' : 'Copy CSS'}
+      </button>
     </div>
   )
 }

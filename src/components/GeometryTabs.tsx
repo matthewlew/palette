@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { buildGradientCss, angleForTypeChange, SHAPE_LABELS, type GradientType, type GradientStop } from '../lib/gradient'
 import type { Gradient } from '../store/types'
 import { TurrellSquare } from './TurrellSquare'
+import { useIsDesktop } from '../hooks/useIsDesktop'
 import styles from './GeometryTabs.module.css'
 
 interface GeometryTabsProps {
@@ -76,6 +77,13 @@ export function GeometryTabs({
   // Only consulted on mobile — the desktop media query shows both panels
   // regardless, so this state is inert there rather than needing a branch.
   const [section, setSection] = useState<SectionId>('shape')
+  const isDesktop = useIsDesktop()
+  // Turrell's blur is a flat pixel radius (see TurrellSquare), not a
+  // percentage of the box it's drawn in — so the same 4px that reads right
+  // against the ~95px desktop tile is proportionally almost double as heavy
+  // against the ~54-60px six-up mobile tile, and Turrell alone looked
+  // noticeably softer than Angular/Radial's crisp preview swatches.
+  const turrellPreviewBlur = isDesktop ? 4 : 2
 
   function handleWheel(e: React.WheelEvent) {
     const el = tabsRef.current
@@ -191,10 +199,10 @@ export function GeometryTabs({
               }}
             >
               {tab.type === 'square' && (
-                <TurrellSquare 
-                  stops={stops} 
-                  reversed={gradient.reversed} 
-                  repeatEnabled={gradient.repeatEnabled} blurPx={gradient.hardStops ? 0 : 4} 
+                <TurrellSquare
+                  stops={stops}
+                  reversed={gradient.reversed}
+                  repeatEnabled={gradient.repeatEnabled} blurPx={gradient.hardStops ? 0 : turrellPreviewBlur}
                   angle={previewAngle}
                 />
               )}

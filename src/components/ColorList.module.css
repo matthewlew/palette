@@ -67,6 +67,13 @@
      .iconButton::after — tripped a horizontal scrollbar across the whole
      list on any viewport narrow enough for that overhang to matter. */
   overflow-x: hidden;
+  /* Without this, a touch drag that isn't cleanly vertical left the browser
+     undecided about which axis owns the gesture — since overflow-x is hidden
+     there was never a horizontal scroll to hand it to, but the browser still
+     spent the first several pixels of the drag finding that out, which read
+     as the list scrolling both ways at once before settling. Declaring the
+     axis up front skips the guessing. */
+  touch-action: pan-y;
 }
 
 .row {
@@ -266,61 +273,19 @@
   border-color: var(--border);
 }
 
-.cssBlock {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding-bottom: 4px;
-}
-
-.cssLabel {
-  font-family: var(--th-body);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-subdued);
-}
-
-.cssArea {
-  width: 100%;
-  box-sizing: border-box;
-  resize: none;
-  padding: 8px 8px 30px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-base);
-  background: color-mix(in srgb, var(--c-950) 60%, transparent);
-  color: var(--text-subdued);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
-  line-height: 1.45;
-  /* Wrapping matters: a gradient with six stops is a long single line, and a
-     horizontally-scrolling box hides most of what you came to read. */
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-.cssArea:focus {
-  outline: none;
-  border-color: var(--text-subdued);
-  color: var(--text);
-}
-
-/* Sits inside the box's reserved bottom padding rather than under it — the
-   sheet has no vertical room to spare, especially on mobile. */
+/* Replaces a read-only textarea that used to show the CSS as well as copy
+   it — see the comment at the call site for why a plain button is the whole
+   fix, not just a style choice. */
 .copyCss {
-  position: absolute;
-  right: 6px;
-  bottom: 10px;
-  min-height: 22px;
-  padding: 0 10px;
+  align-self: flex-start;
+  min-height: 32px;
+  padding: 0 14px;
   border-radius: var(--pill);
   border: 1px solid var(--border);
   background: var(--background);
   color: var(--text);
   font-family: var(--th-body);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
 }

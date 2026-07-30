@@ -30,6 +30,10 @@
 }
 
 .preview {
+  /* On mobile the sheet is no longer a flex sibling — Drawer.Portal renders
+     it elsewhere in the DOM, fixed over the top of whatever's here — so this
+     is free to fill the whole container. Desktop's side panel below is
+     still an in-flow sibling, and still takes flex:1 down to a shared width. */
   flex: 1;
   min-height: 0;
   position: relative;
@@ -38,17 +42,75 @@
   view-transition-name: palette-card;
 }
 
+/* Fixed positioning container for the mobile sheet — see Drawer.Viewport.
+   The Popup inside it carries the actual visual sheet (background, shadow,
+   radius); this just anchors it to the bottom edge, full width, above
+   everything else on the canvas. */
+.sheetViewport {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+}
+
 .sheet {
   display: flex;
   flex-direction: column;
-  flex: 0 0 auto;
-  /* The preview is `flex: 1; min-height: 0`, so it will happily shrink to
-     nothing to make room for a tall sheet. Capping the sheet and letting IT
-     scroll keeps the gradient — the thing being edited — always on screen,
-     however many stops the Colors list is showing. Desktop overrides this
-     with its own full-height side panel below. */
-  max-height: 62dvh;
+  background: var(--background);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.12);
+  view-transition-name: edit-sheet;
+  /* Open/closed position and the live drag both move this transform — see
+     the data-swiping / data-starting-style / data-ending-style rules below.
+     Anything ELSE that wants to hide the sheet (a handle-drag duck) must
+     stick to opacity, or it fights this for the same property. */
+  transform: translateY(var(--drawer-swipe-movement-y, 0px));
+  transition: transform var(--dur-slow, 320ms) var(--ease-decelerate, ease);
+}
+
+/* No transition while an actual finger is moving it — the transform has to
+   track 1:1 with the drag or it reads as laggy, not native. */
+.sheet[data-swiping] {
+  transition-duration: 0ms;
+}
+
+/* The library's own equivalent of an enter/exit state (broader browser
+   support than the CSS `@starting-style` at-rule): present for one frame on
+   mount-while-open and throughout the close animation. Both ends of a
+   programmatic (non-drag) open/close are this same off-screen position —
+   the drag case above already has its own transform via
+   --drawer-swipe-movement-y and never reaches these. */
+.sheet[data-starting-style],
+.sheet[data-ending-style] {
+  transform: translateY(100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet {
+    transition: none;
+  }
+}
+
+/* Purely a transient duck (a canvas-handle drag near the bottom edge) — the
+   drawer's own open/closed state is untouched, so releasing the drag can't
+   accidentally reopen a sheet the user had deliberately closed. Opacity
+   only: layering a transform here would fight the one above. */
+.sheet.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* The actual scrollable area, separate from the handle above it — see the
+   Drawer.Content wrapping this in EditMode.tsx. Scrolling here resolves
+   before the gesture is handed up to the sheet's own drag-to-dismiss, which
+   is what lets "scrolled to the top, keep pulling down" close the sheet
+   instead of the scroll just refusing to go further. */
+.sheetContent {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  max-height: 62dvh;
   padding-top: 12px;
   /* Held sideways the sheet still spans the full width, so its chips would run
      under the camera housing on one edge and the home indicator on the other.
@@ -61,41 +123,11 @@
   padding-left: var(--safe-l);
   padding-right: var(--safe-r);
   padding-bottom: var(--safe-b);
-  background: var(--background);
-  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.12);
-  view-transition-name: edit-sheet;
-  transition: opacity 200ms ease, transform 200ms ease, margin-right 200ms ease,
-    max-height 200ms ease, padding 200ms ease;
 }
 
-.sheet.hidden {
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(16px);
-}
-
-/* Tapping the gradient to see it in full, not a drag-duck — .hidden alone
-   fades the sheet in place but leaves its height reserved, which just
-   uncovers a blank strip where the sheet used to sit rather than letting the
-   gradient grow into the space. Collapsing height is exactly what the drag
-   ducking avoids (re-anchoring every canvas handle mid-drag), but this is a
-   single discrete tap, not a live gesture, so it's safe here: the preview's
-   `flex: 1` grows to fill what this gives up, and the ResizeObserver already
-   watching it picks up the new size. Desktop's side panel never reaches
-   this class — see chromeHidden.
-   Named apart from the old two-height "collapsed" peek state (gone
-   elsewhere in this file) so the two are never confused for one another. */
-.sheetStowed {
-  flex: 0 0 0;
-  max-height: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-  overflow: hidden;
-  border: 0;
-}
-
-/* The visual cap that says "this is a sheet", and nothing else.
+/* The visual cap that says "this is a sheet", and nothing else. Outside
+   Drawer.Content, so it's always part of the draggable surface even while
+   the content below it is mid-scroll.
    14px rather than 28: with one height there is no gesture to give room to,
    and the strip was the tallest thing in the sheet doing the least. One size,
    one colour — it used to swell from 36x4 to 44x4 and darken between the two
@@ -139,22 +171,25 @@
     max-width: var(--edit-panel-w);
     order: 2;
     height: 100%;
-    /* Drops the mobile bottom-sheet cap: here the sheet is a full-height side
-       panel and 62dvh would leave a third of it empty. */
-    max-height: none;
     box-sizing: border-box;
     border-radius: var(--radius-xl) 0 0 var(--radius-xl);
     box-shadow: -4px 0 16px rgba(0, 0, 0, 0.12);
-    justify-content: flex-start;
-    gap: 16px;
-    padding-top: 24px;
-    overflow-y: auto;
     margin-right: 0;
   }
 
   .sheet.hidden {
     transform: translateX(100%);
     margin-right: calc(-1 * var(--edit-panel-w));
+  }
+
+  .sheetContent {
+    /* Drops the mobile bottom-sheet cap: here the sheet is a full-height side
+       panel and 62dvh would leave a third of it empty. */
+    max-height: none;
+    justify-content: flex-start;
+    gap: 16px;
+    padding-top: 24px;
+    overflow-y: auto;
   }
 
   /* Enter motion that does not depend on View Transitions.

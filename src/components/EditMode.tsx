@@ -39,6 +39,7 @@ import type { Gradient } from '../store/types'
 import { CanvasHandles } from './CanvasHandles'
 import { useAnimatedStops } from '../hooks/useAnimatedStops'
 import { Icon } from '../icons'
+import { Drawer } from '@base-ui/react/drawer'
 import styles from './EditMode.module.css'
 
 // 'original' restores the order the stops had before any sorting (the saved
@@ -114,7 +115,6 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   const unsortedOrderRef = useRef<string[]>([])
   const blockContainerRef = useRef<HTMLDivElement>(null) as RefObject<HTMLDivElement>
   const previewPointerStartRef = useRef<{ x: number; y: number } | null>(null)
-  const sheetRef = useRef<HTMLDivElement>(null)
   const previewRef = useRef<HTMLDivElement>(null)
   const onExitRef = useRef(onExit)
   onExitRef.current = onExit
@@ -142,31 +142,31 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   // Also duck it while a canvas handle is being dragged, so a drag near the
   // bottom edge never collides with the Save/grain/Order FABs.
   const [handleDragging, setHandleDragging] = useState(false)
-  // Tapping the preview clears the sheet entirely so the gradient can be seen
-  // in full, rather than the bottom third of it staying covered. MOBILE ONLY —
-  // see chromeHidden below for why the side panel doesn't get this. Persists
-  // across a rolodex scrub on purpose: hiding the sheet to look at a shape is
-  // a state you're in, not a one-shot reveal, so browsing to the next
-  // candidate shouldn't quietly bring the sheet back.
+  // Tapping the preview asks the drawer to open/close so the gradient can be
+  // seen in full, rather than the bottom third of it staying covered. MOBILE
+  // ONLY — see chromeHidden below for why the side panel doesn't get this.
+  // Persists across a rolodex scrub on purpose: closing the sheet to look at
+  // a shape is a state you're in, not a one-shot reveal, so browsing to the
+  // next candidate shouldn't quietly reopen it. Also flipped by the drawer
+  // itself — swiping the sheet down closes it the same way a tap does; see
+  // the Drawer.Root below.
   const [sheetHidden, setSheetHidden] = useState(false)
   const isDraggingRef = useRef(false)
   const lastHandleDragEndRef = useRef(0)
   const pendingGradientRef = useRef<Gradient | null>(null)
   const isDesktop = useIsDesktop()
-  // Duck the floating chrome (FABs, sheet, back) while a canvas handle is being
-  // dragged, or while the sheet is deliberately hidden, so both share the same
-  // "gradient alone, nothing floating" state.
-  //
-  // MOBILE ONLY. On the side-panel layout `.sheet.hidden` slides 340px of
-  // layout off-screen and the flexed preview immediately grows into the space,
-  // which re-measures the canvas and re-anchors every handle — so grabbing a
-  // dot made the whole set jump out from under the pointer, and let go of it
-  // put them back. Two moving parts for a gesture that should have one. The
-  // bottom sheet has the opposite problem (a drag near the bottom edge really
-  // does land on the FABs), so the ducking stays there. The side panel also
-  // never obstructs the gradient the way the bottom sheet does, so tapping the
+  // Duck the floating chrome (FABs, back) while a canvas handle is being
+  // dragged, or while the sheet is closed, so both share the same "gradient
+  // alone, nothing floating" state. MOBILE ONLY — the side panel never
+  // obstructs the gradient the way the bottom sheet does, so tapping the
   // preview there still exits instead of needing a reveal state at all.
   const chromeHidden = (handleDragging || sheetHidden) && !isDesktop
+  // The sheet's OWN duck during a handle drag is separate from chromeHidden:
+  // it is a transient opacity fade (the drag ends, it comes right back),
+  // not the drawer's real open/closed state, which only the tap/swipe above
+  // changes. Conflating the two would make releasing a drag re-open a sheet
+  // the user had deliberately closed a moment before.
+  const sheetDuckHidden = handleDragging && !isDesktop
 
   // The title is bare text on the gradient, so it still samples the palette
   // where it sits. The floating buttons no longer do — they carry their own
@@ -607,9 +607,16 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
       }
     }
 
-    window.addEventListener('keydown', handleKeyDown)
+    // Capture, not bubble: Base UI's Drawer.Popup stops propagation of every
+    // arrow/Home/End keydown that reaches it (it assumes such keys belong to
+    // a composite widget inside the popup), which would otherwise swallow
+    // these shortcuts the moment focus is inside the mobile sheet — a
+    // geometry tab, the sort chip, anything. A capture listener on window
+    // runs on the way down, before that stopPropagation happens on the way
+    // back up, so it sees the key regardless of where focus is.
+    window.addEventListener('keydown', handleKeyDown, true)
     return () => {
-      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keydown', handleKeyDown, true)
     }
   }, [])
 
@@ -910,6 +917,92 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   const evenlySpaced =
     Object.keys(lockedPositions).length === 0 && isEvenlyDistributed(editableStops)
 
+  // Shared between the desktop side panel (plain div, always open, no
+  // gesture) and the mobile sheet (Drawer.Popup, open/closed by tap or
+  // swipe) — the two differ in what wraps this, not in what's inside it.
+  const sheetBody = (
+    <>
+      <GeometryTabs
+        gradient={gradient}
+        stops={animatedStops}
+        onSelectType={handleSelectType}
+        onToggleReversed={handleToggleReversed}
+        onToggleRepeat={handleToggleRepeat}
+        onToggleHardStops={handleToggleHardStops}
+        onToggleSmooth={handleToggleSmooth}
+        onRotateFan={handleRotateFan}
+        onRotate={handleRotateAngle}
+        noiseEnabled={noiseEnabled}
+        onToggleNoise={toggleNoise}
+        order={activeOrder}
+        orderLabel={ORDER_LABELS[activeOrder]}
+        onCycleOrder={handleSortCycle}
+      />
+
+      <div className={styles.blockArea}>
+        <FlowEditor
+          stops={editableStops}
+          onMove={handleMoveStop}
+          onTapStop={handleTapStop}
+          onRemoveStop={handleRemove}
+          onAddStopAt={handleAddColorAt}
+          containerRef={blockContainerRef}
+          activeStopId={activeStopId}
+        />
+      </div>
+      {/* The Order button used to live here in its own row. It is a modifier
+          like Repeat/Smooth/Hard/Rotate, so it now sits with them in
+          GeometryTabs — which also gives the mobile preview back the 91px
+          this row cost. Only the hint is left. */}
+      <div className={styles.stopActions}>
+        <span className={styles.stopHint}>Tap a blank spot to add · drag down to remove</span>
+        {/* Only when the spacing has actually drifted off the even ladder —
+            this is the escape hatch for the "stop re-spreading my stops"
+            rule, not a permanent control. */}
+        {!evenlySpaced && (
+          <button
+            type="button"
+            data-testid="reset-distribution"
+            className={`lds-chip ${styles.resetButton}`}
+            onClick={handleResetDistribution}
+          >
+            Reset spacing
+          </button>
+        )}
+      </div>
+      {/* The palette, readable. Below the flow editor because the editor is
+          the spatial view (where each color sits) and this is the literal
+          one (what each color IS). */}
+      <ColorList
+        stops={editableStops}
+        lockedColors={lockedColors}
+        lockedPositions={lockedPositions}
+        onRecolor={recolorStop}
+        onReposition={handleReposition}
+        onToggleLock={handleToggleColorLock}
+        onTogglePositionLock={handleTogglePositionLock}
+        onRemove={handleRemove}
+        onAdd={handleAddColor}
+        cssText={cssSnippet}
+        activeStopId={activeStopId}
+        onSelect={setActiveStopId}
+      />
+      {/* Keyboard hints live in the panel (desktop only, hidden on touch via
+          the component's own media query) rather than floating on the canvas. */}
+      <div>
+        <ShortcutHints items={EDIT_SHORTCUTS} placement="inline" color="currentColor" />
+      </div>
+    </>
+  )
+
+  /** Clears the active stop when the sheet's own background (not a child
+   * control) is pressed — unchanged from the pre-Drawer sheet. */
+  function handleSheetPointerDown(e: React.PointerEvent) {
+    if (e.target === e.currentTarget) {
+      setActiveStopId(null)
+    }
+  }
+
   return (
     <div data-testid="edit-mode" className={styles.container} onPointerDown={() => editHint.dismiss()}>
       <button
@@ -1011,98 +1104,57 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           }}
         />
       </div>
-      <div
-        data-testid="edit-sheet"
-        ref={sheetRef}
-        className={[
-          styles.sheet,
-          chromeHidden && styles.hidden,
-          sheetHidden && !isDesktop && styles.sheetStowed,
-        ]
-          .filter(Boolean)
-          .join(' ')}
-        onPointerDown={(e) => {
-          if (e.target === e.currentTarget) {
-            setActiveStopId(null)
-          }
-        }}
-      >
-        {/* Decorative, and deliberately not a button. With one height there is
-            nothing for it to do, and a grabber that answers a tap with nothing
-            is worse than no grabber — it is the visual cap that says "sheet",
-            at half its old height because that space was doing nothing else. */}
-        <div data-testid="sheet-handle" aria-hidden="true" className={styles.sheetHandle} />
-        <GeometryTabs
-          gradient={gradient}
-          stops={animatedStops}
-          onSelectType={handleSelectType}
-          onToggleReversed={handleToggleReversed}
-          onToggleRepeat={handleToggleRepeat}
-          onToggleHardStops={handleToggleHardStops}
-          onToggleSmooth={handleToggleSmooth}
-          onRotateFan={handleRotateFan}
-          onRotate={handleRotateAngle}
-          noiseEnabled={noiseEnabled}
-          onToggleNoise={toggleNoise}
-          order={activeOrder}
-          orderLabel={ORDER_LABELS[activeOrder]}
-          onCycleOrder={handleSortCycle}
-        />
-
-        <div className={styles.blockArea}>
-          <FlowEditor
-            stops={editableStops}
-            onMove={handleMoveStop}
-            onTapStop={handleTapStop}
-            onRemoveStop={handleRemove}
-            onAddStopAt={handleAddColorAt}
-            containerRef={blockContainerRef}
-            activeStopId={activeStopId}
-          />
+      {isDesktop ? (
+        <div
+          data-testid="edit-sheet"
+          className={styles.sheet}
+          onPointerDown={handleSheetPointerDown}
+        >
+          {/* Decorative, and deliberately not a button. With one height there
+              is nothing for it to do, and a grabber that answers a tap with
+              nothing is worse than no grabber — it is the visual cap that
+              says "sheet". Hidden on this layout by its own media query. */}
+          <div data-testid="sheet-handle" aria-hidden="true" className={styles.sheetHandle} />
+          {/* Same shell/content split as the mobile Drawer.Popup/Drawer.Content
+              pair below, so .sheetContent's padding/scroll rules apply the
+              same way on both layouts without a separate desktop-only class. */}
+          <div className={styles.sheetContent}>{sheetBody}</div>
         </div>
-        {/* The Order button used to live here in its own row. It is a modifier
-            like Repeat/Smooth/Hard/Rotate, so it now sits with them in
-            GeometryTabs — which also gives the mobile preview back the 91px
-            this row cost. Only the hint is left. */}
-        <div className={styles.stopActions}>
-          <span className={styles.stopHint}>Tap a blank spot to add · drag down to remove</span>
-          {/* Only when the spacing has actually drifted off the even ladder —
-              this is the escape hatch for the "stop re-spreading my stops"
-              rule, not a permanent control. */}
-          {!evenlySpaced && (
-            <button
-              type="button"
-              data-testid="reset-distribution"
-              className={`lds-chip ${styles.resetButton}`}
-              onClick={handleResetDistribution}
-            >
-              Reset spacing
-            </button>
-          )}
-        </div>
-        {/* The palette, readable. Below the flow editor because the editor is
-            the spatial view (where each color sits) and this is the literal
-            one (what each color IS). */}
-        <ColorList
-          stops={editableStops}
-          lockedColors={lockedColors}
-          lockedPositions={lockedPositions}
-          onRecolor={recolorStop}
-          onReposition={handleReposition}
-          onToggleLock={handleToggleColorLock}
-          onTogglePositionLock={handleTogglePositionLock}
-          onRemove={handleRemove}
-          onAdd={handleAddColor}
-          cssText={cssSnippet}
-          activeStopId={activeStopId}
-          onSelect={setActiveStopId}
-        />
-        {/* Keyboard hints live in the panel (desktop only, hidden on touch via
-            the component's own media query) rather than floating on the canvas. */}
-        <div>
-          <ShortcutHints items={EDIT_SHORTCUTS} placement="inline" color="currentColor" />
-        </div>
-      </div>
+      ) : (
+        // Real drag-to-dismiss/reopen physics instead of a hand-rolled
+        // max-height collapse — see the framework discussion this replaced.
+        // modal={false}: the canvas underneath (dragging a stop handle) has
+        // to stay interactive while the sheet is open, which a modal drawer's
+        // focus trap and pointer-blocking backdrop would both prevent.
+        // disablePointerDismissal: the preview tap that reopens the sheet is
+        // itself a press outside Drawer.Popup — without this, Base UI's own
+        // outside-press dismissal saw that same tap and closed the sheet right
+        // back, so a reopen never stuck. The preview's own pointerUp handler
+        // (below) is the one and only thing that should open/close on a tap;
+        // the built-in swipe-to-dismiss on the popup is untouched by this prop.
+        <Drawer.Root
+          modal={false}
+          disablePointerDismissal
+          open={!sheetHidden}
+          onOpenChange={(open) => setSheetHidden(!open)}
+        >
+          <Drawer.Portal>
+            <Drawer.Viewport className={styles.sheetViewport}>
+              <Drawer.Popup
+                data-testid="edit-sheet"
+                className={[styles.sheet, sheetDuckHidden && styles.hidden].filter(Boolean).join(' ')}
+                onPointerDown={handleSheetPointerDown}
+              >
+                {/* Outside Drawer.Content on purpose — it's the one part of
+                    the sheet that should always start a drag, where
+                    everything below needs a scroll/tap to resolve first. */}
+                <div data-testid="sheet-handle" aria-hidden="true" className={styles.sheetHandle} />
+                <Drawer.Content className={styles.sheetContent}>{sheetBody}</Drawer.Content>
+              </Drawer.Popup>
+            </Drawer.Viewport>
+          </Drawer.Portal>
+        </Drawer.Root>
+      )}
       {/* "Recolor" was the old promise: tapping a stop fired the OS picker.
           It now selects the stop and takes you to its row in the Colors list. */}
       {!chromeHidden && editHint.visible && <Hint text="Tap a color to select it" visible={editHint.visible && !chromeHidden} />}

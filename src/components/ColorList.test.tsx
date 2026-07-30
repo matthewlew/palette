@@ -80,9 +80,15 @@ describe('ColorList', () => {
     screen.getAllByTestId('color-list-remove').forEach((button) => expect(button).toBeDisabled())
   })
 
-  it('renders the CSS as given, ready to copy', () => {
-    const { cssText } = setup()
-    expect((screen.getByTestId('gradient-css') as HTMLTextAreaElement).value).toBe(cssText)
+  it('offers the CSS as a copy button, not a visible/selectable text field', () => {
+    // A textarea used to sit here so the CSS was visible as well as
+    // copyable — on touch, a finger landing in ANY text field (read-only or
+    // not) hands the whole scroll gesture to the browser's native
+    // caret/selection handling, which never gives it back. A plain button
+    // has no such gesture to steal.
+    setup()
+    expect(screen.queryByTestId('gradient-css')).not.toBeInTheDocument()
+    expect(screen.getByTestId('gradient-css-copy')).toHaveTextContent('Copy CSS')
   })
 
   it('highlights the row for the selected stop', () => {
