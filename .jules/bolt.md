@@ -1,0 +1,3 @@
+## 2025-07-30 - Memoization of gallery data derivations
+**Learning:** In `src/components/Gallery.tsx`, multiple collections of gradients (`communityGradients`, `saved`) were being filtered and processed on every re-render (e.g. `typeFilter`, sorting, chip counts). This creates significant CPU overhead when typing in a search bar or opening/closing view transitions.
+**Action:** When working with large lists of objects (like gradients) in React components, always memoize the derived collections (`useMemo`) to prevent O(N) array filtering/mapping operations from running repeatedly during unrelated state updates.
