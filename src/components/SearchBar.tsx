@@ -4,6 +4,7 @@ import type { Gradient } from '../store/types'
 import { toGradient } from '../lib/paletteRow'
 import { COLOR_NOUNS, type HueFamily } from '../lib/namingWords'
 import { parseQuery } from '../lib/shapeSearch'
+import { Icon } from '../icons'
 import styles from './SearchBar.module.css'
 
 /** Search hits, split by where they came from. Yours are matched locally and
@@ -143,10 +144,9 @@ export function SearchBar({ onResults, saved = [], onActiveChange, onCancel }: S
           wrapper, not the outer container — once Cancel joined the container,
           `right: 8px` put the clear cross on top of the Cancel label. */}
       <div className={styles.field}>
-      <svg className={styles.searchIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="11" cy="11" r="8" />
-        <line x1="21" y1="21" x2="16.65" y2="16.65" />
-      </svg>
+      {/* Sized by the stylesheet, not the scale: it is positioned against the
+          field and its box has to agree with the input's left padding. */}
+      <Icon name="search" size={null} className={styles.searchIcon} />
       <input
         type="text"
         className={styles.searchInput}
@@ -165,10 +165,7 @@ export function SearchBar({ onResults, saved = [], onActiveChange, onCancel }: S
           }}
           aria-label="Clear search"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
+          <Icon name="close" size={null} />
         </button>
       )}
       {loading && <span className={styles.loading}>Searching...</span>}

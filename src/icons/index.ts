@@ -1,0 +1,6 @@
+export { Icon } from './Icon'
+export type { IconProps } from './Icon'
+export { ICON_SIZES } from './sizes'
+export type { IconSize } from './sizes'
+export { GLYPHS } from './glyphs'
+export type { IconName } from './glyphs'

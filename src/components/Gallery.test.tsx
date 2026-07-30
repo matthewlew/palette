@@ -323,14 +323,16 @@ describe('Gallery drag reorder', () => {
     useAppStore.setState({ saved: [g('a', '#ff0000'), g('b', '#00ff00'), g('c', '#0000ff')], mode: 'gallery' })
   })
 
-  it('tiles are draggable when no filter is active', () => {
+  it('tiles are draggable under Custom order with no filter active', () => {
     render(<Gallery onRiff={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('saves-order-custom'))
     const tiles = screen.getAllByTestId('gallery-tile')
     expect(tiles[0].getAttribute('draggable')).toBe('true')
   })
 
   it('reorders the saved array when a tile is dropped on another', () => {
     render(<Gallery onRiff={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('saves-order-custom'))
     const tiles = screen.getAllByTestId('gallery-tile')
     // Drag tile A (index 0) onto tile C (index 2).
     fireEvent.dragStart(tiles[0])
@@ -340,8 +342,9 @@ describe('Gallery drag reorder', () => {
     expect(useAppStore.getState().saved.map((x) => x.id)).toEqual(['b', 'c', 'a'])
   })
 
-  it('does not make tiles draggable while a type filter is active', () => {
+  it('does not make tiles draggable while a type filter is active, even under Custom order', () => {
     render(<Gallery onRiff={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('saves-order-custom'))
     // 'a','b','c' are all linear; click the Linear chip to filter.
     fireEvent.click(screen.getByRole('button', { name: /^Linear/ }))
     const tiles = screen.getAllByTestId('gallery-tile')

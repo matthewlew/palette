@@ -57,8 +57,10 @@
   left: 10px;
   top: 50%;
   transform: translateY(-50%);
-  width: 14px;
-  height: 14px;
+  /* 16px is the scale's dense step; the input's 32px left padding leaves it
+     6px of air before the placeholder starts. */
+  width: 16px;
+  height: 16px;
   color: rgba(255, 255, 255, 0.4);
   pointer-events: none;
 }

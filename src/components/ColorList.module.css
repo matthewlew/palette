@@ -60,6 +60,13 @@
      push the flow editor off screen, so the list scrolls inside itself. */
   max-height: 216px;
   overflow-y: auto;
+  /* Explicit, not left to default. Setting only overflow-y computes
+     overflow-x to auto too (an overflow spec quirk: either axis non-visible
+     promotes the other from visible to auto), so the icon buttons' 44px
+     tap-target overlays — 10px wider than their 24px visible box, see
+     .iconButton::after — tripped a horizontal scrollbar across the whole
+     list on any viewport narrow enough for that overhang to matter. */
+  overflow-x: hidden;
 }
 
 .row {
@@ -83,6 +90,14 @@
   border-color: var(--border);
 }
 
+/* Sizes and positions the swatch input plus its pencil badge as one unit;
+   see .swatchBadge for why the badge exists. */
+.swatchWrap {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+}
+
 /* A native colour input styled down to a plain swatch. The default control is
    a bordered button with inset padding, so the colour itself ends up a small
    rectangle floating inside chrome — these three ::-webkit rules strip that
@@ -98,6 +113,23 @@
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
+}
+
+/* The swatch alone reads as a colour SAMPLE, not a control — there's no
+   hover state on touch to hint otherwise, and taps-to-pick was the one
+   affordance in this row nobody could see. A badge in the corner, scrimmed
+   so it reads on both a light and a near-black swatch. pointer-events: none
+   so the tap still lands on the input underneath, not the badge. */
+.swatchBadge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  padding: 2px;
+  border-radius: 50%;
+  background: var(--background);
+  color: var(--text);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 20%, transparent);
+  pointer-events: none;
 }
 
 .swatch::-webkit-color-swatch-wrapper {

@@ -38,6 +38,7 @@ import { tickHaptic, primeHaptics } from '../lib/haptics'
 import type { Gradient } from '../store/types'
 import { CanvasHandles } from './CanvasHandles'
 import { useAnimatedStops } from '../hooks/useAnimatedStops'
+import { Icon } from '../icons'
 import styles from './EditMode.module.css'
 
 // 'original' restores the order the stops had before any sorting (the saved
@@ -141,12 +142,20 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   // Also duck it while a canvas handle is being dragged, so a drag near the
   // bottom edge never collides with the Save/grain/Order FABs.
   const [handleDragging, setHandleDragging] = useState(false)
+  // Tapping the preview clears the sheet entirely so the gradient can be seen
+  // in full, rather than the bottom third of it staying covered. MOBILE ONLY —
+  // see chromeHidden below for why the side panel doesn't get this. Persists
+  // across a rolodex scrub on purpose: hiding the sheet to look at a shape is
+  // a state you're in, not a one-shot reveal, so browsing to the next
+  // candidate shouldn't quietly bring the sheet back.
+  const [sheetHidden, setSheetHidden] = useState(false)
   const isDraggingRef = useRef(false)
   const lastHandleDragEndRef = useRef(0)
   const pendingGradientRef = useRef<Gradient | null>(null)
   const isDesktop = useIsDesktop()
   // Duck the floating chrome (FABs, sheet, back) while a canvas handle is being
-  // dragged, so a drag near the bottom edge never collides with them.
+  // dragged, or while the sheet is deliberately hidden, so both share the same
+  // "gradient alone, nothing floating" state.
   //
   // MOBILE ONLY. On the side-panel layout `.sheet.hidden` slides 340px of
   // layout off-screen and the flexed preview immediately grows into the space,
@@ -154,8 +163,10 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   // dot made the whole set jump out from under the pointer, and let go of it
   // put them back. Two moving parts for a gesture that should have one. The
   // bottom sheet has the opposite problem (a drag near the bottom edge really
-  // does land on the FABs), so the ducking stays there.
-  const chromeHidden = handleDragging && !isDesktop
+  // does land on the FABs), so the ducking stays there. The side panel also
+  // never obstructs the gradient the way the bottom sheet does, so tapping the
+  // preview there still exits instead of needing a reveal state at all.
+  const chromeHidden = (handleDragging || sheetHidden) && !isDesktop
 
   // The title is bare text on the gradient, so it still samples the palette
   // where it sits. The floating buttons no longer do — they carry their own
@@ -836,6 +847,14 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
       const dy = e.clientY - start.y
       if (Math.hypot(dx, dy) > PREVIEW_TAP_THRESHOLD_PX) return
     }
+    // Mobile: the sheet covers the bottom of the gradient, so a tap clears it
+    // to show the whole thing rather than leaving edit mode outright — the
+    // same tap brings it back. Desktop's side panel never covers the
+    // gradient, so there's nothing to reveal and the tap still exits.
+    if (!isDesktop) {
+      setSheetHidden((hidden) => !hidden)
+      return
+    }
     onExit()
   }
 
@@ -900,9 +919,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
         className={[styles.backButton, MEDIA_ICON, chromeHidden && styles.hidden].filter(Boolean).join(' ')}
         onClick={onExit}
       >
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M15 5l-7 7 7 7" />
-        </svg>
+        <Icon name="chevron-left" size="md" />
       </button>
       <BoardShare
         saved={saved}
@@ -997,7 +1014,13 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
       <div
         data-testid="edit-sheet"
         ref={sheetRef}
-        className={[styles.sheet, chromeHidden && styles.hidden].filter(Boolean).join(' ')}
+        className={[
+          styles.sheet,
+          chromeHidden && styles.hidden,
+          sheetHidden && !isDesktop && styles.sheetStowed,
+        ]
+          .filter(Boolean)
+          .join(' ')}
         onPointerDown={(e) => {
           if (e.target === e.currentTarget) {
             setActiveStopId(null)

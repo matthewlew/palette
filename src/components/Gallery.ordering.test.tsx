@@ -83,24 +83,24 @@ afterEach(() => {
 })
 
 describe('Gallery — ordering the Yours tab', () => {
-  it('opens in the hand-arranged order, which drag-reorder writes', () => {
+  it('opens newest first by default', () => {
     render(<Gallery onRiff={vi.fn()} />)
-    expect(screen.getByTestId('saves-order-custom')).toHaveAttribute('aria-pressed', 'true')
-    expect(tileNames()).toEqual(['Alpha', 'Beta', 'Gamma'])
-  })
-
-  it('sorts newest first when Recent is chosen', () => {
-    render(<Gallery onRiff={vi.fn()} />)
-    fireEvent.click(screen.getByTestId('saves-order-recent'))
-    expect(tileNames()).toEqual(['Alpha', 'Gamma', 'Beta'])
     expect(screen.getByTestId('saves-order-recent')).toHaveAttribute('aria-pressed', 'true')
+    expect(tileNames()).toEqual(['Alpha', 'Gamma', 'Beta'])
   })
 
-  it('returns to the hand-arranged order when Custom is chosen again', () => {
+  it('switches to the hand-arranged order when Custom is chosen', () => {
     render(<Gallery onRiff={vi.fn()} />)
-    fireEvent.click(screen.getByTestId('saves-order-recent'))
     fireEvent.click(screen.getByTestId('saves-order-custom'))
     expect(tileNames()).toEqual(['Alpha', 'Beta', 'Gamma'])
+    expect(screen.getByTestId('saves-order-custom')).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('returns to newest-first when Recent is chosen again', () => {
+    render(<Gallery onRiff={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('saves-order-custom'))
+    fireEvent.click(screen.getByTestId('saves-order-recent'))
+    expect(tileNames()).toEqual(['Alpha', 'Gamma', 'Beta'])
   })
 
   it('sorts palettes saved before createdAt existed to the END, not the top', () => {
@@ -118,11 +118,11 @@ describe('Gallery — ordering the Yours tab', () => {
     expect(tileNames()).toEqual(['Gamma', 'Beta', 'Alpha'])
   })
 
-  it('turns off drag-reorder under Recent, since a drop would write an order you cannot see', () => {
+  it('only allows drag-reorder under Custom, since a drop under Recent would write an order you cannot see', () => {
     render(<Gallery onRiff={vi.fn()} />)
-    expect(screen.getAllByTestId('gallery-tile')[0]).toHaveAttribute('draggable', 'true')
-    fireEvent.click(screen.getByTestId('saves-order-recent'))
     expect(screen.getAllByTestId('gallery-tile')[0]).toHaveAttribute('draggable', 'false')
+    fireEvent.click(screen.getByTestId('saves-order-custom'))
+    expect(screen.getAllByTestId('gallery-tile')[0]).toHaveAttribute('draggable', 'true')
   })
 
   it('hands the Community tab its own orders rather than these', () => {

@@ -10,6 +10,19 @@ export type GradientType = 'linear' | 'radial' | 'angular' | 'square' | 'mirror'
  * legacy type replaced by the Repeat×2 filter, reachable only via old saves. */
 export const SELECTABLE_GEOMETRY: GradientType[] = ['linear', 'radial', 'angular', 'square', 'mirror', 'fan']
 
+/** Display name per geometry — 'square' reads as "Turrell" everywhere in the
+ * UI, not literally. Shared so GeometryTabs' tab labels and the Create feed's
+ * subtitle (see lib/gradientSummary) can never name a shape differently. */
+export const SHAPE_LABELS: Record<GradientType, string> = {
+  linear: 'Linear',
+  radial: 'Radial',
+  angular: 'Angular',
+  square: 'Turrell',
+  mirror: 'Mirror',
+  repeat: 'Repeat',
+  fan: 'Fan',
+}
+
 export interface GradientStop {
   hex: string
   position: number // 0-100

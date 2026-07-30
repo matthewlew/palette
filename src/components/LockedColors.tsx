@@ -1,4 +1,5 @@
 import { MEDIA_CHIP } from '../lib/mediaChrome'
+import { Icon } from '../icons'
 import styles from './LockedColors.module.css'
 
 interface LockedColorsProps {
@@ -50,10 +51,7 @@ export function LockedColors({
         onClear()
       }}
     >
-      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <rect x="4" y="10.5" width="16" height="10" rx="2.2" />
-        <path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" />
-      </svg>
+      <Icon name="lock" size="sm" />
       {entries.length > 0 && (
         <span className={styles.swatches}>
           {entries.map(([index, hex]) => (

@@ -111,14 +111,11 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().mode).toBe('edit')
   })
 
-  it('leaves edit mode for the gallery, even when edit began in the Create feed', () => {
-    // Returning to the feed put you back on the same full-screen gradient minus
-    // the sheet, which reads as "the controls closed" rather than as going
-    // back — and made the same chevron mean two different depths.
+  it('leaves edit mode for the Create feed when edit began there', () => {
     useAppStore.getState().setMode('create')
     useAppStore.getState().enterEditMode()
     useAppStore.getState().exitEditMode()
-    expect(useAppStore.getState().mode).toBe('gallery')
+    expect(useAppStore.getState().mode).toBe('create')
   })
 
   it('leaves edit mode for the gallery when edit was entered from the gallery', () => {

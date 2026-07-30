@@ -211,11 +211,30 @@ describe('EditMode', () => {
     expect(onExit).toHaveBeenCalledTimes(1)
   })
 
-  it('tapping the preview exits immediately, with no debounce wait', () => {
+  it('on mobile, tapping the preview stows the sheet instead of exiting, and a second tap restores it', () => {
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }))
+    const onExit = vi.fn()
+    render(<EditMode gradient={gradient} onExit={onExit} />)
+    const sheet = screen.getByTestId('edit-sheet')
+    expect(sheet.className).not.toMatch(/Stowed/)
+
+    fireEvent.pointerUp(screen.getByTestId('edit-mode-preview'))
+    expect(onExit).not.toHaveBeenCalled()
+    expect(sheet.className).toMatch(/Stowed/)
+
+    fireEvent.pointerUp(screen.getByTestId('edit-mode-preview'))
+    expect(sheet.className).not.toMatch(/Stowed/)
+    expect(onExit).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
+  })
+
+  it('on desktop, tapping the preview still exits immediately, with no debounce wait', () => {
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }))
     const onExit = vi.fn()
     render(<EditMode gradient={gradient} onExit={onExit} />)
     fireEvent.pointerUp(screen.getByTestId('edit-mode-preview'))
     expect(onExit).toHaveBeenCalledTimes(1)
+    vi.unstubAllGlobals()
   })
 
   it('renders a save pill on the gradient (not in the sheet) that toggles the saved state', () => {

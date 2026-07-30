@@ -3,6 +3,7 @@ import { oklchToHex } from '../lib/oklch'
 import { selectedSwatchHexes } from '../lib/swatchMatch'
 import type { ColorSet } from '../lib/colorSets'
 import type { EditableStop } from '../lib/stopOrdering'
+import { Icon } from '../icons'
 import styles from './SwatchTray.module.css'
 
 const DRAG_START_DELAY_MS = 150
@@ -152,9 +153,12 @@ export function SwatchTray({ colorSet, stops, onTapAdd, onTapRemove, onDragAdd, 
           >
             <span className={styles.swatchColor} style={{ backgroundColor: hex }}>
               {selected && (
-                <svg data-testid="swatch-checkmark" className={styles.checkmark} viewBox="0 0 16 16">
-                  <path d="M3 8l3.5 3.5L13 5" stroke="white" strokeWidth="2" fill="none" />
-                </svg>
+                <Icon
+                  name="check"
+                  size={null}
+                  className={styles.checkmark}
+                  data-testid="swatch-checkmark"
+                />
               )}
             </span>
             <span className={styles.label}>{color.name}</span>

@@ -65,13 +65,34 @@
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.12);
   view-transition-name: edit-sheet;
-  transition: opacity 200ms ease, transform 200ms ease, margin-right 200ms ease;
+  transition: opacity 200ms ease, transform 200ms ease, margin-right 200ms ease,
+    max-height 200ms ease, padding 200ms ease;
 }
 
 .sheet.hidden {
   opacity: 0;
   pointer-events: none;
   transform: translateY(16px);
+}
+
+/* Tapping the gradient to see it in full, not a drag-duck — .hidden alone
+   fades the sheet in place but leaves its height reserved, which just
+   uncovers a blank strip where the sheet used to sit rather than letting the
+   gradient grow into the space. Collapsing height is exactly what the drag
+   ducking avoids (re-anchoring every canvas handle mid-drag), but this is a
+   single discrete tap, not a live gesture, so it's safe here: the preview's
+   `flex: 1` grows to fill what this gives up, and the ResizeObserver already
+   watching it picks up the new size. Desktop's side panel never reaches
+   this class — see chromeHidden.
+   Named apart from the old two-height "collapsed" peek state (gone
+   elsewhere in this file) so the two are never confused for one another. */
+.sheetStowed {
+  flex: 0 0 0;
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+  border: 0;
 }
 
 /* The visual cap that says "this is a sheet", and nothing else.

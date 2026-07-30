@@ -3,6 +3,7 @@ import { buildGradientCss } from '../lib/gradient'
 import type { Gradient } from '../store/types'
 import { TurrellSquare } from './TurrellSquare'
 import { SavedBrowser } from './SavedBrowser'
+import { Icon } from '../icons'
 import styles from './Drawer.module.css'
 
 interface DrawerProps {
@@ -34,9 +35,7 @@ export function Drawer({ saved, onSelect, hidden = false }: DrawerProps) {
         >
           {saved.length === 0 && (
             <span data-testid="drawer-empty" aria-hidden="true" className={styles.emptyThumb}>
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 21s-6.7-4.3-9.3-8.2C.8 9.6 1.7 6 4.9 4.8c2.1-.8 4.3.1 5.4 1.9l1.7 2.6 1.7-2.6c1.1-1.8 3.3-2.7 5.4-1.9 3.2 1.2 4.1 4.8 2.2 8-2.6 3.9-9.3 8.2-9.3 8.2z" />
-              </svg>
+              <Icon name="heart" size="md" />
             </span>
           )}
           {recent.map((gradient, i) => (

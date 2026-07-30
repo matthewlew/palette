@@ -1,4 +1,5 @@
 import { MEDIA_ICON, MEDIA_ON } from '../lib/mediaChrome'
+import { Icon } from '../icons'
 import styles from './PlayButton.module.css'
 
 interface PlayButtonProps {
@@ -42,16 +43,13 @@ export function PlayButton({
         onToggle()
       }}
     >
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" opacity={playing ? 1 : 0.5}>
-        {playing ? (
-          <>
-            <rect x="7" y="6" width="3.5" height="12" rx="1.2" />
-            <rect x="13.5" y="6" width="3.5" height="12" rx="1.2" />
-          </>
-        ) : (
-          <path d="M9 6.5v11a1 1 0 0 0 1.53.85l8.5-5.5a1 1 0 0 0 0-1.7l-8.5-5.5A1 1 0 0 0 9 6.5Z" />
-        )}
-      </svg>
+      {/* Both solid: a media control is a state readout, and a line/fill pair
+          here would read as enabled/disabled rather than play/pause. */}
+      <Icon
+        name={playing ? 'pause-fill' : 'play-fill'}
+        size="md"
+        style={{ opacity: playing ? 1 : 0.5 }}
+      />
     </button>
   )
 }

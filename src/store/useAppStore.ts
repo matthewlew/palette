@@ -103,9 +103,9 @@ interface AppState {
   reorderSaved: (fromId: string, toId: string) => void
   toggleSaveGradient: (gradient: Gradient) => void
   /** Which surface edit mode was opened from — the Create feed or the Gallery.
-   * Read for PRESENTATION only (the rolodex position counter means nothing for
-   * a named palette opened from the Gallery). It is deliberately not where
-   * exiting goes; see exitEditMode. */
+   * Drives two things: the rolodex position counter is hidden for a named
+   * palette opened from the Gallery (it would mean nothing there), and
+   * exiting returns here — see exitEditMode. */
   editEnteredFrom: Exclude<ViewMode, 'edit'>
   enterEditMode: () => void
   exitEditMode: () => void
@@ -333,17 +333,8 @@ export const useAppStore = create<AppState>()(
         const mode = get().mode
         set({ mode: 'edit', editEnteredFrom: mode === 'edit' ? get().editEnteredFrom : mode })
       },
-      // Backing out of edit mode lands in the Gallery, wherever edit was opened
-      // from.
-      //
-      // It used to return to the entry surface, which meant leaving an edit
-      // begun in the Create feed dropped you onto the same full-screen gradient
-      // minus the sheet. That does not read as going back — it reads as the
-      // controls closing — and it left one chevron, in one corner, meaning two
-      // different depths depending on invisible history: Create's own back
-      // already goes to the Gallery. One control, one destination. The feed is
-      // still a single tap away on the tab bar.
-      exitEditMode: () => set({ mode: 'gallery' }),
+      // Backing out of edit mode returns to wherever it was opened from.
+      exitEditMode: () => set({ mode: get().editEnteredFrom }),
       setMode: (mode) => {
         if (mode === 'edit') {
           get().enterEditMode()

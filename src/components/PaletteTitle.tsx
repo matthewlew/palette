@@ -10,12 +10,16 @@ interface PaletteTitleProps {
   /** Text color, picked by titleColorAt so it contrasts the gradient behind
    * the title — one of the palette's own stops when possible. */
   color?: string
+  /** Shape · stop count · active effects, e.g. "Turrell · 5 colors · ×2" —
+   * see lib/gradientSummary. Optional: only the Create feed passes one, so
+   * edit mode and the Gallery viewer's title are unaffected. */
+  subtitle?: string
 }
 
 /** Palette name as plain text at the top center — no glass pill, the color
  * itself carries the contrast (see lib/titleColor). Tapping swaps in an
  * inline input for renaming. Enter/blur commits, Escape cancels. */
-export function PaletteTitle({ name, onRename, hidden = false, color = '#ffffff' }: PaletteTitleProps) {
+export function PaletteTitle({ name, onRename, hidden = false, color = '#ffffff', subtitle }: PaletteTitleProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(name)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -93,6 +97,11 @@ export function PaletteTitle({ name, onRename, hidden = false, color = '#ffffff'
         >
           {name}
         </button>
+      )}
+      {subtitle && (
+        <span data-testid="palette-subtitle" className={styles.subtitle} style={{ color }}>
+          {subtitle}
+        </span>
       )}
     </div>
   )

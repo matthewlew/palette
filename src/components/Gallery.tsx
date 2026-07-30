@@ -10,6 +10,7 @@ import { useAppStore } from '../store/useAppStore'
 import type { GalleryLayout } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
 import { likePalette, unlikePalette } from '../lib/likes'
+import { Icon } from '../icons'
 import { HeartButton, LikeCountBadge } from './HeartButton'
 import { TileBoundary } from './TileBoundary'
 import { namePalette } from '../lib/naming'
@@ -375,9 +376,14 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes 
 
   // Step to a neighbour, clamped to the ends (no wrap — the list has a top and
   // a bottom, like the Create feed). Down/next = +1, matching wheel direction.
+  //
+  // Clamped, not rejected outright: a fast multi-item scroll that overshoots
+  // the list should land on the last item, the same way it would have if the
+  // list were longer, rather than silently doing nothing because the exact
+  // step count ran past the end.
   function step(delta: number) {
-    const next = index + delta
-    if (next < 0 || next >= items.length) return
+    const next = Math.max(0, Math.min(items.length - 1, index + delta))
+    if (next === index) return
     onNavigate(items[next])
   }
 
@@ -401,11 +407,26 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes 
     if (Math.sign(e.deltaY) !== Math.sign(wheelAccumRef.current)) wheelAccumRef.current = 0
     wheelAccumRef.current += e.deltaY
     if (wheelResetTimerRef.current) clearTimeout(wheelResetTimerRef.current)
-    if (Math.abs(wheelAccumRef.current) >= WHEEL_STEP_THRESHOLD) {
-      step(wheelAccumRef.current > 0 ? 1 : -1)
-      wheelAccumRef.current = 0
-      return
+    // Consume every threshold's worth in the delta, not just one — a single
+    // fast fling used to advance exactly one item no matter how hard you
+    // scrolled, since a step reset the whole accumulator. The Create feed's
+    // rolodex already lets one gesture cross several, so this did too.
+    //
+    // Summed into ONE step() call, not one per threshold crossed: step()
+    // closes over `index`, which is derived from the `gradient` prop and
+    // does not change until this component re-renders with a new one —
+    // calling step(1) three times in the same handler would look up
+    // items[index + 1] three times, not items[index + 3].
+    let steps = 0
+    while (wheelAccumRef.current >= WHEEL_STEP_THRESHOLD) {
+      wheelAccumRef.current -= WHEEL_STEP_THRESHOLD
+      steps += 1
     }
+    while (wheelAccumRef.current <= -WHEEL_STEP_THRESHOLD) {
+      wheelAccumRef.current += WHEEL_STEP_THRESHOLD
+      steps -= 1
+    }
+    if (steps !== 0) step(steps)
     // A pause abandons a partial scroll so it doesn't carry into the next one.
     wheelResetTimerRef.current = setTimeout(() => {
       wheelAccumRef.current = 0
@@ -484,8 +505,14 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes 
         if (start == null || end == null) return
         // Swipe up → next, swipe down → previous, mirroring the wheel. Close
         // is the ✕ / Escape, not a gesture, so it can't fight navigation.
+        //
+        // One step per TOUCH_STEP_PX of travel, not a flat ±1 — a fast,
+        // long swipe used to land on the very next item, same as a short
+        // flick, which is what read as "stuck" next to the Create feed's
+        // rolodex.
         const dy = start - end
-        if (Math.abs(dy) > TOUCH_STEP_PX) step(dy > 0 ? 1 : -1)
+        const steps = Math.trunc(dy / TOUCH_STEP_PX)
+        if (steps !== 0) step(steps)
       }}
     >
       {/* Turrell paints as an absolute backdrop layer — in normal flow its
@@ -670,7 +697,7 @@ const ONBOARDING_TYPES: { type: GradientType; label: string }[] = [
   { type: 'fan', label: 'Fan' },
 ]
 
-/** How the Yours tab is ordered. See the state declaration for why 'custom'
+/** How the Yours tab is ordered. See the state declaration for why 'recent'
  * is the default. */
 type SavesOrder = 'custom' | 'recent'
 
@@ -735,11 +762,11 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
     loadMore: loadMoreCommunity,
     deleteGradient: deleteCommunityGradient,
   } = useCommunityGradients(communityOrder)
-  // 'custom' is the hand-arranged order the drag-reorder writes — the default,
-  // because a gallery you have arranged should stay arranged. 'recent' is the
-  // other question people actually ask of their own saves ("what did I just
-  // make?"), which the manual order can't answer once it has been rearranged.
-  const [savesOrder, setSavesOrder] = useState<SavesOrder>('custom')
+  // 'recent' by default — the question people actually ask when they open
+  // their own saves is "what did I just make?", not "where did I leave this?".
+  // 'custom' is the hand-arranged order the drag-reorder writes, still there
+  // whenever a gallery you've deliberately arranged should stay arranged.
+  const [savesOrder, setSavesOrder] = useState<SavesOrder>('recent')
   const isAdmin = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('admin') === 'true'
   const [open, setOpen] = useState<Gradient | null>(null)
   // Which tile the viewer flew out of. Held separately from `open` because the
@@ -1059,12 +1086,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
               aria-label="Show grid layout"
               title="Grid layout"
             >
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect x="3" y="3" width="7" height="7" />
-                <rect x="14" y="3" width="7" height="7" />
-                <rect x="14" y="14" width="7" height="7" />
-                <rect x="3" y="14" width="7" height="7" />
-              </svg>
+              <Icon name="grid" size="sm" />
             </button>
             <button
               type="button"
@@ -1073,12 +1095,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
               aria-label="Show Pinterest masonry layout"
               title="Pinterest masonry layout"
             >
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect x="3" y="3" width="7" height="9" />
-                <rect x="14" y="3" width="7" height="5" />
-                <rect x="14" y="12" width="7" height="9" />
-                <rect x="3" y="16" width="7" height="5" />
-              </svg>
+              <Icon name="grid-masonry" size="sm" />
             </button>
             <button
               type="button"
@@ -1089,18 +1106,10 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
               title="Dense layout — more gradients, no captions"
             >
               {/* Nine cells to the grid icon's four: the icon says how much
-                  more fits on screen, which is the only reason to pick it. */}
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect x="3" y="3" width="5" height="5" />
-                <rect x="9.5" y="3" width="5" height="5" />
-                <rect x="16" y="3" width="5" height="5" />
-                <rect x="3" y="9.5" width="5" height="5" />
-                <rect x="9.5" y="9.5" width="5" height="5" />
-                <rect x="16" y="9.5" width="5" height="5" />
-                <rect x="3" y="16" width="5" height="5" />
-                <rect x="9.5" y="16" width="5" height="5" />
-                <rect x="16" y="16" width="5" height="5" />
-              </svg>
+                  more fits on screen, which is the only reason to pick it. Nine
+                  OUTLINED cells would close their counters at this stroke, so
+                  the dense grid is solid marks — see grid_dense in the set. */}
+              <Icon name="grid-dense" size="sm" />
             </button>
           </div>
           <BoardShare

@@ -93,3 +93,22 @@
 .input::selection {
   background: rgba(128, 128, 128, 0.35);
 }
+
+/* Same small-caption recipe as the Gallery viewer's "Saved on …" line under
+ * its title — shape / stop count / active effects, so a shape swipe or an
+ * Effect toggle reads as a confirmed, named change ("it's now a Turrell")
+ * rather than just a picture that moved. */
+.subtitle {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--th-body);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.2px;
+  text-align: center;
+  opacity: 0.72;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

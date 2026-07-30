@@ -3,6 +3,7 @@ import { buildGradientCss } from '../lib/gradient'
 import { useAppStore } from '../store/useAppStore'
 import { namePalette } from '../lib/naming'
 import { titleColorAt } from '../lib/titleColor'
+import { describeGradient } from '../lib/gradientSummary'
 import { TurrellSquare } from './TurrellSquare'
 import { PaletteTitle } from './PaletteTitle'
 import { LikeButton } from './LikeButton'
@@ -14,6 +15,7 @@ import { useStopDrift } from '../lib/useStopDrift'
 import { canDrift } from '../lib/stopDrift'
 import { NoiseOverlay } from './NoiseOverlay'
 import type { Gradient } from '../store/types'
+import { Icon } from '../icons'
 import styles from './GradientPage.module.css'
 
 const TAP_MOVEMENT_THRESHOLD_PX = 10
@@ -128,9 +130,7 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, onBack, ch
           className={[styles.backButton, MEDIA_ICON, !chromeVisible && styles.editHidden].filter(Boolean).join(' ')}
           onClick={onBack}
         >
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M6 6l12 12M18 6L6 18" />
-          </svg>
+          <Icon name="close" size="md" />
         </button>
       )}
       {gradient.type === 'square' && (
@@ -157,6 +157,7 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, onBack, ch
         onRename={renameCurrentGradient}
         hidden={!chromeVisible}
         color={titleColor}
+        subtitle={describeGradient(gradient)}
       />
       <PlayButton
         playing={motionEnabled}
@@ -178,10 +179,7 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, onBack, ch
         className={[styles.editButton, MEDIA_CHIP, !chromeVisible && styles.editHidden].filter(Boolean).join(' ')}
         onClick={onEdit}
       >
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M12 20h9" />
-          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
-        </svg>
+        <Icon name="edit" size="md" />
         <span className={styles.editLabel}>Edit</span>
       </button>
     </div>

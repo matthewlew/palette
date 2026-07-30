@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { buildGradientCss, angleForTypeChange, type GradientType, type GradientStop } from '../lib/gradient'
+import { buildGradientCss, angleForTypeChange, SHAPE_LABELS, type GradientType, type GradientStop } from '../lib/gradient'
 import type { Gradient } from '../store/types'
 import { TurrellSquare } from './TurrellSquare'
 import styles from './GeometryTabs.module.css'
@@ -33,12 +33,12 @@ interface GeometryTabsProps {
 }
 
 const TABS: { type: GradientType; label: string }[] = [
-  { type: 'linear', label: 'Linear' },
-  { type: 'radial', label: 'Radial' },
-  { type: 'angular', label: 'Angular' },
-  { type: 'square', label: 'Turrell' },
-  { type: 'mirror', label: 'Mirror' },
-  { type: 'fan', label: 'Fan' },
+  { type: 'linear', label: SHAPE_LABELS.linear },
+  { type: 'radial', label: SHAPE_LABELS.radial },
+  { type: 'angular', label: SHAPE_LABELS.angular },
+  { type: 'square', label: SHAPE_LABELS.square },
+  { type: 'mirror', label: SHAPE_LABELS.mirror },
+  { type: 'fan', label: SHAPE_LABELS.fan },
 ]
 
 // These types render their own hard-coded position sequence (mirror/legacy

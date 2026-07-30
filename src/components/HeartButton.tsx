@@ -1,3 +1,4 @@
+import { Icon } from '../icons'
 import styles from './HeartButton.module.css'
 import { MEDIA_CHIP } from '../lib/mediaChrome'
 
@@ -60,19 +61,10 @@ export function HeartButton({
         onToggle()
       }}
     >
-      <svg
-        viewBox="0 0 24 24"
-        width="16"
-        height="16"
-        aria-hidden="true"
-        fill={liked ? 'currentColor' : 'none'}
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M20.8 5.6a5 5 0 0 0-7.1 0L12 7.3l-1.7-1.7a5 5 0 0 0-7.1 7.1l8.8 8.8 8.8-8.8a5 5 0 0 0 0-7.1z" />
-      </svg>
+      {/* The set draws the two states as two glyphs rather than one path with
+          fill toggled: the solid heart is a shade smaller so it carries the
+          same optical weight as the outline. */}
+      <Icon name={liked ? 'heart-fill' : 'heart'} size="sm" />
       {count > 0 && <span className={styles.count}>{formatLikeCount(count)}</span>}
     </button>
   )
@@ -90,9 +82,7 @@ export function LikeCountBadge({ count }: { count: number }) {
   if (count <= 0) return null
   return (
     <span className={styles.badge} data-testid="like-count-badge" aria-hidden="true">
-      <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden="true">
-        <path d="M20.8 5.6a5 5 0 0 0-7.1 0L12 7.3l-1.7-1.7a5 5 0 0 0-7.1 7.1l8.8 8.8 8.8-8.8a5 5 0 0 0 0-7.1z" />
-      </svg>
+      <Icon name="heart-fill" size="xs" />
       {formatLikeCount(count)}
     </span>
   )

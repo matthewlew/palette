@@ -614,11 +614,15 @@
  * TabBar is z-index 30 against this bar's 3, it drew over the tick.
  *
  * Stacked rather than nudged sideways: the collision is width-dependent, so any
- * horizontal offset only moves the width at which it reappears. 18px bottom +
- * ~44px pill + 12px gap clears it at every width. */
+ * horizontal offset only moves the width at which it reappears.
+ *
+ * Anchored to --tabbar-top (the bar's actual measured footprint: its gap,
+ * height, and the home-indicator inset underneath it), the same token Hint
+ * uses, rather than a hand-picked 74px — which one bar's worth of hearts or a
+ * taller phone's tab bar was free to drift out from under. */
 .viewerActionsBar {
   position: absolute;
-  bottom: calc(74px + var(--safe-b));
+  bottom: calc(var(--tabbar-top) + 12px);
   right: var(--edge-r);
   z-index: 3;
   display: flex;

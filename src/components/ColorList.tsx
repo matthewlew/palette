@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useCopyFeedback } from '../hooks/useCopyFeedback'
+import { Icon } from '../icons'
 import type { EditableStop } from '../lib/stopOrdering'
 import styles from './ColorList.module.css'
 
@@ -229,15 +230,36 @@ export function ColorList({
               onPointerDown={() => onSelect?.(stop.id)}
             >
               {/* A real input, sized like a swatch: the OS picker opens right
-                  here rather than wherever a hidden input happened to sit. */}
-              <input
-                type="color"
-                className={styles.swatch}
-                data-testid="color-list-swatch"
-                aria-label={`Pick a color for stop ${index + 1}`}
-                value={stop.hex}
-                onChange={(e) => onRecolor(stop.id, e.target.value)}
-              />
+                  here rather than wherever a hidden input happened to sit.
+                  The swatch alone reads as a colour preview, not a control —
+                  there's no hover state on touch to suggest otherwise — so a
+                  pencil badge stands in for the affordance a cursor would
+                  normally carry. Pointer-events: none, so the tap still lands
+                  on the input underneath. */}
+              <span className={styles.swatchWrap}>
+                <input
+                  type="color"
+                  className={styles.swatch}
+                  data-testid="color-list-swatch"
+                  aria-label={`Pick a color for stop ${index + 1}`}
+                  value={stop.hex}
+                  onChange={(e) => onRecolor(stop.id, e.target.value)}
+                />
+                <svg
+                  className={styles.swatchBadge}
+                  viewBox="0 0 24 24"
+                  width="10"
+                  height="10"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                </svg>
+              </span>
 
               <HexField stop={stop} onRecolor={onRecolor} />
 
@@ -267,22 +289,9 @@ export function ColorList({
                 }
                 onClick={() => onTogglePositionLock(index, Math.round(stop.position))}
               >
-                {/* A pin on a track: the horizontal rule is the gradient, the
-                    marker is this stop held on it. */}
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M3 17h18" />
-                  {positionLocked ? (
-                    <>
-                      <path d="M12 4v9" />
-                      <circle cx="12" cy="17" r="2.6" fill="currentColor" stroke="none" />
-                    </>
-                  ) : (
-                    <>
-                      <path d="M12 4v6" />
-                      <circle cx="12" cy="17" r="2.6" />
-                    </>
-                  )}
-                </svg>
+                {/* Filled once the position is held — the same line/fill pair
+                    every other toggle in the app uses for off/on. */}
+                <Icon name={positionLocked ? 'pin-fill' : 'pin'} size="sm" />
               </button>
 
               <button
@@ -292,16 +301,7 @@ export function ColorList({
                 aria-label={`Copy ${stop.hex.toUpperCase()}`}
                 onClick={() => copyHex(stop)}
               >
-                {copiedId === stop.id ? (
-                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M20 6 9 17l-5-5" />
-                  </svg>
-                ) : (
-                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <rect x="9" y="9" width="11" height="11" rx="2" />
-                    <path d="M5 15V5a2 2 0 0 1 2-2h10" />
-                  </svg>
-                )}
+                <Icon name={copiedId === stop.id ? 'check' : 'copy'} size="sm" />
               </button>
 
               <button
@@ -313,14 +313,7 @@ export function ColorList({
                 title={locked ? 'Locked — kept when you browse for new palettes' : 'Lock this color'}
                 onClick={() => onToggleLock(index, stop.hex)}
               >
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <rect x="4" y="10.5" width="16" height="10" rx="2.2" />
-                  {locked ? (
-                    <path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" />
-                  ) : (
-                    <path d="M8 10.5V7a4 4 0 0 1 7.6-1.8" />
-                  )}
-                </svg>
+                <Icon name={locked ? 'lock' : 'lock-open'} size="sm" />
               </button>
 
               <button
@@ -333,9 +326,7 @@ export function ColorList({
                 aria-label={`Remove ${stop.hex.toUpperCase()}`}
                 onClick={() => onRemove(stop.id)}
               >
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
-                  <path d="M6 6l12 12M18 6 6 18" />
-                </svg>
+                <Icon name="close" size="sm" />
               </button>
             </li>
           )
