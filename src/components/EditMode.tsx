@@ -839,7 +839,12 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   const PREVIEW_TAP_THRESHOLD_PX = 10
 
   function handlePreviewPointerDown(e: React.PointerEvent) {
-    if ((e.target as HTMLElement).closest('button, [data-testid="palette-title"], [data-testid="canvas-handles"], [data-testid="turrell-square"]')) return
+    // turrell-square is deliberately NOT in this list: it's a purely decorative
+    // stack of divs (no buttons, no handlers of its own), but it covers the
+    // entire preview via position:absolute/inset:0 — excluding it here would
+    // swallow every tap on a Turrell gradient specifically, since there'd be
+    // nowhere left inside the preview for a tap to land outside it.
+    if ((e.target as HTMLElement).closest('button, [data-testid="palette-title"], [data-testid="canvas-handles"]')) return
     previewPointerStartRef.current = { x: e.clientX, y: e.clientY }
     editHint.dismiss()
   }
@@ -848,7 +853,12 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     const start = previewPointerStartRef.current
     previewPointerStartRef.current = null
     if (isDraggingRef.current || Date.now() - lastHandleDragEndRef.current < 350) return
-    if ((e.target as HTMLElement).closest('button, [data-testid="palette-title"], [data-testid="canvas-handles"], [data-testid="turrell-square"]')) return
+    // turrell-square is deliberately NOT in this list: it's a purely decorative
+    // stack of divs (no buttons, no handlers of its own), but it covers the
+    // entire preview via position:absolute/inset:0 — excluding it here would
+    // swallow every tap on a Turrell gradient specifically, since there'd be
+    // nowhere left inside the preview for a tap to land outside it.
+    if ((e.target as HTMLElement).closest('button, [data-testid="palette-title"], [data-testid="canvas-handles"]')) return
     if (start) {
       const dx = e.clientX - start.x
       const dy = e.clientY - start.y

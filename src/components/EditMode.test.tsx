@@ -247,6 +247,39 @@ describe('EditMode', () => {
     vi.unstubAllGlobals()
   })
 
+  it('tapping the preview still toggles the sheet on a Turrell gradient, even though the tap lands on a turrell-layer div', () => {
+    // TurrellSquare is purely decorative (no buttons, no handlers) but its
+    // container spans the whole preview via position:absolute/inset:0, so a
+    // real tap's e.target is always a descendant of it, never the bare
+    // preview div. Excluding turrell-square from the tap-target guard (like
+    // canvas-handles, which has real buttons worth protecting) silently
+    // swallowed every tap on this one shape.
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }))
+    const onExit = vi.fn()
+    render(<EditMode gradient={{ ...gradient, type: 'square' }} onExit={onExit} />)
+    const sheet = screen.getByTestId('edit-sheet')
+    const layer = screen.getAllByTestId('turrell-layer')[0]
+    expect(sheet).toHaveAttribute('data-open')
+
+    fireEvent.pointerDown(layer)
+    fireEvent.pointerUp(layer)
+    expect(onExit).not.toHaveBeenCalled()
+    expect(sheet).toHaveAttribute('data-closed')
+    vi.unstubAllGlobals()
+  })
+
+  it('tapping the preview on a Turrell gradient still exits on desktop, even though the tap lands on a turrell-layer div', () => {
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }))
+    const onExit = vi.fn()
+    render(<EditMode gradient={{ ...gradient, type: 'square' }} onExit={onExit} />)
+    const layer = screen.getAllByTestId('turrell-layer')[0]
+
+    fireEvent.pointerDown(layer)
+    fireEvent.pointerUp(layer)
+    expect(onExit).toHaveBeenCalledTimes(1)
+    vi.unstubAllGlobals()
+  })
+
   it('on desktop, tapping the preview still exits immediately, with no debounce wait', () => {
     vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }))
     const onExit = vi.fn()
