@@ -1,0 +1,3 @@
+## 2024-06-25 - React.memo on Gallery Tiles
+**Learning:** In a dense grid layout with many complex tiles like `Gallery.tsx`, applying `React.memo` to the tile item component isn't enough. The parent often passes down complex objects (`likes`) or callbacks (`openViewer`, drag handlers). If these aren't memoized using `useMemo` and `useCallback`, `React.memo` bails out on every render due to reference inequality, negating the optimization and causing full O(n) re-renders during state changes.
+**Action:** Always ensure that when wrapping a list item component in `React.memo`, all non-primitive props (objects, functions) passed to it from the parent list component are wrapped in `useMemo` or `useCallback` with proper dependency arrays.
