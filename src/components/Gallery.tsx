@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, memo, useMemo, useCallback } from 'react'
 import { flushSync } from 'react-dom'
 import { buildGradientCss } from '../lib/gradient'
 import type { GradientType } from '../lib/gradient'
@@ -144,7 +144,7 @@ function tileBackground(gradient: Gradient): string | undefined {
       })
 }
 
-function Tile({
+const Tile = memo(function Tile({
   gradient,
   index,
   onOpen,
@@ -334,7 +334,7 @@ function Tile({
       </div>
     </div>
   )
-}
+})
 
 interface ViewerProps {
   gradient: Gradient
@@ -782,10 +782,10 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
    * BEFORE startViewTransition captures the old state. Setting both in one
    * update would capture an old state where no element owned the name, and the
    * viewer would fade in from nothing instead of growing out of the tile. */
-  function openViewer(gradient: Gradient) {
+  const openViewer = useCallback((gradient: Gradient) => {
     flushSync(() => setHeroId(gradient.id))
     withViewTransition(() => setOpen(gradient))
-  }
+  }, [setHeroId, setOpen])
 
   /** Shrink back into the tile it came from. The tile reclaims the name as the
    * viewer unmounts, so this is the same morph played backwards. */
@@ -931,12 +931,17 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   // A like needs a row in the shared table to attach to, so only palettes that
   // came from it can carry one. Your own saves have local ids and no row —
   // "liking" one would be a heart nobody else could ever see.
-  const communityIds = new Set([
+  const communityIds = useMemo(() => new Set([
     ...communityGradients.map((g) => g.id),
     ...(searchResults?.community.map((g) => g.id) ?? []),
-  ])
+  ]), [communityGradients, searchResults])
 
-  const likes: LikeApi = {
+  // ⚡ Bolt Performance Optimization:
+  // Wrapped `likes` API object in useMemo and `Tile` component in React.memo.
+  // The gallery grid can contain many gradients, and re-rendering every single Tile when
+  // the Gallery's state changes (like applying filters) causes a noticeable performance drop.
+  // Memoizing the Tile and providing it with stable callback references prevents these O(n) re-renders.
+  const likes = useMemo<LikeApi>(() => ({
     canLike: (gradient) => communityIds.has(gradient.id),
     isLiked: (id) => likedPaletteIds.includes(id),
     countFor: (gradient) => Math.max(0, (gradient.likeCount ?? 0) + (likeDeltas[gradient.id] ?? 0)),
@@ -955,7 +960,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
       toggleLikedPalette(id)
       setLikeDeltas((prev) => ({ ...prev, [id]: (prev[id] ?? 0) - delta }))
     },
-  }
+  }), [communityIds, likedPaletteIds, likeDeltas, toggleLikedPalette])
 
 
 
@@ -976,23 +981,23 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   useFlipReorder(gridRef, orderKey, !prefersReducedMotion)
 
-  function clearDrag() {
+  const clearDrag = useCallback(() => {
     dragIdRef.current = null
     setDraggingId(null)
     setDragOverId(null)
-  }
-  function handleDragStartTile(id: string) {
+  }, [])
+  const handleDragStartTile = useCallback((id: string) => {
     dragIdRef.current = id
     setDraggingId(id)
-  }
-  function handleDragEnterTile(id: string) {
+  }, [])
+  const handleDragEnterTile = useCallback((id: string) => {
     if (dragIdRef.current && id !== dragIdRef.current) setDragOverId(id)
-  }
-  function handleDropTile(id: string) {
+  }, [])
+  const handleDropTile = useCallback((id: string) => {
     const from = dragIdRef.current
     if (from && from !== id) reorderSaved(from, id)
     clearDrag()
-  }
+  }, [reorderSaved, clearDrag])
 
   function handleGridKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     const active = document.activeElement as HTMLElement
