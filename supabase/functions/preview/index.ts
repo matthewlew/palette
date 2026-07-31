@@ -75,8 +75,11 @@ function buildSvg(row: Row): string {
   const w = 1200, h = 630
   const colors = (row.colors?.length ? row.colors : ['#888', '#333']).map(safeHex)
   const n = colors.length
+  // Security: offsets are stored as JSONB and passed directly into the SVG
+  // template string. We map them to numbers to prevent SVG injection (e.g.,
+  // an attacker placing unescaped markup in an offset string).
   const offsets = Array.isArray(row.offsets) && row.offsets.length === n
-    ? row.offsets
+    ? row.offsets.map(Number)
     : colors.map((_, i) => (n === 1 ? 0 : Math.round((i / (n - 1)) * 100)))
   const stops = colors
     .map((hex, i) => `<stop offset="${offsets[i]}%" stop-color="${hex}"/>`)
