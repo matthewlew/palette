@@ -1,0 +1,3 @@
+## 2025-02-12 - Adding Context to Disabled and Icon-Only Buttons
+**Learning:** Disabled UI elements (like "Add" buttons reaching a limit, or effect chips unsupported by the current shape) can be confusing when their reason for being disabled isn't immediately obvious. Similarly, icon-only buttons (like "Copy" or "Remove") without text context can be ambiguous for both screen readers and visual users.
+**Action:** Always add `aria-label` for screen reader accessibility to icon-only buttons, and use the `title` attribute to provide tooltips for visual users, especially on disabled elements to explain *why* they are disabled (e.g., "Maximum 8 colors allowed" or "Not supported for this shape").

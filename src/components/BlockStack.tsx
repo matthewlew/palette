@@ -55,6 +55,8 @@ export function BlockStack({ stops, onReorder, onRemove, containerRef, insertion
               <button
                 type="button"
                 data-testid="remove-block"
+                aria-label={`Remove stop ${stop.hex}`}
+                title={`Remove stop ${stop.hex}`}
                 className={styles.removeButton}
                 onClick={() => onRemove(stop.id)}
               >

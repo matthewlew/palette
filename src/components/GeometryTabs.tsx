@@ -229,6 +229,7 @@ export function GeometryTabs({
         data-testid="filter-repeat"
         aria-pressed={gradient.repeatEnabled}
         disabled={repeatDisabled}
+        title={repeatDisabled ? 'Not supported for this shape' : undefined}
         className={chipClass(gradient.repeatEnabled)}
         onClick={onToggleRepeat}
       >
@@ -239,6 +240,7 @@ export function GeometryTabs({
         data-testid="filter-smooth"
         aria-pressed={gradient.smoothEnabled}
         disabled={smoothDisabled}
+        title={smoothDisabled ? 'Not supported for this shape' : undefined}
         className={chipClass(gradient.smoothEnabled)}
         onClick={onToggleSmooth}
       >
@@ -249,6 +251,7 @@ export function GeometryTabs({
         data-testid="filter-hard"
         aria-pressed={gradient.hardStops}
         disabled={hardDisabled}
+        title={hardDisabled ? 'Not supported for this shape' : undefined}
         className={chipClass(gradient.hardStops)}
         onClick={onToggleHardStops}
       >
