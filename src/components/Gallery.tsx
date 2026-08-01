@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, memo } from 'react'
 import { flushSync } from 'react-dom'
 import { buildGradientCss } from '../lib/gradient'
 import type { GradientType } from '../lib/gradient'
@@ -144,24 +144,7 @@ function tileBackground(gradient: Gradient): string | undefined {
       })
 }
 
-function Tile({
-  gradient,
-  index,
-  onOpen,
-  galleryLayout,
-  onRiff,
-  onDelete,
-  draggable,
-  isDragging,
-  isDragOver,
-  onDragStartTile,
-  onDragEnterTile,
-  onDropTile,
-  onDragEndTile,
-  likes,
-  isHero = false,
-  viewerOpen = false,
-}: {
+interface TileProps {
   gradient: Gradient
   index: number
   onOpen: (gradient: Gradient) => void
@@ -187,7 +170,26 @@ function Tile({
    * `palette-card` name. Two elements carrying one view-transition-name makes
    * the browser skip the transition outright. */
   viewerOpen?: boolean
-}) {
+}
+
+const Tile = memo(function Tile({
+  gradient,
+  index,
+  onOpen,
+  galleryLayout,
+  onRiff,
+  onDelete,
+  draggable,
+  isDragging,
+  isDragOver,
+  onDragStartTile,
+  onDragEnterTile,
+  onDropTile,
+  onDragEndTile,
+  likes,
+  isHero = false,
+  viewerOpen = false,
+}: TileProps) {
   const noiseEnabled = useAppStore((s) => s.noiseEnabled)
 
   // Deterministic standard ratio per gradient (from its id) so the masonry
@@ -334,7 +336,28 @@ function Tile({
       </div>
     </div>
   )
-}
+}, (prev, next) => {
+  // Custom comparator to prevent O(N) re-renders during drag/drop and likes updates.
+  // The 'likes' object is recreated on every Gallery render, so we check its functional values instead.
+  if (prev.gradient !== next.gradient) return false
+  if (prev.index !== next.index) return false
+  if (prev.galleryLayout !== next.galleryLayout) return false
+  if (prev.draggable !== next.draggable) return false
+  if (prev.isDragging !== next.isDragging) return false
+  if (prev.isDragOver !== next.isDragOver) return false
+  if (prev.isHero !== next.isHero) return false
+  if (prev.viewerOpen !== next.viewerOpen) return false
+
+  const prevLikeable = prev.likes?.canLike(prev.gradient)
+  const nextLikeable = next.likes?.canLike(next.gradient)
+  if (prevLikeable !== nextLikeable) return false
+  if (prevLikeable && nextLikeable) {
+    if (prev.likes!.isLiked(prev.gradient.id) !== next.likes!.isLiked(next.gradient.id)) return false
+    if (prev.likes!.countFor(prev.gradient) !== next.likes!.countFor(next.gradient)) return false
+  }
+
+  return true
+})
 
 interface ViewerProps {
   gradient: Gradient

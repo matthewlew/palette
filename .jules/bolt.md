@@ -1,0 +1,4 @@
+## 2024-05-24 - Created journal\n**Learning:** Need a place to log.\n**Action:** Created.
+## 2024-05-24 - Unmemoized React components with frequent state updates
+**Learning:** In `Gallery.tsx`, the `Tile` component is mapped over potentially hundreds of gradients. When drag-and-drop state (`draggingId`, `dragOverId`) updates on the parent `Gallery` component during drag events, it forces a re-render of *all* `Tile` instances. Because `Tile` receives inline functions and object props (like `likes`), standard memoization isn't enough; a custom equality check is needed to prevent O(N) rendering on every drag frame.
+**Action:** Use `React.memo` with a custom comparator function to selectively re-render only the tiles whose visual state (`isDragging`, `isDragOver`) or like counts have actually changed, saving hundreds of unnecessary renders per interaction.
