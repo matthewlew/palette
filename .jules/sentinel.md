@@ -1,0 +1,4 @@
+## 2023-10-24 - PostgREST filter injection via unsanitized search input
+**Vulnerability:** User input from search queries was directly interpolated into Supabase PostgREST `.or()` filter strings (`display_name.ilike.%${word}%,...`) and `.ilike()` filters, exposing the application to PostgREST filter syntax injection (via commas) and SQL LIKE wildcard abuse (`%`, `_`).
+**Learning:** Because `.or()` expects a comma-separated list of conditions, injecting a comma allows attackers to alter the filter logic entirely. Additionally, allowing SQL wildcards in `ilike` inputs can cause performance issues or information disclosure.
+**Prevention:** Always sanitize user input before concatenating it into Supabase `.or()` strings or `like`/`ilike` patterns. Strip control characters like `,`, `.`, `%`, and `_` from untrusted input before using it in Supabase filter methods.
