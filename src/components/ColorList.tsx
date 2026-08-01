@@ -209,6 +209,7 @@ export function ColorList({
           data-testid="color-list-add"
           className={styles.addButton}
           disabled={stops.length >= MAX_STOPS}
+          title={stops.length >= MAX_STOPS ? `Maximum ${MAX_STOPS} colors allowed` : 'Add color'}
           onClick={onAdd}
         >
           + Add
@@ -299,6 +300,7 @@ export function ColorList({
                 data-testid="color-list-copy"
                 className={styles.iconButton}
                 aria-label={`Copy ${stop.hex.toUpperCase()}`}
+                title={`Copy ${stop.hex.toUpperCase()}`}
                 onClick={() => copyHex(stop)}
               >
                 <Icon name={copiedId === stop.id ? 'check' : 'copy'} size="sm" />
@@ -324,6 +326,7 @@ export function ColorList({
                 // nothing to interpolate.
                 disabled={stops.length <= 2}
                 aria-label={`Remove ${stop.hex.toUpperCase()}`}
+                title={stops.length <= 2 ? 'Minimum 2 colors required' : `Remove ${stop.hex.toUpperCase()}`}
                 onClick={() => onRemove(stop.id)}
               >
                 <Icon name="close" size="sm" />
