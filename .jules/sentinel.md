@@ -1,0 +1,4 @@
+## 2024-08-25 - [High] Fix PostgREST filter injection in SearchBar
+**Vulnerability:** Unsanitized user input was interpolated directly into a Supabase `.or()` query string (`display_name.ilike.%${word}%,...`), allowing an attacker to inject PostgREST operators using commas or abuse LIKE wildcards (like `%`).
+**Learning:** String interpolation in Supabase filter methods like `.or()` bypasses the safety of standard parameterized queries because the entire string is parsed as a PostgREST filter expression. A single comma can break out of the intended filter and add unintended conditions.
+**Prevention:** Always sanitize or strictly validate user input (e.g., stripping non-alphanumeric characters) before interpolating it into PostgREST filter strings, or avoid string-based filters when possible.
