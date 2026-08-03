@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback, memo } from 'react'
 import { flushSync } from 'react-dom'
 import { buildGradientCss } from '../lib/gradient'
 import type { GradientType } from '../lib/gradient'
@@ -144,24 +144,7 @@ function tileBackground(gradient: Gradient): string | undefined {
       })
 }
 
-function Tile({
-  gradient,
-  index,
-  onOpen,
-  galleryLayout,
-  onRiff,
-  onDelete,
-  draggable,
-  isDragging,
-  isDragOver,
-  onDragStartTile,
-  onDragEnterTile,
-  onDropTile,
-  onDragEndTile,
-  likes,
-  isHero = false,
-  viewerOpen = false,
-}: {
+interface TileProps {
   gradient: Gradient
   index: number
   onOpen: (gradient: Gradient) => void
@@ -187,7 +170,26 @@ function Tile({
    * `palette-card` name. Two elements carrying one view-transition-name makes
    * the browser skip the transition outright. */
   viewerOpen?: boolean
-}) {
+}
+
+const Tile = memo(function Tile({
+  gradient,
+  index,
+  onOpen,
+  galleryLayout,
+  onRiff,
+  onDelete,
+  draggable,
+  isDragging,
+  isDragOver,
+  onDragStartTile,
+  onDragEnterTile,
+  onDropTile,
+  onDragEndTile,
+  likes,
+  isHero = false,
+  viewerOpen = false,
+}: TileProps) {
   const noiseEnabled = useAppStore((s) => s.noiseEnabled)
 
   // Deterministic standard ratio per gradient (from its id) so the masonry
@@ -334,7 +336,25 @@ function Tile({
       </div>
     </div>
   )
-}
+}, (prevProps, nextProps) => {
+  return prevProps.gradient === nextProps.gradient &&
+    prevProps.index === nextProps.index &&
+    prevProps.onOpen === nextProps.onOpen &&
+    prevProps.galleryLayout === nextProps.galleryLayout &&
+    prevProps.onRiff === nextProps.onRiff &&
+    prevProps.onDelete === nextProps.onDelete &&
+    prevProps.draggable === nextProps.draggable &&
+    prevProps.isDragging === nextProps.isDragging &&
+    prevProps.isDragOver === nextProps.isDragOver &&
+    prevProps.onDragStartTile === nextProps.onDragStartTile &&
+    prevProps.onDragEnterTile === nextProps.onDragEnterTile &&
+    prevProps.onDropTile === nextProps.onDropTile &&
+    prevProps.onDragEndTile === nextProps.onDragEndTile &&
+    prevProps.isHero === nextProps.isHero &&
+    prevProps.viewerOpen === nextProps.viewerOpen &&
+    prevProps.likes?.isLiked(prevProps.gradient.id) === nextProps.likes?.isLiked(nextProps.gradient.id) &&
+    prevProps.likes?.countFor(prevProps.gradient) === nextProps.likes?.countFor(nextProps.gradient)
+})
 
 interface ViewerProps {
   gradient: Gradient
@@ -782,10 +802,10 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
    * BEFORE startViewTransition captures the old state. Setting both in one
    * update would capture an old state where no element owned the name, and the
    * viewer would fade in from nothing instead of growing out of the tile. */
-  function openViewer(gradient: Gradient) {
+  const openViewer = useCallback((gradient: Gradient) => {
     flushSync(() => setHeroId(gradient.id))
     withViewTransition(() => setOpen(gradient))
-  }
+  }, [])
 
   /** Shrink back into the tile it came from. The tile reclaims the name as the
    * viewer unmounts, so this is the same morph played backwards. */
@@ -976,23 +996,26 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   useFlipReorder(gridRef, orderKey, !prefersReducedMotion)
 
-  function clearDrag() {
+  const clearDrag = useCallback(() => {
     dragIdRef.current = null
     setDraggingId(null)
     setDragOverId(null)
-  }
-  function handleDragStartTile(id: string) {
+  }, [])
+
+  const handleDragStartTile = useCallback((id: string) => {
     dragIdRef.current = id
     setDraggingId(id)
-  }
-  function handleDragEnterTile(id: string) {
+  }, [])
+
+  const handleDragEnterTile = useCallback((id: string) => {
     if (dragIdRef.current && id !== dragIdRef.current) setDragOverId(id)
-  }
-  function handleDropTile(id: string) {
+  }, [])
+
+  const handleDropTile = useCallback((id: string) => {
     const from = dragIdRef.current
     if (from && from !== id) reorderSaved(from, id)
     clearDrag()
-  }
+  }, [reorderSaved, clearDrag])
 
   function handleGridKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     const active = document.activeElement as HTMLElement
