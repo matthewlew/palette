@@ -22,16 +22,20 @@ const PAYLOAD_RE = /<!\[CDATA\[palette:([\s\S]*?)\]\]>/
 
 /** Embed the Palette JSON in the SVG's <metadata> so a copy is both a vector
  * (for design tools) and a lossless Palette payload. CDATA carries the JSON
- * verbatim; JSON never contains the "]]>" terminator, so it stays valid XML. */
+ * verbatim; we escape the "]]>" terminator to prevent premature termination. */
 function embedPayload(svg: string, json: string): string {
-  const metadata = `<metadata><![CDATA[${PAYLOAD_PREFIX}${json}]]></metadata>`
+  // Prevent XSS/XML injection by escaping the CDATA terminator
+  const safeJson = json.replace(/\]\]>/g, ']]\\u003e')
+  const metadata = `<metadata><![CDATA[${PAYLOAD_PREFIX}${safeJson}]]></metadata>`
   // Insert right after the opening <svg ...> tag.
   return svg.replace(/(<svg[^>]*>)/, `$1${metadata}`)
 }
 
 function extractPayload(text: string): string | null {
   const match = text.match(PAYLOAD_RE)
-  return match ? match[1] : null
+  if (!match) return null
+  // Unescape the CDATA terminator that was escaped on write
+  return match[1].replace(/\]\]\\u003e/g, ']]>')
 }
 
 /** Wrap a PNG data URL in an SVG <image> so a copied conic/layered gradient
