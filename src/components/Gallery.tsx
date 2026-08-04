@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, memo, useCallback } from 'react'
 import { flushSync } from 'react-dom'
 import { buildGradientCss } from '../lib/gradient'
 import type { GradientType } from '../lib/gradient'
@@ -144,7 +144,9 @@ function tileBackground(gradient: Gradient): string | undefined {
       })
 }
 
-function Tile({
+// ⚡ Bolt: memoize Tile to prevent O(N) re-renders when the parent likes object updates.
+// We use a custom equality comparator to check specific likes outputs rather than the object identity.
+const Tile = memo(function TileInner({
   gradient,
   index,
   onOpen,
@@ -334,7 +336,27 @@ function Tile({
       </div>
     </div>
   )
-}
+}, (prev, next) => {
+  return (
+    prev.gradient === next.gradient &&
+    prev.index === next.index &&
+    prev.galleryLayout === next.galleryLayout &&
+    prev.draggable === next.draggable &&
+    prev.isDragging === next.isDragging &&
+    prev.isDragOver === next.isDragOver &&
+    prev.isHero === next.isHero &&
+    prev.viewerOpen === next.viewerOpen &&
+    prev.likes?.isLiked(prev.gradient.id) === next.likes?.isLiked(next.gradient.id) &&
+    prev.likes?.countFor(prev.gradient) === next.likes?.countFor(next.gradient) &&
+    prev.onOpen === next.onOpen &&
+    prev.onRiff === next.onRiff &&
+    prev.onDelete === next.onDelete &&
+    prev.onDragStartTile === next.onDragStartTile &&
+    prev.onDragEnterTile === next.onDragEnterTile &&
+    prev.onDropTile === next.onDropTile &&
+    prev.onDragEndTile === next.onDragEndTile
+  )
+})
 
 interface ViewerProps {
   gradient: Gradient
@@ -782,10 +804,10 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
    * BEFORE startViewTransition captures the old state. Setting both in one
    * update would capture an old state where no element owned the name, and the
    * viewer would fade in from nothing instead of growing out of the tile. */
-  function openViewer(gradient: Gradient) {
+  const openViewer = useCallback((gradient: Gradient) => {
     flushSync(() => setHeroId(gradient.id))
     withViewTransition(() => setOpen(gradient))
-  }
+  }, [])
 
   /** Shrink back into the tile it came from. The tile reclaims the name as the
    * viewer unmounts, so this is the same morph played backwards. */
@@ -976,23 +998,23 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   useFlipReorder(gridRef, orderKey, !prefersReducedMotion)
 
-  function clearDrag() {
+  const clearDrag = useCallback(() => {
     dragIdRef.current = null
     setDraggingId(null)
     setDragOverId(null)
-  }
-  function handleDragStartTile(id: string) {
+  }, [])
+  const handleDragStartTile = useCallback((id: string) => {
     dragIdRef.current = id
     setDraggingId(id)
-  }
-  function handleDragEnterTile(id: string) {
+  }, [])
+  const handleDragEnterTile = useCallback((id: string) => {
     if (dragIdRef.current && id !== dragIdRef.current) setDragOverId(id)
-  }
-  function handleDropTile(id: string) {
+  }, [])
+  const handleDropTile = useCallback((id: string) => {
     const from = dragIdRef.current
     if (from && from !== id) reorderSaved(from, id)
     clearDrag()
-  }
+  }, [reorderSaved, clearDrag])
 
   function handleGridKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     const active = document.activeElement as HTMLElement
