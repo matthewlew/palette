@@ -1,0 +1,4 @@
+## 2024-05-24 - [XSS via CDATA Escape in SVG Metadata]
+**Vulnerability:** Untrusted user data embedded directly into SVG `<metadata>` CDATA sections could contain the CDATA closing sequence `]]>`, allowing an attacker to prematurely terminate the CDATA block and inject malicious markup like `<script>` tags, leading to Cross-Site Scripting (XSS) if the SVG is viewed directly in a browser.
+**Learning:** Even structured environments like CDATA require escaping when embedding arbitrary user-controlled strings, particularly when the resulting payload can be interpreted as executable code by the browser.
+**Prevention:** Always sanitize or safely escape the closing sequence `]]>` before embedding JSON or other untrusted data within an XML CDATA section. For JSON, using standard unicode escapes like `\u005D\u005D\u003E` provides a safe and automatically parsable solution.
