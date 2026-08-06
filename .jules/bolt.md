@@ -1,0 +1,3 @@
+## 2024-05-18 - Prevent O(N) re-renders in dynamic lists
+**Learning:** `React.memo` with a standard shallow equality check fails when passing dynamic API objects (like the `likes` API wrapper) as props, causing lists to re-render in `O(N)` time during unrelated parent state updates.
+**Action:** When memoizing list items with complex or dynamic API prop objects, use a custom comparator function that evaluates the return values of the object's methods for the specific item (e.g. `likes.isLiked(id)` and `likes.countFor(item)`) rather than shallow equality on the object itself. Always pair this with `useCallback` for parent event handlers.
