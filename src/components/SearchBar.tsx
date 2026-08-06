@@ -80,7 +80,13 @@ export function SearchBar({ onResults, saved = [], onActiveChange, onCancel }: S
         }
 
         for (const word of terms) {
-          const lowerWord = word.toLowerCase()
+          // 🛡️ Sentinel: Sanitize user input to prevent PostgREST filter injection
+          // and LIKE wildcard abuse. Stripping reserved characters ensures the
+          // input is treated purely as a substring match, not as query syntax.
+          const sanitizedWord = word.replace(/[,.%_]/g, '')
+          if (!sanitizedWord) continue // skip if stripped to empty string
+
+          const lowerWord = sanitizedWord.toLowerCase()
 
           let familyKey: HueFamily | null = null
           if (lowerWord === 'red') familyKey = 'red'
@@ -102,10 +108,10 @@ export function SearchBar({ onResults, saved = [], onActiveChange, onCancel }: S
               ...COLOR_NOUNS[familyKey].mid,
               ...COLOR_NOUNS[familyKey].light
             ]
-            const orString = `display_name.ilike.%${word}%,` + nouns.map(n => `display_name.ilike.%${n}%`).join(',')
+            const orString = `display_name.ilike.%${sanitizedWord}%,` + nouns.map(n => `display_name.ilike.%${n}%`).join(',')
             queryBuilder = queryBuilder.or(orString)
           } else {
-            queryBuilder = queryBuilder.ilike('display_name', `%${word}%`)
+            queryBuilder = queryBuilder.ilike('display_name', `%${sanitizedWord}%`)
           }
         }
 
