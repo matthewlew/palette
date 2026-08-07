@@ -1,0 +1,7 @@
+## 2025-02-17 - PostgREST Filter Injection and LIKE wildcard abuse in Search
+
+**Vulnerability:** A PostgREST filter injection vulnerability existed in `src/components/SearchBar.tsx`, where unsanitized search query input (`term`) was directly interpolated into a Supabase `.or()` query string (e.g. `display_name.ilike.%${word}%,...`). Since the `.or()` filter uses `,` to separate clauses and `.` to denote operators in PostgREST syntax, an attacker could potentially inject arbitrary PostgREST filter clauses by supplying specially crafted strings. Furthermore, the search used `.ilike()` which also allowed arbitrary LIKE wildcard (`%` and `_`) abuse, which might allow for ReDoS or other unintended behavior when searching.
+
+**Learning:** The vulnerability existed because the developer did not escape or strip special characters from user input when constructing the query string passed to `supabase.from(...).or(...)`. When bypassing standard Supabase client methods like `.eq()` and manually composing filter strings to handle complex logical OR groups, explicit sanitization of input variables becomes necessary to prevent filter string manipulation.
+
+**Prevention:** To avoid this next time, user input should always be sanitized to remove or escape reserved characters (such as `,`, `.`, `%`, and `_`) before string interpolation into a `.or()` or similar filter string where PostgREST expects a particular comma/dot-separated syntax.
