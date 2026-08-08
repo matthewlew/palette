@@ -1195,3 +1195,10 @@
   background: #fff;
   color: #111;
 }
+
+/* The carousel dock floats over the grid, so the last row needs clearance or
+   it sits permanently under the filmstrip. Roughly the dock's height plus the
+   ＋ Create nav the container already reserves for. */
+.withDock {
+  padding-bottom: calc(280px + var(--safe-b));
+}

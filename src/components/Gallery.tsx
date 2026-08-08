@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { buildGradientCss } from '../lib/gradient'
+import { tileBackground } from '../lib/tileBackground'
 import type { GradientType } from '../lib/gradient'
 import { useCommunityGradients, type CommunityOrder } from '../hooks/useCommunityGradients'
 import { useHint } from '../hooks/useHint'
@@ -22,7 +23,7 @@ import { NoiseOverlay } from './NoiseOverlay'
 import { ScrollTicker } from './ScrollTicker'
 import { SearchBar, type SearchResults } from './SearchBar'
 import { CarouselStudio } from './CarouselStudio'
-import { SelectionBar } from './SelectionBar'
+import { CarouselDock } from './CarouselDock'
 import { Hint } from './Hint'
 import { LoadingBar } from './LoadingBar'
 import JSZip from 'jszip'
@@ -132,18 +133,6 @@ function SearchGroup({
 function matchesFilters(gradient: Gradient, type: GradientType | null): boolean {
   if (type && gradient.type !== type) return false
   return true
-}
-
-function tileBackground(gradient: Gradient): string | undefined {
-  return gradient.type === 'square'
-    ? undefined
-    : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
-        repeat: gradient.repeatEnabled,
-        hard: gradient.hardStops,
-        smooth: gradient.smoothEnabled,
-        fanAnchor: gradient.fanAnchor,
-        angle: gradient.angle,
-      })
 }
 
 function Tile({
@@ -850,6 +839,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   const carouselPicks = useAppStore((s) => s.carouselPicks)
   const toggleCarouselPick = useAppStore((s) => s.toggleCarouselPick)
   const reorderCarouselPick = useAppStore((s) => s.reorderCarouselPick)
+  const moveCarouselPick = useAppStore((s) => s.moveCarouselPick)
   const clearCarouselPicks = useAppStore((s) => s.clearCarouselPicks)
   const removeSavedGradientsByIds = useAppStore((s) => s.removeSavedGradientsByIds)
 
@@ -1162,7 +1152,13 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   return (
     <div
       data-testid="gallery"
-      className={[styles.container, searchOpen && styles.searching].filter(Boolean).join(' ')}
+      className={[
+        styles.container,
+        searchOpen && styles.searching,
+        selectionVisible && !studioOpen && styles.withDock,
+      ]
+        .filter(Boolean)
+        .join(' ')}
     >
       <div className={styles.header}>
         <div className={styles.titleArea}>
@@ -1512,9 +1508,12 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
       )}
 
       {selectionVisible && !studioOpen && (
-        <SelectionBar
-          count={carouselPicks.length}
+        <CarouselDock
+          gradients={pickedCarouselGradients(saved, carouselPicks)}
           downloading={downloadingPicks}
+          onRemove={toggleCarouselPick}
+          onReorder={reorderCarouselPick}
+          onMove={moveCarouselPick}
           onCarousel={() => setStudioOpen(true)}
           onDownload={handleDownloadPicks}
           onDelete={handleDeletePicks}
