@@ -19,6 +19,14 @@ A premium, interactive aesthetic gradient playground and generator built with Re
 * **Visual Stop-Level Editor:** Modify stops directly on the gradient canvas with a drag-and-drop workspace:
   * **SwatchTray:** Interactive 36-color swatch drawer for tap-to-add/remove and drag-to-insert actions.
   * **Live Reordering:** Instant visual reindexing and gap rendering during drag-reorder events.
+* **Multi-Select & Carousel Studio:** `Select` in the Gallery header turns tiles into an ordered, Photos-style multi-select — numbered badges, a `n selected` action bar with Carousel / Download / Delete, and one-event undo for bulk deletes. Selected gradients compose into an Instagram carousel:
+  * Nine templates, each with a **live preview** drawn from the same slice maths the exporter uses: vertical stack, horizontal bands, grid, hero + rail, feature + row (1+2, 1+3, …), wheatpaste, one-per-slide, and composite-cover-then-singles variants.
+  * **Wheatpaste** is a flyposted wall — one poster centred with up to eight more pasted behind its edges, each tilted a few degrees. Hard edges throughout, and the surround is derived from a grid so it provably covers the slide at every count.
+  * 4:5, 1:1 and 9:16 slides, optionally framed on paper with rounded insets.
+  * A generated closing text tile with names and hex codes, plus a matching copy-paste caption.
+  * Exports as a zip of numbered PNGs (slide order = pick order) with `caption.txt` alongside.
+  * Picks collect into a docked **tray** — a filmstrip of only the chosen gradients, where reordering is linear (drag, arrow keys, or the ‹ › nudges) and slides can be removed. The grid above stays live for adding, so collecting is one uninterrupted loop.
+  * Start and End slides are labelled, and every ordering surface writes the same list, so the tray, the tile badges and the export can't disagree.
 * **State Persistence & Board Sharing:**
   * Auto-persisting saved gradients drawer.
   * Share-link URL fragment codec for exporting single gradients or entire boards.

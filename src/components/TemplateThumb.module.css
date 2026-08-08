@@ -1,0 +1,46 @@
+.thumb {
+  position: relative;
+  flex: none;
+  width: 46px;
+  aspect-ratio: 4 / 5;
+  border-radius: 4px;
+  /* Pasted slices hang off the edges by design; the thumbnail crops them the
+     same way the exported slide does. */
+  overflow: hidden;
+  background: #0c0c10;
+}
+
+/* Slices are positioned against this, not against the padded card, so the
+   percentages match the exporter's fractional rects exactly. */
+.stage {
+  position: absolute;
+  inset: 0;
+}
+
+.slice,
+.pastedSlice {
+  position: absolute;
+  background-size: cover;
+  background-position: center;
+}
+
+/* Shadow only, matching the export: sheets butt hard against each other with
+   no outline, and the shadow on the sheet BELOW is what shows the layering. */
+.pastedSlice {
+  box-shadow: 0 1px 2.5px rgba(0, 0, 0, 0.6);
+}
+
+/* How many slides follow the cover, for templates that also emit singles. */
+.more {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  padding: 0 3px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.6);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 8px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+}

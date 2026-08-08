@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { buildGradientCss } from '../lib/gradient'
+import { tileBackground } from '../lib/tileBackground'
 import type { GradientType } from '../lib/gradient'
 import { useCommunityGradients, type CommunityOrder } from '../hooks/useCommunityGradients'
 import { useHint } from '../hooks/useHint'
 import { useMasonryRowSpans } from '../hooks/useMasonryRowSpans'
 import { useFlipReorder } from '../hooks/useFlipReorder'
-import { useAppStore } from '../store/useAppStore'
+import { useAppStore, pickedCarouselGradients } from '../store/useAppStore'
 import type { GalleryLayout } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
 import { likePalette, unlikePalette } from '../lib/likes'
@@ -21,6 +22,8 @@ import { PaletteTitle } from './PaletteTitle'
 import { NoiseOverlay } from './NoiseOverlay'
 import { ScrollTicker } from './ScrollTicker'
 import { SearchBar, type SearchResults } from './SearchBar'
+import { CarouselStudio } from './CarouselStudio'
+import { CarouselDock } from './CarouselDock'
 import { Hint } from './Hint'
 import { LoadingBar } from './LoadingBar'
 import JSZip from 'jszip'
@@ -132,18 +135,6 @@ function matchesFilters(gradient: Gradient, type: GradientType | null): boolean 
   return true
 }
 
-function tileBackground(gradient: Gradient): string | undefined {
-  return gradient.type === 'square'
-    ? undefined
-    : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
-        repeat: gradient.repeatEnabled,
-        hard: gradient.hardStops,
-        smooth: gradient.smoothEnabled,
-        fanAnchor: gradient.fanAnchor,
-        angle: gradient.angle,
-      })
-}
-
 function Tile({
   gradient,
   index,
@@ -161,10 +152,17 @@ function Tile({
   likes,
   isHero = false,
   viewerOpen = false,
+  pick,
 }: {
   gradient: Gradient
   index: number
   onOpen: (gradient: Gradient) => void
+  /** Carousel pick mode. When present, a tap adds this gradient to the
+   * carousel (or removes it) instead of opening the viewer — picking is a
+   * repeated action over many tiles, and routing it through the viewer would
+   * make assembling nine gradients eighteen taps. `order` is the 1-based slide
+   * number, or null when unpicked. */
+  pick?: { order: number | null; onToggle: (gradient: Gradient) => void }
   galleryLayout: GalleryLayout
   onRiff: (gradient: Gradient) => void
   onDelete?: (id: string) => void
@@ -230,7 +228,8 @@ function Tile({
       // be the one with no like count for a screen reader.
       aria-label={
         `${displayName}, ${gradient.type} gradient` +
-        (likeable && likeCount > 0 ? `, ${likeCount} ${likeCount === 1 ? 'like' : 'likes'}` : '')
+        (likeable && likeCount > 0 ? `, ${likeCount} ${likeCount === 1 ? 'like' : 'likes'}` : '') +
+        (pick ? (pick.order !== null ? `, carousel slide ${pick.order}` : ', not in carousel') : '')
       }
       draggable={draggable}
       onDragStart={(e) => {
@@ -253,13 +252,15 @@ function Tile({
         onDropTile?.(gradient.id)
       }}
       onDragEnd={onDragEndTile}
-      onClick={() => onOpen(gradient)}
+      onClick={() => (pick ? pick.onToggle(gradient) : onOpen(gradient))}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
-          onOpen(gradient)
+          if (pick) pick.onToggle(gradient)
+          else onOpen(gradient)
         }
       }}
+      aria-pressed={pick ? pick.order !== null : undefined}
     >
       <div
         className={styles.tilePreview}
@@ -284,9 +285,22 @@ function Tile({
       >
         {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={6} angle={gradient.angle} />}
         <NoiseOverlay visible={noiseEnabled} />
+        {/* The slide number this pick will occupy. Shown on the tile rather
+            than only in the studio so the order is legible while you build it,
+            which is the whole reason picking is ordered. */}
+        {pick && (
+          <span
+            className={pick.order !== null ? styles.pickBadgeOn : styles.pickBadge}
+            data-testid="pick-badge"
+            aria-hidden="true"
+          >
+            {pick.order ?? ''}
+          </span>
+        )}
         {/* Clicks anywhere except the Edit button bubble to the tile and
-            open the viewer. */}
-        {onDelete && (
+            open the viewer. Suppressed while picking: Edit/Delete would sit
+            on top of the tap target that adds to the carousel. */}
+        {onDelete && !pick && (
           <div className={styles.tileHoverOverlay}>
             <button
               type="button"
@@ -740,6 +754,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   const saved = useAppStore((s) => s.saved)
   const removeSavedGradientById = useAppStore((s) => s.removeSavedGradientById)
   const lastDeleted = useAppStore((s) => s.lastDeleted)
+  const lastDeletedBatch = useAppStore((s) => s.lastDeletedBatch)
   const undoDelete = useAppStore((s) => s.undoDelete)
   const setViewerGradient = useAppStore((s) => s.setViewerGradient)
   const redoDelete = useAppStore((s) => s.redoDelete)
@@ -815,6 +830,81 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   // Mobile only: a live query takes over the screen (see .searching below).
   const [searchOpen, setSearchOpen] = useState(false)
 
+  // Carousel assembly. Pick mode repurposes a tile tap into "add to carousel",
+  // so it is explicitly entered rather than always-on — the default tap has to
+  // stay "open this palette".
+  const [pickMode, setPickMode] = useState(false)
+  const [studioOpen, setStudioOpen] = useState(false)
+  const [downloadingPicks, setDownloadingPicks] = useState(false)
+  const carouselPicks = useAppStore((s) => s.carouselPicks)
+  const toggleCarouselPick = useAppStore((s) => s.toggleCarouselPick)
+  const reorderCarouselPick = useAppStore((s) => s.reorderCarouselPick)
+  const moveCarouselPick = useAppStore((s) => s.moveCarouselPick)
+  const clearCarouselPicks = useAppStore((s) => s.clearCarouselPicks)
+  const removeSavedGradientsByIds = useAppStore((s) => s.removeSavedGradientsByIds)
+
+  // Picks outlive pick mode, so the bar is shown whenever there is a selection
+  // — otherwise leaving pick mode would strand a half-built carousel with no
+  // way back to it.
+  const selectionVisible = activeTab === 'saves' && carouselPicks.length > 0
+
+  /** Zip of 1080×1350 post PNGs for the selection — the same export the
+   * board-level "Export Posts" does, scoped to what you picked. */
+  async function handleDownloadPicks() {
+    if (downloadingPicks) return
+    const chosen = pickedCarouselGradients(saved, carouselPicks)
+    if (chosen.length === 0) return
+    setDownloadingPicks(true)
+    try {
+      const zip = new JSZip()
+      for (const gradient of chosen) {
+        const canvas = document.createElement('canvas')
+        await renderVignetteToCanvas(canvas, gradient, 1080, 1350, 'post')
+        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+        if (blob) {
+          const slug = (gradient.name ?? 'gradient').toLowerCase().replace(/\s+/g, '-')
+          zip.file(`${slug}-post.png`, blob)
+        }
+      }
+      const zipBlob = await zip.generateAsync({ type: 'blob' })
+      const url = URL.createObjectURL(zipBlob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'palettes-selected.zip'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch (e) {
+      console.error('Selection download failed', e)
+    } finally {
+      setDownloadingPicks(false)
+    }
+  }
+
+  /** Bulk delete lands as one undoable event, so the existing Undo toast
+   * covers the whole selection rather than the last item of it. */
+  function handleDeletePicks() {
+    if (carouselPicks.length === 0) return
+    removeSavedGradientsByIds(carouselPicks)
+    setPickMode(false)
+  }
+
+  function handleDoneSelecting() {
+    clearCarouselPicks()
+    setPickMode(false)
+  }
+
+  // Only your own saves can be picked: the carousel renders from the local
+  // `saved` array by id, and a community palette has no entry there.
+  const pickApi =
+    pickMode && activeTab === 'saves'
+      ? (gradient: Gradient) => ({
+          order: carouselPicks.indexOf(gradient.id) === -1 ? null : carouselPicks.indexOf(gradient.id) + 1,
+          onToggle: (g: Gradient) => toggleCarouselPick(g.id),
+        })
+      : null
+
   async function handleExportAll() {
     if (exporting || saved.length === 0) return
     setExporting(true)
@@ -861,14 +951,14 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   // gradient stays recoverable in the store either way; the timer only
   // hides the affordance.
   useEffect(() => {
-    if (!lastDeleted) {
+    if (!lastDeleted && !lastDeletedBatch) {
       setUndoVisible(false)
       return
     }
     setUndoVisible(true)
     const timer = setTimeout(() => setUndoVisible(false), 6000)
     return () => clearTimeout(timer)
-  }, [lastDeleted])
+  }, [lastDeleted, lastDeletedBatch])
 
   // Platform-standard undo/redo for deletions: ⌘Z / ⌘⇧Z (Ctrl on Windows).
   useEffect(() => {
@@ -986,11 +1076,23 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
     setDraggingId(id)
   }
   function handleDragEnterTile(id: string) {
-    if (dragIdRef.current && id !== dragIdRef.current) setDragOverId(id)
+    if (!dragIdRef.current || id === dragIdRef.current) return
+    // While selecting, only another PICKED tile is a valid target — an
+    // unpicked one holds no slide number for the dragged tile to take, so
+    // highlighting it would promise a drop that does nothing.
+    if (pickMode && !carouselPicks.includes(id)) return
+    setDragOverId(id)
   }
   function handleDropTile(id: string) {
     const from = dragIdRef.current
-    if (from && from !== id) reorderSaved(from, id)
+    if (from && from !== id) {
+      // One gesture, two meanings, disambiguated by mode. Selecting: the drag
+      // rearranges the CAROUSEL, so the badge numbers move and the gallery's
+      // own arrangement is left alone. Otherwise it rearranges the gallery,
+      // which is what it has always done.
+      if (pickMode) reorderCarouselPick(from, id)
+      else reorderSaved(from, id)
+    }
     clearDrag()
   }
 
@@ -1050,7 +1152,13 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   return (
     <div
       data-testid="gallery"
-      className={[styles.container, searchOpen && styles.searching].filter(Boolean).join(' ')}
+      className={[
+        styles.container,
+        searchOpen && styles.searching,
+        selectionVisible && !studioOpen && styles.withDock,
+      ]
+        .filter(Boolean)
+        .join(' ')}
     >
       <div className={styles.header}>
         <div className={styles.titleArea}>
@@ -1112,6 +1220,20 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
               <Icon name="grid-dense" size="sm" />
             </button>
           </div>
+          {activeTab === 'saves' && (
+            <div className={styles.toggleGroup}>
+              <button
+                type="button"
+                data-testid="carousel-pick-toggle"
+                className={pickMode ? styles.selectBtnActive : styles.selectBtn}
+                onClick={() => setPickMode((v) => !v)}
+                aria-pressed={pickMode}
+                title="Select gradients in order"
+              >
+                {pickMode ? 'Cancel' : 'Select'}
+              </button>
+            </div>
+          )}
           <BoardShare
             saved={saved}
             onImport={onImport ?? (() => {})}
@@ -1317,7 +1439,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
                     galleryLayout={galleryLayout}
                     onRiff={onRiff}
                     onDelete={activeTab === 'saves' ? removeSavedGradientById : (isAdmin ? deleteCommunityGradient : undefined)}
-                    draggable={canReorder}
+                    draggable={pickMode ? carouselPicks.includes(gradient.id) : canReorder}
                     isDragging={draggingId === gradient.id}
                     isDragOver={dragOverId === gradient.id}
                     onDragStartTile={handleDragStartTile}
@@ -1327,6 +1449,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
                     likes={likes}
                     isHero={heroId === gradient.id}
                     viewerOpen={open !== null}
+                    pick={pickApi ? pickApi(gradient) : undefined}
                   />
                 </TileBoundary>
               ))}
@@ -1354,10 +1477,12 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
         </>
       )}
 
-      {undoVisible && lastDeleted && (
+      {undoVisible && (lastDeleted || lastDeletedBatch) && (
         <div data-testid="undo-toast" className={styles.undoToast} role="status">
           <span className={styles.undoText}>
-            Deleted “{lastDeleted.gradient.name ?? namePalette(lastDeleted.gradient.stops.map(s => s.hex))}”
+            {lastDeletedBatch
+              ? `Deleted ${lastDeletedBatch.length} palettes`
+              : `Deleted “${lastDeleted!.gradient.name ?? namePalette(lastDeleted!.gradient.stops.map((s) => s.hex))}”`}
           </span>
           <button
             type="button"
@@ -1381,6 +1506,22 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
           likes={likes}
         />
       )}
+
+      {selectionVisible && !studioOpen && (
+        <CarouselDock
+          gradients={pickedCarouselGradients(saved, carouselPicks)}
+          downloading={downloadingPicks}
+          onRemove={toggleCarouselPick}
+          onReorder={reorderCarouselPick}
+          onMove={moveCarouselPick}
+          onCarousel={() => setStudioOpen(true)}
+          onDownload={handleDownloadPicks}
+          onDelete={handleDeletePicks}
+          onDone={handleDoneSelecting}
+        />
+      )}
+
+      {studioOpen && <CarouselStudio onClose={() => setStudioOpen(false)} />}
     </div>
   )
 }
