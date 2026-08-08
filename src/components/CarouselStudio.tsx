@@ -10,8 +10,8 @@ import {
 } from '../lib/carouselTemplates'
 import { buildCaption, captionParts, CAPTION_MAX } from '../lib/carouselCaption'
 import { renderSlide, SLIDE_SIZES, type SlideRatio } from '../lib/carouselRender'
-import { downloadCarouselZip } from '../lib/carouselExport'
-import { CarouselTray } from './CarouselTray'
+import { exportCarousel } from '../lib/carouselExport'
+import { CarouselGrid } from './CarouselGrid'
 import { TemplateThumb } from './TemplateThumb'
 import styles from './CarouselStudio.module.css'
 
@@ -49,9 +49,10 @@ export function CarouselStudio({ onClose }: CarouselStudioProps) {
   const [captionTile, setCaptionTile] = useState(true)
   const [title, setTitle] = useState('')
   const [note, setNote] = useState('')
-  const [templateId, setTemplateId] = useState('bars')
+  const [templateId, setTemplateId] = useState('singles')
   const [exporting, setExporting] = useState(false)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
+  const [done, setDone] = useState<string | null>(null)
   const copy = useCopyFeedback()
 
   const available = useMemo(() => templatesForCount(count), [count])
@@ -81,9 +82,10 @@ export function CarouselStudio({ onClose }: CarouselStudioProps) {
   async function handleExport() {
     if (exporting || slides.length === 0) return
     setExporting(true)
+    setDone(null)
     setProgress({ done: 0, total: slides.length })
     try {
-      await downloadCarouselZip(
+      const result = await exportCarousel(
         {
           templateId,
           gradients,
@@ -92,10 +94,18 @@ export function CarouselStudio({ onClose }: CarouselStudioProps) {
           caption: captionOptions,
           carousel: { captionTile },
         },
-        (done, total) => setProgress({ done, total })
+        (rendered, total) => setProgress({ done: rendered, total })
       )
+      // Where the files went is genuinely different per device, and guessing
+      // wrong sends someone hunting in the wrong app.
+      if (result.delivery === 'shared') {
+        setDone(`Shared ${result.count} images — pick “Save Images” to send them to Photos.`)
+      } else if (result.delivery === 'downloaded') {
+        setDone(`Saved ${result.count} images, numbered in slide order.`)
+      }
     } catch (e) {
       console.error('Carousel export failed', e)
+      setDone('Export failed — try again.')
     } finally {
       setExporting(false)
       setProgress(null)
@@ -146,7 +156,8 @@ export function CarouselStudio({ onClose }: CarouselStudioProps) {
           <div className={styles.body}>
             <section className={styles.section}>
               <h4 className={styles.sectionTitle}>Order</h4>
-              <CarouselTray
+              <p className={styles.hint}>Hold a slide, then drag it where you want it.</p>
+              <CarouselGrid
                 gradients={gradients}
                 onRemove={toggleCarouselPick}
                 onReorder={reorderCarouselPick}
@@ -297,8 +308,13 @@ export function CarouselStudio({ onClose }: CarouselStudioProps) {
           >
             {progress
               ? `Rendering ${progress.done}/${progress.total}…`
-              : `Export ${slides.length} slide${slides.length === 1 ? '' : 's'}`}
+              : `Save ${slides.length} image${slides.length === 1 ? '' : 's'}`}
           </button>
+          {done && (
+            <p className={styles.done} role="status" data-testid="export-status">
+              {done}
+            </p>
+          )}
         </footer>
       </div>
     </>

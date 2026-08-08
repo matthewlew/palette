@@ -253,12 +253,11 @@ describe('buildCarousel', () => {
     expect(slide.slices.map((s) => s.index)).toEqual([0, 1, 2, 3])
   })
 
-  it('emits a cover plus one slide per gradient for the hybrid templates', () => {
-    const slides = buildCarousel('stack-then-singles', 4, { captionTile: false })
-    expect(slides).toHaveLength(5)
-    expect(slides[0].slices).toHaveLength(4)
-    // Each single slide is full-bleed and names one gradient, in pick order.
-    slides.slice(1).forEach((slide, i) => {
+  it('emits one full-bleed slide per gradient for singles', () => {
+    const slides = buildCarousel('singles', 4, { captionTile: false })
+    expect(slides).toHaveLength(4)
+    // Each slide is full-bleed and names one gradient, in pick order.
+    slides.forEach((slide, i) => {
       expect(slide.slices).toEqual([{ x: 0, y: 0, w: 1, h: 1, index: i }])
     })
   })
@@ -292,8 +291,16 @@ describe('templatesForCount', () => {
 
   it('offers every layout at nine picks', () => {
     const ids = templatesForCount(9).map((t) => t.id)
-    for (const id of ['bars', 'bands', 'grid', 'hero', 'feature', 'wheatpaste']) {
+    for (const id of ['singles', 'bars', 'grid', 'wheatpaste']) {
       expect(ids).toContain(id)
+    }
+  })
+
+  it('always offers singles, so no count is ever a dead end', () => {
+    // Every other template has a floor or a ceiling. Singles is the one that
+    // holds any workable count, which is why the picker can fall back to it.
+    for (let n = 1; n <= 12; n++) {
+      expect(templatesForCount(n).map((t) => t.id)).toContain('singles')
     }
   })
 

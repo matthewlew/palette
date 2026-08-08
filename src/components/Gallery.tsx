@@ -839,7 +839,6 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   const carouselPicks = useAppStore((s) => s.carouselPicks)
   const toggleCarouselPick = useAppStore((s) => s.toggleCarouselPick)
   const reorderCarouselPick = useAppStore((s) => s.reorderCarouselPick)
-  const moveCarouselPick = useAppStore((s) => s.moveCarouselPick)
   const clearCarouselPicks = useAppStore((s) => s.clearCarouselPicks)
   const removeSavedGradientsByIds = useAppStore((s) => s.removeSavedGradientsByIds)
 
@@ -1511,9 +1510,6 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
         <CarouselDock
           gradients={pickedCarouselGradients(saved, carouselPicks)}
           downloading={downloadingPicks}
-          onRemove={toggleCarouselPick}
-          onReorder={reorderCarouselPick}
-          onMove={moveCarouselPick}
           onCarousel={() => setStudioOpen(true)}
           onDownload={handleDownloadPicks}
           onDelete={handleDeletePicks}

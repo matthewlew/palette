@@ -290,7 +290,31 @@ function singleSlides(n: number): CarouselSlide[] {
   }))
 }
 
+/**
+ * The four templates offered in the picker.
+ *
+ * There were ten. Ten cards is not ten times the choice — it is a wall of
+ * near-identical thumbnails where "Hero + Rail" and "Feature + Row" differ by
+ * which axis the small ones run along, and three "…, then Singles" variants
+ * differ from their base only in slide count. Choosing between them is work,
+ * and the work has no payoff, because the difference is invisible at feed size.
+ *
+ * These four are each doing something the others cannot: one slide per pick
+ * (the safe default that always fits), all picks on one slide (the composite),
+ * a mosaic for the counts that tile (4, 9), and the flyposted wall (the one
+ * with a look of its own). The layout maths for the retired arrangements is
+ * kept below and still tested — bringing one back is a five-line entry here,
+ * so nothing was lost by not showing them.
+ */
 export const CAROUSEL_TEMPLATES: CarouselTemplate[] = [
+  {
+    id: 'singles',
+    label: 'One Per Slide',
+    description: 'Every pick full-bleed, one slide each',
+    minCount: 1,
+    maxCount: MAX_SLIDES - 1,
+    build: (n) => singleSlides(n),
+  },
   {
     id: 'bars',
     label: 'Vertical Stack',
@@ -298,14 +322,6 @@ export const CAROUSEL_TEMPLATES: CarouselTemplate[] = [
     minCount: 2,
     maxCount: 10,
     build: (n) => [compositeSlide('bars', n)],
-  },
-  {
-    id: 'bands',
-    label: 'Horizontal Bands',
-    description: 'All picks as horizontal bands down one slide',
-    minCount: 2,
-    maxCount: 10,
-    build: (n) => [compositeSlide('bands', n)],
   },
   {
     id: 'grid',
@@ -320,60 +336,12 @@ export const CAROUSEL_TEMPLATES: CarouselTemplate[] = [
     build: (n) => [compositeSlide('grid', n)],
   },
   {
-    id: 'hero',
-    label: 'Hero + Rail',
-    description: 'First pick large, the rest as a rail beside it',
-    minCount: 2,
-    maxCount: 9,
-    build: (n) => [compositeSlide('hero', n)],
-  },
-  {
-    id: 'feature',
-    label: 'Feature + Row',
-    description: 'First pick across the top, the rest in a row beneath',
-    minCount: 2,
-    maxCount: 9,
-    build: (n) => [compositeSlide('feature', n)],
-  },
-  {
     id: 'wheatpaste',
     label: 'Wheatpaste',
     description: 'One poster centred, the rest pasted behind its edges',
     minCount: 3,
     maxCount: WHEATPASTE_MAX,
     build: (n) => [wheatpasteSlide(n)],
-  },
-  {
-    id: 'singles',
-    label: 'One Per Slide',
-    description: 'Every pick full-bleed, one slide each',
-    minCount: 1,
-    maxCount: MAX_SLIDES - 1,
-    build: (n) => singleSlides(n),
-  },
-  {
-    id: 'wheatpaste-then-singles',
-    label: 'Wheatpaste, then Singles',
-    description: 'Pasted wall as the cover, then each pick full-bleed',
-    minCount: 3,
-    maxCount: WHEATPASTE_MAX,
-    build: (n) => [wheatpasteSlide(n), ...singleSlides(n)],
-  },
-  {
-    id: 'stack-then-singles',
-    label: 'Stack, then Singles',
-    description: 'Vertical stack as the cover, then each pick full-bleed',
-    minCount: 2,
-    maxCount: 9,
-    build: (n) => [compositeSlide('bars', n), ...singleSlides(n)],
-  },
-  {
-    id: 'grid-then-singles',
-    label: 'Grid, then Singles',
-    description: 'Mosaic cover, then each pick full-bleed',
-    minCount: 3,
-    maxCount: 9,
-    build: (n) => [compositeSlide('grid', n), ...singleSlides(n)],
   },
 ]
 

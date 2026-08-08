@@ -1,5 +1,5 @@
 import type { Gradient } from '../store/types'
-import { CarouselTray } from './CarouselTray'
+import { CarouselDeck } from './CarouselDeck'
 import styles from './CarouselDock.module.css'
 
 interface CarouselDockProps {
@@ -7,9 +7,6 @@ interface CarouselDockProps {
   gradients: Gradient[]
   /** Bulk PNG export is slow enough to need a visible working state. */
   downloading?: boolean
-  onRemove: (id: string) => void
-  onReorder: (fromId: string, toId: string) => void
-  onMove: (id: string, delta: -1 | 1) => void
   onCarousel: () => void
   onDownload: () => void
   onDelete: () => void
@@ -17,20 +14,22 @@ interface CarouselDockProps {
 }
 
 /**
- * The collecting surface: a filmstrip of what you have picked, with the
- * actions that operate on the whole selection underneath.
+ * The collecting surface: the hand of cards you have picked, with the actions
+ * that operate on the whole selection underneath.
  *
  * Docked rather than modal, and rendered over a Gallery that stays scrollable,
- * because collecting is a loop — pick one more, reorder, pick another. A modal
- * would force a close/reopen on every lap. The tray is where order is decided;
- * the grid above stays the place you add from.
+ * because collecting is a loop — pick one more, pick another. A modal would
+ * force a close/reopen on every lap.
+ *
+ * The deck is a status display and a door, not a workspace: tapping it opens
+ * the editor, which is where order is decided. The dock used to hold a
+ * reorderable filmstrip, and squeezing a reordering UI into a strip above a
+ * gallery is what made reordering bad — no room to see the sequence, and a
+ * drag that had to compete with the gallery's own scrolling.
  */
 export function CarouselDock({
   gradients,
   downloading = false,
-  onRemove,
-  onReorder,
-  onMove,
   onCarousel,
   onDownload,
   onDelete,
@@ -40,12 +39,7 @@ export function CarouselDock({
 
   return (
     <div className={styles.dock} data-testid="selection-bar" aria-label="Carousel selection">
-      <CarouselTray
-        gradients={gradients}
-        onRemove={onRemove}
-        onReorder={onReorder}
-        onMove={onMove}
-      />
+      <CarouselDeck gradients={gradients} onOpen={onCarousel} />
       <div className={styles.actions} role="toolbar" aria-label="Selection actions">
         <span className={styles.count} data-testid="selection-count">
           {count} selected

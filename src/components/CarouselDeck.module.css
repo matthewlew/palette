@@ -1,0 +1,71 @@
+.deck {
+  position: relative;
+  display: block;
+  align-self: center;
+  height: 74px;
+  margin: 0 auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  /* Cards are absolutely positioned around the centre of the button, so the
+     inline width from the fan maths is what reserves their space. */
+  flex: none;
+}
+
+.card {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  width: 46px;
+  height: 58px;
+  margin-left: -23px;
+  border-radius: 5px;
+  overflow: hidden;
+  background-color: #26262c;
+  background-size: cover;
+  background-position: center;
+  isolation: isolate;
+  /* A thin dark lip so adjacent cards separate against each other; without it
+     two similar gradients fuse into one shape. */
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* The hand lifts a little when you reach for it. Applied to the deck, not the
+   cards: each card's transform is an inline style carrying its place in the
+   fan, and an inline transform beats anything a stylesheet can say. */
+.deck {
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.deck:hover,
+.deck:focus-visible {
+  transform: translateY(-3px) scale(1.04);
+}
+
+.more {
+  position: absolute;
+  right: -6px;
+  bottom: 0;
+  z-index: 20;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .deck {
+    transition: none;
+  }
+
+  .deck:hover,
+  .deck:focus-visible {
+    transform: none;
+  }
+}

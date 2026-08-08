@@ -1,29 +1,34 @@
-.tray {
+/* Wraps rather than scrolls, so the whole sequence is comparable at a glance.
+   auto-fill keeps the tiles a readable size and lets the column count follow
+   the container — 3 across on a phone, 6 on the desktop modal. */
+.grid {
   list-style: none;
-  min-width: 0;
-  max-width: 100%;
   margin: 0;
-  padding: 2px 2px 4px;
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: thin;
-  scroll-snap-type: x proximity;
+  padding: 2px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
+  gap: 10px 8px;
 }
 
 .item {
-  flex: none;
-  width: 74px;
-  scroll-snap-align: start;
-  cursor: grab;
   border-radius: 8px;
   outline-offset: 3px;
+  cursor: grab;
+  /* Nothing here is text, and a long-press that selects the tile instead of
+     lifting it is the gesture failing in the most confusing way possible. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  transition: transform 140ms ease, opacity 140ms ease;
 }
 
-.item:active {
+/* The lifted slide. Scaled up and dimmed rather than removed from the flow:
+   its gap staying put is what tells you where it came from. */
+.itemActive {
   cursor: grabbing;
+  opacity: 0.55;
+  transform: scale(1.06);
+  z-index: 2;
 }
 
 /* The gap the dragged slide will land in. A left edge rather than a full
@@ -43,6 +48,13 @@
   background-size: cover;
   background-position: center;
   isolation: isolate;
+  /* The whole tile is a drag target; children must not eat the pointer or
+     elementFromPoint would report them and the hit test would miss. */
+  pointer-events: none;
+}
+
+.remove {
+  pointer-events: auto;
 }
 
 .number {
@@ -86,58 +98,16 @@
   transition: opacity 140ms ease;
 }
 
-.nudgeLeft,
-.nudgeRight {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 2;
-  width: 20px;
-  height: 28px;
-  border: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  color: #fff;
-  font-size: 15px;
-  line-height: 1;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 140ms ease;
-}
-
-.nudgeLeft {
-  left: 0;
-  border-radius: 0 6px 6px 0;
-}
-
-.nudgeRight {
-  right: 0;
-  border-radius: 6px 0 0 6px;
-}
-
-.nudgeLeft:disabled,
-.nudgeRight:disabled {
-  display: none;
-}
-
-/* Controls stay out of the way until the slide is hovered or focused —
-   at 74px wide they would otherwise cover the gradient they belong to.
-   Touch has no hover, so :focus-within carries it after a tap. */
+/* Out of the way until hovered or focused — at 74px wide it would otherwise
+   cover the gradient it belongs to. */
 .item:hover .remove,
 .item:focus-visible .remove,
-.item:focus-within .remove,
-.item:hover .nudgeLeft,
-.item:hover .nudgeRight,
-.item:focus-visible .nudgeLeft,
-.item:focus-visible .nudgeRight,
-.item:focus-within .nudgeLeft,
-.item:focus-within .nudgeRight {
+.item:focus-within .remove {
   opacity: 1;
 }
 
 @media (hover: none) {
-  /* No hover to reveal them, so the remove affordance is always visible. */
+  /* No hover to reveal it, so the remove affordance is always visible. */
   .remove {
     opacity: 1;
   }
@@ -171,9 +141,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .remove,
-  .nudgeLeft,
-  .nudgeRight {
+  .item,
+  .remove {
     transition: none;
+  }
+
+  .itemActive {
+    transform: none;
   }
 }
