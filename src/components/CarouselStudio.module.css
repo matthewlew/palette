@@ -154,6 +154,48 @@
   white-space: nowrap;
 }
 
+/* 'Start' / 'End' on the two rows that decide how the carousel opens and
+   closes. Muted, because they label a position rather than an action. */
+.pickRole {
+  flex: none;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.pickMove {
+  flex: none;
+  display: flex;
+  gap: 2px;
+}
+
+.pickMoveBtn {
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pickMoveBtn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+.pickMoveBtn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
 .pickRemove {
   flex: none;
   border: 0;

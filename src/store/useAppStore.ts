@@ -149,7 +149,21 @@ interface AppState {
   /** Moves `fromId` to `toId`'s slot, shifting the rest — the same semantics
    * as reorderSaved, applied to slide order. */
   reorderCarouselPick: (fromId: string, toId: string) => void
+  /** Nudges a pick one slot earlier or later. Drag-to-reorder is the fast
+   * path; this is the one that works on a phone and from the keyboard. No-op
+   * at the ends, so the first pick can't be moved off the front. */
+  moveCarouselPick: (id: string, delta: -1 | 1) => void
   clearCarouselPicks: () => void
+  /** Deletes several saved gradients at once, as one undoable event — the
+   * bulk action behind the selection bar. Their carousel picks go with them:
+   * a deleted gradient must not keep holding a slide number. */
+  removeSavedGradientsByIds: (ids: string[]) => void
+  /** The batch behind the last bulk delete, newest-first by index so undo can
+   * splice each entry back at its original spot. Null when the last deletion
+   * was a single item (see lastDeleted) or nothing has been deleted. */
+  lastDeletedBatch: { gradient: Gradient; index: number }[] | null
+  /** Redo counterpart to lastDeletedBatch — see lastUndone. */
+  lastUndoneBatch: { gradient: Gradient; index: number }[] | null
 }
 
 export const useAppStore = create<AppState>()(
@@ -260,12 +274,47 @@ export const useAppStore = create<AppState>()(
         set({
           saved: saved.filter((g) => g.id !== id),
           lastDeleted: { gradient: saved[index], index },
-          // A fresh deletion starts a new undo chain.
+          // A fresh deletion starts a new undo chain, and supersedes any
+          // armed batch — one undo stack, whichever kind of delete armed it.
           lastUndone: null,
+          lastUndoneBatch: null,
+          lastDeletedBatch: null,
+          carouselPicks: get().carouselPicks.filter((p) => p !== id),
+        })
+      },
+      lastDeletedBatch: null,
+      removeSavedGradientsByIds: (ids) => {
+        const target = new Set(ids)
+        const saved = get().saved
+        // Captured with their original indices so undo restores the shape of
+        // the board, not just its contents.
+        const entries = saved
+          .map((gradient, index) => ({ gradient, index }))
+          .filter((entry) => target.has(entry.gradient.id))
+        if (entries.length === 0) return
+        set({
+          saved: saved.filter((g) => !target.has(g.id)),
+          lastDeletedBatch: entries,
+          lastDeleted: null,
+          lastUndone: null,
+          lastUndoneBatch: null,
+          carouselPicks: get().carouselPicks.filter((p) => !target.has(p)),
         })
       },
       lastDeleted: null,
       undoDelete: () => {
+        const batch = get().lastDeletedBatch
+        if (batch) {
+          // Ascending, so each splice lands before the next entry's index is
+          // consulted — inserting low-to-high keeps the later indices valid.
+          let restored = get().saved
+          for (const entry of [...batch].sort((a, b) => a.index - b.index)) {
+            const at = Math.min(entry.index, restored.length)
+            restored = [...restored.slice(0, at), entry.gradient, ...restored.slice(at)]
+          }
+          set({ saved: restored, lastDeletedBatch: null, lastUndoneBatch: batch })
+          return
+        }
         const deleted = get().lastDeleted
         if (!deleted) return
         const saved = get().saved
@@ -278,7 +327,14 @@ export const useAppStore = create<AppState>()(
         })
       },
       lastUndone: null,
+      lastUndoneBatch: null,
       redoDelete: () => {
+        const undoneBatch = get().lastUndoneBatch
+        if (undoneBatch) {
+          // Re-applies the bulk deletion; removeSavedGradientsByIds re-arms undo.
+          get().removeSavedGradientsByIds(undoneBatch.map((e) => e.gradient.id))
+          return
+        }
         const undone = get().lastUndone
         if (!undone) return
         // Re-applies the deletion; removeSavedGradientById re-arms undo.
@@ -397,6 +453,16 @@ export const useAppStore = create<AppState>()(
         const next = picks.slice()
         const [moved] = next.splice(fromIndex, 1)
         next.splice(toIndex, 0, moved)
+        set({ carouselPicks: next })
+      },
+      moveCarouselPick: (id, delta) => {
+        const picks = get().carouselPicks
+        const from = picks.indexOf(id)
+        if (from === -1) return
+        const to = from + delta
+        if (to < 0 || to >= picks.length) return
+        const next = picks.slice()
+        ;[next[from], next[to]] = [next[to], next[from]]
         set({ carouselPicks: next })
       },
       clearCarouselPicks: () => set({ carouselPicks: [] }),

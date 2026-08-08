@@ -98,3 +98,95 @@ describe('pickedCarouselGradients', () => {
     expect(pickedCarouselGradients([a, b], [])).toEqual([])
   })
 })
+
+describe('moveCarouselPick', () => {
+  it('nudges a pick one slot earlier', () => {
+    useAppStore.setState({ carouselPicks: ['a', 'b', 'c'] })
+    useAppStore.getState().moveCarouselPick('c', -1)
+    expect(useAppStore.getState().carouselPicks).toEqual(['a', 'c', 'b'])
+  })
+
+  it('nudges a pick one slot later', () => {
+    useAppStore.setState({ carouselPicks: ['a', 'b', 'c'] })
+    useAppStore.getState().moveCarouselPick('a', 1)
+    expect(useAppStore.getState().carouselPicks).toEqual(['b', 'a', 'c'])
+  })
+
+  it('is a no-op at either end', () => {
+    useAppStore.setState({ carouselPicks: ['a', 'b'] })
+    useAppStore.getState().moveCarouselPick('a', -1)
+    useAppStore.getState().moveCarouselPick('b', 1)
+    expect(useAppStore.getState().carouselPicks).toEqual(['a', 'b'])
+  })
+
+  it('ignores an id that is not picked', () => {
+    useAppStore.setState({ carouselPicks: ['a', 'b'] })
+    useAppStore.getState().moveCarouselPick('z', 1)
+    expect(useAppStore.getState().carouselPicks).toEqual(['a', 'b'])
+  })
+})
+
+describe('bulk delete', () => {
+  const a = grad('a', 'Alpha')
+  const b = grad('b', 'Beta')
+  const c = grad('c', 'Gamma')
+
+  it('removes every named gradient in one event', () => {
+    useAppStore.setState({ saved: [a, b, c] })
+    useAppStore.getState().removeSavedGradientsByIds(['a', 'c'])
+    expect(useAppStore.getState().saved).toEqual([b])
+  })
+
+  it('records the batch with original indices so undo restores the order', () => {
+    useAppStore.setState({ saved: [a, b, c] })
+    useAppStore.getState().removeSavedGradientsByIds(['a', 'c'])
+    expect(useAppStore.getState().lastDeletedBatch).toEqual([
+      { gradient: a, index: 0 },
+      { gradient: c, index: 2 },
+    ])
+    useAppStore.getState().undoDelete()
+    // Back in their original slots, not appended to the end.
+    expect(useAppStore.getState().saved).toEqual([a, b, c])
+  })
+
+  it('drops the deleted ids from the carousel', () => {
+    useAppStore.setState({ saved: [a, b, c], carouselPicks: ['c', 'a', 'b'] })
+    useAppStore.getState().removeSavedGradientsByIds(['a', 'c'])
+    // A deleted gradient must not keep holding a slide number.
+    expect(useAppStore.getState().carouselPicks).toEqual(['b'])
+  })
+
+  it('drops a single deleted id from the carousel too', () => {
+    useAppStore.setState({ saved: [a, b], carouselPicks: ['a', 'b'] })
+    useAppStore.getState().removeSavedGradientById('a')
+    expect(useAppStore.getState().carouselPicks).toEqual(['b'])
+  })
+
+  it('supersedes an armed single-delete undo', () => {
+    useAppStore.setState({ saved: [a, b, c] })
+    useAppStore.getState().removeSavedGradientById('b')
+    useAppStore.getState().removeSavedGradientsByIds(['a'])
+    // One undo stack: the batch is what undo now restores.
+    expect(useAppStore.getState().lastDeleted).toBeNull()
+    useAppStore.getState().undoDelete()
+    expect(useAppStore.getState().saved.map((g) => g.id)).toEqual(['a', 'c'])
+  })
+
+  it('redoes a bulk deletion', () => {
+    useAppStore.setState({ saved: [a, b, c] })
+    useAppStore.getState().removeSavedGradientsByIds(['a', 'b'])
+    useAppStore.getState().undoDelete()
+    expect(useAppStore.getState().saved).toEqual([a, b, c])
+    useAppStore.getState().redoDelete()
+    expect(useAppStore.getState().saved).toEqual([c])
+    // Redo consumed the undone batch; undo is available again, not redo twice.
+    expect(useAppStore.getState().lastUndoneBatch).toBeNull()
+  })
+
+  it('is a no-op when no id matches', () => {
+    useAppStore.setState({ saved: [a] })
+    useAppStore.getState().removeSavedGradientsByIds(['nope'])
+    expect(useAppStore.getState().saved).toEqual([a])
+    expect(useAppStore.getState().lastDeletedBatch).toBeNull()
+  })
+})

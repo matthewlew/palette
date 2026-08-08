@@ -19,11 +19,12 @@ A premium, interactive aesthetic gradient playground and generator built with Re
 * **Visual Stop-Level Editor:** Modify stops directly on the gradient canvas with a drag-and-drop workspace:
   * **SwatchTray:** Interactive 36-color swatch drawer for tap-to-add/remove and drag-to-insert actions.
   * **Live Reordering:** Instant visual reindexing and gap rendering during drag-reorder events.
-* **Instagram Carousel Studio:** Pick saved gradients in order, then compose them into a carousel:
+* **Multi-Select & Carousel Studio:** `Select` in the Gallery header turns tiles into an ordered, Photos-style multi-select — numbered badges, a `n selected` action bar with Carousel / Download / Delete, and one-event undo for bulk deletes. Selected gradients compose into an Instagram carousel:
   * Templates that suit the count you have — vertical stack, horizontal bands, 2×2/3×3 grid, hero + rail, one-per-slide, or a composite cover followed by singles.
   * 4:5, 1:1 and 9:16 slides, optionally framed on paper with rounded insets.
   * A generated closing text tile with names and hex codes, plus a matching copy-paste caption.
   * Exports as a zip of numbered PNGs (slide order = pick order) with `caption.txt` alongside.
+  * Order is editable by drag or ↑/↓, with the Start and End slides labelled; edits flow straight back to the Gallery badges.
 * **State Persistence & Board Sharing:**
   * Auto-persisting saved gradients drawer.
   * Share-link URL fragment codec for exporting single gradients or entire boards.

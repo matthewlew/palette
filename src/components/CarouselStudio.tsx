@@ -37,6 +37,7 @@ export function CarouselStudio({ onClose }: CarouselStudioProps) {
   const picks = useAppStore((s) => s.carouselPicks)
   const toggleCarouselPick = useAppStore((s) => s.toggleCarouselPick)
   const reorderCarouselPick = useAppStore((s) => s.reorderCarouselPick)
+  const moveCarouselPick = useAppStore((s) => s.moveCarouselPick)
   const clearCarouselPicks = useAppStore((s) => s.clearCarouselPicks)
 
   const gradients = useMemo(() => pickedCarouselGradients(saved, picks), [saved, picks])
@@ -135,7 +136,7 @@ export function CarouselStudio({ onClose }: CarouselStudioProps) {
         {count === 0 ? (
           <div className={styles.empty}>
             <p>
-              Turn on <strong>Pick</strong> in the Gallery header, then tap gradients in the order you
+              Tap <strong>Select</strong> in the Gallery header, then tap gradients in the order you
               want them to appear. Come back here to choose a template.
             </p>
           </div>
@@ -147,6 +148,7 @@ export function CarouselStudio({ onClose }: CarouselStudioProps) {
                 gradients={gradients}
                 onRemove={(id) => toggleCarouselPick(id)}
                 onReorder={reorderCarouselPick}
+                onMove={moveCarouselPick}
               />
               <button type="button" className={styles.linkBtn} onClick={clearCarouselPicks}>
                 Clear all
@@ -232,6 +234,7 @@ export function CarouselStudio({ onClose }: CarouselStudioProps) {
                     ratio={ratio}
                     framed={framed}
                     index={i}
+                    role={i === 0 ? 'Start' : i === slides.length - 1 ? 'End' : null}
                   />
                 ))}
               </div>
@@ -290,17 +293,31 @@ interface PickListProps {
   gradients: Gradient[]
   onRemove: (id: string) => void
   onReorder: (fromId: string, toId: string) => void
+  onMove: (id: string, delta: -1 | 1) => void
 }
 
-/** The ordered pick list. Numbers are the slide numbers people will see in the
- * export filenames, so they are shown rather than implied. */
-function PickList({ gradients, onRemove, onReorder }: PickListProps) {
+/**
+ * The ordered pick list — the carousel's running order, and the thing the
+ * Gallery badges mirror. Editing here changes the badge numbers on the tiles,
+ * because both read the same `carouselPicks` array.
+ *
+ * The first and last rows are labelled rather than left to be counted: those
+ * two slides do the work in a carousel (the first earns the swipe, the last is
+ * what people are left on), so which gradient occupies them is the decision
+ * this list exists to make.
+ *
+ * Order is editable three ways — drag, the ↑/↓ buttons, and the keyboard —
+ * because drag alone is unreliable on touch and invisible to a screen reader.
+ */
+function PickList({ gradients, onRemove, onReorder, onMove }: PickListProps) {
   const dragId = useRef<string | null>(null)
+  const last = gradients.length - 1
 
   return (
     <ol className={styles.pickList} data-testid="carousel-pick-list">
       {gradients.map((gradient, i) => {
         const name = gradient.name ?? namePalette(gradient.stops.map((s) => s.hex))
+        const role = i === 0 ? 'Start' : i === last ? 'End' : null
         return (
           <li
             key={gradient.id}
@@ -322,6 +339,27 @@ function PickList({ gradients, onRemove, onReorder }: PickListProps) {
               ))}
             </span>
             <span className={styles.pickName}>{name}</span>
+            {role && <span className={styles.pickRole}>{role}</span>}
+            <span className={styles.pickMove}>
+              <button
+                type="button"
+                className={styles.pickMoveBtn}
+                onClick={() => onMove(gradient.id, -1)}
+                disabled={i === 0}
+                aria-label={`Move ${name} earlier`}
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                className={styles.pickMoveBtn}
+                onClick={() => onMove(gradient.id, 1)}
+                disabled={i === last}
+                aria-label={`Move ${name} later`}
+              >
+                ↓
+              </button>
+            </span>
             <button
               type="button"
               className={styles.pickRemove}
@@ -344,11 +382,14 @@ interface SlidePreviewProps {
   ratio: SlideRatio
   framed: boolean
   index: number
+  /** 'Start' or 'End' for the two slides that carry a carousel — the hook and
+   * the one people are left looking at. */
+  role: 'Start' | 'End' | null
 }
 
 /** One slide, rendered through the same code path as the export so the preview
  * cannot disagree with the file you get. */
-function SlidePreview({ slide, gradients, parts, ratio, framed, index }: SlidePreviewProps) {
+function SlidePreview({ slide, gradients, parts, ratio, framed, index, role }: SlidePreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const size = SLIDE_SIZES[ratio]
   const height = Math.round((PREVIEW_WIDTH * size.height) / size.width)
@@ -376,6 +417,7 @@ function SlidePreview({ slide, gradients, parts, ratio, framed, index }: SlidePr
       <figcaption className={styles.slideCaption}>
         {index + 1}
         {slide.kind === 'caption' && <span className={styles.slideTag}>Caption</span>}
+        {role && <span className={styles.slideTag}>{role}</span>}
       </figcaption>
     </figure>
   )

@@ -6,7 +6,7 @@ import { useCommunityGradients, type CommunityOrder } from '../hooks/useCommunit
 import { useHint } from '../hooks/useHint'
 import { useMasonryRowSpans } from '../hooks/useMasonryRowSpans'
 import { useFlipReorder } from '../hooks/useFlipReorder'
-import { useAppStore } from '../store/useAppStore'
+import { useAppStore, pickedCarouselGradients } from '../store/useAppStore'
 import type { GalleryLayout } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
 import { likePalette, unlikePalette } from '../lib/likes'
@@ -22,6 +22,7 @@ import { NoiseOverlay } from './NoiseOverlay'
 import { ScrollTicker } from './ScrollTicker'
 import { SearchBar, type SearchResults } from './SearchBar'
 import { CarouselStudio } from './CarouselStudio'
+import { SelectionBar } from './SelectionBar'
 import { Hint } from './Hint'
 import { LoadingBar } from './LoadingBar'
 import JSZip from 'jszip'
@@ -764,6 +765,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   const saved = useAppStore((s) => s.saved)
   const removeSavedGradientById = useAppStore((s) => s.removeSavedGradientById)
   const lastDeleted = useAppStore((s) => s.lastDeleted)
+  const lastDeletedBatch = useAppStore((s) => s.lastDeletedBatch)
   const undoDelete = useAppStore((s) => s.undoDelete)
   const setViewerGradient = useAppStore((s) => s.setViewerGradient)
   const redoDelete = useAppStore((s) => s.redoDelete)
@@ -844,8 +846,63 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   // stay "open this palette".
   const [pickMode, setPickMode] = useState(false)
   const [studioOpen, setStudioOpen] = useState(false)
+  const [downloadingPicks, setDownloadingPicks] = useState(false)
   const carouselPicks = useAppStore((s) => s.carouselPicks)
   const toggleCarouselPick = useAppStore((s) => s.toggleCarouselPick)
+  const clearCarouselPicks = useAppStore((s) => s.clearCarouselPicks)
+  const removeSavedGradientsByIds = useAppStore((s) => s.removeSavedGradientsByIds)
+
+  // Picks outlive pick mode, so the bar is shown whenever there is a selection
+  // — otherwise leaving pick mode would strand a half-built carousel with no
+  // way back to it.
+  const selectionVisible = activeTab === 'saves' && carouselPicks.length > 0
+
+  /** Zip of 1080×1350 post PNGs for the selection — the same export the
+   * board-level "Export Posts" does, scoped to what you picked. */
+  async function handleDownloadPicks() {
+    if (downloadingPicks) return
+    const chosen = pickedCarouselGradients(saved, carouselPicks)
+    if (chosen.length === 0) return
+    setDownloadingPicks(true)
+    try {
+      const zip = new JSZip()
+      for (const gradient of chosen) {
+        const canvas = document.createElement('canvas')
+        await renderVignetteToCanvas(canvas, gradient, 1080, 1350, 'post')
+        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+        if (blob) {
+          const slug = (gradient.name ?? 'gradient').toLowerCase().replace(/\s+/g, '-')
+          zip.file(`${slug}-post.png`, blob)
+        }
+      }
+      const zipBlob = await zip.generateAsync({ type: 'blob' })
+      const url = URL.createObjectURL(zipBlob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'palettes-selected.zip'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch (e) {
+      console.error('Selection download failed', e)
+    } finally {
+      setDownloadingPicks(false)
+    }
+  }
+
+  /** Bulk delete lands as one undoable event, so the existing Undo toast
+   * covers the whole selection rather than the last item of it. */
+  function handleDeletePicks() {
+    if (carouselPicks.length === 0) return
+    removeSavedGradientsByIds(carouselPicks)
+    setPickMode(false)
+  }
+
+  function handleDoneSelecting() {
+    clearCarouselPicks()
+    setPickMode(false)
+  }
 
   // Only your own saves can be picked: the carousel renders from the local
   // `saved` array by id, and a community palette has no entry there.
@@ -903,14 +960,14 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   // gradient stays recoverable in the store either way; the timer only
   // hides the affordance.
   useEffect(() => {
-    if (!lastDeleted) {
+    if (!lastDeleted && !lastDeletedBatch) {
       setUndoVisible(false)
       return
     }
     setUndoVisible(true)
     const timer = setTimeout(() => setUndoVisible(false), 6000)
     return () => clearTimeout(timer)
-  }, [lastDeleted])
+  }, [lastDeleted, lastDeletedBatch])
 
   // Platform-standard undo/redo for deletions: ⌘Z / ⌘⇧Z (Ctrl on Windows).
   useEffect(() => {
@@ -1159,21 +1216,12 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
               <button
                 type="button"
                 data-testid="carousel-pick-toggle"
-                className={pickMode ? styles.toggleBtnActive : styles.toggleBtn}
+                className={pickMode ? styles.selectBtnActive : styles.selectBtn}
                 onClick={() => setPickMode((v) => !v)}
                 aria-pressed={pickMode}
-                title="Pick gradients for a carousel, in order"
+                title="Select gradients in order"
               >
-                Pick
-              </button>
-              <button
-                type="button"
-                data-testid="carousel-studio-open"
-                className={styles.toggleBtn}
-                onClick={() => setStudioOpen(true)}
-                title="Build an Instagram carousel from your picks"
-              >
-                Carousel{carouselPicks.length > 0 ? ` (${carouselPicks.length})` : ''}
+                {pickMode ? 'Cancel' : 'Select'}
               </button>
             </div>
           )}
@@ -1420,10 +1468,12 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
         </>
       )}
 
-      {undoVisible && lastDeleted && (
+      {undoVisible && (lastDeleted || lastDeletedBatch) && (
         <div data-testid="undo-toast" className={styles.undoToast} role="status">
           <span className={styles.undoText}>
-            Deleted “{lastDeleted.gradient.name ?? namePalette(lastDeleted.gradient.stops.map(s => s.hex))}”
+            {lastDeletedBatch
+              ? `Deleted ${lastDeletedBatch.length} palettes`
+              : `Deleted “${lastDeleted!.gradient.name ?? namePalette(lastDeleted!.gradient.stops.map((s) => s.hex))}”`}
           </span>
           <button
             type="button"
@@ -1445,6 +1495,17 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
           onRiff={onRiff}
           onImport={onImport ?? (() => {})}
           likes={likes}
+        />
+      )}
+
+      {selectionVisible && !studioOpen && (
+        <SelectionBar
+          count={carouselPicks.length}
+          downloading={downloadingPicks}
+          onCarousel={() => setStudioOpen(true)}
+          onDownload={handleDownloadPicks}
+          onDelete={handleDeletePicks}
+          onDone={handleDoneSelecting}
         />
       )}
 

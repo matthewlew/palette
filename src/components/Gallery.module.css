@@ -1160,3 +1160,38 @@
   background: #fff;
   color: #101014;
 }
+
+/* Text sibling of .toggleBtn, which is a fixed-size circle for icons only —
+   "Select"/"Cancel" is a word, so it sizes to its label instead. */
+.selectBtn,
+.selectBtnActive {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: calc(var(--control-h) - 6px);
+  padding: 0 14px;
+  border-radius: var(--pill);
+  border: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.selectBtn {
+  background: transparent;
+  color: var(--text-subdued);
+}
+
+.selectBtn:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.selectBtnActive {
+  background: #fff;
+  color: #111;
+}
