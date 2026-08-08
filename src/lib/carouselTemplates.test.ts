@@ -14,12 +14,27 @@ import {
   MAX_SLIDES,
   TILING_ARRANGEMENTS,
   WHEATPASTE_MAX,
+  WHEATPASTE_CENTRE_RECT,
   type SliceRect,
 } from './carouselTemplates'
 
 /** Total area of a set of fractional rects. A full-cover arrangement is 1. */
 function area(rects: SliceRect[]): number {
   return rects.reduce((sum, r) => sum + r.w * r.h, 0)
+}
+
+/** Whether a rect contains a point, honouring the rect's own rotation: the
+ * point is rotated back into the rect's frame about the rect's centre. */
+function covers(rect: SliceRect, px: number, py: number): boolean {
+  const EPS = 1e-9
+  const cx = rect.x + rect.w / 2
+  const cy = rect.y + rect.h / 2
+  const theta = ((rect.rotate ?? 0) * Math.PI) / 180
+  const dx = px - cx
+  const dy = py - cy
+  const localX = dx * Math.cos(-theta) - dy * Math.sin(-theta)
+  const localY = dx * Math.sin(-theta) + dy * Math.cos(-theta)
+  return Math.abs(localX) <= rect.w / 2 + EPS && Math.abs(localY) <= rect.h / 2 + EPS
 }
 
 function overlaps(a: SliceRect, b: SliceRect): boolean {
@@ -136,15 +151,18 @@ describe('tiling arrangements', () => {
 })
 
 describe('wheatpaste', () => {
-  it('places the centre poster last so it paints on top', () => {
-    const rects = wheatpasteRects(5)
-    const centre = rects[rects.length - 1]
-    // Centred-ish and the largest thing on the wall.
-    expect(centre.x + centre.w / 2).toBeCloseTo(0.5, 1)
-    expect(centre.y + centre.h / 2).toBeCloseTo(0.5, 1)
-    for (const other of rects.slice(0, -1)) {
-      expect(other.w * other.h).toBeLessThan(centre.w * centre.h)
+  it('places the centre poster last, and centred', () => {
+    for (let n = 3; n <= WHEATPASTE_MAX; n++) {
+      const rects = wheatpasteRects(n)
+      const centre = rects[rects.length - 1]
+      expect(centre).toBe(WHEATPASTE_CENTRE_RECT)
+      expect(centre.x + centre.w / 2).toBeCloseTo(0.5, 1)
+      expect(centre.y + centre.h / 2).toBeCloseTo(0.5, 1)
     }
+    // Deliberately NOT asserting the centre is the largest rect. Once the
+    // surround has to cover the wall, three sheets means each is huge — a
+    // background sheet can out-measure the centre and it still reads right,
+    // because paint order, not area, is what makes the centre the subject.
   })
 
   it('returns one rect per gradient', () => {
@@ -153,12 +171,32 @@ describe('wheatpaste', () => {
     }
   })
 
-  it('hangs every surrounding poster off an edge', () => {
-    // The peeking-out is the effect; a poster fully inside the frame would
+  it('overhangs every edge of the slide', () => {
+    // The peeking-out is the effect: sheets that stopped at the frame would
     // read as a badly aligned collage instead of a paste-up.
-    for (const rect of wheatpasteRects(WHEATPASTE_MAX).slice(0, -1)) {
-      const escapes = rect.x < 0 || rect.y < 0 || rect.x + rect.w > 1 || rect.y + rect.h > 1
-      expect(escapes).toBe(true)
+    const sheets = wheatpasteRects(WHEATPASTE_MAX).slice(0, -1)
+    expect(sheets.some((r) => r.x < 0)).toBe(true)
+    expect(sheets.some((r) => r.y < 0)).toBe(true)
+    expect(sheets.some((r) => r.x + r.w > 1)).toBe(true)
+    expect(sheets.some((r) => r.y + r.h > 1)).toBe(true)
+  })
+
+  it('covers the whole slide at every count, tilts included', () => {
+    // The guarantee the grid-derived surround exists to provide: no wall
+    // showing through, ever. Sampled against the ROTATED sheets, since a tilt
+    // is exactly what could open a corner that the untilted maths closes.
+    for (let n = 3; n <= WHEATPASTE_MAX; n++) {
+      const rects = wheatpasteRects(n)
+      for (let i = 0; i <= 40; i++) {
+        for (let j = 0; j <= 40; j++) {
+          const px = i / 40
+          const py = j / 40
+          expect(
+            rects.some((r) => covers(r, px, py)),
+            `n=${n} leaves (${px.toFixed(3)}, ${py.toFixed(3)}) uncovered`
+          ).toBe(true)
+        }
+      }
     }
   })
 
@@ -181,10 +219,12 @@ describe('wheatpaste', () => {
     expect(slide.slices.map((s) => s.index).sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5])
   })
 
-  it('marks the slide as overlapping, on paper', () => {
+  it('marks the slide as overlapping, and declares no paper ground', () => {
     const [slide] = buildCarousel('wheatpaste', 5, { captionTile: false })
     expect(slide.overlap).toBe(true)
-    expect(slide.ground).toBe('paper')
+    // The sheets cover the slide themselves, so there is no wall to paint —
+    // and a sliver of white between sheets would be louder than one of black.
+    expect(slide.ground).toBeUndefined()
   })
 
   it('tops out at the number of pasting slots it has', () => {

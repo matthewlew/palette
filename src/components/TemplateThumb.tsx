@@ -28,7 +28,7 @@ interface TemplateThumbProps {
 export function TemplateThumb({ slide, gradients, extraSlides = 0 }: TemplateThumbProps) {
   return (
     <div
-      className={slide.overlap ? styles.thumbPaper : styles.thumb}
+      className={styles.thumb}
       aria-hidden="true"
       data-testid="template-thumb"
     >

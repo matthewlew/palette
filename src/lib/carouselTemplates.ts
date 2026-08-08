@@ -46,12 +46,12 @@ export interface CarouselSlide {
    * gradient a slice shows is `index`, which is independent of paint order. */
   slices: SlicePlacement[]
   /** Slices intentionally overlap and hang off the edges, so the renderer
-   * gives each one a paper edge and a drop shadow to read as a stack rather
-   * than as a rendering error. */
+   * gives each one a drop shadow to read as a stack rather than as a
+   * rendering error. */
   overlap?: boolean
-  /** The ground the slices sit on. 'paper' for pasted layouts, which need a
-   * wall to be pasted onto; absent means the usual full-bleed black, which no
-   * tiling arrangement ever shows anyway. */
+  /** The ground the slices sit on. Absent means full-bleed black, which no
+   * arrangement should ever actually show — a tiling one covers the slide
+   * exactly, and a pasted one covers it by construction. */
   ground?: 'paper'
 }
 
@@ -172,53 +172,72 @@ export function featureRects(n: number): SliceRect[] {
  * The centre poster, square-ish and near-centred with a whisper of rotation.
  * Everything else is pasted around and behind it.
  */
-const WHEATPASTE_CENTRE: SliceRect = { x: 0.15, y: 0.16, w: 0.7, h: 0.68, rotate: -1.5 }
+export const WHEATPASTE_CENTRE_RECT: SliceRect = { x: 0.15, y: 0.16, w: 0.7, h: 0.68, rotate: -1.5 }
+
+/** How much the surround overhangs the slide on every side. The overhang is
+ * what sells the paste-up: sheets that stop at the edge read as a layout. */
+const WHEATPASTE_BLEED = 0.12
+
+/** How much bigger than its share of the wall each sheet is drawn. Above 1
+ * every neighbour overlaps, which is what closes the seams once the sheets are
+ * tilted and nudged out of true. */
+const WHEATPASTE_SPREAD = 1.34
+
+/** Per-sheet tilt and nudge, indexed by position and cycled.
+ *
+ * Fixed tables rather than random: an export has to be reproducible, and a
+ * carousel re-rendered tomorrow must not come back subtly rearranged. No two
+ * adjacent tilts share a value or a sign — a repeated angle reads as one
+ * transform applied to a group instead of sheets pasted up by hand. */
+const WHEATPASTE_TILT = [-6.5, 5.5, -4, 7, 2.5, -5.5, 4.5, -3.5]
+const WHEATPASTE_NUDGE_X = [0.022, -0.026, 0.014, -0.02, 0.03, -0.016, 0.024, -0.03]
+const WHEATPASTE_NUDGE_Y = [-0.02, 0.026, 0.03, -0.028, 0.016, -0.022, -0.014, 0.024]
+
+/** The centre poster plus eight sheets is as dense as the wall reads before
+ * the surround is more edge than poster. */
+export const WHEATPASTE_MAX = 9
 
 /**
- * Up to eight surrounding posters, in the order they get used.
+ * A flyposted wall: one poster in the middle, the rest pasted around and
+ * behind it, layered and slightly off-square.
  *
- * Every one of these deliberately breaks the rules the tiling arrangements
- * keep: each runs off an edge of the slide and each is overlapped by the
- * centre poster. That is what makes it read as paste-up rather than as a
- * layout — the eye completes the posters it can only partly see.
- *
- * Corners come first so a small count stays balanced (five posters shouldn't
- * all bunch along one side); the edge-centre slots fill in after. Rotations
- * are a few degrees either way and deliberately never equal, since a shared
- * angle reads as a transform applied to a group rather than as separate sheets
- * pasted by hand.
- */
-const WHEATPASTE_AROUND: SliceRect[] = [
-  // The four corners are each wide enough to reach past the middle, so any two
-  // adjacent ones overlap. Sized that way deliberately: at 0.46 they met only
-  // at the corners and left a symmetrical cross of bare wall showing at five
-  // posters, which read as four sheets carefully placed rather than as a wall
-  // that has been pasted over more than once.
-  { x: -0.1, y: -0.14, w: 0.6, h: 0.62, rotate: -6.5 },
-  { x: 0.52, y: 0.54, w: 0.62, h: 0.62, rotate: -4 },
-  { x: 0.5, y: -0.16, w: 0.62, h: 0.64, rotate: 5.5 },
-  { x: -0.12, y: 0.52, w: 0.6, h: 0.64, rotate: 7 },
-  // Edge midpoints, layered over the seams the corners leave behind.
-  { x: 0.24, y: -0.2, w: 0.52, h: 0.5, rotate: 2.5 },
-  { x: 0.26, y: 0.72, w: 0.52, h: 0.5, rotate: -3.5 },
-  { x: -0.2, y: 0.24, w: 0.48, h: 0.54, rotate: 4.5 },
-  { x: 0.72, y: 0.22, w: 0.48, h: 0.54, rotate: -5.5 },
-]
-
-/** How many posters a wheatpaste can hold: the centre plus its surround. */
-export const WHEATPASTE_MAX = WHEATPASTE_AROUND.length + 1
-
-/**
- * A flyposted wall: one poster in the middle, the rest peeking out from behind
- * its edges, layered and slightly off-square.
+ * The surround is derived from `gridRects`, not from a table of hand-placed
+ * slots. A grid covers the wall exactly once by construction; pushing it out
+ * past every edge by BLEED, inflating each cell by SPREAD, then tilting and
+ * nudging each sheet turns that guaranteed cover into a paste-up while keeping
+ * the guarantee — the wall is never visible through the gaps, at any count.
+ * Hand-placed slots could not promise that: an earlier eight-slot table left a
+ * cross of bare wall showing at five posters, because a fixed slot has no idea
+ * how many of its neighbours actually got used.
  *
  * Returned in PAINT order — surround first, centre last — so the centre lands
- * on top. The caller re-attaches gradient indices, and does it by paint
- * position, so the first pick has to be the centre: see wheatpasteSlide.
+ * on top. The caller re-attaches gradient indices by paint position, so the
+ * first pick has to be the centre: see wheatpasteSlide.
  */
 export function wheatpasteRects(n: number): SliceRect[] {
-  const around = WHEATPASTE_AROUND.slice(0, Math.max(0, Math.min(n - 1, WHEATPASTE_AROUND.length)))
-  return [...around, WHEATPASTE_CENTRE]
+  const around = Math.max(0, Math.min(n - 1, WHEATPASTE_MAX - 1))
+  if (around === 0) return [WHEATPASTE_CENTRE_RECT]
+
+  const span = 1 + WHEATPASTE_BLEED * 2
+
+  const sheets = gridRects(around).map((cell, i) => {
+    // The cell's share of the wall, in the bled-out coordinate space.
+    const w = cell.w * span * WHEATPASTE_SPREAD
+    const h = cell.h * span * WHEATPASTE_SPREAD
+    // Inflate about the cell's own centre so a sheet grows into its
+    // neighbours rather than sliding away from its position.
+    const cx = -WHEATPASTE_BLEED + (cell.x + cell.w / 2) * span
+    const cy = -WHEATPASTE_BLEED + (cell.y + cell.h / 2) * span
+    return {
+      x: cx - w / 2 + WHEATPASTE_NUDGE_X[i % WHEATPASTE_NUDGE_X.length],
+      y: cy - h / 2 + WHEATPASTE_NUDGE_Y[i % WHEATPASTE_NUDGE_Y.length],
+      w,
+      h,
+      rotate: WHEATPASTE_TILT[i % WHEATPASTE_TILT.length],
+    }
+  })
+
+  return [...sheets, WHEATPASTE_CENTRE_RECT]
 }
 
 const ARRANGEMENTS: Record<ArrangementId, (n: number) => SliceRect[]> = {
@@ -254,7 +273,6 @@ function wheatpasteSlide(n: number): CarouselSlide {
   return {
     kind: 'composite',
     overlap: true,
-    ground: 'paper',
     slices: rects.map((rect, i) => ({
       ...rect,
       // The final rect is the centre and belongs to pick 1; the rest follow in

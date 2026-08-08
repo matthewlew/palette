@@ -1,5 +1,4 @@
-.thumb,
-.thumbPaper {
+.thumb {
   position: relative;
   flex: none;
   width: 46px;
@@ -8,15 +7,7 @@
   /* Pasted slices hang off the edges by design; the thumbnail crops them the
      same way the exported slide does. */
   overflow: hidden;
-}
-
-.thumb {
   background: #0c0c10;
-}
-
-/* The wall a paste-up is pasted onto — the same warm paper the export uses. */
-.thumbPaper {
-  background: #f7f5f0;
 }
 
 /* Slices are positioned against this, not against the padded card, so the
@@ -33,12 +24,10 @@
   background-position: center;
 }
 
-/* A hairline paper edge, standing in for the border and drop shadow the
-   exported paste-up gets. Without it the sheets merge into one shape at this
-   size and the layering is invisible. */
+/* Shadow only, matching the export: sheets butt hard against each other with
+   no outline, and the shadow on the sheet BELOW is what shows the layering. */
 .pastedSlice {
-  border: 0.5px solid #f7f5f0;
-  box-shadow: 0 0.5px 1.5px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 1px 2.5px rgba(0, 0, 0, 0.6);
 }
 
 /* How many slides follow the cover, for templates that also emit singles. */

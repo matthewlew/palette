@@ -57,14 +57,17 @@ function roundRectPath(
   ctx.closePath()
 }
 
-/** Paper border and shadow for a pasted slide, in pixels; null when the slide
- * is a plain tiling arrangement and needs neither. */
-function pasteStyle(
-  slide: CarouselSlide,
-  unit: number
-): { border: number; shadow: number } | null {
+/** Drop shadow for a pasted sheet, in pixels; null when the slide is a plain
+ * tiling arrangement and needs none.
+ *
+ * A shadow and nothing else. Sheets used to also carry a paper border, which
+ * separated them at the cost of putting a white grid over the gradients — the
+ * one thing the slide is meant to show. The shadow alone still reads as
+ * layered, because it darkens the sheet BELOW rather than outlining the one
+ * above. */
+function pasteStyle(slide: CarouselSlide, unit: number): { shadow: number } | null {
   if (!slide.overlap) return null
-  return { border: unit * 0.012, shadow: unit * 0.028 }
+  return { shadow: unit * 0.03 }
 }
 
 /** Pixel rect for a fractional slice, after framing insets are applied. */
@@ -109,9 +112,9 @@ export function renderCompositeSlide(
   const ctx = canvas.getContext('2d')
   if (!ctx) return
 
-  // A pasted layout brings its own ground: the gaps between posters are the
-  // wall, so they have to be a surface rather than the void behind a tiling
-  // arrangement that never shows its background at all.
+  // A pasted layout covers the slide by construction (see wheatpasteRects), so
+  // its ground is only a backstop; black is the right one, since a sliver of
+  // white between sheets would be far louder than a sliver of black.
   const paper = framed || slide.ground === 'paper'
   ctx.fillStyle = paper ? VIGNETTE_PAPER : '#000000'
   ctx.fillRect(0, 0, width, height)
@@ -143,17 +146,15 @@ export function renderCompositeSlide(
     }
 
     if (paste) {
+      // Cast the shadow off an opaque rect the sheet's own size, then paint
+      // the gradient over it. Shadowing the drawImage directly would show
+      // through the sheet's own edges at this blur radius.
       ctx.save()
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.34)'
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.42)'
       ctx.shadowBlur = paste.shadow
-      ctx.shadowOffsetY = paste.shadow * 0.32
-      ctx.fillStyle = VIGNETTE_PAPER
-      ctx.fillRect(
-        box.x - paste.border,
-        box.y - paste.border,
-        box.w + paste.border * 2,
-        box.h + paste.border * 2
-      )
+      ctx.shadowOffsetY = paste.shadow * 0.3
+      ctx.fillStyle = '#000000'
+      ctx.fillRect(box.x, box.y, box.w, box.h)
       ctx.restore()
     }
 
