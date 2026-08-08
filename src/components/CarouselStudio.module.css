@@ -116,17 +116,17 @@
 
 .templateGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
   gap: 8px;
 }
 
 .templateCard,
 .templateCardActive {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
+  align-items: center;
+  gap: 10px;
   text-align: left;
-  padding: 11px 13px;
+  padding: 10px 12px;
   border-radius: var(--radius-md, 10px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.04);
@@ -149,6 +149,14 @@
   cursor: not-allowed;
 }
 
+/* The words beside the preview; the card itself is now a row. */
+.templateText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
 .templateLabel {
   font-size: 13px;
   font-weight: 600;
@@ -158,6 +166,12 @@
   font-size: 11px;
   line-height: 1.35;
   color: rgba(255, 255, 255, 0.55);
+}
+
+.templateLabel,
+.templateDesc {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .warn {

@@ -57,6 +57,16 @@ function roundRectPath(
   ctx.closePath()
 }
 
+/** Paper border and shadow for a pasted slide, in pixels; null when the slide
+ * is a plain tiling arrangement and needs neither. */
+function pasteStyle(
+  slide: CarouselSlide,
+  unit: number
+): { border: number; shadow: number } | null {
+  if (!slide.overlap) return null
+  return { border: unit * 0.012, shadow: unit * 0.028 }
+}
+
 /** Pixel rect for a fractional slice, after framing insets are applied. */
 function sliceBox(
   slice: SlicePlacement,
@@ -99,10 +109,18 @@ export function renderCompositeSlide(
   const ctx = canvas.getContext('2d')
   if (!ctx) return
 
-  ctx.fillStyle = framed ? VIGNETTE_PAPER : '#000000'
+  // A pasted layout brings its own ground: the gaps between posters are the
+  // wall, so they have to be a surface rather than the void behind a tiling
+  // arrangement that never shows its background at all.
+  const paper = framed || slide.ground === 'paper'
+  ctx.fillStyle = paper ? VIGNETTE_PAPER : '#000000'
   ctx.fillRect(0, 0, width, height)
 
-  const radius = framed ? Math.min(width, height) * 0.02 : 0
+  const unit = Math.min(width, height)
+  const radius = framed ? unit * 0.02 : 0
+  // Pasted sheets get a white border and a soft shadow, which is what makes
+  // the pile read as separate sheets rather than one flat collage.
+  const paste = pasteStyle(slide, unit)
 
   for (const slice of slide.slices) {
     const gradient = gradients[slice.index]
@@ -113,6 +131,32 @@ export function renderCompositeSlide(
     renderGradientToCanvas(source, gradient, Math.round(box.w), Math.round(box.h))
 
     ctx.save()
+
+    // Rotate about the slice's own centre, so a rotated poster stays where it
+    // was placed instead of swinging away from the origin.
+    if (slice.rotate) {
+      const cx = box.x + box.w / 2
+      const cy = box.y + box.h / 2
+      ctx.translate(cx, cy)
+      ctx.rotate((slice.rotate * Math.PI) / 180)
+      ctx.translate(-cx, -cy)
+    }
+
+    if (paste) {
+      ctx.save()
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.34)'
+      ctx.shadowBlur = paste.shadow
+      ctx.shadowOffsetY = paste.shadow * 0.32
+      ctx.fillStyle = VIGNETTE_PAPER
+      ctx.fillRect(
+        box.x - paste.border,
+        box.y - paste.border,
+        box.w + paste.border * 2,
+        box.h + paste.border * 2
+      )
+      ctx.restore()
+    }
+
     if (radius > 0) {
       roundRectPath(ctx, box.x, box.y, box.w, box.h, radius)
       ctx.clip()

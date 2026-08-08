@@ -4,11 +4,16 @@ import {
   bandRects,
   gridRects,
   heroRects,
+  featureRects,
+  wheatpasteRects,
+  arrange,
   buildCarousel,
   templatesForCount,
   getTemplate,
   CAROUSEL_TEMPLATES,
   MAX_SLIDES,
+  TILING_ARRANGEMENTS,
+  WHEATPASTE_MAX,
   type SliceRect,
 } from './carouselTemplates'
 
@@ -27,15 +32,11 @@ function overlaps(a: SliceRect, b: SliceRect): boolean {
   )
 }
 
-describe('arrangements', () => {
-  const ARRANGEMENTS = {
-    bars: barRects,
-    bands: bandRects,
-    grid: gridRects,
-    hero: heroRects,
-  }
-
-  for (const [name, fn] of Object.entries(ARRANGEMENTS)) {
+describe('tiling arrangements', () => {
+  // Driven off TILING_ARRANGEMENTS rather than a local list, so a new tiling
+  // arrangement is covered by these invariants the moment it is registered.
+  for (const name of TILING_ARRANGEMENTS) {
+    const fn = (n: number) => arrange(name, n)
     describe(name, () => {
       it('returns exactly one rect per gradient', () => {
         for (let n = 2; n <= 10; n++) {
@@ -64,6 +65,11 @@ describe('arrangements', () => {
           expect(rect.x + rect.w).toBeLessThanOrEqual(1 + 1e-9)
           expect(rect.y + rect.h).toBeLessThanOrEqual(1 + 1e-9)
         }
+      })
+
+      it('is square to the slide', () => {
+        // Rotation belongs to the pasted arrangements; a tilted bar is a bug.
+        for (const rect of fn(5)) expect(rect.rotate).toBeUndefined()
       })
     })
   }
@@ -108,6 +114,82 @@ describe('arrangements', () => {
 
   it('gives a single gradient the whole slide in hero', () => {
     expect(heroRects(1)).toEqual([{ x: 0, y: 0, w: 1, h: 1 }])
+    expect(featureRects(1)).toEqual([{ x: 0, y: 0, w: 1, h: 1 }])
+  })
+
+  it('gives the feature the top band and the rest a row beneath', () => {
+    const rects = featureRects(4)
+    expect(rects[0]).toEqual({ x: 0, y: 0, w: 1, h: 0.62 })
+    // The remaining three share one row, all starting at the split.
+    rects.slice(1).forEach((r) => {
+      expect(r.y).toBeCloseTo(0.62, 8)
+      expect(r.h).toBeCloseTo(0.38, 8)
+    })
+    expect(new Set(rects.slice(1).map((r) => r.x)).size).toBe(3)
+  })
+
+  it('lays hero and feature out as the same split on opposite axes', () => {
+    // Both are "one large, the rest small"; only the axis differs.
+    expect(heroRects(3)[0].h).toBe(1)
+    expect(featureRects(3)[0].w).toBe(1)
+  })
+})
+
+describe('wheatpaste', () => {
+  it('places the centre poster last so it paints on top', () => {
+    const rects = wheatpasteRects(5)
+    const centre = rects[rects.length - 1]
+    // Centred-ish and the largest thing on the wall.
+    expect(centre.x + centre.w / 2).toBeCloseTo(0.5, 1)
+    expect(centre.y + centre.h / 2).toBeCloseTo(0.5, 1)
+    for (const other of rects.slice(0, -1)) {
+      expect(other.w * other.h).toBeLessThan(centre.w * centre.h)
+    }
+  })
+
+  it('returns one rect per gradient', () => {
+    for (let n = 3; n <= WHEATPASTE_MAX; n++) {
+      expect(wheatpasteRects(n)).toHaveLength(n)
+    }
+  })
+
+  it('hangs every surrounding poster off an edge', () => {
+    // The peeking-out is the effect; a poster fully inside the frame would
+    // read as a badly aligned collage instead of a paste-up.
+    for (const rect of wheatpasteRects(WHEATPASTE_MAX).slice(0, -1)) {
+      const escapes = rect.x < 0 || rect.y < 0 || rect.x + rect.w > 1 || rect.y + rect.h > 1
+      expect(escapes).toBe(true)
+    }
+  })
+
+  it('tilts every poster, and never by the same angle twice', () => {
+    const rotations = wheatpasteRects(WHEATPASTE_MAX).map((r) => r.rotate)
+    for (const rotation of rotations) {
+      expect(rotation).toBeTypeOf('number')
+      expect(Math.abs(rotation as number)).toBeGreaterThan(0)
+      // Small enough to read as hand-pasted rather than as a scattered deck.
+      expect(Math.abs(rotation as number)).toBeLessThan(10)
+    }
+    expect(new Set(rotations).size).toBe(rotations.length)
+  })
+
+  it('gives the first pick the centre poster', () => {
+    const [slide] = buildCarousel('wheatpaste', 6, { captionTile: false })
+    // Paint order puts the centre last; pick order puts it first. Both are
+    // true at once, and that is the point.
+    expect(slide.slices[slide.slices.length - 1].index).toBe(0)
+    expect(slide.slices.map((s) => s.index).sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5])
+  })
+
+  it('marks the slide as overlapping, on paper', () => {
+    const [slide] = buildCarousel('wheatpaste', 5, { captionTile: false })
+    expect(slide.overlap).toBe(true)
+    expect(slide.ground).toBe('paper')
+  })
+
+  it('tops out at the number of pasting slots it has', () => {
+    expect(getTemplate('wheatpaste')!.maxCount).toBe(WHEATPASTE_MAX)
+    expect(buildCarousel('wheatpaste', WHEATPASTE_MAX + 1)).toEqual([])
   })
 })
 
@@ -160,10 +242,19 @@ describe('templatesForCount', () => {
     }
   })
 
-  it('offers grid at 4 and 9 but not at 5', () => {
-    expect(templatesForCount(4).map((t) => t.id)).toContain('grid')
-    expect(templatesForCount(9).map((t) => t.id)).toContain('grid')
-    expect(templatesForCount(5).map((t) => t.id)).not.toContain('grid')
+  it('offers grid at every count it can hold, ragged rows included', () => {
+    // The live preview in the picker means a ragged last row no longer has to
+    // be hidden from the user — they can see it and decide.
+    for (const n of [4, 5, 7, 9]) {
+      expect(templatesForCount(n).map((t) => t.id)).toContain('grid')
+    }
+  })
+
+  it('offers every layout at nine picks', () => {
+    const ids = templatesForCount(9).map((t) => t.id)
+    for (const id of ['bars', 'bands', 'grid', 'hero', 'feature', 'wheatpaste']) {
+      expect(ids).toContain(id)
+    }
   })
 
   it('never offers a carousel that would exceed Instagram’s slide limit', () => {

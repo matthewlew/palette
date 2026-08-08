@@ -20,7 +20,8 @@ A premium, interactive aesthetic gradient playground and generator built with Re
   * **SwatchTray:** Interactive 36-color swatch drawer for tap-to-add/remove and drag-to-insert actions.
   * **Live Reordering:** Instant visual reindexing and gap rendering during drag-reorder events.
 * **Multi-Select & Carousel Studio:** `Select` in the Gallery header turns tiles into an ordered, Photos-style multi-select — numbered badges, a `n selected` action bar with Carousel / Download / Delete, and one-event undo for bulk deletes. Selected gradients compose into an Instagram carousel:
-  * Templates that suit the count you have — vertical stack, horizontal bands, 2×2/3×3 grid, hero + rail, one-per-slide, or a composite cover followed by singles.
+  * Nine templates, each with a **live preview** drawn from the same slice maths the exporter uses: vertical stack, horizontal bands, grid, hero + rail, feature + row (1+2, 1+3, …), wheatpaste, one-per-slide, and composite-cover-then-singles variants.
+  * **Wheatpaste** is a flyposted wall — one poster centred with up to eight more pasted behind its edges, each tilted a few degrees, layered with paper borders and drop shadows.
   * 4:5, 1:1 and 9:16 slides, optionally framed on paper with rounded insets.
   * A generated closing text tile with names and hex codes, plus a matching copy-paste caption.
   * Exports as a zip of numbered PNGs (slide order = pick order) with `caption.txt` alongside.

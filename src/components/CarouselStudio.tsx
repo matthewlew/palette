@@ -12,6 +12,7 @@ import { buildCaption, captionParts, CAPTION_MAX } from '../lib/carouselCaption'
 import { renderSlide, SLIDE_SIZES, type SlideRatio } from '../lib/carouselRender'
 import { downloadCarouselZip } from '../lib/carouselExport'
 import { CarouselTray } from './CarouselTray'
+import { TemplateThumb } from './TemplateThumb'
 import styles from './CarouselStudio.module.css'
 
 interface CarouselStudioProps {
@@ -161,6 +162,11 @@ export function CarouselStudio({ onClose }: CarouselStudioProps) {
               <div className={styles.templateGrid}>
                 {CAROUSEL_TEMPLATES.map((template) => {
                   const enabled = available.some((t) => t.id === template.id)
+                  // Preview at this template's own nearest workable count, so a
+                  // card you can't pick yet still shows what it would do rather
+                  // than nothing at all.
+                  const previewCount = Math.min(Math.max(count, template.minCount), template.maxCount)
+                  const templateSlides = template.build(previewCount)
                   return (
                     <button
                       key={template.id}
@@ -176,8 +182,17 @@ export function CarouselStudio({ onClose }: CarouselStudioProps) {
                           : `Needs ${template.minCount}–${template.maxCount} picks`
                       }
                     >
-                      <span className={styles.templateLabel}>{template.label}</span>
-                      <span className={styles.templateDesc}>{template.description}</span>
+                      {templateSlides.length > 0 && (
+                        <TemplateThumb
+                          slide={templateSlides[0]}
+                          gradients={gradients}
+                          extraSlides={templateSlides.length - 1}
+                        />
+                      )}
+                      <span className={styles.templateText}>
+                        <span className={styles.templateLabel}>{template.label}</span>
+                        <span className={styles.templateDesc}>{template.description}</span>
+                      </span>
                     </button>
                   )
                 })}
