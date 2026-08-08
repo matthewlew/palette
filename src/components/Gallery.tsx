@@ -835,61 +835,23 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   // stay "open this palette".
   const [pickMode, setPickMode] = useState(false)
   const [studioOpen, setStudioOpen] = useState(false)
-  const [downloadingPicks, setDownloadingPicks] = useState(false)
   const carouselPicks = useAppStore((s) => s.carouselPicks)
   const toggleCarouselPick = useAppStore((s) => s.toggleCarouselPick)
   const reorderCarouselPick = useAppStore((s) => s.reorderCarouselPick)
   const clearCarouselPicks = useAppStore((s) => s.clearCarouselPicks)
-  const removeSavedGradientsByIds = useAppStore((s) => s.removeSavedGradientsByIds)
 
   // Picks outlive pick mode, so the bar is shown whenever there is a selection
   // — otherwise leaving pick mode would strand a half-built carousel with no
   // way back to it.
   const selectionVisible = activeTab === 'saves' && carouselPicks.length > 0
 
-  /** Zip of 1080×1350 post PNGs for the selection — the same export the
-   * board-level "Export Posts" does, scoped to what you picked. */
-  async function handleDownloadPicks() {
-    if (downloadingPicks) return
-    const chosen = pickedCarouselGradients(saved, carouselPicks)
-    if (chosen.length === 0) return
-    setDownloadingPicks(true)
-    try {
-      const zip = new JSZip()
-      for (const gradient of chosen) {
-        const canvas = document.createElement('canvas')
-        await renderVignetteToCanvas(canvas, gradient, 1080, 1350, 'post')
-        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
-        if (blob) {
-          const slug = (gradient.name ?? 'gradient').toLowerCase().replace(/\s+/g, '-')
-          zip.file(`${slug}-post.png`, blob)
-        }
-      }
-      const zipBlob = await zip.generateAsync({ type: 'blob' })
-      const url = URL.createObjectURL(zipBlob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'palettes-selected.zip'
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      setTimeout(() => URL.revokeObjectURL(url), 1000)
-    } catch (e) {
-      console.error('Selection download failed', e)
-    } finally {
-      setDownloadingPicks(false)
-    }
-  }
-
-  /** Bulk delete lands as one undoable event, so the existing Undo toast
-   * covers the whole selection rather than the last item of it. */
-  function handleDeletePicks() {
-    if (carouselPicks.length === 0) return
-    removeSavedGradientsByIds(carouselPicks)
-    setPickMode(false)
-  }
-
-  function handleDoneSelecting() {
+  /** Leaves the whole selection: empties the deck and drops out of pick mode.
+   *
+   * One action for both because they are one intention. Separate "clear picks"
+   * and "stop selecting" buttons let you end up in pick mode with nothing
+   * picked, or with a deck you can no longer add to, neither of which is a
+   * state anyone asks for. */
+  function handleClearSelection() {
     clearCarouselPicks()
     setPickMode(false)
   }
@@ -1509,15 +1471,22 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
       {selectionVisible && !studioOpen && (
         <CarouselDock
           gradients={pickedCarouselGradients(saved, carouselPicks)}
-          downloading={downloadingPicks}
-          onCarousel={() => setStudioOpen(true)}
-          onDownload={handleDownloadPicks}
-          onDelete={handleDeletePicks}
-          onDone={handleDoneSelecting}
+          onNext={() => setStudioOpen(true)}
+          onClear={handleClearSelection}
         />
       )}
 
-      {studioOpen && <CarouselStudio onClose={() => setStudioOpen(false)} />}
+      {studioOpen && (
+        <CarouselStudio
+          onClose={() => setStudioOpen(false)}
+          onAddMore={() => {
+            // Back to the grid with picking still armed — the studio's "+" is a
+            // detour to collect more, not an exit from the carousel.
+            setStudioOpen(false)
+            setPickMode(true)
+          }}
+        />
+      )}
     </div>
   )
 }

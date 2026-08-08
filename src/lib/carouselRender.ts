@@ -57,19 +57,6 @@ function roundRectPath(
   ctx.closePath()
 }
 
-/** Drop shadow for a pasted sheet, in pixels; null when the slide is a plain
- * tiling arrangement and needs none.
- *
- * A shadow and nothing else. Sheets used to also carry a paper border, which
- * separated them at the cost of putting a white grid over the gradients — the
- * one thing the slide is meant to show. The shadow alone still reads as
- * layered, because it darkens the sheet BELOW rather than outlining the one
- * above. */
-function pasteStyle(slide: CarouselSlide, unit: number): { shadow: number } | null {
-  if (!slide.overlap) return null
-  return { shadow: unit * 0.03 }
-}
-
 /** Pixel rect for a fractional slice, after framing insets are applied. */
 function sliceBox(
   slice: SlicePlacement,
@@ -121,9 +108,13 @@ export function renderCompositeSlide(
 
   const unit = Math.min(width, height)
   const radius = framed ? unit * 0.02 : 0
-  // Pasted sheets get a white border and a soft shadow, which is what makes
-  // the pile read as separate sheets rather than one flat collage.
-  const paste = pasteStyle(slide, unit)
+
+  // Pasted sheets carry no shadow and no border — nothing but the gradient and
+  // where its edge falls. Both were attempts to make the pile read as separate
+  // sheets, and both did it by putting something that is not colour on top of
+  // the colour: the border a white grid, the shadow a grey smear along every
+  // seam. The tilt and the overlap already say "sheets"; a hard edge between
+  // two gradients is the whole effect.
 
   for (const slice of slide.slices) {
     const gradient = gradients[slice.index]
@@ -143,19 +134,6 @@ export function renderCompositeSlide(
       ctx.translate(cx, cy)
       ctx.rotate((slice.rotate * Math.PI) / 180)
       ctx.translate(-cx, -cy)
-    }
-
-    if (paste) {
-      // Cast the shadow off an opaque rect the sheet's own size, then paint
-      // the gradient over it. Shadowing the drawImage directly would show
-      // through the sheet's own edges at this blur radius.
-      ctx.save()
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.42)'
-      ctx.shadowBlur = paste.shadow
-      ctx.shadowOffsetY = paste.shadow * 0.3
-      ctx.fillStyle = '#000000'
-      ctx.fillRect(box.x, box.y, box.w, box.h)
-      ctx.restore()
     }
 
     if (radius > 0) {
@@ -189,9 +167,16 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number)
 }
 
 /**
- * The closing text tile: title, then one numbered row per gradient carrying
- * its colour chips and hex codes. This is the slide people screenshot, so the
- * hexes are the content and the type is deliberately plain.
+ * The colophon: title, then one numbered row per gradient carrying a thumbnail
+ * of the gradient itself, its colour chips and its hex codes. This is the slide
+ * people screenshot, so the hexes are the content and the type is deliberately
+ * plain.
+ *
+ * The thumbnail matters more than it looks. Without it the tile is a list of
+ * hex codes, and a hex code is not a colour anyone can see — worse, this slide
+ * arrives after several slides of actual gradients, so a reader has to hold
+ * "slide 3" in their head to know what row 3 refers to. The thumbnail closes
+ * that gap: the row shows the thing it is describing.
  *
  * Rows that would overflow the tile are dropped and replaced by a "+N more"
  * line rather than being drawn off the bottom edge.
@@ -201,7 +186,10 @@ export function renderCaptionSlide(
   parts: CaptionParts,
   width: number,
   height: number,
-  style: SlideStyle = {}
+  style: SlideStyle = {},
+  /** Indexed by pick order, so row N shows the gradient from slide N. A row
+   * with no gradient falls back to chips alone rather than a hole. */
+  gradients: Gradient[] = []
 ) {
   const { grain = true } = style
   canvas.width = width
@@ -253,6 +241,12 @@ export function renderCaptionSlide(
     Math.max(naturalRow, available / Math.max(1, parts.entries.length))
   )
 
+  // The thumbnail column, sized off the natural row so it stays proportional
+  // when the rows spread out to fill a sparse tile.
+  const thumbH = naturalRow * 0.88
+  const thumbW = thumbH * 0.8
+  const textX = margin + thumbW + unit * 0.028
+
   let drawn = 0
   for (const entry of parts.entries) {
     // Reserve a row's worth of space for the "+N more" line if this isn't the
@@ -261,15 +255,30 @@ export function renderCaptionSlide(
     const needed = isLast ? rowHeight : rowHeight * 2
     if (y + needed > bottomLimit) break
 
+    // The gradient itself, so the row shows what it is describing. Top-aligned
+    // to the name's cap height rather than its baseline, so the thumb and the
+    // type start on the same line.
+    const gradient = gradients[entry.position - 1]
+    if (gradient) {
+      const thumbTop = y - nameSize * 0.78
+      const source = document.createElement('canvas')
+      renderGradientToCanvas(source, gradient, Math.round(thumbW), Math.round(thumbH))
+      ctx.save()
+      roundRectPath(ctx, margin, thumbTop, thumbW, thumbH, thumbW * 0.14)
+      ctx.clip()
+      ctx.drawImage(source, margin, thumbTop, thumbW, thumbH)
+      ctx.restore()
+    }
+
     ctx.fillStyle = POSTER_INK
     ctx.font = `500 ${nameSize}px system-ui, 'Segoe UI', Roboto, sans-serif`
-    ctx.fillText(`${entry.position}. ${entry.name}`, margin, y)
+    ctx.fillText(`${entry.position}. ${entry.name}`, textX, y)
 
-    // Colour chips, then the hex codes beneath them.
+    // Colour chips, then the hex codes beside them.
     const chipY = y + nameSize * 0.35
     entry.hexes.forEach((hex, i) => {
       ctx.fillStyle = hex
-      roundRectPath(ctx, margin + i * (chip * 1.28), chipY, chip, chip, chip * 0.24)
+      roundRectPath(ctx, textX + i * (chip * 1.28), chipY, chip, chip, chip * 0.24)
       ctx.fill()
     })
 
@@ -277,7 +286,7 @@ export function renderCaptionSlide(
     ctx.font = `400 ${hexSize}px ui-monospace, SFMono-Regular, Menlo, monospace`
     const hexLine = entry.hexes.join('  ')
     const chipsWidth = entry.hexes.length * (chip * 1.28)
-    ctx.fillText(hexLine, margin + chipsWidth + unit * 0.02, chipY + chip * 0.72)
+    ctx.fillText(hexLine, textX + chipsWidth + unit * 0.02, chipY + chip * 0.72)
 
     y += rowHeight
     drawn++
@@ -304,7 +313,7 @@ export function renderSlide(
   style: SlideStyle = {}
 ) {
   if (slide.kind === 'caption') {
-    renderCaptionSlide(canvas, parts, width, height, style)
+    renderCaptionSlide(canvas, parts, width, height, style, gradients)
   } else {
     renderCompositeSlide(canvas, slide, gradients, width, height, style)
   }

@@ -2,25 +2,25 @@
   position: relative;
   display: block;
   align-self: center;
-  height: 74px;
+  height: 136px;
   margin: 0 auto;
   padding: 0;
   border: 0;
   background: none;
   cursor: pointer;
+  flex: none;
   /* Cards are absolutely positioned around the centre of the button, so the
      inline width from the fan maths is what reserves their space. */
-  flex: none;
 }
 
 .card {
   position: absolute;
-  top: 4px;
+  top: 8px;
   left: 50%;
-  width: 46px;
-  height: 58px;
-  margin-left: -23px;
-  border-radius: 5px;
+  width: 94px;
+  height: 118px;
+  margin-left: -47px;
+  border-radius: 9px;
   overflow: hidden;
   background-color: #26262c;
   background-size: cover;
@@ -28,27 +28,55 @@
   isolation: isolate;
   /* A thin dark lip so adjacent cards separate against each other; without it
      two similar gradients fuse into one shape. */
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 3px 10px rgba(0, 0, 0, 0.45);
+  /* Snappy enough to track a finger, damped enough not to jitter. */
+  transition: transform 130ms cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 
-/* The hand lifts a little when you reach for it. Applied to the deck, not the
-   cards: each card's transform is an inline style carrying its place in the
-   fan, and an inline transform beats anything a stylesheet can say. */
-.deck {
-  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.3, 1);
+.index {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
-.deck:hover,
-.deck:focus-visible {
-  transform: translateY(-3px) scale(1.04);
+/* Only readable on the card the riffle has opened out; on the ones still in the
+   pile it's covered by the neighbour, which is the correct amount of noise. */
+.cardName {
+  position: absolute;
+  inset: auto 0 0 0;
+  z-index: 2;
+  padding: 12px 6px 5px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.62), transparent);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 9px;
+  line-height: 1.2;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .more {
   position: absolute;
-  right: -6px;
-  bottom: 0;
+  right: -8px;
+  bottom: 4px;
   z-index: 20;
-  padding: 1px 6px;
+  padding: 2px 7px;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(4px);
@@ -60,12 +88,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .deck {
+  .card {
     transition: none;
-  }
-
-  .deck:hover,
-  .deck:focus-visible {
-    transform: none;
   }
 }

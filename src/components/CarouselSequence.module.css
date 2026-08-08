@@ -1,25 +1,41 @@
-/* Wraps rather than scrolls, so the whole sequence is comparable at a glance.
-   auto-fill keeps the tiles a readable size and lets the column count follow
-   the container — 3 across on a phone, 6 on the desktop modal. */
-.grid {
+/* Wraps rather than scrolls, so the whole carousel is comparable at a glance.
+   auto-fill keeps the slides a readable size and lets the column count follow
+   the container — 3 across on a phone, 6 on a wide screen. */
+.sequence {
   list-style: none;
   margin: 0;
   padding: 2px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
-  gap: 10px 8px;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 14px 10px;
+  align-items: start;
 }
 
 .item {
   border-radius: 8px;
   outline-offset: 3px;
-  cursor: grab;
-  /* Nothing here is text, and a long-press that selects the tile instead of
+  /* Nothing here is text, and a long-press that selects the slide instead of
      lifting it is the gesture failing in the most confusing way possible. */
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
   transition: transform 140ms ease, opacity 140ms ease;
+}
+
+.itemBody {
+  cursor: grab;
+}
+
+/* The bookends are shown in place but can't be dragged — a cover made of every
+   pick has no position of its own, and a summary that isn't last isn't one. */
+.itemFixed {
+  cursor: default;
+}
+
+.itemFixed .frame {
+  /* Set apart from the draggable slides without a label having to say so. */
+  opacity: 0.9;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16);
 }
 
 /* The lifted slide. Scaled up and dimmed rather than removed from the flow:
@@ -34,27 +50,26 @@
 /* The gap the dragged slide will land in. A left edge rather than a full
    outline: the drop inserts BEFORE this slide, and an edge says where far
    better than a box around the whole thumbnail does. */
-.itemOver .thumb {
+.itemOver .frame {
   box-shadow: inset 3px 0 0 0 #fff;
 }
 
-.thumb {
+.frame {
   position: relative;
   width: 100%;
-  aspect-ratio: 4 / 5;
   border-radius: 8px;
   overflow: hidden;
-  background-color: #26262c;
-  background-size: cover;
-  background-position: center;
+  background-color: #1a1a20;
   isolation: isolate;
-  /* The whole tile is a drag target; children must not eat the pointer or
+  /* The whole slide is a drag target; children must not eat the pointer or
      elementFromPoint would report them and the hit test would miss. */
   pointer-events: none;
 }
 
-.remove {
-  pointer-events: auto;
+.canvas {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .number {
@@ -94,12 +109,13 @@
   font-size: 9px;
   line-height: 1;
   cursor: pointer;
+  pointer-events: auto;
   opacity: 0;
   transition: opacity 140ms ease;
 }
 
-/* Out of the way until hovered or focused — at 74px wide it would otherwise
-   cover the gradient it belongs to. */
+/* Out of the way until hovered or focused — it would otherwise cover the
+   gradient it belongs to. */
 .item:hover .remove,
 .item:focus-visible .remove,
 .item:focus-within .remove {
@@ -115,7 +131,7 @@
 
 .caption {
   display: block;
-  margin-top: 4px;
+  margin-top: 5px;
   text-align: center;
   font-size: 9px;
   line-height: 1.3;
@@ -129,7 +145,7 @@
   color: rgba(255, 255, 255, 0.45);
 }
 
-.role {
+.badge {
   display: inline-block;
   padding: 1px 5px;
   border-radius: 999px;
@@ -140,9 +156,51 @@
   text-transform: uppercase;
 }
 
+/* ---- Add ---- */
+
+.addItem {
+  align-self: stretch;
+}
+
+.add {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  /* Matches a portrait slide's height closely enough to sit in the row rather
+     than under it, at any ratio. */
+  min-height: 88px;
+  aspect-ratio: 4 / 5;
+  border-radius: 8px;
+  border: 1px dashed rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+
+.add:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #fff;
+}
+
+.plus {
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 300;
+}
+
+.addLabel {
+  font-size: 10px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .item,
-  .remove {
+  .remove,
+  .add {
     transition: none;
   }
 

@@ -8,9 +8,11 @@ import {
   wheatpasteRects,
   arrange,
   buildCarousel,
-  templatesForCount,
-  getTemplate,
-  CAROUSEL_TEMPLATES,
+  bodySlides,
+  coverStylesForCount,
+  getCoverStyle,
+  maxPicksFor,
+  COVER_STYLES,
   MAX_SLIDES,
   TILING_ARRANGEMENTS,
   WHEATPASTE_MAX,
@@ -212,7 +214,7 @@ describe('wheatpaste', () => {
   })
 
   it('gives the first pick the centre poster', () => {
-    const [slide] = buildCarousel('wheatpaste', 6, { captionTile: false })
+    const slide = getCoverStyle('wheatpaste')!.build(6)
     // Paint order puts the centre last; pick order puts it first. Both are
     // true at once, and that is the point.
     expect(slide.slices[slide.slices.length - 1].index).toBe(0)
@@ -220,7 +222,7 @@ describe('wheatpaste', () => {
   })
 
   it('marks the slide as overlapping, and declares no paper ground', () => {
-    const [slide] = buildCarousel('wheatpaste', 5, { captionTile: false })
+    const slide = getCoverStyle('wheatpaste')!.build(5)
     expect(slide.overlap).toBe(true)
     // The sheets cover the slide themselves, so there is no wall to paint —
     // and a sliver of white between sheets would be louder than one of black.
@@ -228,56 +230,90 @@ describe('wheatpaste', () => {
   })
 
   it('tops out at the number of pasting slots it has', () => {
-    expect(getTemplate('wheatpaste')!.maxCount).toBe(WHEATPASTE_MAX)
-    expect(buildCarousel('wheatpaste', WHEATPASTE_MAX + 1)).toEqual([])
+    expect(getCoverStyle('wheatpaste')!.maxCount).toBe(WHEATPASTE_MAX)
+    // Past its ceiling the cover is dropped, not forced — the picks are the
+    // carousel, and losing them all to a bookend would be the wrong trade.
+    const slides = buildCarousel(WHEATPASTE_MAX + 1, { cover: 'wheatpaste', summary: false })
+    expect(slides.every((s) => s.role === 'body')).toBe(true)
   })
 })
 
 describe('buildCarousel', () => {
-  it('appends the caption tile as the final slide by default', () => {
-    const slides = buildCarousel('bars', 5)
-    expect(slides).toHaveLength(2)
-    expect(slides[0].kind).toBe('composite')
-    expect(slides[1].kind).toBe('caption')
-    expect(slides[1].slices).toEqual([])
+  it('is one slide per pick, with a summary tile closing it by default', () => {
+    const slides = buildCarousel(4)
+    expect(slides.map((s) => s.role)).toEqual(['body', 'body', 'body', 'body', 'summary'])
+    expect(slides[4].kind).toBe('caption')
+    expect(slides[4].slices).toEqual([])
   })
 
-  it('omits the caption tile when turned off', () => {
-    const slides = buildCarousel('bars', 5, { captionTile: false })
-    expect(slides).toHaveLength(1)
-    expect(slides.every((s) => s.kind === 'composite')).toBe(true)
-  })
-
-  it('numbers slices by pick order', () => {
-    const [slide] = buildCarousel('bars', 4, { captionTile: false })
-    expect(slide.slices.map((s) => s.index)).toEqual([0, 1, 2, 3])
-  })
-
-  it('emits one full-bleed slide per gradient for singles', () => {
-    const slides = buildCarousel('singles', 4, { captionTile: false })
+  it('omits the summary tile when turned off', () => {
+    const slides = buildCarousel(4, { summary: false })
     expect(slides).toHaveLength(4)
-    // Each slide is full-bleed and names one gradient, in pick order.
+    expect(slides.every((s) => s.role === 'body')).toBe(true)
+  })
+
+  it('opens with a cover composed of every pick when asked', () => {
+    const slides = buildCarousel(4, { cover: 'grid', summary: false })
+    expect(slides.map((s) => s.role)).toEqual(['cover', 'body', 'body', 'body', 'body'])
+    // The cover holds all four; the body still shows them one at a time.
+    expect(slides[0].slices.map((s) => s.index)).toEqual([0, 1, 2, 3])
+  })
+
+  it('numbers body slices by pick order', () => {
+    const slides = buildCarousel(4, { summary: false })
     slides.forEach((slide, i) => {
       expect(slide.slices).toEqual([{ x: 0, y: 0, w: 1, h: 1, index: i }])
     })
   })
 
-  it('returns nothing for a count the template cannot hold', () => {
-    // Grid tops out at 9; asking for 12 must not produce a broken carousel.
-    expect(buildCarousel('grid', 12)).toEqual([])
-    expect(buildCarousel('bars', 1)).toEqual([])
+  it('drops a cover the count has outgrown rather than emitting nothing', () => {
+    // Grid tops out at 9. The picks are the carousel; the bookend is not.
+    const slides = buildCarousel(12, { cover: 'grid', summary: false })
+    expect(slides).toHaveLength(12)
+    expect(slides.every((s) => s.role === 'body')).toBe(true)
   })
 
-  it('returns nothing for an unknown template', () => {
-    expect(buildCarousel('nope', 4)).toEqual([])
+  it('drops a cover the count is too small for', () => {
+    // Grid needs three; two picks get the body alone, not a broken mosaic.
+    const slides = buildCarousel(2, { cover: 'grid', summary: false })
+    expect(slides.every((s) => s.role === 'body')).toBe(true)
+  })
+
+  it('returns nothing when nothing is picked', () => {
+    expect(buildCarousel(0)).toEqual([])
+    expect(buildCarousel(0, { cover: 'stack', summary: true })).toEqual([])
+  })
+
+  it('never exceeds Instagram’s slide limit, whatever the bookends', () => {
+    for (const cover of [null, 'stack', 'grid', 'wheatpaste'] as const) {
+      for (const summary of [true, false]) {
+        expect(buildCarousel(40, { cover, summary }).length).toBeLessThanOrEqual(MAX_SLIDES)
+      }
+    }
+  })
+
+  it('spends the slide budget on bookends before picks', () => {
+    // Turning both on costs two picks, and the ceiling is Instagram's, not
+    // ours — so the studio can warn instead of silently truncating.
+    expect(maxPicksFor({})).toBe(MAX_SLIDES - 1)
+    expect(maxPicksFor({ cover: 'stack', summary: true })).toBe(MAX_SLIDES - 2)
+    expect(maxPicksFor({ cover: null, summary: false })).toBe(MAX_SLIDES)
   })
 })
 
-describe('templatesForCount', () => {
-  it('offers only templates that fit the count', () => {
-    for (const template of templatesForCount(5)) {
-      expect(5).toBeGreaterThanOrEqual(template.minCount)
-      expect(5).toBeLessThanOrEqual(template.maxCount)
+describe('bodySlides', () => {
+  it('gives every pick a full-bleed slide of its own', () => {
+    const slides = bodySlides(3)
+    expect(slides).toHaveLength(3)
+    expect(slides.every((s) => s.role === 'body' && s.kind === 'composite')).toBe(true)
+  })
+})
+
+describe('coverStylesForCount', () => {
+  it('offers only styles that fit the count', () => {
+    for (const style of coverStylesForCount(5)) {
+      expect(5).toBeGreaterThanOrEqual(style.minCount)
+      expect(5).toBeLessThanOrEqual(style.maxCount)
     }
   })
 
@@ -285,55 +321,18 @@ describe('templatesForCount', () => {
     // The live preview in the picker means a ragged last row no longer has to
     // be hidden from the user — they can see it and decide.
     for (const n of [4, 5, 7, 9]) {
-      expect(templatesForCount(n).map((t) => t.id)).toContain('grid')
+      expect(coverStylesForCount(n).map((s) => s.id)).toContain('grid')
     }
   })
 
-  it('offers every layout at nine picks', () => {
-    const ids = templatesForCount(9).map((t) => t.id)
-    for (const id of ['singles', 'bars', 'grid', 'wheatpaste']) {
+  it('offers every style at nine picks', () => {
+    const ids = coverStylesForCount(9).map((s) => s.id)
+    for (const id of COVER_STYLES.map((s) => s.id)) {
       expect(ids).toContain(id)
     }
   })
 
-  it('always offers singles, so no count is ever a dead end', () => {
-    // Every other template has a floor or a ceiling. Singles is the one that
-    // holds any workable count, which is why the picker can fall back to it.
-    for (let n = 1; n <= 12; n++) {
-      expect(templatesForCount(n).map((t) => t.id)).toContain('singles')
-    }
-  })
-
-  it('never offers a carousel that would exceed Instagram’s slide limit', () => {
-    for (let n = 1; n <= 12; n++) {
-      for (const template of templatesForCount(n)) {
-        expect(buildCarousel(template.id, n).length).toBeLessThanOrEqual(MAX_SLIDES)
-      }
-    }
-  })
-
-  it('always has something to offer between 2 and 9 picks', () => {
-    for (let n = 2; n <= 9; n++) {
-      expect(templatesForCount(n).length).toBeGreaterThan(0)
-    }
-  })
-})
-
-describe('template registry', () => {
-  it('has unique ids that all resolve', () => {
-    const ids = CAROUSEL_TEMPLATES.map((t) => t.id)
-    expect(new Set(ids).size).toBe(ids.length)
-    for (const id of ids) expect(getTemplate(id)).toBeDefined()
-  })
-
-  it('places every gradient on some slide, at every supported count', () => {
-    for (const template of CAROUSEL_TEMPLATES) {
-      for (let n = template.minCount; n <= template.maxCount; n++) {
-        const slides = template.build(n)
-        const placed = new Set(slides.flatMap((s) => s.slices.map((slice) => slice.index)))
-        // A gradient the user picked and never sees exported is a silent drop.
-        expect(placed.size).toBe(n)
-      }
-    }
+  it('offers nothing at one pick, since there is nothing to compose', () => {
+    expect(coverStylesForCount(1)).toEqual([])
   })
 })

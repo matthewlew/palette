@@ -14,7 +14,6 @@ import { captionParts, buildCaption, type CaptionOptions } from './carouselCapti
 import { renderSlide, SLIDE_SIZES, type SlideRatio, type SlideStyle } from './carouselRender'
 
 export interface CarouselSpec {
-  templateId: string
   gradients: Gradient[]
   ratio: SlideRatio
   style?: SlideStyle
@@ -57,7 +56,7 @@ export async function renderCarouselSlides(
   spec: CarouselSpec,
   onProgress?: (done: number, total: number) => void
 ): Promise<RenderedSlide[]> {
-  const slides = buildCarousel(spec.templateId, spec.gradients.length, spec.carousel)
+  const slides = buildCarousel(spec.gradients.length, spec.carousel)
   if (slides.length === 0) return []
 
   const { width, height } = SLIDE_SIZES[spec.ratio]

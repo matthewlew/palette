@@ -20,13 +20,13 @@ A premium, interactive aesthetic gradient playground and generator built with Re
   * **SwatchTray:** Interactive 36-color swatch drawer for tap-to-add/remove and drag-to-insert actions.
   * **Live Reordering:** Instant visual reindexing and gap rendering during drag-reorder events.
 * **Multi-Select & Carousel Studio:** `Select` in the Gallery header turns tiles into an ordered, Photos-style multi-select — numbered badges, a `n selected` action bar with Carousel / Download / Delete, and one-event undo for bulk deletes. Selected gradients compose into an Instagram carousel:
-  * Four templates, each with a **live preview** drawn from the same slice maths the exporter uses: one-per-slide, vertical stack, grid, and wheatpaste.
-  * **Wheatpaste** is a flyposted wall — one poster centred with up to eight more pasted behind its edges, each tilted a few degrees. Hard edges throughout, and the surround is derived from a grid so it provably covers the slide at every count.
+  * The carousel is one slide per pick, with two optional bookends: **Add cover slide** (Stack, Grid or Wheatpaste, each with a live preview drawn from the same slice maths the exporter uses) and **Add summary slide** — a colophon carrying a thumbnail, name and hex codes for every gradient, plus a matching copy-paste caption.
+  * **Wheatpaste** is a flyposted wall — one poster centred with up to eight more pasted behind its edges, each tilted a few degrees. Hard edges throughout, no borders or shadows, and the surround is derived from a grid so it provably covers the slide at every count.
   * 4:5, 1:1 and 9:16 slides, optionally framed on paper with rounded insets.
-  * A generated closing text tile with names and hex codes, plus a matching copy-paste caption.
   * **Saves as images, not a zip.** Where the browser supports it the whole set goes to the OS share sheet in one payload, so iOS offers “Save N Images” straight to Photos; elsewhere it falls back to one numbered download per slide.
-  * Picks collect into a docked **deck** — a hand of cards that fans wider as you add to it. Tapping it opens the editor, where the whole sequence lays out as a grid you can compare at a glance and reorder by holding a slide and dragging it. The gesture is pointer-based, so it works the same on touch as with a mouse.
-  * Start and End slides are labelled, and every ordering surface writes the same list, so the deck, the tile badges and the export can't disagree.
+  * Picks collect into a docked **deck** — a hand of cards that fans wider as you add to it, and riffles under the pointer so any card can be seen whole without the deck growing. Tapping it opens the editor.
+  * The editor is a **full-screen curation session** with the app's own tab bar hidden: one screen, one intention, one labelled exit. Order and preview are a single sequence of rendered slides — hold one and drag it, and the cover and summary redraw around it. A **+** tile goes back for more gradients.
+
 * **State Persistence & Board Sharing:**
   * Auto-persisting saved gradients drawer.
   * Share-link URL fragment codec for exporting single gradients or entire boards.

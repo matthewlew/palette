@@ -71,10 +71,39 @@ describe('CarouselDeck', () => {
   })
 
   it('keeps its footprint as the hand grows, closing the cards up instead', () => {
-    // Ten picks must not run off the dock; the spacing shrinks to absorb them.
+    // A full hand must not run off the dock; the spacing shrinks to absorb it.
     deckOf(8)
     const wide = parseFloat(screen.getByTestId('carousel-deck').style.width)
-    expect(wide).toBeLessThanOrEqual(132 + 46)
+    expect(wide).toBeLessThanOrEqual(250 + 94)
+  })
+
+  it('opens a card out of the pile when the pointer runs over the deck', () => {
+    // Overlapping cards only earn their compression if there is a way to
+    // decompress; the riffle is it.
+    deckOf(6)
+    const deck = screen.getByTestId('carousel-deck')
+    const before = cards().map((c) => c.style.transform)
+    fireEvent.pointerMove(deck, { clientX: 120, clientY: 60 })
+    const after = cards().map((c) => c.style.transform)
+    expect(after).not.toEqual(before)
+  })
+
+  it('brings the riffled card to the front so it is seen whole', () => {
+    deckOf(6)
+    const deck = screen.getByTestId('carousel-deck')
+    fireEvent.pointerMove(deck, { clientX: 120, clientY: 60 })
+    const zs = cards().map((c) => Number(c.style.zIndex))
+    // Exactly one card is lifted above the natural stacking order.
+    expect(zs.filter((z) => z > 6)).toHaveLength(1)
+  })
+
+  it('closes back up when the pointer leaves', () => {
+    deckOf(6)
+    const deck = screen.getByTestId('carousel-deck')
+    const rest = cards().map((c) => c.style.transform)
+    fireEvent.pointerMove(deck, { clientX: 120, clientY: 60 })
+    fireEvent.pointerLeave(deck)
+    expect(cards().map((c) => c.style.transform)).toEqual(rest)
   })
 
   it('fans the cards, so a hand reads as a hand', () => {

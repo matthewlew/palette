@@ -35,6 +35,10 @@ export function App() {
   const importGradients = useAppStore((s) => s.importGradients)
   const undoImport = useAppStore((s) => s.undoImport)
   const chromeVisible = useIdleFade()
+  // The carousel studio is a full-screen create-a-post flow, so the tab bar
+  // goes away with everything else: offering Gallery and Create mid-curation
+  // is offering two unlabelled ways to abandon what you are making.
+  const carouselStudioOpen = useAppStore((s) => s.carouselStudioOpen)
   const [toastText, setToastText] = useState<string | null>(null)
   // Import toast carries an Undo; copy toast does not (undoable = has ids).
   const [importToast, setImportToast] = useState<{ message: string; undoable: boolean } | null>(null)
@@ -226,7 +230,7 @@ export function App() {
       )}
       <TabBar
         mode={mode === 'edit' ? 'create' : mode}
-        hidden={mode === 'create' && !chromeVisible}
+        hidden={carouselStudioOpen || (mode === 'create' && !chromeVisible)}
         panelOpen={mode === 'edit'}
         recentGradients={saved.slice(-3)}
         savedCount={saved.length}

@@ -40,10 +40,9 @@ function gradient(id: string): Gradient {
 }
 
 const SPEC: CarouselSpec = {
-  templateId: 'singles',
   gradients: [gradient('a'), gradient('b')],
   ratio: 'portrait',
-  carousel: { captionTile: false },
+  carousel: { summary: false },
 }
 
 /** jsdom canvases have no 2d surface and toBlob never calls back, so the render

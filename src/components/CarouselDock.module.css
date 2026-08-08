@@ -44,77 +44,57 @@
   }
 }
 
-.count {
+.actions {
+  /* Clear sits left and quiet; Next sits right and is the only thing that
+     looks like a button. */
+  justify-content: space-between;
+}
+
+.clear {
   flex: none;
-  font-size: 13px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: rgba(255, 255, 255, 0.65);
-  white-space: nowrap;
-}
-
-.buttons {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.buttons::-webkit-scrollbar {
-  display: none;
-}
-
-.action,
-.primary,
-.destructive,
-.done {
-  flex: none;
+  border: 0;
   border-radius: var(--pill);
-  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.45);
   font-size: 13px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.clear:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.primary {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: var(--pill);
+  background: #fff;
+  color: #101014;
+  font-size: 14px;
   font-weight: 600;
-  padding: 8px 14px;
+  padding: 9px 16px;
   cursor: pointer;
   white-space: nowrap;
 }
 
-.primary {
-  background: #fff;
-  color: #101014;
-}
-
-.action {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-}
-
-.action:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.18);
-}
-
-.action:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.destructive {
-  background: rgba(255, 255, 255, 0.1);
-  color: #ff8f7a;
-}
-
-.destructive:hover {
-  background: rgba(255, 120, 100, 0.2);
-}
-
-.done {
-  background: transparent;
-  color: rgba(255, 255, 255, 0.55);
-}
-
-.done:hover {
-  color: #fff;
+/* The count rides inside Next rather than sitting beside it as a separate
+   label: it is the object the button acts on, not a second piece of status. */
+.count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.12);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 @media (max-width: 600px) {
@@ -130,11 +110,6 @@
     animation-name: selection-bar-in-mobile;
   }
 
-  /* The count is implied by the numbered thumbnails right above it, so the
-     narrow breakpoint spends the width on the actions instead. */
-  .count {
-    display: none;
-  }
 }
 
 @keyframes selection-bar-in-mobile {
