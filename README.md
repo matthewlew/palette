@@ -24,7 +24,7 @@ A premium, interactive aesthetic gradient playground and generator built with Re
   * 4:5, 1:1 and 9:16 slides, optionally framed on paper with rounded insets.
   * A generated closing text tile with names and hex codes, plus a matching copy-paste caption.
   * Exports as a zip of numbered PNGs (slide order = pick order) with `caption.txt` alongside.
-  * Order is editable by drag or ↑/↓, with the Start and End slides labelled; edits flow straight back to the Gallery badges.
+  * Order is editable by dragging tiles in the gallery grid, or by drag / ↑ / ↓ in the studio list, with the Start and End slides labelled. All three edit the same order, so the badges and the studio always agree.
 * **State Persistence & Board Sharing:**
   * Auto-persisting saved gradients drawer.
   * Share-link URL fragment codec for exporting single gradients or entire boards.

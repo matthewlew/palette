@@ -849,6 +849,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   const [downloadingPicks, setDownloadingPicks] = useState(false)
   const carouselPicks = useAppStore((s) => s.carouselPicks)
   const toggleCarouselPick = useAppStore((s) => s.toggleCarouselPick)
+  const reorderCarouselPick = useAppStore((s) => s.reorderCarouselPick)
   const clearCarouselPicks = useAppStore((s) => s.clearCarouselPicks)
   const removeSavedGradientsByIds = useAppStore((s) => s.removeSavedGradientsByIds)
 
@@ -1085,11 +1086,23 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
     setDraggingId(id)
   }
   function handleDragEnterTile(id: string) {
-    if (dragIdRef.current && id !== dragIdRef.current) setDragOverId(id)
+    if (!dragIdRef.current || id === dragIdRef.current) return
+    // While selecting, only another PICKED tile is a valid target — an
+    // unpicked one holds no slide number for the dragged tile to take, so
+    // highlighting it would promise a drop that does nothing.
+    if (pickMode && !carouselPicks.includes(id)) return
+    setDragOverId(id)
   }
   function handleDropTile(id: string) {
     const from = dragIdRef.current
-    if (from && from !== id) reorderSaved(from, id)
+    if (from && from !== id) {
+      // One gesture, two meanings, disambiguated by mode. Selecting: the drag
+      // rearranges the CAROUSEL, so the badge numbers move and the gallery's
+      // own arrangement is left alone. Otherwise it rearranges the gallery,
+      // which is what it has always done.
+      if (pickMode) reorderCarouselPick(from, id)
+      else reorderSaved(from, id)
+    }
     clearDrag()
   }
 
@@ -1430,7 +1443,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
                     galleryLayout={galleryLayout}
                     onRiff={onRiff}
                     onDelete={activeTab === 'saves' ? removeSavedGradientById : (isAdmin ? deleteCommunityGradient : undefined)}
-                    draggable={canReorder}
+                    draggable={pickMode ? carouselPicks.includes(gradient.id) : canReorder}
                     isDragging={draggingId === gradient.id}
                     isDragOver={dragOverId === gradient.id}
                     onDragStartTile={handleDragStartTile}
