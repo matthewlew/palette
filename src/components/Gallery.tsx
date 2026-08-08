@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, memo, useCallback } from 'react'
 import { flushSync } from 'react-dom'
 import { buildGradientCss } from '../lib/gradient'
 import { tileBackground } from '../lib/tileBackground'
@@ -135,7 +135,7 @@ function matchesFilters(gradient: Gradient, type: GradientType | null): boolean 
   return true
 }
 
-function Tile({
+const Tile = memo(function Tile({
   gradient,
   index,
   onOpen,
@@ -348,7 +348,16 @@ function Tile({
       </div>
     </div>
   )
-}
+}, (prev, next) => {
+  for (const key in prev) {
+    if (key === 'likes' || key === 'pick') continue
+    if ((prev as any)[key] !== (next as any)[key]) return false
+  }
+  if (prev.pick?.order !== next.pick?.order) return false
+  if (prev.likes?.isLiked(prev.gradient.id) !== next.likes?.isLiked(next.gradient.id)) return false
+  if (prev.likes?.countFor(prev.gradient) !== next.likes?.countFor(next.gradient)) return false
+  return true
+})
 
 interface ViewerProps {
   gradient: Gradient
@@ -797,23 +806,23 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
    * BEFORE startViewTransition captures the old state. Setting both in one
    * update would capture an old state where no element owned the name, and the
    * viewer would fade in from nothing instead of growing out of the tile. */
-  function openViewer(gradient: Gradient) {
+  const openViewer = useCallback((gradient: Gradient) => {
     flushSync(() => setHeroId(gradient.id))
     withViewTransition(() => setOpen(gradient))
-  }
+  }, [])
 
   /** Shrink back into the tile it came from. The tile reclaims the name as the
    * viewer unmounts, so this is the same morph played backwards. */
-  function closeViewer() {
+  const closeViewer = useCallback(() => {
     withViewTransition(() => setOpen(null))
-  }
+  }, [])
 
   /** Scrolling to a neighbour inside the viewer moves the landing tile with
    * it, so closing returns to the palette you are actually looking at. */
-  function navigateViewer(gradient: Gradient) {
+  const navigateViewer = useCallback((gradient: Gradient) => {
     setHeroId(gradient.id)
     setOpen(gradient)
-  }
+  }, [])
   const [exporting, setExporting] = useState(false)
   const reorderSaved = useAppStore((s) => s.reorderSaved)
   const dragIdRef = useRef<string | null>(null)
@@ -1066,24 +1075,24 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   useFlipReorder(gridRef, orderKey, !prefersReducedMotion)
 
-  function clearDrag() {
+  const clearDrag = useCallback(() => {
     dragIdRef.current = null
     setDraggingId(null)
     setDragOverId(null)
-  }
-  function handleDragStartTile(id: string) {
+  }, [])
+  const handleDragStartTile = useCallback((id: string) => {
     dragIdRef.current = id
     setDraggingId(id)
-  }
-  function handleDragEnterTile(id: string) {
+  }, [])
+  const handleDragEnterTile = useCallback((id: string) => {
     if (!dragIdRef.current || id === dragIdRef.current) return
     // While selecting, only another PICKED tile is a valid target — an
     // unpicked one holds no slide number for the dragged tile to take, so
     // highlighting it would promise a drop that does nothing.
     if (pickMode && !carouselPicks.includes(id)) return
     setDragOverId(id)
-  }
-  function handleDropTile(id: string) {
+  }, [pickMode, carouselPicks])
+  const handleDropTile = useCallback((id: string) => {
     const from = dragIdRef.current
     if (from && from !== id) {
       // One gesture, two meanings, disambiguated by mode. Selecting: the drag
@@ -1094,7 +1103,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
       else reorderSaved(from, id)
     }
     clearDrag()
-  }
+  }, [pickMode, reorderCarouselPick, reorderSaved, clearDrag])
 
   function handleGridKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     const active = document.activeElement as HTMLElement
