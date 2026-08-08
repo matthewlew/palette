@@ -17,15 +17,21 @@ export const VIGNETTE_SHAPES: { id: VignetteShape; label: string }[] = [
 /** Warm paper tone behind every masked vignette, so exports read as prints
  * rather than screenshots. */
 export const VIGNETTE_PAPER = '#f7f5f0'
-const POSTER_INK = '#1c1a20'
-const POSTER_MUTED = '#8d8894'
+/** Print ink and its muted companion. Exported so the carousel caption tile
+ * (lib/carouselRender.ts) sets type in the same two tones as the poster
+ * vignette instead of picking a second, nearly-identical pair. */
+export const POSTER_INK = '#1c1a20'
+export const POSTER_MUTED = '#8d8894'
 
 /**
  * Renders a gradient vignette: the gradient masked to a shape on a paper
  * background, or (for 'poster') inset with a border and titled like a
  * minimalist print. 'full' delegates to the plain full-bleed render.
  */
-function applyNoise(ctx: CanvasRenderingContext2D, width: number, height: number) {
+/** Monochrome film grain over the whole canvas — the texture that makes every
+ * export read as a print rather than a screenshot. Exported so carousel slides
+ * carry the same grain as single-gradient exports. */
+export function applyNoise(ctx: CanvasRenderingContext2D, width: number, height: number) {
   const imgData = ctx.getImageData(0, 0, width, height)
   const data = imgData.data
   // Simple monochrome grain: +/- ~12 to RGB channels

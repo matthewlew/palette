@@ -1125,3 +1125,38 @@
     transform: none;
   }
 }
+
+/* Carousel pick badge — the slide number a picked tile will occupy, or an
+   empty ring on an unpicked tile so the whole grid reads as selectable while
+   pick mode is on. Sits top-left, clear of the heart button. */
+.pickBadge,
+.pickBadgeOn {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.pickBadge {
+  border: 1.5px solid rgba(255, 255, 255, 0.75);
+  background: rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.pickBadgeOn {
+  border: 1.5px solid #fff;
+  background: #fff;
+  color: #101014;
+}

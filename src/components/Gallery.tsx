@@ -21,6 +21,7 @@ import { PaletteTitle } from './PaletteTitle'
 import { NoiseOverlay } from './NoiseOverlay'
 import { ScrollTicker } from './ScrollTicker'
 import { SearchBar, type SearchResults } from './SearchBar'
+import { CarouselStudio } from './CarouselStudio'
 import { Hint } from './Hint'
 import { LoadingBar } from './LoadingBar'
 import JSZip from 'jszip'
@@ -161,10 +162,17 @@ function Tile({
   likes,
   isHero = false,
   viewerOpen = false,
+  pick,
 }: {
   gradient: Gradient
   index: number
   onOpen: (gradient: Gradient) => void
+  /** Carousel pick mode. When present, a tap adds this gradient to the
+   * carousel (or removes it) instead of opening the viewer — picking is a
+   * repeated action over many tiles, and routing it through the viewer would
+   * make assembling nine gradients eighteen taps. `order` is the 1-based slide
+   * number, or null when unpicked. */
+  pick?: { order: number | null; onToggle: (gradient: Gradient) => void }
   galleryLayout: GalleryLayout
   onRiff: (gradient: Gradient) => void
   onDelete?: (id: string) => void
@@ -230,7 +238,8 @@ function Tile({
       // be the one with no like count for a screen reader.
       aria-label={
         `${displayName}, ${gradient.type} gradient` +
-        (likeable && likeCount > 0 ? `, ${likeCount} ${likeCount === 1 ? 'like' : 'likes'}` : '')
+        (likeable && likeCount > 0 ? `, ${likeCount} ${likeCount === 1 ? 'like' : 'likes'}` : '') +
+        (pick ? (pick.order !== null ? `, carousel slide ${pick.order}` : ', not in carousel') : '')
       }
       draggable={draggable}
       onDragStart={(e) => {
@@ -253,13 +262,15 @@ function Tile({
         onDropTile?.(gradient.id)
       }}
       onDragEnd={onDragEndTile}
-      onClick={() => onOpen(gradient)}
+      onClick={() => (pick ? pick.onToggle(gradient) : onOpen(gradient))}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
-          onOpen(gradient)
+          if (pick) pick.onToggle(gradient)
+          else onOpen(gradient)
         }
       }}
+      aria-pressed={pick ? pick.order !== null : undefined}
     >
       <div
         className={styles.tilePreview}
@@ -284,9 +295,22 @@ function Tile({
       >
         {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={6} angle={gradient.angle} />}
         <NoiseOverlay visible={noiseEnabled} />
+        {/* The slide number this pick will occupy. Shown on the tile rather
+            than only in the studio so the order is legible while you build it,
+            which is the whole reason picking is ordered. */}
+        {pick && (
+          <span
+            className={pick.order !== null ? styles.pickBadgeOn : styles.pickBadge}
+            data-testid="pick-badge"
+            aria-hidden="true"
+          >
+            {pick.order ?? ''}
+          </span>
+        )}
         {/* Clicks anywhere except the Edit button bubble to the tile and
-            open the viewer. */}
-        {onDelete && (
+            open the viewer. Suppressed while picking: Edit/Delete would sit
+            on top of the tap target that adds to the carousel. */}
+        {onDelete && !pick && (
           <div className={styles.tileHoverOverlay}>
             <button
               type="button"
@@ -815,6 +839,24 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   // Mobile only: a live query takes over the screen (see .searching below).
   const [searchOpen, setSearchOpen] = useState(false)
 
+  // Carousel assembly. Pick mode repurposes a tile tap into "add to carousel",
+  // so it is explicitly entered rather than always-on — the default tap has to
+  // stay "open this palette".
+  const [pickMode, setPickMode] = useState(false)
+  const [studioOpen, setStudioOpen] = useState(false)
+  const carouselPicks = useAppStore((s) => s.carouselPicks)
+  const toggleCarouselPick = useAppStore((s) => s.toggleCarouselPick)
+
+  // Only your own saves can be picked: the carousel renders from the local
+  // `saved` array by id, and a community palette has no entry there.
+  const pickApi =
+    pickMode && activeTab === 'saves'
+      ? (gradient: Gradient) => ({
+          order: carouselPicks.indexOf(gradient.id) === -1 ? null : carouselPicks.indexOf(gradient.id) + 1,
+          onToggle: (g: Gradient) => toggleCarouselPick(g.id),
+        })
+      : null
+
   async function handleExportAll() {
     if (exporting || saved.length === 0) return
     setExporting(true)
@@ -1112,6 +1154,29 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
               <Icon name="grid-dense" size="sm" />
             </button>
           </div>
+          {activeTab === 'saves' && (
+            <div className={styles.toggleGroup}>
+              <button
+                type="button"
+                data-testid="carousel-pick-toggle"
+                className={pickMode ? styles.toggleBtnActive : styles.toggleBtn}
+                onClick={() => setPickMode((v) => !v)}
+                aria-pressed={pickMode}
+                title="Pick gradients for a carousel, in order"
+              >
+                Pick
+              </button>
+              <button
+                type="button"
+                data-testid="carousel-studio-open"
+                className={styles.toggleBtn}
+                onClick={() => setStudioOpen(true)}
+                title="Build an Instagram carousel from your picks"
+              >
+                Carousel{carouselPicks.length > 0 ? ` (${carouselPicks.length})` : ''}
+              </button>
+            </div>
+          )}
           <BoardShare
             saved={saved}
             onImport={onImport ?? (() => {})}
@@ -1327,6 +1392,7 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
                     likes={likes}
                     isHero={heroId === gradient.id}
                     viewerOpen={open !== null}
+                    pick={pickApi ? pickApi(gradient) : undefined}
                   />
                 </TileBoundary>
               ))}
@@ -1381,6 +1447,8 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
           likes={likes}
         />
       )}
+
+      {studioOpen && <CarouselStudio onClose={() => setStudioOpen(false)} />}
     </div>
   )
 }

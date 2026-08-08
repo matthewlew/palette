@@ -26,6 +26,19 @@ function gradientSignature(gradient: Gradient): string {
   return `${gradient.type}:${stopsSig}${mods ? `:${mods}` : ''}`
 }
 
+/**
+ * Resolves carousel pick ids to live saved gradients, in pick order.
+ *
+ * Ids that no longer resolve are dropped rather than treated as an error: a
+ * gradient can be deleted while it sits in the carousel, and the right
+ * behaviour is a carousel one shorter, not a broken export. Deriving this on
+ * read is also why a rename shows up in the carousel immediately.
+ */
+export function pickedCarouselGradients(saved: Gradient[], picks: string[]): Gradient[] {
+  const byId = new Map(saved.map((g) => [g.id, g]))
+  return picks.map((id) => byId.get(id)).filter((g): g is Gradient => !!g)
+}
+
 interface AppState {
   mode: ViewMode
   current: Gradient | null
@@ -121,6 +134,22 @@ interface AppState {
   /** Flips the local like state and returns what it became, so the caller can
    * drive the optimistic count and the network write off one source of truth. */
   toggleLikedPalette: (id: string) => boolean
+  /** Saved-gradient ids picked for the Instagram carousel, in the order they
+   * were picked — pick order IS slide order, so this is an array and never a
+   * Set. Persisted: assembling a nine-gradient carousel is a session's work
+   * and a refresh shouldn't discard it.
+   *
+   * Ids are resolved against `saved` at read time rather than storing
+   * gradients, so a rename or edit shows up in the carousel without the pick
+   * having to be redone. See pickedCarouselGradients. */
+  carouselPicks: string[]
+  /** Adds an unpicked id to the end of the order, or removes a picked one.
+   * Returns whether it ended up picked. */
+  toggleCarouselPick: (id: string) => boolean
+  /** Moves `fromId` to `toId`'s slot, shifting the rest — the same semantics
+   * as reorderSaved, applied to slide order. */
+  reorderCarouselPick: (fromId: string, toId: string) => void
+  clearCarouselPicks: () => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -352,6 +381,25 @@ export const useAppStore = create<AppState>()(
         set({ likedPaletteIds: wasLiked ? liked.filter((x) => x !== id) : [...liked, id] })
         return !wasLiked
       },
+      carouselPicks: [],
+      toggleCarouselPick: (id) => {
+        const picks = get().carouselPicks
+        const wasPicked = picks.includes(id)
+        set({ carouselPicks: wasPicked ? picks.filter((x) => x !== id) : [...picks, id] })
+        return !wasPicked
+      },
+      reorderCarouselPick: (fromId, toId) => {
+        if (fromId === toId) return
+        const picks = get().carouselPicks
+        const fromIndex = picks.indexOf(fromId)
+        const toIndex = picks.indexOf(toId)
+        if (fromIndex === -1 || toIndex === -1) return
+        const next = picks.slice()
+        const [moved] = next.splice(fromIndex, 1)
+        next.splice(toIndex, 0, moved)
+        set({ carouselPicks: next })
+      },
+      clearCarouselPicks: () => set({ carouselPicks: [] }),
     }),
     {
       name: 'palette-saved-gradients',
@@ -360,6 +408,7 @@ export const useAppStore = create<AppState>()(
         noiseEnabled: state.noiseEnabled,
         galleryLayout: state.galleryLayout,
         likedPaletteIds: state.likedPaletteIds,
+        carouselPicks: state.carouselPicks,
       }),
       // v1 drops the removed flutedEnabled flag from boards persisted before
       // that filter was deleted, so stale keys don't live in localStorage
