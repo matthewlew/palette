@@ -275,10 +275,16 @@
   padding: 12px 14px;
   border-radius: var(--radius-md, 10px);
   background: rgba(0, 0, 0, 0.32);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11.5px;
-  line-height: 1.6;
-  color: rgba(255, 255, 255, 0.8);
+  /* Set in the UI face, not a monospace one. This is a preview of an
+     Instagram caption — prose that will be read in a sans-serif app — and
+     setting it as code made a paragraph of English look like a config file.
+     Monospace earns its place where column alignment carries meaning; here
+     nothing lines up. */
+  font-family: inherit;
+  font-size: 12.5px;
+  line-height: 1.55;
+  text-align: left;
+  color: rgba(255, 255, 255, 0.82);
   white-space: pre-wrap;
   word-break: break-word;
 }

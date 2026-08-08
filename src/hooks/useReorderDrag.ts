@@ -1,22 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 /**
- * Long-press-then-drag reordering, on pointer events.
+ * Drag-to-reorder on pointer events, with the lifted item following the
+ * pointer.
  *
  * This replaces HTML5 drag-and-drop, which never worked here: `draggable` and
- * the drag* events are mouse-only, so on a phone the tray could not be
- * reordered at all and the ‹ › nudge buttons existed only to paper over it.
- * Pointer events are one code path for mouse, touch and pen.
+ * the drag* events are mouse-only, so on a phone a list could not be reordered
+ * at all. Pointer events are one code path for mouse, touch and pen.
  *
- * The hold before the lift is what makes this safe inside a scrollable grid.
- * A touch that moves before the hold completes is a scroll and is handed back
- * to the browser; only a touch that stays put long enough becomes a drag. That
- * is the same bargain iOS makes on the home screen, so the gesture is already
- * known to anyone holding a phone.
+ * The hold-before-lift applies to TOUCH ONLY. A hold is a tax, and it buys
+ * exactly one thing: the chance to tell "I am dragging this" apart from "I am
+ * scrolling the page", which is a distinction only touch has to make. Charging
+ * a mouse for it made dragging feel broken — you press, nothing happens, and
+ * any drift past the tolerance during the wait silently cancels the gesture, so
+ * a trackpad's own jitter was enough to lose it.
+ *
+ * A press that never moves is a tap, and is reported through `onTap` for both
+ * input types.
  *
  * Targets are found with `elementFromPoint` rather than pointer-enter events,
- * because the pointer is captured for the duration of a drag and a captured
- * pointer fires no enter/leave on anything else.
+ * because a captured pointer fires no enter/leave on anything else.
  */
 
 /** Items opt in by carrying this attribute; `getItemProps` sets it. */
@@ -26,15 +29,19 @@ export const REORDER_ATTR = 'data-reorder-id'
  * tile should delete, not start a drag. */
 export const NO_DRAG_ATTR = 'data-no-drag'
 
-const HOLD_MS = 320
+const HOLD_MS = 260
 
-/** How far a pointer may drift during the hold and still count as a press.
- * Roughly a fingertip's wobble; beyond it the user is scrolling. */
+/** How far a touch may drift during the hold and still count as a press.
+ * Beyond it the user is scrolling. */
 const MOVE_TOLERANCE = 10
+
+/** How far the pointer must travel after lifting before this counts as a drag
+ * rather than a tap. Below it, a click with a shaky hand would reorder. */
+const DRAG_THRESHOLD = 5
 
 export interface ReorderDragOptions {
   onReorder: (fromId: string, toId: string) => void
-  /** Fired for a press that never became a drag — a plain tap. */
+  /** Fired for a press that never became a drag. */
   onTap?: (id: string) => void
   holdMs?: number
 }
@@ -58,6 +65,10 @@ export function useReorderDrag({
 }: ReorderDragOptions): ReorderDragApi {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [overId, setOverId] = useState<string | null>(null)
+  /** Pointer travel since the lift, so the lifted item can follow the finger.
+   * Without this the card only scaled in place and the gesture read as
+   * "nothing is happening", which is why a working drag still felt broken. */
+  const [offset, setOffset] = useState<{ x: number; y: number } | null>(null)
 
   // Everything the gesture needs mid-flight lives in a ref: the window
   // listeners are bound once and must not be torn down and rebound on every
@@ -68,6 +79,7 @@ export function useReorderDrag({
     startX: 0,
     startY: 0,
     lifted: false,
+    dragged: false,
     timer: null as ReturnType<typeof setTimeout> | null,
   })
 
@@ -78,8 +90,10 @@ export function useReorderDrag({
     s.pointerId = -1
     s.startId = null
     s.lifted = false
+    s.dragged = false
     setActiveId(null)
     setOverId(null)
+    setOffset(null)
   }, [])
 
   // Latest callbacks, so the once-bound listeners never call a stale closure.
@@ -101,17 +115,22 @@ export function useReorderDrag({
       const s = state.current
       if (s.pointerId !== e.pointerId) return
 
+      const dx = e.clientX - s.startX
+      const dy = e.clientY - s.startY
+
       if (!s.lifted) {
-        const dx = e.clientX - s.startX
-        const dy = e.clientY - s.startY
-        // Moved before the hold landed: the user is scrolling the page, so
-        // abandon the gesture entirely rather than fighting them for it.
+        // Waiting out a touch hold. Movement here is a scroll, so abandon the
+        // gesture rather than fighting the user for their pointer.
         if (Math.hypot(dx, dy) > MOVE_TOLERANCE) reset()
         return
       }
 
-      // Lifted: this pointer belongs to us, so stop the page scrolling under it.
+      if (!s.dragged && Math.hypot(dx, dy) < DRAG_THRESHOLD) return
+      s.dragged = true
+
+      // Lifted and moving: this pointer is ours, so stop the page scrolling.
       if (e.cancelable) e.preventDefault()
+      setOffset({ x: dx, y: dy })
       const over = idAt(e.clientX, e.clientY)
       setOverId(over && over !== s.startId ? over : null)
     }
@@ -119,13 +138,14 @@ export function useReorderDrag({
     function handleUp(e: PointerEvent) {
       const s = state.current
       if (s.pointerId !== e.pointerId) return
-      const { startId, lifted } = s
-      const target = lifted ? idAt(e.clientX, e.clientY) : null
+      const { startId, lifted, dragged } = s
+      const target = lifted && dragged ? idAt(e.clientX, e.clientY) : null
       reset()
       if (!startId) return
-      if (lifted) {
+      if (dragged) {
         if (target && target !== startId) handlers.current.onReorder(startId, target)
       } else {
+        // Never travelled: a tap, whether or not a touch hold had elapsed.
         handlers.current.onTap?.(startId)
       }
     }
@@ -134,7 +154,7 @@ export function useReorderDrag({
       if (state.current.pointerId === e.pointerId) reset()
     }
 
-    // Non-passive so preventDefault during a lift actually blocks scrolling.
+    // Non-passive so preventDefault during a drag actually blocks scrolling.
     window.addEventListener('pointermove', handleMove, { passive: false })
     window.addEventListener('pointerup', handleUp)
     window.addEventListener('pointercancel', handleCancel)
@@ -146,34 +166,58 @@ export function useReorderDrag({
   }, [reset])
 
   const getItemProps = useCallback(
-    (id: string) => ({
-      [REORDER_ATTR]: id,
-      style: {
-        // Claim vertical panning only once lifted; before that the grid has to
-        // stay scrollable or the hold gesture would cost the user their scroll.
-        touchAction: activeId === id ? ('none' as const) : ('pan-y' as const),
-      },
-      onPointerDown: (e: React.PointerEvent) => {
-        // Only the primary button; a right-click is a context menu.
-        if (e.button !== 0) return
-        // A nested control owns this press.
-        if ((e.target as Element).closest?.(`[${NO_DRAG_ATTR}]`)) return
+    (id: string) => {
+      const isActive = activeId === id
+      const style: React.CSSProperties = {
+        // Claim the pointer only once lifted; before that a touch has to be
+        // able to scroll the page or the hold would cost the user their scroll.
+        touchAction: isActive ? 'none' : 'pan-y',
+      }
+      if (isActive && offset) {
+        style.transform = `translate(${offset.x}px, ${offset.y}px)`
+        // Following the pointer means no transition — an eased transform lags
+        // behind the finger and reads as lag, not as smoothing.
+        style.transition = 'none'
+        // The lifted item now sits directly under the pointer, so the hit test
+        // would find IT rather than the item being dropped onto, and every
+        // drop would resolve to "onto itself" — a no-op. Move and up are bound
+        // to the window, so the gesture loses nothing by going transparent.
+        style.pointerEvents = 'none'
+      }
 
-        const s = state.current
-        if (s.pointerId !== -1) return
-        s.pointerId = e.pointerId
-        s.startId = id
-        s.startX = e.clientX
-        s.startY = e.clientY
-        s.lifted = false
-        s.timer = setTimeout(() => {
-          s.lifted = true
-          s.timer = null
-          setActiveId(id)
-        }, holdMs)
-      },
-    }),
-    [activeId, holdMs]
+      return {
+        [REORDER_ATTR]: id,
+        style,
+        onPointerDown: (e: React.PointerEvent) => {
+          // Only the primary button; a right-click is a context menu.
+          if (e.button !== 0) return
+          // A nested control owns this press.
+          if ((e.target as Element).closest?.(`[${NO_DRAG_ATTR}]`)) return
+
+          const s = state.current
+          if (s.pointerId !== -1) return
+          s.pointerId = e.pointerId
+          s.startId = id
+          s.startX = e.clientX
+          s.startY = e.clientY
+          s.dragged = false
+
+          if (e.pointerType === 'touch') {
+            // Only touch has to be told apart from a scroll.
+            s.lifted = false
+            s.timer = setTimeout(() => {
+              s.lifted = true
+              s.timer = null
+              setActiveId(id)
+            }, holdMs)
+          } else {
+            s.lifted = true
+            setActiveId(id)
+          }
+        },
+      }
+    },
+    [activeId, offset, holdMs]
   )
 
   return { activeId, overId, getItemProps }

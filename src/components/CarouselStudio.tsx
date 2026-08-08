@@ -13,6 +13,7 @@ import { buildCaption, captionParts, CAPTION_MAX } from '../lib/carouselCaption'
 import { SLIDE_SIZES, type SlideRatio } from '../lib/carouselRender'
 import { exportCarousel } from '../lib/carouselExport'
 import { CarouselSequence } from './CarouselSequence'
+import { SlideViewer } from './SlideViewer'
 import { TemplateThumb } from './TemplateThumb'
 import styles from './CarouselStudio.module.css'
 
@@ -67,6 +68,8 @@ export function CarouselStudio({ onClose, onAddMore }: CarouselStudioProps) {
   const [exporting, setExporting] = useState(false)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   const [status, setStatus] = useState<string | null>(null)
+  /** Index into `slides` of the slide being viewed full screen, or null. */
+  const [viewing, setViewing] = useState<number | null>(null)
   const copy = useCopyFeedback()
 
   const availableCovers = useMemo(() => coverStylesForCount(count), [count])
@@ -174,7 +177,7 @@ export function CarouselStudio({ onClose, onAddMore }: CarouselStudioProps) {
         <div className={styles.body}>
           <section className={styles.section}>
             <h4 className={styles.sectionTitle}>Slides</h4>
-            <p className={styles.hint}>Hold a slide, then drag it where you want it.</p>
+            <p className={styles.hint}>Tap a slide to see it full screen. Drag one to reorder.</p>
             <CarouselSequence
               slides={slides}
               gradients={gradients}
@@ -185,6 +188,7 @@ export function CarouselStudio({ onClose, onAddMore }: CarouselStudioProps) {
               onReorder={reorderCarouselPick}
               onMove={moveCarouselPick}
               onAdd={onAddMore}
+              onOpen={setViewing}
             />
             {overflow > 0 && (
               <p className={styles.warn} data-testid="overflow-warning">
@@ -300,6 +304,19 @@ export function CarouselStudio({ onClose, onAddMore }: CarouselStudioProps) {
             </div>
           </section>
         </div>
+      )}
+
+      {viewing !== null && (
+        <SlideViewer
+          slides={slides}
+          index={Math.min(viewing, slides.length - 1)}
+          gradients={gradients}
+          parts={parts}
+          ratio={ratio}
+          framed={framed}
+          onIndexChange={setViewing}
+          onClose={() => setViewing(null)}
+        />
       )}
 
       <footer className={styles.footer}>

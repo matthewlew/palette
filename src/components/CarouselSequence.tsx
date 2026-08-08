@@ -24,6 +24,8 @@ interface CarouselSequenceProps {
   onMove: (id: string, delta: -1 | 1) => void
   /** Go back to the Gallery to pick more. */
   onAdd: () => void
+  /** Open this slide full screen, by its index in `slides`. */
+  onOpen: (index: number) => void
 }
 
 /**
@@ -53,8 +55,20 @@ export function CarouselSequence({
   onReorder,
   onMove,
   onAdd,
+  onOpen,
 }: CarouselSequenceProps) {
-  const { activeId, overId, getItemProps } = useReorderDrag({ onReorder })
+  // A press that never travels is a tap, so opening a slide and dragging it
+  // are the same gesture told apart by whether it moved — no separate hit
+  // target, and no "which part of the card do I press" to learn.
+  const indexOfGradient = (id: string) =>
+    slides.findIndex((s) => s.role === 'body' && gradients[s.slices[0]?.index]?.id === id)
+  const { activeId, overId, getItemProps } = useReorderDrag({
+    onReorder,
+    onTap: (id) => {
+      const i = indexOfGradient(id)
+      if (i >= 0) onOpen(i)
+    },
+  })
 
   // Body slides carry the order, so the last one is the last thing a reader
   // sees before the summary — worth labelling.
@@ -97,14 +111,22 @@ export function CarouselSequence({
             data-testid="sequence-item"
             data-slide-role={slide.role}
             data-slide-id={gradient?.id}
-            tabIndex={gradient ? 0 : -1}
+            tabIndex={0}
             aria-label={
               gradient
-                ? `Slide ${i + 1}, ${name}. Arrow keys reorder, Delete removes.`
-                : `Slide ${i + 1}, ${badge}`
+                ? `Slide ${i + 1}, ${name}. Enter opens it, arrow keys reorder, Delete removes.`
+                : `Slide ${i + 1}, ${badge}. Enter opens it.`
             }
-            aria-keyshortcuts={gradient ? 'ArrowLeft ArrowRight Delete' : undefined}
+            aria-keyshortcuts={gradient ? 'Enter ArrowLeft ArrowRight Delete' : 'Enter'}
+            // The bookends have no drag to hang a tap off, so they carry a
+            // plain click; the body slides get theirs from the drag hook.
+            onClick={gradient ? undefined : () => onOpen(i)}
             onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onOpen(i)
+                return
+              }
               if (!gradient) return
               if (e.key === 'ArrowLeft') {
                 e.preventDefault()

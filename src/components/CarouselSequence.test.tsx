@@ -31,6 +31,7 @@ function setup(options: BuildCarouselOptions = { summary: false }, overrides = {
     onReorder: vi.fn(),
     onMove: vi.fn(),
     onAdd: vi.fn(),
+    onOpen: vi.fn(),
     ...overrides,
   }
   render(<CarouselSequence {...props} />)
@@ -53,8 +54,23 @@ function stubHitTesting(order: string[]) {
   }
 }
 
+/** A mouse drag: press, travel, release. No hold — a mouse never has to be
+ * told apart from a scroll. */
 function dragFromTo(id: string, fromX: number, toX: number) {
   fireEvent.pointerDown(itemFor(id), { pointerId: 1, button: 0, clientX: fromX, clientY: 0 })
+  fireEvent.pointerMove(window, { pointerId: 1, clientX: toX, clientY: 0 })
+  fireEvent.pointerUp(window, { pointerId: 1, clientX: toX, clientY: 0 })
+}
+
+/** A touch drag: press, wait out the hold, travel, release. */
+function touchDragFromTo(id: string, fromX: number, toX: number) {
+  fireEvent.pointerDown(itemFor(id), {
+    pointerId: 1,
+    button: 0,
+    pointerType: 'touch',
+    clientX: fromX,
+    clientY: 0,
+  })
   act(() => {
     vi.advanceTimersByTime(400)
   })
@@ -97,11 +113,98 @@ describe('CarouselSequence', () => {
     expect(items[1].querySelector('span')?.textContent).toBe('2')
   })
 
-  it('reorders on a held drag onto another slide', () => {
+  it('reorders a mouse drag with no hold', () => {
+    // The hold exists only to tell a drag apart from a touch scroll. Charging
+    // a mouse for it made dragging feel broken: you press, nothing happens,
+    // and a trackpad's own jitter cancels the gesture before it starts.
     stubHitTesting(['a', 'b', 'c'])
     const { onReorder } = setup()
     dragFromTo('c', 250, 50)
     expect(onReorder).toHaveBeenCalledWith('c', 'a')
+  })
+
+  it('reorders a touch drag once the hold has elapsed', () => {
+    stubHitTesting(['a', 'b', 'c'])
+    const { onReorder } = setup()
+    touchDragFromTo('c', 250, 50)
+    expect(onReorder).toHaveBeenCalledWith('c', 'a')
+  })
+
+  it('leaves a touch that moves before the hold to the page, as a scroll', () => {
+    stubHitTesting(['a', 'b', 'c'])
+    const { onReorder } = setup()
+    fireEvent.pointerDown(itemFor('c'), {
+      pointerId: 1,
+      button: 0,
+      pointerType: 'touch',
+      clientX: 250,
+      clientY: 0,
+    })
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 250, clientY: 90 })
+    act(() => {
+      vi.advanceTimersByTime(400)
+    })
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 50, clientY: 90 })
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 50, clientY: 90 })
+    expect(onReorder).not.toHaveBeenCalled()
+  })
+
+  it('carries the lifted slide with the pointer', () => {
+    // Without this the card only scaled in place, so a drag that was working
+    // still read as "nothing is happening".
+    stubHitTesting(['a', 'b', 'c'])
+    setup()
+    fireEvent.pointerDown(itemFor('c'), { pointerId: 1, button: 0, clientX: 250, clientY: 0 })
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 190, clientY: 12 })
+    expect(itemFor('c').style.transform).toBe('translate(-60px, 12px)')
+  })
+
+  it('lets the hit test see past the lifted slide', () => {
+    // Regression: once the card followed the pointer it sat directly under the
+    // cursor, so the drop resolved to "onto itself" and every real drag was a
+    // silent no-op. Only real browser input caught it — jsdom's hit test is
+    // stubbed, so the bug is invisible to a coordinate-mapped fake.
+    stubHitTesting(['a', 'b', 'c'])
+    setup()
+    fireEvent.pointerDown(itemFor('c'), { pointerId: 1, button: 0, clientX: 250, clientY: 0 })
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 50, clientY: 0 })
+    expect(itemFor('c').style.pointerEvents).toBe('none')
+  })
+
+  it('opens a slide full screen on a tap, and does not reorder', () => {
+    stubHitTesting(['a', 'b', 'c'])
+    const { onOpen, onReorder } = setup()
+    fireEvent.pointerDown(itemFor('b'), { pointerId: 1, button: 0, clientX: 150, clientY: 0 })
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 150, clientY: 0 })
+    // Index into the slide list, which with no cover is the gradient's own
+    // position — 'b' is the second pick.
+    expect(onOpen).toHaveBeenCalledWith(1)
+    expect(onReorder).not.toHaveBeenCalled()
+  })
+
+  it('treats a tiny wobble as a tap, not a drag', () => {
+    stubHitTesting(['a', 'b', 'c'])
+    const { onOpen, onReorder } = setup()
+    fireEvent.pointerDown(itemFor('b'), { pointerId: 1, button: 0, clientX: 150, clientY: 0 })
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 152, clientY: 2 })
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 152, clientY: 2 })
+    expect(onOpen).toHaveBeenCalledWith(1)
+    expect(onReorder).not.toHaveBeenCalled()
+  })
+
+  it('opens a bookend, which has no drag to hang a tap off', () => {
+    const { onOpen } = setup({ cover: 'stack', summary: true })
+    const cover = screen
+      .getAllByTestId('sequence-item')
+      .find((el) => el.getAttribute('data-slide-role') === 'cover')!
+    fireEvent.click(cover)
+    expect(onOpen).toHaveBeenCalledWith(0)
+  })
+
+  it('opens the focused slide with Enter', () => {
+    const { onOpen } = setup()
+    fireEvent.keyDown(itemFor('c'), { key: 'Enter' })
+    expect(onOpen).toHaveBeenCalledWith(2)
   })
 
   it('does not let the bookends be dragged', () => {
@@ -114,7 +217,6 @@ describe('CarouselSequence', () => {
     expect(fixed).toHaveLength(2)
     for (const el of fixed) {
       expect(el.getAttribute('data-reorder-id')).toBeNull()
-      expect(el.tabIndex).toBe(-1)
     }
   })
 
@@ -135,6 +237,7 @@ describe('CarouselSequence', () => {
         onReorder={vi.fn()}
         onMove={vi.fn()}
         onAdd={vi.fn()}
+        onOpen={vi.fn()}
       />
     )
     expect(roles()).toEqual(['cover', 'body', 'body', 'body', 'summary'])
@@ -150,6 +253,7 @@ describe('CarouselSequence', () => {
         onReorder={vi.fn()}
         onMove={vi.fn()}
         onAdd={vi.fn()}
+        onOpen={vi.fn()}
       />
     )
     expect(roles()).toEqual(['cover', 'body', 'body', 'summary'])

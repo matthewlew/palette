@@ -27,9 +27,10 @@
 }
 
 /* The bookends are shown in place but can't be dragged — a cover made of every
-   pick has no position of its own, and a summary that isn't last isn't one. */
+   pick has no position of its own, and a summary that isn't last isn't one.
+   They still open full screen, so the cursor says "look", not "move". */
 .itemFixed {
-  cursor: default;
+  cursor: zoom-in;
 }
 
 .itemFixed .frame {
