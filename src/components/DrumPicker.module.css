@@ -1,0 +1,76 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  gap: var(--space-2) var(--space-3);
+  justify-items: center;
+  max-height: 32vh;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: var(--space-2) var(--space-3);
+}
+
+.swatch,
+.swatchSelected {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  width: 40px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.swatch:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.swatchColor {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+}
+
+.swatchSelected .swatchColor {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.checkmark {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 14px;
+  height: 14px;
+  color: #fff;
+  background: #000;
+  border-radius: 50%;
+}
+
+.label {
+  font-size: 10px;
+  line-height: 1.3;
+  font-weight: 500;
+  color: var(--text-subdued);
+  max-width: 40px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+  .grid {
+    gap: var(--space-3);
+    max-height: none;
+    overflow-y: visible;
+    padding: var(--space-4) var(--space-5);
+  }
+
+  .label {
+    display: none;
+  }
+}
