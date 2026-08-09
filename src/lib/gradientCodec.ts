@@ -3,6 +3,16 @@ import { FAN_ANCHORS } from './gradient'
 import type { GradientStop } from './gradient'
 import type { Gradient } from '../store/types'
 
+/** Drum's ink-coverage metadata, carried as one added key on the shared
+ * gradient envelope (PRD §5.1). `inks` are ink names (drum-picker identity,
+ * not hex — the catalogue that resolves a name to a hex doesn't exist in this
+ * codebase yet), `coverage` is gradient-level and parallel to `stops`, one row
+ * of per-ink percentages (0-100) per stop. */
+export interface RisoData {
+  inks: string[]
+  coverage: number[][]
+}
+
 export interface SharePayloadGradient {
   type: GradientType
   stops: GradientStop[]
@@ -12,6 +22,7 @@ export interface SharePayloadGradient {
   smoothEnabled?: boolean
   fanAnchor?: FanAnchor
   name: string
+  riso?: RisoData
 }
 
 export interface SharePayload {
@@ -34,6 +45,7 @@ export function toSharePayloadGradient(gradient: Gradient): SharePayloadGradient
   if (gradient.hardStops !== undefined) out.hardStops = gradient.hardStops
   if (gradient.smoothEnabled !== undefined) out.smoothEnabled = gradient.smoothEnabled
   if (gradient.fanAnchor !== undefined) out.fanAnchor = gradient.fanAnchor
+  if (gradient.riso !== undefined) out.riso = gradient.riso
   return out
 }
 
@@ -55,6 +67,9 @@ export function importGradient(g: SharePayloadGradient): Gradient {
   if (g.hardStops !== undefined) out.hardStops = g.hardStops
   if (g.smoothEnabled !== undefined) out.smoothEnabled = g.smoothEnabled
   if (g.fanAnchor !== undefined) out.fanAnchor = g.fanAnchor
+  // Rebuilt for the same reason `stops` is: a hand-crafted payload's `riso`
+  // object could otherwise carry extra keys straight into persisted state.
+  if (g.riso !== undefined) out.riso = { inks: [...g.riso.inks], coverage: g.riso.coverage.map((row) => [...row]) }
   return out
 }
 
@@ -82,7 +97,41 @@ export function isSharePayloadGradient(value: unknown): value is SharePayloadGra
     (v.repeatEnabled === undefined || typeof v.repeatEnabled === 'boolean') &&
     (v.hardStops === undefined || typeof v.hardStops === 'boolean') &&
     (v.smoothEnabled === undefined || typeof v.smoothEnabled === 'boolean') &&
-    (v.fanAnchor === undefined || FAN_ANCHORS.includes(v.fanAnchor as FanAnchor))
+    (v.fanAnchor === undefined || FAN_ANCHORS.includes(v.fanAnchor as FanAnchor)) &&
+    (v.riso === undefined || isRisoData(v.riso, v.stops.length))
+  )
+}
+
+// Generous ceiling on ink count — no drum picker UI allows anywhere near
+// this many drums; it exists only to give a crafted payload's arrays a firm
+// bound, same spirit as the 32-stop cap above.
+const MAX_INKS = 8
+
+/** Validates a `riso` block against the same discipline `isSharePayloadGradient`
+ * already applies to hex strings (PRD §5.3): every field type- and range-
+ * checked, `coverage` array-length-matched to `stopCount`, no unbounded
+ * arrays. This does NOT check `coverage` against `stops[i].hex` for
+ * consistency — that check needs an ink-name → hex catalogue, which doesn't
+ * exist in this codebase yet (PRD §4, "ink catalogue" is separate, unbuilt
+ * scope). Until it exists, `hex` stays the sole source of truth for
+ * rendering and `riso` is informational only; a future PR that adds the
+ * catalogue should flag a mismatch as an import error, not silently
+ * recompute one side from the other (PRD §3.7). */
+function isRisoData(value: unknown, stopCount: number): value is RisoData {
+  if (typeof value !== 'object' || value === null) return false
+  const v = value as Record<string, unknown>
+  if (!Array.isArray(v.inks) || v.inks.length === 0 || v.inks.length > MAX_INKS) return false
+  if (!v.inks.every((name) => typeof name === 'string' && name.length > 0 && name.length <= 60)) return false
+  const inkCount = v.inks.length
+  return (
+    Array.isArray(v.coverage) &&
+    v.coverage.length === stopCount &&
+    v.coverage.every(
+      (row) =>
+        Array.isArray(row) &&
+        row.length === inkCount &&
+        row.every((n) => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 100)
+    )
   )
 }
 
