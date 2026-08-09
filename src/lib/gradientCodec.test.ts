@@ -205,3 +205,71 @@ describe('smoothEnabled persistence', () => {
     expect(isSharePayloadGradient({ ...base, smoothEnabled: 'yes' })).toBe(false)
   })
 })
+
+describe('riso persistence (Drum ink coverage metadata, PRD §5.1/§5.3)', () => {
+  const risoGradient = {
+    ...gradientA,
+    riso: {
+      inks: ['Fluorescent Pink', 'Cornflower', 'Yellow'],
+      coverage: [
+        [10, 5, 60],
+        [70, 0, 35],
+      ],
+    },
+  }
+
+  it('round-trips riso through the share payload', () => {
+    const round = importGradient(toSharePayloadGradient({ id: 'x', ...risoGradient }))
+    expect(round.riso).toEqual(risoGradient.riso)
+  })
+
+  it('is absent on an ordinary palette gradient instead of writing an undefined key', () => {
+    const g = importGradient(gradientA)
+    expect('riso' in g).toBe(false)
+  })
+
+  it('rebuilds inks and coverage so extra keys are stripped', () => {
+    const dirty = {
+      ...risoGradient,
+      riso: { ...risoGradient.riso, tracking: 'x' },
+    } as unknown as SharePayloadGradient
+    const g = importGradient(dirty)
+    expect('tracking' in (g.riso as object)).toBe(false)
+  })
+
+  it('accepts a valid riso block', () => {
+    expect(fromImportJson(JSON.stringify({ kind: 'gradient', gradients: [risoGradient] }))).not.toBeNull()
+  })
+
+  it('rejects a coverage row count that does not match stop count', () => {
+    const bad = { ...risoGradient, riso: { ...risoGradient.riso, coverage: [[10, 5, 60]] } }
+    expect(fromImportJson(JSON.stringify({ kind: 'gradient', gradients: [bad] }))).toBeNull()
+  })
+
+  it('rejects a coverage row width that does not match ink count', () => {
+    const bad = { ...risoGradient, riso: { ...risoGradient.riso, coverage: [[10, 5], [70, 0]] } }
+    expect(fromImportJson(JSON.stringify({ kind: 'gradient', gradients: [bad] }))).toBeNull()
+  })
+
+  it('rejects out-of-range coverage percentages', () => {
+    const bad = { ...risoGradient, riso: { ...risoGradient.riso, coverage: [[10, 5, 160], [70, 0, 35]] } }
+    expect(fromImportJson(JSON.stringify({ kind: 'gradient', gradients: [bad] }))).toBeNull()
+  })
+
+  it('rejects an empty or oversized ink list', () => {
+    const empty = { ...risoGradient, riso: { inks: [], coverage: [[], []] } }
+    expect(fromImportJson(JSON.stringify({ kind: 'gradient', gradients: [empty] }))).toBeNull()
+
+    const tooManyInks = Array.from({ length: 9 }, (_, i) => `Ink ${i}`)
+    const oversized = {
+      ...risoGradient,
+      riso: { inks: tooManyInks, coverage: risoGradient.riso.coverage.map(() => tooManyInks.map(() => 0)) },
+    }
+    expect(fromImportJson(JSON.stringify({ kind: 'gradient', gradients: [oversized] }))).toBeNull()
+  })
+
+  it('rejects non-string ink names', () => {
+    const bad = { ...risoGradient, riso: { inks: ['Pink', 42], coverage: risoGradient.riso.coverage } }
+    expect(fromImportJson(JSON.stringify({ kind: 'gradient', gradients: [bad] }))).toBeNull()
+  })
+})

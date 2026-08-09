@@ -1,4 +1,5 @@
 import type { FanAnchor, GradientStop, GradientType } from '../lib/gradient'
+import type { RisoData } from '../lib/gradientCodec'
 
 export interface Gradient {
   id: string
@@ -27,6 +28,11 @@ export interface Gradient {
   /** How many people have liked this in the community feed. Only meaningful on
    * gradients read from the shared table — a local save has no row to count. */
   likeCount?: number
+  /** Drum's ink coverage metadata (PRD §3.7/§5.1). Absent on every `palette`
+   * gradient. `stops[i].hex` stays authoritative and renders exactly as it
+   * does today — this is additive metadata, never a second source of truth
+   * `palette`'s own rendering reads from. */
+  riso?: RisoData
 }
 
 // 'create' is the home surface (the rolodex feed); 'gallery' is your saved
