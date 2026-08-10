@@ -1,9 +1,86 @@
-.wrap {
+.stackButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  margin: 4px 12px 0;
+  padding: 6px 12px 6px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--pill);
+  background: transparent;
+  cursor: pointer;
+}
+
+.stack {
+  display: flex;
+  align-items: center;
+}
+
+.stackSwatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--background);
+  /* Overlap like an avatar stack — each swatch after the first tucks
+     under the previous one instead of sitting flush beside it. */
+  margin-left: -10px;
+}
+
+.stackSwatch:first-child {
+  margin-left: 0;
+}
+
+.stackLabel {
+  font-family: var(--th-body);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: color-mix(in srgb, #000 40%, transparent);
+}
+
+.sheetViewport {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 21;
+}
+
+.sheet {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 4px 12px 0;
-  text-align: left;
+  background: var(--background);
+  border-top-left-radius: var(--radius-lg);
+  border-top-right-radius: var(--radius-lg);
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.3);
+  padding-bottom: var(--safe-b);
+}
+
+.sheetHandle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  margin: 10px auto 4px;
+}
+
+.sheetContent {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 12px 20px;
+}
+
+.sheetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .heading {
@@ -14,6 +91,19 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-subdued);
+}
+
+.closeButton {
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--th-body);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .slots {

@@ -1,3 +1,4 @@
+import { Drawer } from '@base-ui/react/drawer'
 import { INK_CATALOGUE, findInk } from '../lib/inkCatalogue'
 import styles from './DrumPicker.module.css'
 
@@ -14,41 +15,78 @@ interface DrumPickerProps {
 }
 
 /**
- * Fixed drum slots, each a dropdown over the ink catalogue with a live
- * swatch preview (PRD §6 item 1). Replaces an earlier free multi-select
- * grid: a grid of every catalogue color read as "pick your colors," but a
- * Riso drum roster is a small set of physical cartridges you swap one at a
- * time — the grid didn't reflect that, and looked like a normal color
- * picker when it wasn't one.
+ * Collapses to a single row of overlapping swatches — like a stack of
+ * avatars — behind one button, so the mobile edit panel isn't spending
+ * vertical space on drum selection and stop editing at the same time.
+ * Tapping it opens the actual picker (fixed drum slots, each a dropdown
+ * over the ink catalogue with a live preview) in a bottom sheet.
+ *
+ * The stack is deliberately not itself interactive — no per-swatch tap
+ * target — because the whole point is that a drum is a hidden setting, not
+ * a color you pick directly (PRD §6 item 1's open question about the grid
+ * reading as "pick your colors" instead of "load a drum").
  */
 export function DrumPicker({ selectedNames, onChangeSlot, slotCount = DRUM_SLOT_COUNT }: DrumPickerProps) {
+  const names = Array.from({ length: slotCount }, (_, i) => selectedNames[i] ?? INK_CATALOGUE[0].name)
+
   return (
-    <div className={styles.wrap} data-testid="drum-picker">
-      <h3 className={styles.heading}>Drums</h3>
-      <div className={styles.slots}>
-        {Array.from({ length: slotCount }, (_, index) => {
-          const name = selectedNames[index] ?? INK_CATALOGUE[0].name
-          const hex = findInk(name)?.hex ?? '#000000'
-          return (
-            <label key={index} className={styles.slot} data-testid="drum-slot">
-              <span className={styles.preview} aria-hidden="true" style={{ backgroundColor: hex }} />
-              <select
-                data-testid="drum-slot-select"
-                aria-label={`Drum ${index + 1} ink`}
-                className={styles.select}
-                value={name}
-                onChange={(e) => onChangeSlot(index, e.target.value)}
-              >
-                {INK_CATALOGUE.map((ink) => (
-                  <option key={ink.name} value={ink.name}>
-                    {ink.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )
-        })}
-      </div>
-    </div>
+    <Drawer.Root>
+      <Drawer.Trigger
+        data-testid="drum-stack-trigger"
+        className={styles.stackButton}
+        aria-label={`Drums: ${names.join(', ')}. Tap to edit.`}
+      >
+        <span className={styles.stack} aria-hidden="true">
+          {names.map((name, i) => (
+            <span
+              key={i}
+              className={styles.stackSwatch}
+              style={{ backgroundColor: findInk(name)?.hex ?? '#000000', zIndex: names.length - i }}
+            />
+          ))}
+        </span>
+        <span className={styles.stackLabel}>Drums</span>
+      </Drawer.Trigger>
+
+      <Drawer.Portal>
+        <Drawer.Backdrop className={styles.backdrop} />
+        <Drawer.Viewport className={styles.sheetViewport}>
+          <Drawer.Popup data-testid="drum-picker-sheet" className={styles.sheet}>
+            <div data-testid="sheet-handle" aria-hidden="true" className={styles.sheetHandle} />
+            <Drawer.Content className={styles.sheetContent}>
+              <div className={styles.sheetHeader}>
+                <Drawer.Title className={styles.heading}>Drums</Drawer.Title>
+                <Drawer.Close className={styles.closeButton} data-testid="drum-picker-sheet-close">
+                  Done
+                </Drawer.Close>
+              </div>
+              <div className={styles.slots}>
+                {names.map((name, index) => {
+                  const hex = findInk(name)?.hex ?? '#000000'
+                  return (
+                    <label key={index} className={styles.slot} data-testid="drum-slot">
+                      <span className={styles.preview} aria-hidden="true" style={{ backgroundColor: hex }} />
+                      <select
+                        data-testid="drum-slot-select"
+                        aria-label={`Drum ${index + 1} ink`}
+                        className={styles.select}
+                        value={name}
+                        onChange={(e) => onChangeSlot(index, e.target.value)}
+                      >
+                        {INK_CATALOGUE.map((ink) => (
+                          <option key={ink.name} value={ink.name}>
+                            {ink.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )
+                })}
+              </div>
+            </Drawer.Content>
+          </Drawer.Popup>
+        </Drawer.Viewport>
+      </Drawer.Portal>
+    </Drawer.Root>
   )
 }
