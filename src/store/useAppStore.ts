@@ -6,6 +6,7 @@ import type {
 } from './types'
 import { DEFAULT_COLOR_SET, type ColorSet } from '../lib/colorSets'
 import type { ColorLocks, PositionLocks } from '../lib/palette'
+import type { CoverageLocks, DrumPositionLocks, Coverage } from '../lib/riso'
 import { namePalette } from '../lib/naming'
 
 /** 'grid' is the uniform 4:5 grid, 'masonry' the Pinterest-style ragged one,
@@ -85,6 +86,22 @@ interface AppState {
   syncPositionLock: (index: number, position: number) => void
   releasePositionLockAt: (index: number) => void
   clearPositionLocks: () => void
+  /** Drum's coverage-space counterpart to lockedColors — same index-keyed
+   * shape, holding a Coverage vector instead of a hex string. Not persisted,
+   * for the same reason lockedColors isn't. */
+  lockedCoverage: CoverageLocks
+  toggleCoverageLock: (index: number, coverage: Coverage) => void
+  syncCoverageLock: (index: number, coverage: Coverage) => void
+  releaseCoverageLockAt: (index: number) => void
+  clearCoverageLocks: () => void
+  /** Drum's counterpart to lockedPositions — kept as its own slice rather than
+   * reusing lockedPositions so a Drum screen and a regular edit screen never
+   * fight over the same index-keyed map if both happened to be mounted. */
+  lockedDrumPositions: DrumPositionLocks
+  toggleDrumPositionLock: (index: number, position: number) => void
+  syncDrumPositionLock: (index: number, position: number) => void
+  releaseDrumPositionLockAt: (index: number) => void
+  clearDrumPositionLocks: () => void
   setCurrentGradient: (gradient: Gradient) => void
   saveGradient: (gradient: Gradient) => void
   isGradientSaved: (gradient: Gradient) => boolean
@@ -229,6 +246,58 @@ export const useAppStore = create<AppState>()(
         set({ lockedPositions: next })
       },
       clearPositionLocks: () => set({ lockedPositions: {} }),
+      lockedCoverage: {},
+      toggleCoverageLock: (index, coverage) => {
+        const next = { ...get().lockedCoverage }
+        if (next[index] !== undefined) {
+          delete next[index]
+        } else {
+          next[index] = coverage
+        }
+        set({ lockedCoverage: next })
+      },
+      syncCoverageLock: (index, coverage) => {
+        const current = get().lockedCoverage
+        if (current[index] === undefined) return
+        set({ lockedCoverage: { ...current, [index]: coverage } })
+      },
+      releaseCoverageLockAt: (index) => {
+        const current = get().lockedCoverage
+        const next: CoverageLocks = {}
+        for (const key of Object.keys(current)) {
+          const at = Number(key)
+          if (at === index) continue
+          next[at > index ? at - 1 : at] = current[at]
+        }
+        set({ lockedCoverage: next })
+      },
+      clearCoverageLocks: () => set({ lockedCoverage: {} }),
+      lockedDrumPositions: {},
+      toggleDrumPositionLock: (index, position) => {
+        const next = { ...get().lockedDrumPositions }
+        if (next[index] !== undefined) {
+          delete next[index]
+        } else {
+          next[index] = position
+        }
+        set({ lockedDrumPositions: next })
+      },
+      syncDrumPositionLock: (index, position) => {
+        const current = get().lockedDrumPositions
+        if (current[index] === undefined) return
+        set({ lockedDrumPositions: { ...current, [index]: position } })
+      },
+      releaseDrumPositionLockAt: (index) => {
+        const current = get().lockedDrumPositions
+        const next: DrumPositionLocks = {}
+        for (const key of Object.keys(current)) {
+          const at = Number(key)
+          if (at === index) continue
+          next[at > index ? at - 1 : at] = current[at]
+        }
+        set({ lockedDrumPositions: next })
+      },
+      clearDrumPositionLocks: () => set({ lockedDrumPositions: {} }),
       setCurrentGradient: (gradient) => set({ current: gradient }),
       saveGradient: (gradient) => {
         const signature = gradientSignature(gradient)

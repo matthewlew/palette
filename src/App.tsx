@@ -5,6 +5,9 @@ import { Feed, riffIntoFeed, makeGradient, startFeedWithType } from './component
 import { Gallery } from './components/Gallery'
 import { TabBar } from './components/TabBar'
 import { EditMode } from './components/EditMode'
+import { DrumEditMode } from './components/DrumEditMode'
+import { generateGradientCoverage } from './lib/riso'
+import { findInk } from './lib/inkCatalogue'
 import { ShortcutHints, type ShortcutHintItem } from './components/ShortcutHints'
 import { UndoToast } from './components/UndoToast'
 import { BoardShare } from './components/BoardShare'
@@ -111,6 +114,26 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Dev-only entry point: there's no "new drum gradient" creation flow yet
+  // (PRD leaves ink-count selection etc. unresolved) — this seeds a starter
+  // 2-ink gradient so DrumEditMode is actually reachable to build against.
+  const DRUM_STARTER_INKS = ['Black', 'Cornflower']
+
+  function handleStartDrum() {
+    const inkHexes = DRUM_STARTER_INKS.map((name) => findInk(name)?.hex ?? '#000000')
+    const { stops, coverage } = generateGradientCoverage(inkHexes)
+    const gradient: Gradient = {
+      id: crypto.randomUUID(),
+      type: 'linear',
+      stops,
+      riso: { inks: DRUM_STARTER_INKS, coverage },
+    }
+    withViewTransition(() => {
+      setCurrentGradient(gradient)
+      setMode('edit')
+    })
+  }
+
   function handleImportJson(jsonText: string) {
     const payload = fromImportJson(jsonText)
     if (!payload) return
@@ -193,7 +216,10 @@ export function App() {
 
   return (
     <>
-      {mode === 'edit' && current && (
+      {mode === 'edit' && current && current.riso && (
+        <DrumEditMode gradient={current} onExit={() => withViewTransition(exitEditMode)} />
+      )}
+      {mode === 'edit' && current && !current.riso && (
         <EditMode
           gradient={current}
           onExit={() => withViewTransition(exitEditMode)}
@@ -212,7 +238,7 @@ export function App() {
         </>
       )}
       {mode === 'gallery' && (
-        <Gallery onRiff={handleRiff} onImport={handleImportJson} onStartType={handleStartType} />
+        <Gallery onRiff={handleRiff} onImport={handleImportJson} onStartType={handleStartType} onStartDrum={handleStartDrum} />
       )}
       {/* Edit mode renders its own shortcut hints inside the panel. */}
       {mode === 'create' && (
