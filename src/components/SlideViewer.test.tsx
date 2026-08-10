@@ -1,9 +1,14 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { SlideViewer } from './SlideViewer'
 import { buildCarousel } from '../lib/carouselTemplates'
 import { captionParts } from '../lib/carouselCaption'
+import * as carouselExport from '../lib/carouselExport'
 import type { Gradient } from '../store/types'
+
+vi.mock('../lib/carouselExport', () => ({
+  downloadSlideImage: vi.fn().mockResolvedValue(true),
+}))
 
 function gradient(id: string): Gradient {
   return {
@@ -93,5 +98,47 @@ describe('SlideViewer', () => {
   it('renders nothing for an index past the end rather than crashing', () => {
     setup(99)
     expect(screen.queryByTestId('slide-viewer')).not.toBeInTheDocument()
+  })
+
+  it('names the gradient a body slide is showing', () => {
+    // Slide 1 (index 1) is the first body slide — G0's pick.
+    setup(1)
+    expect(screen.getByTestId('slide-viewer-name')).toHaveTextContent('Ga')
+  })
+
+  it('carries no name on a bookend — it is not a gradient', () => {
+    setup(0)
+    expect(screen.queryByTestId('slide-viewer-name')).not.toBeInTheDocument()
+  })
+
+  it('saves the slide on screen at export size and style, not the preview render', async () => {
+    setup(1, { framed: true })
+    fireEvent.click(screen.getByTestId('slide-viewer-save'))
+    await waitFor(() =>
+      expect(carouselExport.downloadSlideImage).toHaveBeenCalledWith(
+        SLIDES[1],
+        1,
+        SLIDES.length,
+        GRADIENTS,
+        expect.any(Object),
+        'portrait',
+        { framed: true, grain: true }
+      )
+    )
+  })
+
+  it('closes on a tap in the empty space around the slide, not just the ✕', () => {
+    const { onClose } = setup(1)
+    // The stage itself, not a descendant (canvas/nav) — those have their own
+    // handlers and must not also close the thing they're using.
+    fireEvent.click(screen.getByLabelText('Slide 2 of 5').parentElement!)
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it('does not close when the canvas or a nav button is tapped', () => {
+    const { onClose } = setup(1)
+    fireEvent.click(screen.getByLabelText('Slide 2 of 5'))
+    fireEvent.click(screen.getByTestId('slide-viewer-next'))
+    expect(onClose).not.toHaveBeenCalled()
   })
 })

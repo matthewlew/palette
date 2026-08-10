@@ -175,8 +175,11 @@ export function CarouselStudio({ onClose, onAddMore }: CarouselStudioProps) {
         </div>
       ) : (
         <div className={styles.body}>
-          <section className={styles.section}>
-            <h4 className={styles.sectionTitle}>Slides</h4>
+          {/* The canvas: what the carousel actually looks like. Same role as
+              EditMode's preview pane — the thing you're making stays the main
+              event, and every switch that changes it lives in the panel
+              beside it instead of interrupting the view. */}
+          <div className={styles.canvasArea}>
             <p className={styles.hint}>Tap a slide to see it full screen. Drag one to reorder.</p>
             <CarouselSequence
               slides={slides}
@@ -196,113 +199,117 @@ export function CarouselStudio({ onClose, onAddMore }: CarouselStudioProps) {
                 {overflow === 1 ? '' : 's'} won’t be included.
               </p>
             )}
-          </section>
+          </div>
 
-          <section className={styles.section}>
-            <h4 className={styles.sectionTitle}>Bookends</h4>
-            <div className={styles.chipRow}>
-              <button
-                type="button"
-                className={cover ? styles.chipActive : styles.chip}
-                onClick={() => setCover(cover ? null : (availableCovers[0]?.id ?? null))}
-                disabled={availableCovers.length === 0}
-                aria-pressed={!!cover}
-              >
-                Add cover slide
-              </button>
-              <button
-                type="button"
-                className={summary ? styles.chipActive : styles.chip}
-                onClick={() => setSummary((v) => !v)}
-                aria-pressed={summary}
-              >
-                Add summary slide
-              </button>
-            </div>
-
-            {/* Only once a cover is on: the style is a detail of a thing you
-                have already decided you want. */}
-            {cover && (
-              <div className={styles.coverGrid}>
-                {COVER_STYLES.map((style) => {
-                  const enabled = availableCovers.some((s) => s.id === style.id)
-                  // Preview at this style's own nearest workable count, so a
-                  // card you can't pick yet still shows what it would do.
-                  const previewCount = Math.min(Math.max(count, style.minCount), style.maxCount)
-                  return (
-                    <button
-                      key={style.id}
-                      type="button"
-                      className={style.id === cover ? styles.coverCardActive : styles.coverCard}
-                      onClick={() => setCover(style.id)}
-                      disabled={!enabled}
-                      title={enabled ? style.description : `Needs ${style.minCount}–${style.maxCount} picks`}
-                    >
-                      <TemplateThumb slide={style.build(previewCount)} gradients={gradients} />
-                      <span className={styles.coverText}>
-                        <span className={styles.coverLabel}>{style.label}</span>
-                        <span className={styles.coverDesc}>{style.description}</span>
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </section>
-
-          <section className={styles.section}>
-            <h4 className={styles.sectionTitle}>Format</h4>
-            <div className={styles.chipRow}>
-              {(Object.keys(SLIDE_SIZES) as SlideRatio[]).map((id) => (
+          {/* Everything that changes the canvas, not the canvas itself — same
+              split as EditMode's side panel. */}
+          <div className={styles.panel}>
+            <section className={styles.section}>
+              <h4 className={styles.sectionTitle}>Bookends</h4>
+              <div className={styles.chipRow}>
                 <button
-                  key={id}
                   type="button"
-                  className={id === ratio ? styles.chipActive : styles.chip}
-                  onClick={() => setRatio(id)}
+                  className={cover ? styles.chipActive : styles.chip}
+                  onClick={() => setCover(cover ? null : (availableCovers[0]?.id ?? null))}
+                  disabled={availableCovers.length === 0}
+                  aria-pressed={!!cover}
                 >
-                  {SLIDE_SIZES[id].label}
+                  Add cover slide
                 </button>
-              ))}
-              <button
-                type="button"
-                className={framed ? styles.chipActive : styles.chip}
-                onClick={() => setFramed((v) => !v)}
-                aria-pressed={framed}
-              >
-                Framed
-              </button>
-            </div>
-          </section>
+                <button
+                  type="button"
+                  className={summary ? styles.chipActive : styles.chip}
+                  onClick={() => setSummary((v) => !v)}
+                  aria-pressed={summary}
+                >
+                  Add summary slide
+                </button>
+              </div>
 
-          <section className={styles.section}>
-            <h4 className={styles.sectionTitle}>Caption</h4>
-            <input
-              className={styles.input}
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder={parts.title}
-              aria-label="Carousel title"
-            />
-            <textarea
-              className={styles.textarea}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Add a line of your own (optional)"
-              aria-label="Caption note"
-              rows={2}
-            />
-            <pre className={styles.captionPreview} data-testid="caption-preview">
-              {caption}
-            </pre>
-            <div className={styles.captionMeta}>
-              <span>
-                {caption.length} / {CAPTION_MAX}
-              </span>
-              <button type="button" className={styles.linkBtn} onClick={handleCopyCaption}>
-                {copy.copied ? 'Copied' : 'Copy caption'}
-              </button>
-            </div>
-          </section>
+              {/* Only once a cover is on: the style is a detail of a thing you
+                  have already decided you want. */}
+              {cover && (
+                <div className={styles.coverGrid}>
+                  {COVER_STYLES.map((style) => {
+                    const enabled = availableCovers.some((s) => s.id === style.id)
+                    // Preview at this style's own nearest workable count, so a
+                    // card you can't pick yet still shows what it would do.
+                    const previewCount = Math.min(Math.max(count, style.minCount), style.maxCount)
+                    return (
+                      <button
+                        key={style.id}
+                        type="button"
+                        className={style.id === cover ? styles.coverCardActive : styles.coverCard}
+                        onClick={() => setCover(style.id)}
+                        disabled={!enabled}
+                        title={enabled ? style.description : `Needs ${style.minCount}–${style.maxCount} picks`}
+                      >
+                        <TemplateThumb slide={style.build(previewCount)} gradients={gradients} />
+                        <span className={styles.coverText}>
+                          <span className={styles.coverLabel}>{style.label}</span>
+                          <span className={styles.coverDesc}>{style.description}</span>
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </section>
+
+            <section className={styles.section}>
+              <h4 className={styles.sectionTitle}>Format</h4>
+              <div className={styles.chipRow}>
+                {(Object.keys(SLIDE_SIZES) as SlideRatio[]).map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    className={id === ratio ? styles.chipActive : styles.chip}
+                    onClick={() => setRatio(id)}
+                  >
+                    {SLIDE_SIZES[id].label}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className={framed ? styles.chipActive : styles.chip}
+                  onClick={() => setFramed((v) => !v)}
+                  aria-pressed={framed}
+                >
+                  Framed
+                </button>
+              </div>
+            </section>
+
+            <section className={styles.section}>
+              <h4 className={styles.sectionTitle}>Caption</h4>
+              <input
+                className={styles.input}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder={parts.title}
+                aria-label="Carousel title"
+              />
+              <textarea
+                className={styles.textarea}
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Add a line of your own (optional)"
+                aria-label="Caption note"
+                rows={2}
+              />
+              <pre className={styles.captionPreview} data-testid="caption-preview">
+                {caption}
+              </pre>
+              <div className={styles.captionMeta}>
+                <span>
+                  {caption.length} / {CAPTION_MAX}
+                </span>
+                <button type="button" className={styles.linkBtn} onClick={handleCopyCaption}>
+                  {copy.copied ? 'Copied' : 'Copy caption'}
+                </button>
+              </div>
+            </section>
+          </div>
         </div>
       )}
 

@@ -166,6 +166,24 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number)
   return lines
 }
 
+/** Truncates to an ellipsis if `text` would overrun `maxWidth` — the colophon
+ * row is a fixed-width canvas, not a wrapping paragraph, and a gradient with
+ * enough stops (five, six hex codes) drew its hex line straight past the
+ * right margin with nothing to stop it. */
+function truncateToWidth(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
+  if (maxWidth <= 0 || ctx.measureText(text).width <= maxWidth) return text
+  const ellipsis = '…'
+  let lo = 0
+  let hi = text.length
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2)
+    const candidate = text.slice(0, mid).trimEnd() + ellipsis
+    if (ctx.measureText(candidate).width <= maxWidth) lo = mid
+    else hi = mid - 1
+  }
+  return lo === 0 ? ellipsis : text.slice(0, lo).trimEnd() + ellipsis
+}
+
 /**
  * The colophon: title, then one numbered row per gradient carrying a thumbnail
  * of the gradient itself, its colour chips and its hex codes. This is the slide
@@ -284,9 +302,12 @@ export function renderCaptionSlide(
 
     ctx.fillStyle = POSTER_MUTED
     ctx.font = `400 ${hexSize}px ui-monospace, SFMono-Regular, Menlo, monospace`
-    const hexLine = entry.hexes.join('  ')
     const chipsWidth = entry.hexes.length * (chip * 1.28)
-    ctx.fillText(hexLine, textX + chipsWidth + unit * 0.02, chipY + chip * 0.72)
+    const hexX = textX + chipsWidth + unit * 0.02
+    // A gradient with enough stops draws a hex line wider than the tile —
+    // clipped to what's left of the row rather than running past the margin.
+    const hexLine = truncateToWidth(ctx, entry.hexes.join('  '), width - margin - hexX)
+    ctx.fillText(hexLine, hexX, chipY + chip * 0.72)
 
     y += rowHeight
     drawn++

@@ -9,8 +9,8 @@
 
 import JSZip from 'jszip'
 import type { Gradient } from '../store/types'
-import { buildCarousel, type BuildCarouselOptions } from './carouselTemplates'
-import { captionParts, buildCaption, type CaptionOptions } from './carouselCaption'
+import { buildCarousel, type BuildCarouselOptions, type CarouselSlide } from './carouselTemplates'
+import { captionParts, buildCaption, type CaptionOptions, type CaptionParts } from './carouselCaption'
 import { renderSlide, SLIDE_SIZES, type SlideRatio, type SlideStyle } from './carouselRender'
 
 export interface CarouselSpec {
@@ -160,6 +160,30 @@ export async function exportCarousel(
     await new Promise((resolve) => setTimeout(resolve, 120))
   }
   return { delivery: 'downloaded', count: slides.length }
+}
+
+/**
+ * Downloads ONE rendered slide as its own PNG — the full-screen preview's
+ * "save this image" action. Renders at the same export size and style as the
+ * real export (not the preview's smaller, grain-off render), so what gets
+ * saved here is never a lower-fidelity stand-in for the real file.
+ */
+export async function downloadSlideImage(
+  slide: CarouselSlide,
+  index: number,
+  total: number,
+  gradients: Gradient[],
+  parts: CaptionParts,
+  ratio: SlideRatio,
+  style: SlideStyle = {}
+): Promise<boolean> {
+  const { width, height } = SLIDE_SIZES[ratio]
+  const canvas = document.createElement('canvas')
+  renderSlide(canvas, slide, gradients, parts, width, height, style)
+  const blob = await canvasToBlob(canvas)
+  if (!blob) return false
+  triggerDownload(blob, slideFilename(index, total, slide.kind))
+  return true
 }
 
 /**

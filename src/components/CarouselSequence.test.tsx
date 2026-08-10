@@ -100,9 +100,30 @@ describe('CarouselSequence', () => {
     // Cover, three gradients, summary — one entry each, numbered straight
     // through, so there is no second list to reconcile against.
     expect(roles()).toEqual(['cover', 'body', 'body', 'body', 'summary'])
-    expect(screen.getByText('Cover')).toBeInTheDocument()
-    expect(screen.getByText('Summary')).toBeInTheDocument()
+    // "Cover"/"Summary" now appear twice each — the track label and the
+    // card's own badge — so assert by count rather than a single match.
+    expect(screen.getAllByText('Cover')).toHaveLength(2)
+    expect(screen.getAllByText('Summary')).toHaveLength(2)
     expect(screen.getByText('5')).toBeInTheDocument()
+  })
+
+  it('puts the cover and summary in their own tracks, separate from the gradients', () => {
+    setup({ cover: 'stack', summary: true })
+    expect(screen.getByTestId('track-cover')).toBeInTheDocument()
+    expect(screen.getByTestId('track-gradients')).toBeInTheDocument()
+    expect(screen.getByTestId('track-summary')).toBeInTheDocument()
+    // Three gradients, and only three, land in the Gradients track.
+    const gradientTrack = screen.getByTestId('track-gradients')
+    expect(gradientTrack.querySelectorAll('[data-slide-role="body"]')).toHaveLength(3)
+    expect(gradientTrack.querySelectorAll('[data-slide-role="cover"]')).toHaveLength(0)
+    expect(gradientTrack.querySelectorAll('[data-slide-role="summary"]')).toHaveLength(0)
+  })
+
+  it('omits a track entirely when that bookend is off', () => {
+    setup({ cover: null, summary: false })
+    expect(screen.queryByTestId('track-cover')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('track-summary')).not.toBeInTheDocument()
+    expect(screen.getByTestId('track-gradients')).toBeInTheDocument()
   })
 
   it('numbers slides by their place in the carousel, bookends included', () => {

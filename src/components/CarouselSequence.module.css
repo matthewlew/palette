@@ -1,3 +1,28 @@
+/* The three tracks stacked: Cover, then Gradients, then Summary. Separate
+   sections rather than one badge on an otherwise identical card, so a cover
+   or summary reads as "not a gradient" at a glance instead of on close
+   reading. */
+.tracks {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.track {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.trackLabel {
+  margin: 0;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+}
+
 /* Wraps rather than scrolls, so the whole carousel is comparable at a glance.
    auto-fill keeps the slides a readable size and lets the column count follow
    the container — 3 across on a phone, 6 on a wide screen. */
@@ -9,6 +34,13 @@
   grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
   gap: 14px 10px;
   align-items: start;
+}
+
+/* The cover and summary tracks hold exactly one card — without this, a lone
+   item in an auto-fill grid stretches to fill the whole row, looking like a
+   layout bug rather than "there's only one of these". */
+.sequenceSingle {
+  grid-template-columns: repeat(auto-fill, minmax(96px, 160px));
 }
 
 .item {

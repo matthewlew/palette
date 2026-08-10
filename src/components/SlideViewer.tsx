@@ -1,8 +1,10 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Gradient } from '../store/types'
 import type { CarouselSlide } from '../lib/carouselTemplates'
 import type { CaptionParts } from '../lib/carouselCaption'
 import { renderSlide, SLIDE_SIZES, type SlideRatio } from '../lib/carouselRender'
+import { downloadSlideImage } from '../lib/carouselExport'
+import { namePalette } from '../lib/naming'
 import styles from './SlideViewer.module.css'
 
 interface SlideViewerProps {
@@ -47,6 +49,13 @@ export function SlideViewer({
   const slide = slides[index]
   const size = SLIDE_SIZES[ratio]
   const height = Math.round((VIEW_WIDTH * size.height) / size.width)
+  const [saving, setSaving] = useState(false)
+
+  // A body slide is one gradient — name it, the way the sequence strip's own
+  // caption does. Cover and summary carry the role badge instead; neither is
+  // "a gradient" with a name of its own.
+  const gradient = slide?.role === 'body' ? gradients[slide.slices[0]?.index] : undefined
+  const name = gradient ? gradient.name ?? namePalette(gradient.stops.map((s) => s.hex)) : null
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -59,6 +68,18 @@ export function SlideViewer({
       console.warn('Slide render failed', e)
     }
   }, [slide, gradients, parts, framed, height])
+
+  async function handleSave() {
+    if (!slide || saving) return
+    setSaving(true)
+    try {
+      await downloadSlideImage(slide, index, slides.length, gradients, parts, ratio, { framed, grain: true })
+    } catch (e) {
+      console.error('Slide save failed', e)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -91,12 +112,39 @@ export function SlideViewer({
           {index + 1} / {slides.length}
           {roleLabel && <span className={styles.badge}>{roleLabel}</span>}
         </span>
-        <button type="button" className={styles.close} onClick={onClose} aria-label="Close slide preview">
-          ✕
-        </button>
+        {name && (
+          <span className={styles.slideTitle} data-testid="slide-viewer-name">
+            {name}
+          </span>
+        )}
+        <div className={styles.barActions}>
+          <button
+            type="button"
+            className={styles.saveBtn}
+            onClick={handleSave}
+            disabled={saving}
+            data-testid="slide-viewer-save"
+            aria-label="Save this image"
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+          <button type="button" className={styles.close} onClick={onClose} aria-label="Close slide preview">
+            ✕
+          </button>
+        </div>
       </header>
 
-      <div className={styles.stage}>
+      {/* The empty space around the canvas is "outside the slide" too — a
+          lightbox that only closes on the ✕ or a bare sliver of backdrop
+          around the nav buttons reads as broken, not deliberate. Checked
+          against currentTarget so a tap ON the canvas or the nav buttons
+          (which bubble here) doesn't also close the thing you're using. */}
+      <div
+        className={styles.stage}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose()
+        }}
+      >
         <button
           type="button"
           className={styles.nav}
