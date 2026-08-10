@@ -6,6 +6,7 @@ import {
   angleForTypeChange,
   nextRotationAngle,
   nextFanRotation,
+  SELECTABLE_GEOMETRY,
   type GradientType,
 } from '../lib/gradient'
 import {
@@ -17,6 +18,7 @@ import {
   toGradientCoverageStops,
   generateGradientCoverage,
   coverageToHex,
+  isEvenlyDistributed,
   type DrumEditableStop,
 } from '../lib/riso'
 import type { EditableStop } from '../lib/stopOrdering'
@@ -144,6 +146,10 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
   const scrollAccumRef = useRef(0)
   const inkNamesRef = useRef(inkNames)
   inkNamesRef.current = inkNames
+  const editableStopsRef = useRef(editableStops)
+  editableStopsRef.current = editableStops
+  const gradientRef = useRef(gradient)
+  gradientRef.current = gradient
   const lockedCoverageRef = useRef(lockedCoverage)
   lockedCoverageRef.current = lockedCoverage
   const lockedDrumPositionsRef = useRef(lockedDrumPositions)
@@ -164,6 +170,79 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
     const observer = new ResizeObserver(measure)
     observer.observe(el)
     return () => observer.disconnect()
+  }, [])
+
+  const onExitRef = useRef(onExit)
+  onExitRef.current = onExit
+
+  // Same shortcut set EditMode offers, scoped to what Drum has: no per-stop
+  // hue sort (coverage is multi-dimensional, there's no single sort axis) and
+  // no toggle-save (Drum's save fires on plate export, not a togglable pin).
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement
+      const TEXT_INPUT_TYPES = new Set(['text', 'search', 'email', 'tel', 'url', 'password', 'number'])
+      const isTextInput = target?.tagName === 'INPUT' && TEXT_INPUT_TYPES.has((target as HTMLInputElement).type)
+      const inTextField = isTextInput || target?.tagName === 'TEXTAREA' || target?.isContentEditable
+
+      if (e.key === 'Escape' && !inTextField) {
+        e.preventDefault()
+        onExitRef.current()
+        return
+      }
+
+      if (
+        inTextField ||
+        e.metaKey ||
+        e.ctrlKey ||
+        e.altKey ||
+        (target instanceof Element && target.closest('[role="slider"]'))
+      ) {
+        return
+      }
+
+      if (e.key === 'PageDown' || e.key === 'ArrowDown') {
+        e.preventDefault()
+        goToVariant(scrollIndexRef.current + 1)
+      } else if (e.key === 'PageUp' || e.key === 'ArrowUp') {
+        e.preventDefault()
+        if (scrollIndexRef.current > 0) goToVariant(scrollIndexRef.current - 1)
+      } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        e.preventDefault()
+        const currentGrad = gradientRef.current
+        const currentIndex = Math.max(0, SELECTABLE_GEOMETRY.indexOf(currentGrad.type))
+        const len = SELECTABLE_GEOMETRY.length
+        const nextIndex = e.key === 'ArrowRight' ? (currentIndex + 1) % len : (currentIndex - 1 + len) % len
+        const nextType = SELECTABLE_GEOMETRY[nextIndex]
+        const angle = angleForTypeChange(currentGrad.type, nextType, currentGrad.angle)
+        const { stops, coverage } = toGradientCoverageStops(
+          editableStopsRef.current,
+          inkNamesRef.current.map((name) => findInk(name)?.hex ?? '#000000')
+        )
+        setCurrentGradient({ ...currentGrad, type: nextType, angle, stops, riso: { inks: inkNamesRef.current, coverage } })
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault()
+        const reversedPositions = editableStopsRef.current.map((s) => ({ ...s, position: 100 - s.position }))
+        commit(reversedPositions)
+      } else if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault()
+        const currentGrad = gradientRef.current
+        const angle = nextRotationAngle(currentGrad.type, currentGrad.angle)
+        const { stops, coverage } = toGradientCoverageStops(
+          editableStopsRef.current,
+          inkNamesRef.current.map((name) => findInk(name)?.hex ?? '#000000')
+        )
+        setCurrentGradient({ ...currentGrad, angle, stops, riso: { inks: inkNamesRef.current, coverage } })
+      }
+    }
+
+    // Capture, not bubble — same reasoning as EditMode: Base UI's Drawer.Popup
+    // stops propagation of arrow/Home/End keydowns it assumes belong to a
+    // composite widget inside it, which would otherwise swallow these the
+    // moment focus is inside the mobile sheet.
+    window.addEventListener('keydown', handleKeyDown, true)
+    return () => window.removeEventListener('keydown', handleKeyDown, true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -525,6 +604,22 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
             containerRef={blockContainerRef}
             activeStopId={activeStopId}
           />
+        </div>
+        <div className={styles.stopActions}>
+          <span className={styles.stopHint}>Tap a blank spot to add · drag down to remove</span>
+          {/* Only when the spacing has actually drifted off the even ladder —
+              CanvasHandles offers the same reset as a gesture; this is the
+              discoverable button counterpart, matching EditMode's. */}
+          {!isEvenlyDistributed(editableStops) && (
+            <button
+              type="button"
+              data-testid="drum-reset-spacing"
+              className={`lds-chip ${styles.resetButton}`}
+              onClick={() => commit(equalizeEditableStops(editableStops, lockedDrumPositions))}
+            >
+              Reset spacing
+            </button>
+          )}
         </div>
         <DrumPreflight issues={preflightIssues} stopNumbers={stopNumbers} />
         <DrumStopList

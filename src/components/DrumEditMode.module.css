@@ -126,6 +126,27 @@
   min-height: 0;
 }
 
+.stopActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 12px;
+}
+
+.stopHint {
+  font-size: var(--text-caption);
+  color: var(--text-subdued);
+  opacity: 0.8;
+  min-width: 0;
+}
+
+/* Appears only when the stops have actually drifted off the even ladder. */
+.resetButton {
+  min-height: 32px;
+  align-self: center;
+}
+
 .drumRow {
   display: flex;
   align-items: center;
