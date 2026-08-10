@@ -285,6 +285,16 @@ function Tile({
       >
         {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={6} angle={gradient.angle} />}
         <NoiseOverlay visible={noiseEnabled} />
+        {/* PRD §5.3's proposed mitigation for silent round-trip data loss: a
+            Drum gradient looks identical to a plain one once rendered (hex is
+            always the ground truth for display), so without this there is no
+            way to tell browsing the grid that one was authored in coverage,
+            not RGB — the cue is gone by the time it's just a saved tile. */}
+        {gradient.riso && (
+          <span className={styles.drumBadge} data-testid="tile-drum-badge" aria-hidden="true">
+            Drum
+          </span>
+        )}
         {/* The slide number this pick will occupy. Shown on the tile rather
             than only in the studio so the order is legible while you build it,
             which is the whole reason picking is ordered. */}
@@ -587,6 +597,14 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes 
       {live.createdAt && (
         <span className={styles.viewerDate} style={{ color: titleColor }}>
           Saved on {formatDate(live.createdAt)}
+        </span>
+      )}
+      {/* See the tile badge above for why this exists — same PRD §5.3 cue,
+          repeated here since the viewer is the other place this gradient is
+          ever just looked at rather than edited. */}
+      {live.riso && (
+        <span className={styles.viewerDrumBadge} data-testid="viewer-drum-badge" style={{ color: titleColor }}>
+          Made in Drum
         </span>
       )}
       {(live.note || live.stops.some((s) => s.label)) && (
