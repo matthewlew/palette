@@ -1,76 +1,172 @@
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
-  gap: var(--space-2) var(--space-3);
-  justify-items: center;
-  max-height: 32vh;
-  overflow-y: auto;
-  overscroll-behavior-y: contain;
-  -webkit-overflow-scrolling: touch;
-  padding: var(--space-2) var(--space-3);
+.stackButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  margin: 4px 12px 0;
+  padding: 6px 12px 6px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--pill);
+  background: transparent;
+  cursor: pointer;
 }
 
-.swatch,
-.swatchSelected {
+.stack {
+  display: flex;
+  align-items: center;
+}
+
+.stackSwatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--background);
+  /* Overlap like an avatar stack — each swatch after the first tucks
+     under the previous one instead of sitting flush beside it. */
+  margin-left: -10px;
+}
+
+.stackSwatch:first-child {
+  margin-left: 0;
+}
+
+.stackLabel {
+  font-family: var(--th-body);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: color-mix(in srgb, #000 40%, transparent);
+  transition: opacity var(--dur-slow, 320ms) var(--ease-decelerate, ease);
+}
+
+.backdrop[data-starting-style],
+.backdrop[data-ending-style] {
+  opacity: 0;
+}
+
+.sheetViewport {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 21;
+}
+
+.sheet {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: var(--space-1);
-  width: 40px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  padding: 0;
+  background: var(--background);
+  border-top-left-radius: var(--radius-lg);
+  border-top-right-radius: var(--radius-lg);
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.3);
+  padding-bottom: var(--safe-b);
+  /* Same mechanism as EditMode's sheet: open/closed position and the live
+     drag both move this transform via the library's own CSS variable, so a
+     real finger-drag tracks 1:1 instead of animating underneath it. */
+  transform: translateY(var(--drawer-swipe-movement-y, 0px));
+  transition: transform var(--dur-slow, 320ms) var(--ease-decelerate, ease);
 }
 
-.swatch:disabled {
-  cursor: not-allowed;
-  opacity: 0.35;
+/* No transition while an actual finger is moving it. */
+.sheet[data-swiping] {
+  transition-duration: 0ms;
 }
 
-.swatchColor {
-  position: relative;
+/* Both ends of a programmatic (non-drag) open/close — the drag case above
+   has its own transform via --drawer-swipe-movement-y and never reaches
+   this. */
+.sheet[data-starting-style],
+.sheet[data-ending-style] {
+  transform: translateY(100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet {
+    transition: none;
+  }
+}
+
+.sheetHandle {
   width: 36px;
-  height: 36px;
-  border-radius: 8px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  margin: 10px auto 4px;
 }
 
-.swatchSelected .swatchColor {
-  outline: 2px solid #fff;
-  outline-offset: 2px;
+.sheetContent {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 12px 20px;
 }
 
-.checkmark {
-  position: absolute;
-  bottom: -4px;
-  right: -4px;
-  width: 14px;
-  height: 14px;
-  color: #fff;
-  background: #000;
-  border-radius: 50%;
+.sheetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-.label {
-  font-size: 10px;
-  line-height: 1.3;
-  font-weight: 500;
+.heading {
+  margin: 0;
+  font-family: var(--th-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--text-subdued);
-  max-width: 40px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-@media (min-width: 768px) {
-  .grid {
-    gap: var(--space-3);
-    max-height: none;
-    overflow-y: visible;
-    padding: var(--space-4) var(--space-5);
-  }
+.closeButton {
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--th-body);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
 
-  .label {
-    display: none;
-  }
+.slots {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.slot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-base);
+}
+
+.preview {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--text) 25%, transparent);
+}
+
+.select {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--th-body);
+  font-size: 13px;
 }
