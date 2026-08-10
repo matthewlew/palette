@@ -16,6 +16,12 @@ interface TabBarProps {
   /** True while edit mode's desktop side panel is open: the bar centers on
    * the remaining canvas width instead of the full viewport. */
   panelOpen?: boolean
+  /** True for the whole of edit mode, sheet open or dismissed. Unlike
+   * `panelOpen` (which also drives the desktop centering/opacity), this only
+   * controls the scroll duck below — so the bar still fades while the user
+   * scrubs the rolodex with the mobile sheet dismissed, instead of sitting
+   * there as the one piece of chrome that never ducks. */
+  editing?: boolean
   /** Most recent saves (newest last); the Gallery tab shows them as a tiny
    * fanned stack, standing in for the removed edit-mode favorites drawer. */
   recentGradients?: Gradient[]
@@ -48,6 +54,7 @@ export function TabBar({
   onChange,
   hidden = false,
   panelOpen = false,
+  editing = false,
   recentGradients = [],
   savedCount = 0,
 }: TabBarProps) {
@@ -88,7 +95,7 @@ export function TabBar({
     }
   }, [])
 
-  const isHidden = hidden || (panelOpen && scrolling)
+  const isHidden = hidden || ((panelOpen || editing) && scrolling)
   const galleryLabel = savedCount > 0 ? `Gallery (${savedCount})` : 'Gallery'
 
   return (

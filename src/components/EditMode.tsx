@@ -156,6 +156,12 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
   // itself — swiping the sheet down closes it the same way a tap does; see
   // the Drawer.Root below.
   const [sheetHidden, setSheetHidden] = useState(false)
+  // Measured height of the mobile sheet, so the gradient preview above it can
+  // shrink to the space actually left over instead of being covered by a
+  // sheet that's floating on top of it (Drawer.Portal renders the sheet
+  // outside the flex layout — see .preview's comment in EditMode.module.css).
+  const sheetPopupRef = useRef<HTMLDivElement>(null)
+  const [sheetHeight, setSheetHeight] = useState(0)
   const isDraggingRef = useRef(false)
   const lastHandleDragEndRef = useRef(0)
   const pendingGradientRef = useRef<Gradient | null>(null)
@@ -319,6 +325,23 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
+
+  // Mobile only — the desktop panel is an in-flow flex sibling that already
+  // sizes the preview correctly. Tracks the sheet's real rendered height
+  // (its content can grow/shrink — adding a color stop, opening the sheet
+  // hint, etc.) so the preview can be shrunk by exactly that amount instead
+  // of guessing a fixed offset.
+  useEffect(() => {
+    if (isDesktop) return
+    const el = sheetPopupRef.current
+    if (!el) return
+    const measure = () => setSheetHeight(el.getBoundingClientRect().height)
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [isDesktop])
 
   useEffect(() => {
     const el = previewRef.current
@@ -1058,6 +1081,9 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
                   angle: gradient.angle,
                   smooth: gradient.smoothEnabled,
                 }),
+          // Shrink to the space actually left above the sheet instead of
+          // sitting at full height underneath it — see sheetPopupRef above.
+          height: isDesktop ? undefined : `calc(100dvh - ${sheetHidden ? 0 : sheetHeight}px)`,
         }}
         onPointerDown={handlePreviewPointerDown}
         onPointerUp={handlePreviewPointerUp}
@@ -1163,6 +1189,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
           <Drawer.Portal>
             <Drawer.Viewport className={styles.sheetViewport}>
               <Drawer.Popup
+                ref={sheetPopupRef}
                 data-testid="edit-sheet"
                 className={[styles.sheet, sheetDuckHidden && styles.hidden].filter(Boolean).join(' ')}
                 onPointerDown={handleSheetPointerDown}

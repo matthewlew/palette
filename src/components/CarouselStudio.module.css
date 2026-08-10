@@ -69,6 +69,10 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  /* Without this, scrolling past the top/bottom of this list chains into the
+     Gallery grid still mounted underneath the backdrop — the classic
+     fixed-overlay-over-scrollable-page rubber-band bug. */
+  overscroll-behavior: contain;
   padding: 20px 28px 24px;
   display: flex;
   flex-direction: column;
@@ -95,6 +99,12 @@
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.45);
+}
+
+.sectionHint {
+  margin: -6px 0 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .linkBtn {
@@ -227,12 +237,28 @@
   scroll-snap-align: start;
 }
 
+.slideTapTarget {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.slideTapTarget:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
 .slideCanvas {
   display: block;
   width: 100%;
   height: auto;
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.04);
+  pointer-events: none;
 }
 
 .slideCaption {
@@ -285,8 +311,9 @@
   padding: 12px 14px;
   border-radius: var(--radius-md, 10px);
   background: rgba(0, 0, 0, 0.28);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11.5px;
+  font-family: inherit;
+  text-align: left;
+  font-size: 12.5px;
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.8);
   white-space: pre-wrap;
@@ -324,6 +351,112 @@
 .exportBtn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* ---- Full-screen slide viewer ---- */
+
+.viewerBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 101;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.viewer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.viewerCanvas {
+  display: block;
+  max-width: min(80vw, 480px);
+  max-height: 70vh;
+  width: auto;
+  height: auto;
+  border-radius: 10px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.viewerClose,
+.viewerPrev,
+.viewerNext {
+  position: absolute;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+}
+
+.viewerClose {
+  top: -44px;
+  right: 0;
+  width: 32px;
+  height: 32px;
+  font-size: 14px;
+}
+
+.viewerPrev,
+.viewerNext {
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+}
+
+.viewerPrev {
+  left: -52px;
+}
+
+.viewerNext {
+  right: -52px;
+}
+
+.viewerFooter {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.viewerExportBtn {
+  border: 0;
+  border-radius: var(--radius-md, 10px);
+  background: #fff;
+  color: #101014;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 16px;
+  cursor: pointer;
+}
+
+@media (max-width: 700px) {
+  .viewerPrev {
+    left: 4px;
+  }
+
+  .viewerNext {
+    right: 4px;
+  }
+
+  .viewerCanvas {
+    max-width: 92vw;
+  }
 }
 
 @media (max-width: 600px) {

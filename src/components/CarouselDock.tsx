@@ -57,7 +57,7 @@ export function CarouselDock({
             onClick={onCarousel}
             data-testid="selection-carousel"
           >
-            Carousel
+            Compose
           </button>
           <button
             type="button"

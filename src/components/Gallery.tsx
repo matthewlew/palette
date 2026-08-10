@@ -755,9 +755,13 @@ interface GalleryProps {
   /** Fired when the full-screen viewer opens/closes so the shell can hide the
    * global ＋ Create nav (the viewer has its own Delete/Edit actions). */
   onViewerOpenChange?: (open: boolean) => void
+  /** Fired when the selection dock or Multiselect studio opens/closes, so the
+   * shell can duck the global nav out from under them — both already render
+   * their own actions and previously sat on top of the tab bar unhidden. */
+  onSelectionActiveChange?: (active: boolean) => void
 }
 
-export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOpenChange }: GalleryProps) {
+export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOpenChange, onSelectionActiveChange }: GalleryProps) {
   const saved = useAppStore((s) => s.saved)
   const removeSavedGradientById = useAppStore((s) => s.removeSavedGradientById)
   const lastDeleted = useAppStore((s) => s.lastDeleted)
@@ -863,6 +867,27 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
     if (chosen.length === 0) return
     setDownloadingPicks(true)
     try {
+      // A single pick has no "order" to preserve and no reason to make the
+      // user unzip a folder to see the one image they asked for — download
+      // the PNG directly, the same way any other single-image export works.
+      if (chosen.length === 1) {
+        const gradient = chosen[0]
+        const canvas = document.createElement('canvas')
+        await renderVignetteToCanvas(canvas, gradient, 1080, 1350, 'post')
+        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+        if (blob) {
+          const slug = (gradient.name ?? 'gradient').toLowerCase().replace(/\s+/g, '-')
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = `${slug}-post.png`
+          document.body.appendChild(a)
+          a.click()
+          document.body.removeChild(a)
+          setTimeout(() => URL.revokeObjectURL(url), 1000)
+        }
+        return
+      }
       const zip = new JSZip()
       for (const gradient of chosen) {
         const canvas = document.createElement('canvas')
@@ -998,6 +1023,10 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
   useEffect(() => {
     onViewerOpenChange?.(open !== null)
   }, [open, onViewerOpenChange])
+
+  useEffect(() => {
+    onSelectionActiveChange?.(selectionVisible || studioOpen)
+  }, [selectionVisible, studioOpen, onSelectionActiveChange])
 
   const filteredSaves = saved.filter((gradient) => matchesFilters(gradient, typeFilter))
   const filtered = savesOrder === 'recent' ? byMostRecent(filteredSaves) : filteredSaves

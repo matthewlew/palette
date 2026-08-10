@@ -9,6 +9,7 @@
   gap: 8px;
   overflow-x: auto;
   overflow-y: hidden;
+  overscroll-behavior-x: contain;
   scrollbar-width: thin;
   scroll-snap-type: x proximity;
 }
@@ -20,10 +21,19 @@
   cursor: grab;
   border-radius: 8px;
   outline-offset: 3px;
+  /* The item owns both drag-to-reorder and tap-to-preview on touch, so it
+     has to arbitrate the gesture itself rather than letting the browser's
+     own scroll/zoom handling race it. */
+  touch-action: none;
 }
 
 .item:active {
   cursor: grabbing;
+}
+
+.itemDragging {
+  opacity: 0.6;
+  z-index: 3;
 }
 
 /* The gap the dragged slide will land in. A left edge rather than a full
