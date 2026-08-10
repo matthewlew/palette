@@ -101,11 +101,6 @@ function DrumSlots({
   const canAdd = !!onAddSlot && names.length < MAX_DRUM_SLOTS
   return (
     <div className={styles.slots}>
-      {onResetDrums && !isDefaultLoadout(names) && (
-        <button type="button" data-testid="drum-reset" className={styles.resetButton} onClick={onResetDrums}>
-          Reset drums
-        </button>
-      )}
       {names.map((name, index) => (
         <div key={index} className={styles.slot} data-testid="drum-slot">
           <InkSelect value={name} onChange={(next) => onChangeSlot(index, next)} label={`Drum ${index + 1} ink`} />
@@ -118,7 +113,7 @@ function DrumSlots({
               disabled={!canRemove}
               onClick={() => onRemoveSlot(index)}
             >
-              <Icon name="close" size="sm" />
+              <Icon name="trash" size="sm" />
             </button>
           )}
         </div>
@@ -126,6 +121,11 @@ function DrumSlots({
       {onAddSlot && (
         <button type="button" data-testid="drum-slot-add" className={styles.addButton} disabled={!canAdd} onClick={onAddSlot}>
           + Add drum
+        </button>
+      )}
+      {onResetDrums && !isDefaultLoadout(names) && (
+        <button type="button" data-testid="drum-reset" className={styles.resetButton} onClick={onResetDrums}>
+          Reset drums
         </button>
       )}
     </div>

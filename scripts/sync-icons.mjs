@@ -36,6 +36,7 @@ const USED = {
   'play-fill': 'PlayButton paused',
   search: 'SearchBar',
   share: 'BoardShare trigger',
+  trash: 'DrumPicker remove drum',
 }
 
 const src = JSON.parse(readFileSync(resolve(LIB, 'icons/icons.json'), 'utf8'))
