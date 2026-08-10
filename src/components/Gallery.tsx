@@ -7,7 +7,7 @@ import { useCommunityGradients, type CommunityOrder } from '../hooks/useCommunit
 import { useHint } from '../hooks/useHint'
 import { useMasonryRowSpans } from '../hooks/useMasonryRowSpans'
 import { useFlipReorder } from '../hooks/useFlipReorder'
-import { useAppStore, pickedCarouselGradients } from '../store/useAppStore'
+import { useAppStore, pickedCarouselGradients, gradientSignature } from '../store/useAppStore'
 import type { GalleryLayout } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
 import { likePalette, unlikePalette } from '../lib/likes'
@@ -839,11 +839,13 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   const toggleCarouselPick = useAppStore((s) => s.toggleCarouselPick)
   const reorderCarouselPick = useAppStore((s) => s.reorderCarouselPick)
   const clearCarouselPicks = useAppStore((s) => s.clearCarouselPicks)
+  const saveGradient = useAppStore((s) => s.saveGradient)
 
-  // Picks outlive pick mode, so the bar is shown whenever there is a selection
-  // — otherwise leaving pick mode would strand a half-built carousel with no
-  // way back to it.
-  const selectionVisible = activeTab === 'saves' && carouselPicks.length > 0
+  // Tied to pick mode: turning Select off is "I'm done deciding", and a tray
+  // that stays up after that reads as stuck chrome, not a saved-for-later
+  // draft. The picks themselves are untouched — turning Select back on
+  // (Yours or Community) brings the same tray right back.
+  const selectionVisible = pickMode && carouselPicks.length > 0
 
   /** Leaves the whole selection: empties the deck and drops out of pick mode.
    *
@@ -856,14 +858,37 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
     setPickMode(false)
   }
 
-  // Only your own saves can be picked: the carousel renders from the local
-  // `saved` array by id, and a community palette has no entry there.
+  // The carousel renders from the local `saved` array by id, and a community
+  // palette has no entry there — so picking one saves it first (silently,
+  // like the viewer's "Save to Gallery"), then picks the saved copy. Matched
+  // by signature rather than id: a community palette you'd already saved
+  // shouldn't get a second copy just because you picked it from the other tab.
   const pickApi =
-    pickMode && activeTab === 'saves'
-      ? (gradient: Gradient) => ({
-          order: carouselPicks.indexOf(gradient.id) === -1 ? null : carouselPicks.indexOf(gradient.id) + 1,
-          onToggle: (g: Gradient) => toggleCarouselPick(g.id),
-        })
+    pickMode
+      ? (gradient: Gradient) => {
+          const isLocal = activeTab === 'saves'
+          const match = isLocal ? gradient : saved.find((g) => gradientSignature(g) === gradientSignature(gradient))
+          const order = match ? carouselPicks.indexOf(match.id) : -1
+          return {
+            order: order === -1 ? null : order + 1,
+            onToggle: (g: Gradient) => {
+              if (isLocal) {
+                toggleCarouselPick(g.id)
+                return
+              }
+              const existing = saved.find((sv) => gradientSignature(sv) === gradientSignature(g))
+              if (existing) {
+                toggleCarouselPick(existing.id)
+                return
+              }
+              saveGradient(g)
+              const created = useAppStore
+                .getState()
+                .saved.find((sv) => gradientSignature(sv) === gradientSignature(g))
+              if (created) toggleCarouselPick(created.id)
+            },
+          }
+        }
       : null
 
   async function handleExportAll() {
@@ -1181,20 +1206,18 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
               <Icon name="grid-dense" size="sm" />
             </button>
           </div>
-          {activeTab === 'saves' && (
-            <div className={styles.toggleGroup}>
-              <button
-                type="button"
-                data-testid="carousel-pick-toggle"
-                className={pickMode ? styles.selectBtnActive : styles.selectBtn}
-                onClick={() => setPickMode((v) => !v)}
-                aria-pressed={pickMode}
-                title="Select gradients in order"
-              >
-                {pickMode ? 'Cancel' : 'Select'}
-              </button>
-            </div>
-          )}
+          <div className={styles.toggleGroup}>
+            <button
+              type="button"
+              data-testid="carousel-pick-toggle"
+              className={pickMode ? styles.selectBtnActive : styles.selectBtn}
+              onClick={() => setPickMode((v) => !v)}
+              aria-pressed={pickMode}
+              title="Select gradients in order"
+            >
+              {pickMode ? 'Cancel' : 'Select'}
+            </button>
+          </div>
           <BoardShare
             saved={saved}
             onImport={onImport ?? (() => {})}

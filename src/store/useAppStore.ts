@@ -13,7 +13,10 @@ import { namePalette } from '../lib/naming'
  * a lot of gradients rather than reading a few. */
 export type GalleryLayout = 'grid' | 'masonry' | 'dense'
 
-function gradientSignature(gradient: Gradient): string {
+/** Exported so callers can dedupe against `saved` without re-saving a
+ * palette that's already there under a different id — the community feed
+ * and the local Gallery use separate id spaces for the same gradient. */
+export function gradientSignature(gradient: Gradient): string {
   const sortedStops = [...gradient.stops].sort((a, b) => a.position - b.position)
   const stopsSig = sortedStops.map((s) => `${s.hex}@${s.position}`).join(',')
   const mods = [

@@ -1,10 +1,11 @@
-/* Sits above the global ＋ Create nav (which the Gallery reserves 90px for),
-   so both stay reachable while a selection is live. */
+/* Anchored directly to the tab bar's own footprint (--tabbar-top: its gap,
+   height and safe-area, all in one token — see index.css) so the tray reads
+   as attached to the nav below it instead of a pill floating loose mid-screen. */
 .dock {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(96px + var(--safe-b));
+  bottom: calc(var(--tabbar-top) + 10px);
   z-index: 40;
   display: flex;
   flex-direction: column;
