@@ -35,6 +35,7 @@ import { FlowEditor } from './FlowEditor'
 import { BoardShare } from './BoardShare'
 import { NoiseOverlay } from './NoiseOverlay'
 import { TurrellSquare } from './TurrellSquare'
+import { tickHaptic } from '../lib/haptics'
 import { useIsDesktop } from '../hooks/useIsDesktop'
 import { MEDIA_ICON } from '../lib/mediaChrome'
 import { Icon } from '../icons'
@@ -423,6 +424,12 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
     scrollHistoryRef.current = [nextStops]
     scrollIndexRef.current = 0
     setScrollIndex(0)
+    tickHaptic()
+  }
+
+  function handleResetSpacing() {
+    commit(equalizeEditableStops(editableStops, lockedDrumPositions))
+    tickHaptic()
   }
 
   const preflightIssues = checkGradientCoverage(editableStops, inkNames)
@@ -444,6 +451,7 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
     scrollIndexRef.current = newIndex
     setScrollIndex(newIndex)
     commit(history[newIndex])
+    tickHaptic()
   }
 
   function handleOpenExportPreview() {
@@ -627,7 +635,7 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
               type="button"
               data-testid="drum-reset-spacing"
               className={`lds-chip ${styles.resetButton}`}
-              onClick={() => commit(equalizeEditableStops(editableStops, lockedDrumPositions))}
+              onClick={handleResetSpacing}
             >
               Reset spacing
             </button>
@@ -756,7 +764,7 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
           cursor={canvasCursor}
           size={canvasSize}
           onReorder={handleCanvasReorder}
-          onResetSpacing={() => commit(equalizeEditableStops(editableStops, lockedDrumPositions))}
+          onResetSpacing={handleResetSpacing}
           onDraggingChange={(dragging) => {
             const wasDragging = isHandleDraggingRef.current
             isHandleDraggingRef.current = dragging
