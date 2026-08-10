@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { Drawer } from '@base-ui/react/drawer'
 import { useAppStore } from '../store/useAppStore'
 import { buildGradientCss } from '../lib/gradient'
 import {
@@ -16,6 +17,8 @@ import { downloadDrumPlatesZip } from '../lib/plateExport'
 import { DrumPicker, MIN_DRUM_SLOTS, MAX_DRUM_SLOTS } from './DrumPicker'
 import { DrumStopList } from './DrumStopList'
 import { DrumPreflight } from './DrumPreflight'
+import { useIsDesktop } from '../hooks/useIsDesktop'
+import { MEDIA_ICON } from '../lib/mediaChrome'
 import { Icon } from '../icons'
 import type { Gradient } from '../store/types'
 import styles from './DrumEditMode.module.css'
@@ -86,6 +89,15 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
   const [activeStopId, setActiveStopId] = useState<string | null>(null)
   const [drumSheetOpen, setDrumSheetOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
+
+  const isDesktop = useIsDesktop()
+  // Mobile: the sheet covers the bottom of the gradient, so tapping the
+  // preview ducks it out of the way instead of leaving edit mode outright —
+  // the same tap brings it back. Desktop's side panel never covers the
+  // gradient, so there's nothing to reveal — see handlePreviewPointerUp.
+  const [sheetHidden, setSheetHidden] = useState(false)
+  const previewPointerStartRef = useRef<{ x: number; y: number } | null>(null)
+  const PREVIEW_TAP_THRESHOLD_PX = 10
 
   useEffect(() => {
     const names = clampInkNames(gradient.riso?.inks ?? [])
@@ -195,9 +207,83 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
     }
   }
 
+  /** Matches EditMode's own preview tap: a genuine tap (not a scroll/drag)
+   * toggles the sheet on mobile, or exits straight out on desktop, where the
+   * side panel never covers the gradient so there's nothing to reveal. */
+  function handlePreviewPointerDown(e: React.PointerEvent) {
+    if ((e.target as HTMLElement).closest('button')) return
+    previewPointerStartRef.current = { x: e.clientX, y: e.clientY }
+  }
+
+  function handlePreviewPointerUp(e: React.PointerEvent) {
+    const start = previewPointerStartRef.current
+    previewPointerStartRef.current = null
+    if ((e.target as HTMLElement).closest('button')) return
+    if (start) {
+      const dx = e.clientX - start.x
+      const dy = e.clientY - start.y
+      if (Math.hypot(dx, dy) > PREVIEW_TAP_THRESHOLD_PX) return
+    }
+    if (!isDesktop) {
+      setSheetHidden((prevHidden) => !prevHidden)
+      return
+    }
+    onExit()
+  }
+
+  /** Clears the active stop when the sheet's own background (not a child
+   * control) is pressed — same handler EditMode uses on its sheet. */
+  function handleSheetPointerDown(e: React.PointerEvent) {
+    if (e.target === e.currentTarget) setActiveStopId(null)
+  }
+
+  const panelBody = (
+    <>
+      <DrumPicker
+        selectedNames={inkNames}
+        onChangeSlot={handleChangeSlot}
+        onAddSlot={handleAddDrum}
+        onRemoveSlot={handleRemoveDrum}
+        open={drumSheetOpen}
+        onOpenChange={setDrumSheetOpen}
+      />
+      <DrumPreflight issues={preflightIssues} stopNumbers={stopNumbers} />
+      <DrumStopList
+        stops={editableStops}
+        inkNames={inkNames}
+        inkHexes={inkHexes}
+        lockedCoverage={lockedCoverage}
+        lockedPositions={lockedDrumPositions}
+        onRecoverage={handleRecoverage}
+        onReposition={handleReposition}
+        onToggleCoverageLock={toggleCoverageLock}
+        onTogglePositionLock={toggleDrumPositionLock}
+        onRemove={handleRemove}
+        onAdd={handleAdd}
+        activeStopId={activeStopId}
+        onSelect={setActiveStopId}
+      />
+      <button
+        type="button"
+        data-testid="drum-export-plates"
+        className={styles.exportButton}
+        disabled={exporting}
+        onClick={handleExport}
+      >
+        {exporting ? 'Exporting…' : 'Export plates'}
+      </button>
+    </>
+  )
+
   return (
     <div data-testid="drum-edit-mode" className={styles.container}>
-      <button type="button" data-testid="drum-edit-back" aria-label="Back" className={styles.backButton} onClick={onExit}>
+      <button
+        type="button"
+        data-testid="drum-edit-back"
+        aria-label="Back"
+        className={[styles.backButton, MEDIA_ICON].join(' ')}
+        onClick={onExit}
+      >
         <Icon name="chevron-left" size="md" />
       </button>
       <div
@@ -215,42 +301,30 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
                 }),
           backgroundColor: gradient.type === 'square' ? hex : undefined,
         }}
+        onPointerDown={handlePreviewPointerDown}
+        onPointerUp={handlePreviewPointerUp}
       />
-      <div className={styles.panel}>
-        <DrumPicker
-          selectedNames={inkNames}
-          onChangeSlot={handleChangeSlot}
-          onAddSlot={handleAddDrum}
-          onRemoveSlot={handleRemoveDrum}
-          open={drumSheetOpen}
-          onOpenChange={setDrumSheetOpen}
-        />
-        <DrumPreflight issues={preflightIssues} stopNumbers={stopNumbers} />
-        <DrumStopList
-          stops={editableStops}
-          inkNames={inkNames}
-          inkHexes={inkHexes}
-          lockedCoverage={lockedCoverage}
-          lockedPositions={lockedDrumPositions}
-          onRecoverage={handleRecoverage}
-          onReposition={handleReposition}
-          onToggleCoverageLock={toggleCoverageLock}
-          onTogglePositionLock={toggleDrumPositionLock}
-          onRemove={handleRemove}
-          onAdd={handleAdd}
-          activeStopId={activeStopId}
-          onSelect={setActiveStopId}
-        />
-        <button
-          type="button"
-          data-testid="drum-export-plates"
-          className={styles.exportButton}
-          disabled={exporting}
-          onClick={handleExport}
-        >
-          {exporting ? 'Exporting…' : 'Export plates'}
-        </button>
-      </div>
+      {isDesktop ? (
+        <div data-testid="drum-edit-sheet" className={styles.sheet} onPointerDown={handleSheetPointerDown}>
+          <div className={styles.panel}>{panelBody}</div>
+        </div>
+      ) : (
+        // modal={false} + disablePointerDismissal: same reasoning as
+        // EditMode's own sheet — the preview beneath has to stay tappable
+        // while the sheet is open, and the preview's own reopen tap is
+        // itself a press outside the popup that Base UI would otherwise
+        // treat as a dismiss.
+        <Drawer.Root modal={false} disablePointerDismissal open={!sheetHidden} onOpenChange={(open) => setSheetHidden(!open)}>
+          <Drawer.Portal>
+            <Drawer.Viewport className={styles.sheetViewport}>
+              <Drawer.Popup data-testid="drum-edit-sheet" className={styles.sheet} onPointerDown={handleSheetPointerDown}>
+                <div data-testid="sheet-handle" aria-hidden="true" className={styles.sheetHandle} />
+                <Drawer.Content className={styles.panel}>{panelBody}</Drawer.Content>
+              </Drawer.Popup>
+            </Drawer.Viewport>
+          </Drawer.Portal>
+        </Drawer.Root>
+      )}
     </div>
   )
 }

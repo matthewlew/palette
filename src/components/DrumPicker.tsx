@@ -1,7 +1,6 @@
 import { Drawer } from '@base-ui/react/drawer'
 import { Select } from '@base-ui/react/select'
 import { INK_CATALOGUE, findInk } from '../lib/inkCatalogue'
-import { useIsDesktop } from '../hooks/useIsDesktop'
 import { Icon } from '../icons'
 import styles from './DrumPicker.module.css'
 
@@ -36,7 +35,11 @@ interface DrumPickerProps {
 function InkSelect({ value, onChange, label }: { value: string; onChange: (name: string) => void; label: string }) {
   const hex = findInk(value)?.hex ?? '#000000'
   return (
-    <Select.Root items={INK_CATALOGUE.map((ink) => ({ value: ink.name, label: ink.name }))} value={value} onValueChange={onChange}>
+    <Select.Root
+      items={INK_CATALOGUE.map((ink) => ({ value: ink.name, label: ink.name }))}
+      value={value}
+      onValueChange={(next) => next && onChange(next)}
+    >
       <Select.Trigger data-testid="drum-slot-select" aria-label={label} className={styles.select}>
         <span className={styles.preview} aria-hidden="true" style={{ backgroundColor: hex }} />
         <Select.Value className={styles.selectValue} />
@@ -108,8 +111,8 @@ function DrumSlots({
 
 /**
  * Collapses to a single row of overlapping swatches — like a stack of
- * avatars — behind one button, so the mobile edit panel isn't spending
- * vertical space on drum selection and stop editing at the same time.
+ * avatars — behind one button, so the edit panel isn't spending vertical
+ * space on drum selection and stop editing at the same time, on any layout.
  * Tapping it opens the actual picker (one dropdown per loaded drum, each
  * showing a live swatch preview, plus add/remove up to the press's drum
  * count) in a bottom sheet.
@@ -117,7 +120,10 @@ function DrumSlots({
  * The stack is deliberately not itself interactive — no per-swatch tap
  * target — because the whole point is that a drum is a hidden setting, not
  * a color you pick directly (PRD §6 item 1's open question about the grid
- * reading as "pick your colors" instead of "load a drum").
+ * reading as "pick your colors" instead of "load a drum"). Most people start
+ * with the standard 4-color set and never need to open this, so it should
+ * stay out of the way on desktop too, not just on the space-constrained
+ * mobile sheet.
  */
 export function DrumPicker({
   selectedNames,
@@ -128,23 +134,6 @@ export function DrumPicker({
   onOpenChange,
 }: DrumPickerProps) {
   const names = selectedNames.length > 0 ? selectedNames : [INK_CATALOGUE[0].name]
-  const isDesktop = useIsDesktop()
-
-  // Desktop has the vertical room EditMode's own side panel relies on — the
-  // whole point of the collapsed avatar stack was saving space on a small
-  // mobile sheet (PRD §6 item 1), a problem desktop doesn't have. Matching
-  // EditMode's `isDesktop` branch (a plain in-flow panel, no Drawer) rather
-  // than stretching the mobile bottom sheet full-width, which is what was
-  // happening before: a 1280px-wide overlay slid up from the bottom and sat
-  // on top of the tab bar.
-  if (isDesktop) {
-    return (
-      <div data-testid="drum-picker-panel" className={styles.desktopPanel}>
-        <p className={styles.heading}>Drums</p>
-        <DrumSlots names={names} onChangeSlot={onChangeSlot} onAddSlot={onAddSlot} onRemoveSlot={onRemoveSlot} />
-      </div>
-    )
-  }
 
   return (
     <Drawer.Root open={open} onOpenChange={onOpenChange}>
