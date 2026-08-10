@@ -33,6 +33,9 @@ import { GeometryTabs } from './GeometryTabs'
 import { CanvasHandles } from './CanvasHandles'
 import { FlowEditor } from './FlowEditor'
 import { BoardShare } from './BoardShare'
+import { NoiseOverlay } from './NoiseOverlay'
+import { TurrellSquare } from './TurrellSquare'
+import { tickHaptic } from '../lib/haptics'
 import { useIsDesktop } from '../hooks/useIsDesktop'
 import { MEDIA_ICON } from '../lib/mediaChrome'
 import { Icon } from '../icons'
@@ -86,6 +89,8 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
   const setCurrentGradient = useAppStore((s) => s.setCurrentGradient)
   const saved = useAppStore((s) => s.saved)
   const saveGradient = useAppStore((s) => s.saveGradient)
+  const noiseEnabled = useAppStore((s) => s.noiseEnabled)
+  const toggleNoise = useAppStore((s) => s.toggleNoise)
   const lockedCoverage = useAppStore((s) => s.lockedCoverage)
   const toggleCoverageLock = useAppStore((s) => s.toggleCoverageLock)
   const syncCoverageLock = useAppStore((s) => s.syncCoverageLock)
@@ -366,7 +371,9 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
    * commitPreservingPositions, just re-deriving stops/coverage from the
    * current editableStops instead of a plain hex list. */
   function commitGeometry(
-    overrides: Partial<Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops' | 'fanAnchor' | 'angle'>>
+    overrides: Partial<
+      Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops' | 'smoothEnabled' | 'fanAnchor' | 'angle'>
+    >
   ) {
     const { stops, coverage } = toGradientCoverageStops(editableStops, inkHexes)
     setCurrentGradient({ ...gradient, ...overrides, stops, riso: { inks: inkNames, coverage } })
@@ -387,7 +394,11 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
   }
 
   function handleToggleHardStops() {
-    commitGeometry({ hardStops: !gradient.hardStops })
+    commitGeometry({ hardStops: !gradient.hardStops, smoothEnabled: false })
+  }
+
+  function handleToggleSmooth() {
+    commitGeometry({ smoothEnabled: !gradient.smoothEnabled, hardStops: false })
   }
 
   function handleRotateAngle() {
@@ -413,9 +424,14 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
     scrollHistoryRef.current = [nextStops]
     scrollIndexRef.current = 0
     setScrollIndex(0)
+    tickHaptic()
   }
 
-  const hex = gradient.stops[0]?.hex ?? '#ffffff'
+  function handleResetSpacing() {
+    commit(equalizeEditableStops(editableStops, lockedDrumPositions))
+    tickHaptic()
+  }
+
   const preflightIssues = checkGradientCoverage(editableStops, inkNames)
   const stopNumbers = Object.fromEntries(editableStops.map((s, i) => [s.id, i + 1]))
 
@@ -435,6 +451,7 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
     scrollIndexRef.current = newIndex
     setScrollIndex(newIndex)
     commit(history[newIndex])
+    tickHaptic()
   }
 
   function handleOpenExportPreview() {
@@ -573,8 +590,11 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
           onToggleReversed={handleToggleReversed}
           onToggleRepeat={handleToggleRepeat}
           onToggleHardStops={handleToggleHardStops}
+          onToggleSmooth={handleToggleSmooth}
           onRotateFan={handleRotateFan}
           onRotate={handleRotateAngle}
+          noiseEnabled={noiseEnabled}
+          onToggleNoise={toggleNoise}
         />
         <div className={styles.drumRow}>
           <DrumPicker
@@ -615,7 +635,7 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
               type="button"
               data-testid="drum-reset-spacing"
               className={`lds-chip ${styles.resetButton}`}
-              onClick={() => commit(equalizeEditableStops(editableStops, lockedDrumPositions))}
+              onClick={handleResetSpacing}
             >
               Reset spacing
             </button>
@@ -713,8 +733,8 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
                   hard: gradient.hardStops,
                   fanAnchor: gradient.fanAnchor,
                   angle: gradient.angle,
+                  smooth: gradient.smoothEnabled,
                 }),
-          backgroundColor: gradient.type === 'square' ? hex : undefined,
         }}
         onPointerDown={handlePreviewPointerDown}
         onPointerMove={handlePreviewPointerMove}
@@ -723,6 +743,17 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
         onWheel={handlePreviewWheel}
       >
         <ScrollTicker index={scrollIndex} />
+        {/* Turrell reads "Hard" as crisp: no blur between the nested squares. */}
+        {gradient.type === 'square' && (
+          <TurrellSquare
+            stops={gradient.stops}
+            reversed={gradient.reversed}
+            repeatEnabled={gradient.repeatEnabled}
+            blurPx={gradient.hardStops ? 0 : undefined}
+            angle={gradient.angle}
+          />
+        )}
+        <NoiseOverlay visible={noiseEnabled} />
         <CanvasHandles
           stops={canvasStops}
           type={gradient.type}
@@ -733,7 +764,7 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
           cursor={canvasCursor}
           size={canvasSize}
           onReorder={handleCanvasReorder}
-          onResetSpacing={() => commit(equalizeEditableStops(editableStops, lockedDrumPositions))}
+          onResetSpacing={handleResetSpacing}
           onDraggingChange={(dragging) => {
             const wasDragging = isHandleDraggingRef.current
             isHandleDraggingRef.current = dragging
