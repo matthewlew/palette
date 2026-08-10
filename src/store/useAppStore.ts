@@ -14,7 +14,10 @@ import { namePalette } from '../lib/naming'
  * a lot of gradients rather than reading a few. */
 export type GalleryLayout = 'grid' | 'masonry' | 'dense'
 
-function gradientSignature(gradient: Gradient): string {
+/** Exported so callers can dedupe against `saved` without re-saving a
+ * palette that's already there under a different id — the community feed
+ * and the local Gallery use separate id spaces for the same gradient. */
+export function gradientSignature(gradient: Gradient): string {
   const sortedStops = [...gradient.stops].sort((a, b) => a.position - b.position)
   const stopsSig = sortedStops.map((s) => `${s.hex}@${s.position}`).join(',')
   const mods = [
@@ -178,6 +181,15 @@ interface AppState {
    * at the ends, so the first pick can't be moved off the front. */
   moveCarouselPick: (id: string, delta: -1 | 1) => void
   clearCarouselPicks: () => void
+  /** Whether the carousel studio has taken over the screen.
+   *
+   * Lives here rather than in Gallery, which owns the studio, because App owns
+   * the tab bar and has to hide it. The studio is a create-a-post flow: one
+   * screen, one intention, no way to wander off into another surface
+   * mid-curation. Deliberately not persisted — a refresh should land you back
+   * in the Gallery, not in a modal you don't remember opening. */
+  carouselStudioOpen: boolean
+  setCarouselStudioOpen: (open: boolean) => void
   /** Deletes several saved gradients at once, as one undoable event — the
    * bulk action behind the selection bar. Their carousel picks go with them:
    * a deleted gradient must not keep holding a slide number. */
@@ -544,6 +556,9 @@ export const useAppStore = create<AppState>()(
         set({ carouselPicks: next })
       },
       clearCarouselPicks: () => set({ carouselPicks: [] }),
+
+      carouselStudioOpen: false,
+      setCarouselStudioOpen: (open) => set({ carouselStudioOpen: open }),
     }),
     {
       name: 'palette-saved-gradients',

@@ -1,90 +1,51 @@
 import type { Gradient } from '../store/types'
-import { CarouselTray } from './CarouselTray'
+import { CarouselDeck } from './CarouselDeck'
 import styles from './CarouselDock.module.css'
 
 interface CarouselDockProps {
   /** The picked gradients, resolved and in slide order. */
   gradients: Gradient[]
-  /** Bulk PNG export is slow enough to need a visible working state. */
-  downloading?: boolean
-  onRemove: (id: string) => void
-  onReorder: (fromId: string, toId: string) => void
-  onMove: (id: string, delta: -1 | 1) => void
-  onCarousel: () => void
-  onDownload: () => void
-  onDelete: () => void
-  onDone: () => void
+  /** Opens the full-screen editor. */
+  onNext: () => void
+  /** Empties the deck and leaves selection mode. */
+  onClear: () => void
 }
 
 /**
- * The collecting surface: a filmstrip of what you have picked, with the
- * actions that operate on the whole selection underneath.
+ * The collecting surface: the hand of cards you have picked, and the way
+ * forward.
+ *
+ * One primary action, because collecting has exactly one next step. The dock
+ * used to carry four buttons — Carousel, Download, Delete, Done — which made
+ * picking gradients feel like a file manager. Download and Delete are things
+ * you do to gradients, not things you do to a carousel-in-progress, and Done
+ * and Carousel were two names for leaving the same screen. What is left is
+ * Next, and a quiet Clear for backing out of the whole selection.
  *
  * Docked rather than modal, and rendered over a Gallery that stays scrollable,
- * because collecting is a loop — pick one more, reorder, pick another. A modal
- * would force a close/reopen on every lap. The tray is where order is decided;
- * the grid above stays the place you add from.
+ * because collecting is a loop: pick one more, pick another.
  */
-export function CarouselDock({
-  gradients,
-  downloading = false,
-  onRemove,
-  onReorder,
-  onMove,
-  onCarousel,
-  onDownload,
-  onDelete,
-  onDone,
-}: CarouselDockProps) {
+export function CarouselDock({ gradients, onNext, onClear }: CarouselDockProps) {
   const count = gradients.length
 
   return (
     <div className={styles.dock} data-testid="selection-bar" aria-label="Carousel selection">
-      <CarouselTray
-        gradients={gradients}
-        onRemove={onRemove}
-        onReorder={onReorder}
-        onMove={onMove}
-      />
+      <CarouselDeck gradients={gradients} onOpen={onNext} />
       <div className={styles.actions} role="toolbar" aria-label="Selection actions">
-        <span className={styles.count} data-testid="selection-count">
-          {count} selected
-        </span>
-        <div className={styles.buttons}>
-          <button
-            type="button"
-            className={styles.primary}
-            onClick={onCarousel}
-            data-testid="selection-carousel"
-          >
-            Compose
-          </button>
-          <button
-            type="button"
-            className={styles.action}
-            onClick={onDownload}
-            disabled={downloading}
-            data-testid="selection-download"
-          >
-            {downloading ? 'Saving…' : 'Download'}
-          </button>
-          <button
-            type="button"
-            className={styles.destructive}
-            onClick={onDelete}
-            data-testid="selection-delete"
-          >
-            Delete
-          </button>
-          <button
-            type="button"
-            className={styles.done}
-            onClick={onDone}
-            data-testid="selection-done"
-          >
-            Done
-          </button>
-        </div>
+        <button type="button" className={styles.clear} onClick={onClear} data-testid="selection-clear">
+          Clear
+        </button>
+        <button
+          type="button"
+          className={styles.primary}
+          onClick={onNext}
+          data-testid="selection-next"
+        >
+          Next
+          <span className={styles.count} data-testid="selection-count">
+            {count}
+          </span>
+        </button>
       </div>
     </div>
   )

@@ -5,10 +5,6 @@ import { Feed, riffIntoFeed, makeGradient, startFeedWithType } from './component
 import { Gallery } from './components/Gallery'
 import { TabBar } from './components/TabBar'
 import { EditMode } from './components/EditMode'
-import { DrumEditMode } from './components/DrumEditMode'
-import { STANDARD_DRUM_INKS } from './components/DrumPicker'
-import { generateGradientCoverage } from './lib/riso'
-import { findInk } from './lib/inkCatalogue'
 import { ShortcutHints, type ShortcutHintItem } from './components/ShortcutHints'
 import { UndoToast } from './components/UndoToast'
 import { BoardShare } from './components/BoardShare'
@@ -39,13 +35,10 @@ export function App() {
   const importGradients = useAppStore((s) => s.importGradients)
   const undoImport = useAppStore((s) => s.undoImport)
   const chromeVisible = useIdleFade()
-  // Whether the mobile edit sheet is currently dismissed (gradient tapped to
-  // reveal it in full). Drives the tab bar back into view — see panelOpen
-  // below — so dismissing the sheet always leaves a way back to the gallery.
-  const [editSheetHidden, setEditSheetHidden] = useState(false)
-  // Multiselect's dock and studio render their own actions and previously sat
-  // on top of the tab bar, unhidden, while active.
-  const [selectionActive, setSelectionActive] = useState(false)
+  // The carousel studio is a full-screen create-a-post flow, so the tab bar
+  // goes away with everything else: offering Gallery and Create mid-curation
+  // is offering two unlabelled ways to abandon what you are making.
+  const carouselStudioOpen = useAppStore((s) => s.carouselStudioOpen)
   const [toastText, setToastText] = useState<string | null>(null)
   // Import toast carries an Undo; copy toast does not (undoable = has ids).
   const [importToast, setImportToast] = useState<{ message: string; undoable: boolean } | null>(null)
@@ -121,23 +114,6 @@ export function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  // Dev-only entry point: there's no "new drum gradient" creation flow yet
-  // (PRD leaves ink-count selection etc. unresolved) — this seeds a starter
-  function handleStartDrum() {
-    const inkHexes = STANDARD_DRUM_INKS.map((name) => findInk(name)?.hex ?? '#000000')
-    const { stops, coverage } = generateGradientCoverage(inkHexes)
-    const gradient: Gradient = {
-      id: crypto.randomUUID(),
-      type: 'linear',
-      stops,
-      riso: { inks: STANDARD_DRUM_INKS, coverage },
-    }
-    withViewTransition(() => {
-      setCurrentGradient(gradient)
-      setMode('edit')
-    })
-  }
 
   function handleImportJson(jsonText: string) {
     const payload = fromImportJson(jsonText)
@@ -221,16 +197,8 @@ export function App() {
 
   return (
     <>
-      {mode === 'edit' && current && current.riso && (
-        <DrumEditMode
-          gradient={current}
-          onExit={() => withViewTransition(exitEditMode)}
-          onImport={handleImportJson}
-        />
-      )}
-      {mode === 'edit' && current && !current.riso && (
+      {mode === 'edit' && current && (
         <EditMode
-          onSheetHiddenChange={setEditSheetHidden}
           gradient={current}
           onExit={() => withViewTransition(exitEditMode)}
           onImport={handleImportJson}
@@ -248,13 +216,7 @@ export function App() {
         </>
       )}
       {mode === 'gallery' && (
-        <Gallery
-          onRiff={handleRiff}
-          onImport={handleImportJson}
-          onStartType={handleStartType}
-          onStartDrum={handleStartDrum}
-          onSelectionActiveChange={setSelectionActive}
-        />
+        <Gallery onRiff={handleRiff} onImport={handleImportJson} onStartType={handleStartType} />
       )}
       {/* Edit mode renders its own shortcut hints inside the panel. */}
       {mode === 'create' && (
@@ -268,9 +230,8 @@ export function App() {
       )}
       <TabBar
         mode={mode === 'edit' ? 'create' : mode}
-        hidden={(mode === 'create' && !chromeVisible) || (mode === 'gallery' && selectionActive)}
-        panelOpen={mode === 'edit' && !editSheetHidden}
-        editing={mode === 'edit'}
+        hidden={carouselStudioOpen || (mode === 'create' && !chromeVisible)}
+        panelOpen={mode === 'edit'}
         recentGradients={saved.slice(-3)}
         savedCount={saved.length}
         onChange={(next) => {

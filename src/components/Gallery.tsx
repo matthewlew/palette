@@ -7,7 +7,7 @@ import { useCommunityGradients, type CommunityOrder } from '../hooks/useCommunit
 import { useHint } from '../hooks/useHint'
 import { useMasonryRowSpans } from '../hooks/useMasonryRowSpans'
 import { useFlipReorder } from '../hooks/useFlipReorder'
-import { useAppStore, pickedCarouselGradients } from '../store/useAppStore'
+import { useAppStore, pickedCarouselGradients, gradientSignature } from '../store/useAppStore'
 import type { GalleryLayout } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
 import { likePalette, unlikePalette } from '../lib/likes'
@@ -285,16 +285,6 @@ function Tile({
       >
         {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={6} angle={gradient.angle} />}
         <NoiseOverlay visible={noiseEnabled} />
-        {/* PRD §5.3's proposed mitigation for silent round-trip data loss: a
-            Drum gradient looks identical to a plain one once rendered (hex is
-            always the ground truth for display), so without this there is no
-            way to tell browsing the grid that one was authored in coverage,
-            not RGB — the cue is gone by the time it's just a saved tile. */}
-        {gradient.riso && (
-          <span className={styles.drumBadge} data-testid="tile-drum-badge" aria-hidden="true">
-            Drum
-          </span>
-        )}
         {/* The slide number this pick will occupy. Shown on the tile rather
             than only in the studio so the order is legible while you build it,
             which is the whole reason picking is ordered. */}
@@ -385,14 +375,6 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes 
   const removeSavedGradientById = useAppStore((s) => s.removeSavedGradientById)
   const toggleSaveGradient = useAppStore((s) => s.toggleSaveGradient)
   const isSaved = useAppStore((s) => s.isGradientSaved(gradient))
-  const setPendingViewerGradientId = useAppStore((s) => s.setPendingViewerGradientId)
-  /** Riffing from inside the viewer (as opposed to the flat-grid tile's own
-   * hover-edit) should return HERE on exit, not to the grid — see
-   * pendingViewerGradientId. */
-  function handleEditFromViewer(target: Gradient) {
-    setPendingViewerGradientId(target.id)
-    onRiff(target)
-  }
   const touchStartYRef = useRef<number | null>(null)
   const wheelAccumRef = useRef(0)
   const wheelResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -489,7 +471,7 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes 
       // Enter must not fire while a button has focus, where it already
       // means "activate".
       if ((e.key === 'Enter' && !onButton) || e.key === 'e' || e.key === 'E') {
-        handleEditFromViewer(gradient)
+        onRiff(gradient)
       }
       // Delete removes the open palette (undoable via the toast / ⌘Z).
       if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -599,14 +581,6 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes 
           Saved on {formatDate(live.createdAt)}
         </span>
       )}
-      {/* See the tile badge above for why this exists — same PRD §5.3 cue,
-          repeated here since the viewer is the other place this gradient is
-          ever just looked at rather than edited. */}
-      {live.riso && (
-        <span className={styles.viewerDrumBadge} data-testid="viewer-drum-badge" style={{ color: titleColor }}>
-          Made in Drum
-        </span>
-      )}
       {(live.note || live.stops.some((s) => s.label)) && (
         <div className={styles.viewerDetailsCard} onClick={(e) => e.stopPropagation()}>
           {live.note && <p className={styles.viewerDetailsNote}>{live.note}</p>}
@@ -667,7 +641,7 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes 
         <button
           type="button"
           className={MEDIA_CHIP}
-          onClick={() => handleEditFromViewer(live)}
+          onClick={() => onRiff(live)}
         >
           Edit
         </button>
@@ -771,23 +745,12 @@ interface GalleryProps {
   onRiff: (gradient: Gradient) => void
   onImport?: (jsonText: string) => void
   onStartType?: (type: GradientType) => void
-  /** Entry point into DrumEditMode — there's no real "new drum gradient"
-   * creation flow yet (ink-count selection etc. is unresolved scope), so
-   * this seeds a starter gradient and jumps straight to editing it. Shown
-   * both in the empty-Yours onboarding and as a standing header button once
-   * there are saves (see the header button below), since the onboarding
-   * spot disappears for good after the first save. */
-  onStartDrum?: () => void
   /** Fired when the full-screen viewer opens/closes so the shell can hide the
    * global ＋ Create nav (the viewer has its own Delete/Edit actions). */
   onViewerOpenChange?: (open: boolean) => void
-  /** Fired when the selection dock or Multiselect studio opens/closes, so the
-   * shell can duck the global nav out from under them — both already render
-   * their own actions and previously sat on top of the tab bar unhidden. */
-  onSelectionActiveChange?: (active: boolean) => void
 }
 
-export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOpenChange, onSelectionActiveChange }: GalleryProps) {
+export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: GalleryProps) {
   const saved = useAppStore((s) => s.saved)
   const removeSavedGradientById = useAppStore((s) => s.removeSavedGradientById)
   const lastDeleted = useAppStore((s) => s.lastDeleted)
@@ -820,29 +783,13 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
   // whenever a gallery you've deliberately arranged should stay arranged.
   const [savesOrder, setSavesOrder] = useState<SavesOrder>('recent')
   const isAdmin = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('admin') === 'true'
-  const setPendingViewerGradientId = useAppStore((s) => s.setPendingViewerGradientId)
-  // Reopens the viewer on the gradient edit was riffed from, when edit was
-  // entered from inside the viewer itself (not the flat-grid tile's own
-  // hover-edit) — see pendingViewerGradientId. Read once via getState (not
-  // the hook) so this mount is the only consumer; a live subscription would
-  // reopen the viewer on every future gallery mount, not just this one.
-  const [open, setOpen] = useState<Gradient | null>(() => {
-    const id = useAppStore.getState().pendingViewerGradientId
-    if (!id) return null
-    return useAppStore.getState().saved.find((g) => g.id === id) ?? null
-  })
+  const [open, setOpen] = useState<Gradient | null>(null)
   // Which tile the viewer flew out of. Held separately from `open` because the
   // two must disagree for exactly one frame at each end of the transition: the
   // tile has to already be wearing the shared `palette-card` name when the OLD
   // state is captured, and must have handed it to the viewer by the time the
   // NEW state is.
-  const [heroId, setHeroId] = useState<string | null>(open?.id ?? null)
-  // One-shot: consume the pending id so it doesn't reopen the viewer again on
-  // some later, unrelated gallery mount.
-  useEffect(() => {
-    if (useAppStore.getState().pendingViewerGradientId) setPendingViewerGradientId(null)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  const [heroId, setHeroId] = useState<string | null>(null)
 
   /** Open the full-screen viewer as a zoom out of the tapped thumbnail.
    *
@@ -888,95 +835,60 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
   // stay "open this palette".
   const [pickMode, setPickMode] = useState(false)
   const [studioOpen, setStudioOpen] = useState(false)
-  const [downloadingPicks, setDownloadingPicks] = useState(false)
   const carouselPicks = useAppStore((s) => s.carouselPicks)
   const toggleCarouselPick = useAppStore((s) => s.toggleCarouselPick)
   const reorderCarouselPick = useAppStore((s) => s.reorderCarouselPick)
-  const moveCarouselPick = useAppStore((s) => s.moveCarouselPick)
   const clearCarouselPicks = useAppStore((s) => s.clearCarouselPicks)
-  const removeSavedGradientsByIds = useAppStore((s) => s.removeSavedGradientsByIds)
+  const saveGradient = useAppStore((s) => s.saveGradient)
 
-  // Picks outlive pick mode, so the bar is shown whenever there is a selection
-  // — otherwise leaving pick mode would strand a half-built carousel with no
-  // way back to it.
-  const selectionVisible = activeTab === 'saves' && carouselPicks.length > 0
+  // Tied to pick mode: turning Select off is "I'm done deciding", and a tray
+  // that stays up after that reads as stuck chrome, not a saved-for-later
+  // draft. The picks themselves are untouched — turning Select back on
+  // (Yours or Community) brings the same tray right back.
+  const selectionVisible = pickMode && carouselPicks.length > 0
 
-  /** Zip of 1080×1350 post PNGs for the selection — the same export the
-   * board-level "Export Posts" does, scoped to what you picked. */
-  async function handleDownloadPicks() {
-    if (downloadingPicks) return
-    const chosen = pickedCarouselGradients(saved, carouselPicks)
-    if (chosen.length === 0) return
-    setDownloadingPicks(true)
-    try {
-      // A single pick has no "order" to preserve and no reason to make the
-      // user unzip a folder to see the one image they asked for — download
-      // the PNG directly, the same way any other single-image export works.
-      if (chosen.length === 1) {
-        const gradient = chosen[0]
-        const canvas = document.createElement('canvas')
-        await renderVignetteToCanvas(canvas, gradient, 1080, 1350, 'post')
-        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
-        if (blob) {
-          const slug = (gradient.name ?? 'gradient').toLowerCase().replace(/\s+/g, '-')
-          const url = URL.createObjectURL(blob)
-          const a = document.createElement('a')
-          a.href = url
-          a.download = `${slug}-post.png`
-          document.body.appendChild(a)
-          a.click()
-          document.body.removeChild(a)
-          setTimeout(() => URL.revokeObjectURL(url), 1000)
-        }
-        return
-      }
-      const zip = new JSZip()
-      for (const gradient of chosen) {
-        const canvas = document.createElement('canvas')
-        await renderVignetteToCanvas(canvas, gradient, 1080, 1350, 'post')
-        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
-        if (blob) {
-          const slug = (gradient.name ?? 'gradient').toLowerCase().replace(/\s+/g, '-')
-          zip.file(`${slug}-post.png`, blob)
-        }
-      }
-      const zipBlob = await zip.generateAsync({ type: 'blob' })
-      const url = URL.createObjectURL(zipBlob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'palettes-selected.zip'
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      setTimeout(() => URL.revokeObjectURL(url), 1000)
-    } catch (e) {
-      console.error('Selection download failed', e)
-    } finally {
-      setDownloadingPicks(false)
-    }
-  }
-
-  /** Bulk delete lands as one undoable event, so the existing Undo toast
-   * covers the whole selection rather than the last item of it. */
-  function handleDeletePicks() {
-    if (carouselPicks.length === 0) return
-    removeSavedGradientsByIds(carouselPicks)
-    setPickMode(false)
-  }
-
-  function handleDoneSelecting() {
+  /** Leaves the whole selection: empties the deck and drops out of pick mode.
+   *
+   * One action for both because they are one intention. Separate "clear picks"
+   * and "stop selecting" buttons let you end up in pick mode with nothing
+   * picked, or with a deck you can no longer add to, neither of which is a
+   * state anyone asks for. */
+  function handleClearSelection() {
     clearCarouselPicks()
     setPickMode(false)
   }
 
-  // Only your own saves can be picked: the carousel renders from the local
-  // `saved` array by id, and a community palette has no entry there.
+  // The carousel renders from the local `saved` array by id, and a community
+  // palette has no entry there — so picking one saves it first (silently,
+  // like the viewer's "Save to Gallery"), then picks the saved copy. Matched
+  // by signature rather than id: a community palette you'd already saved
+  // shouldn't get a second copy just because you picked it from the other tab.
   const pickApi =
-    pickMode && activeTab === 'saves'
-      ? (gradient: Gradient) => ({
-          order: carouselPicks.indexOf(gradient.id) === -1 ? null : carouselPicks.indexOf(gradient.id) + 1,
-          onToggle: (g: Gradient) => toggleCarouselPick(g.id),
-        })
+    pickMode
+      ? (gradient: Gradient) => {
+          const isLocal = activeTab === 'saves'
+          const match = isLocal ? gradient : saved.find((g) => gradientSignature(g) === gradientSignature(gradient))
+          const order = match ? carouselPicks.indexOf(match.id) : -1
+          return {
+            order: order === -1 ? null : order + 1,
+            onToggle: (g: Gradient) => {
+              if (isLocal) {
+                toggleCarouselPick(g.id)
+                return
+              }
+              const existing = saved.find((sv) => gradientSignature(sv) === gradientSignature(g))
+              if (existing) {
+                toggleCarouselPick(existing.id)
+                return
+              }
+              saveGradient(g)
+              const created = useAppStore
+                .getState()
+                .saved.find((sv) => gradientSignature(sv) === gradientSignature(g))
+              if (created) toggleCarouselPick(created.id)
+            },
+          }
+        }
       : null
 
   async function handleExportAll() {
@@ -1065,10 +977,6 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
   useEffect(() => {
     onViewerOpenChange?.(open !== null)
   }, [open, onViewerOpenChange])
-
-  useEffect(() => {
-    onSelectionActiveChange?.(selectionVisible || studioOpen)
-  }, [selectionVisible, studioOpen, onSelectionActiveChange])
 
   const filteredSaves = saved.filter((gradient) => matchesFilters(gradient, typeFilter))
   const filtered = savesOrder === 'recent' ? byMostRecent(filteredSaves) : filteredSaves
@@ -1298,41 +1206,18 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
               <Icon name="grid-dense" size="sm" />
             </button>
           </div>
-          {activeTab === 'saves' && (
-            <div className={styles.toggleGroup}>
-              <button
-                type="button"
-                data-testid="carousel-pick-toggle"
-                className={pickMode ? styles.selectBtnActive : styles.selectBtn}
-                onClick={() => setPickMode((v) => !v)}
-                aria-pressed={pickMode}
-                title="Select gradients in order"
-              >
-                {pickMode ? 'Cancel' : 'Select'}
-              </button>
-            </div>
-          )}
-          {/* Drum's only entry point used to be the empty-Yours onboarding
-              screen, which vanishes for good on the first save — after that,
-              starting a new drum gradient was impossible without already
-              having one to riff from. Desktop has the header width to spare
-              for a permanent action; mobile's header is already tight below
-              640px (see the wrap comment above), so this stays desktop-only
-              until Drum gets a real creation flow that fits the ＋ Create nav.
-              Gated on saved.length > 0: below that the onboarding screen
-              (rendered further down) already offers its own "+ Drum" button —
-              without this check both were showing at once on an empty Yours. */}
-          {activeTab === 'saves' && saved.length > 0 && onStartDrum && (
+          <div className={styles.toggleGroup}>
             <button
               type="button"
-              data-testid="drum-start-button"
-              className={styles.drumStartButton}
-              onClick={onStartDrum}
-              title="Start a new Riso drum gradient"
+              data-testid="carousel-pick-toggle"
+              className={pickMode ? styles.selectBtnActive : styles.selectBtn}
+              onClick={() => setPickMode((v) => !v)}
+              aria-pressed={pickMode}
+              title="Select gradients in order"
             >
-              + Drum
+              {pickMode ? 'Cancel' : 'Select'}
             </button>
-          )}
+          </div>
           <BoardShare
             saved={saved}
             onImport={onImport ?? (() => {})}
@@ -1383,11 +1268,6 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
           <p className={styles.onboardingTitle}>Create a gradient</p>
           <p className={styles.onboardingSub}>Pick a shape to start — your saves land here.</p>
           <ShapeChoices onStartType={onStartType} />
-          {onStartDrum && (
-            <button type="button" data-testid="drum-dev-start" className={styles.emptyAction} onClick={onStartDrum}>
-              + Drum
-            </button>
-          )}
         </div>
       ) : (
         <>
@@ -1614,18 +1494,22 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
       {selectionVisible && !studioOpen && (
         <CarouselDock
           gradients={pickedCarouselGradients(saved, carouselPicks)}
-          downloading={downloadingPicks}
-          onRemove={toggleCarouselPick}
-          onReorder={reorderCarouselPick}
-          onMove={moveCarouselPick}
-          onCarousel={() => setStudioOpen(true)}
-          onDownload={handleDownloadPicks}
-          onDelete={handleDeletePicks}
-          onDone={handleDoneSelecting}
+          onNext={() => setStudioOpen(true)}
+          onClear={handleClearSelection}
         />
       )}
 
-      {studioOpen && <CarouselStudio onClose={() => setStudioOpen(false)} />}
+      {studioOpen && (
+        <CarouselStudio
+          onClose={() => setStudioOpen(false)}
+          onAddMore={() => {
+            // Back to the grid with picking still armed — the studio's "+" is a
+            // detour to collect more, not an exit from the carousel.
+            setStudioOpen(false)
+            setPickMode(true)
+          }}
+        />
+      )}
     </div>
   )
 }
