@@ -19,6 +19,14 @@
   margin-left: -2px;
 }
 
+/* Duck the back chevron out of the way while a canvas handle is being
+   dragged, matching the title/save/share chrome — see EditMode's own
+   .hidden. */
+.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .preview {
   flex: 1;
   min-height: 0;
