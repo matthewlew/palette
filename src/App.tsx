@@ -116,8 +116,9 @@ export function App() {
 
   // Dev-only entry point: there's no "new drum gradient" creation flow yet
   // (PRD leaves ink-count selection etc. unresolved) — this seeds a starter
-  // 2-ink gradient so DrumEditMode is actually reachable to build against.
-  const DRUM_STARTER_INKS = ['Black', 'Cornflower']
+  // gradient with DRUM_SLOT_COUNT inks loaded so DrumEditMode's fixed drum
+  // slots are already populated when the screen first opens.
+  const DRUM_STARTER_INKS = ['Black', 'Cornflower', 'Bright Red', 'Yellow']
 
   function handleStartDrum() {
     const inkHexes = DRUM_STARTER_INKS.map((name) => findInk(name)?.hex ?? '#000000')

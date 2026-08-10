@@ -10,9 +10,9 @@ import {
   toGradientCoverageStops,
   type DrumEditableStop,
 } from '../lib/riso'
-import { findInk } from '../lib/inkCatalogue'
+import { INK_CATALOGUE, findInk } from '../lib/inkCatalogue'
 import { checkGradientCoverage } from '../lib/drumPreflight'
-import { DrumPicker } from './DrumPicker'
+import { DrumPicker, DRUM_SLOT_COUNT } from './DrumPicker'
 import { DrumStopList } from './DrumStopList'
 import { DrumPreflight } from './DrumPreflight'
 import { Icon } from '../icons'
@@ -20,7 +20,25 @@ import type { Gradient } from '../store/types'
 import styles from './DrumEditMode.module.css'
 
 const MAX_STOPS = 8
-const MAX_INKS = 8
+
+/** Fills out a persisted ink-name list to exactly DRUM_SLOT_COUNT entries —
+ * needed for gradients saved before the fixed-slot picker (or hand-crafted
+ * share links) with fewer names than slots. */
+function padInkNames(names: string[]): string[] {
+  const result = names.slice(0, DRUM_SLOT_COUNT)
+  while (result.length < DRUM_SLOT_COUNT) {
+    result.push(INK_CATALOGUE[result.length % INK_CATALOGUE.length].name)
+  }
+  return result
+}
+
+/** Same padding for a coverage row — a 0% drum reads as "not contributing,"
+ * the correct default for a slot that didn't exist in the persisted data. */
+function padCoverageRow(row: number[]): number[] {
+  const result = row.slice(0, DRUM_SLOT_COUNT)
+  while (result.length < DRUM_SLOT_COUNT) result.push(0)
+  return result
+}
 
 interface DrumEditModeProps {
   gradient: Gradient
@@ -47,15 +65,23 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
   const syncDrumPositionLock = useAppStore((s) => s.syncDrumPositionLock)
   const releaseDrumPositionLockAt = useAppStore((s) => s.releaseDrumPositionLockAt)
 
-  const [inkNames, setInkNames] = useState<string[]>(() => gradient.riso?.inks ?? [])
+  const [inkNames, setInkNames] = useState<string[]>(() => padInkNames(gradient.riso?.inks ?? []))
   const [editableStops, setEditableStops] = useState<DrumEditableStop[]>(() =>
-    toEditableStops(gradient.stops, gradient.riso?.coverage ?? gradient.stops.map(() => []))
+    toEditableStops(
+      gradient.stops,
+      (gradient.riso?.coverage ?? gradient.stops.map(() => [])).map(padCoverageRow)
+    )
   )
   const [activeStopId, setActiveStopId] = useState<string | null>(null)
 
   useEffect(() => {
-    setInkNames(gradient.riso?.inks ?? [])
-    setEditableStops(toEditableStops(gradient.stops, gradient.riso?.coverage ?? gradient.stops.map(() => [])))
+    setInkNames(padInkNames(gradient.riso?.inks ?? []))
+    setEditableStops(
+      toEditableStops(
+        gradient.stops,
+        (gradient.riso?.coverage ?? gradient.stops.map(() => [])).map(padCoverageRow)
+      )
+    )
     setActiveStopId(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gradient.id])
@@ -69,20 +95,13 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
     setCurrentGradient({ ...gradient, stops, riso: { inks: nextInkNames, coverage } })
   }
 
-  function handleToggleInk(name: string) {
-    const idx = inkNames.indexOf(name)
-    if (idx === -1) {
-      if (inkNames.length >= MAX_INKS) return
-      const nextNames = [...inkNames, name]
-      const nextStops = editableStops.map((s) => ({ ...s, coverage: [...s.coverage, 0] }))
-      setInkNames(nextNames)
-      commit(nextStops, nextNames)
-    } else {
-      const nextNames = inkNames.filter((_, i) => i !== idx)
-      const nextStops = editableStops.map((s) => ({ ...s, coverage: s.coverage.filter((_, i) => i !== idx) }))
-      setInkNames(nextNames)
-      commit(nextStops, nextNames)
-    }
+  /** Swapping a drum's ink never changes the slot count, so every stop's
+   * coverage array keeps its length — only the hex that slot's percentage
+   * resolves to changes. */
+  function handleChangeSlot(slotIndex: number, name: string) {
+    const nextNames = inkNames.map((n, i) => (i === slotIndex ? name : n))
+    setInkNames(nextNames)
+    commit(editableStops, nextNames)
   }
 
   function handleRecoverage(id: string, inkIndex: number, percent: number) {
@@ -148,7 +167,7 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
         }}
       />
       <div className={styles.panel}>
-        <DrumPicker selectedNames={inkNames} onToggle={handleToggleInk} maxSelected={MAX_INKS} />
+        <DrumPicker selectedNames={inkNames} onChangeSlot={handleChangeSlot} />
         <DrumPreflight issues={preflightIssues} stopNumbers={stopNumbers} />
         <DrumStopList
           stops={editableStops}

@@ -101,7 +101,18 @@
 .coverageField {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
+  padding: 2px 4px 2px 2px;
+  border-radius: var(--pill);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.inkSwatch {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--text) 25%, transparent);
 }
 
 .inkLabel {

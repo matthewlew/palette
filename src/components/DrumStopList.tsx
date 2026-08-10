@@ -220,6 +220,11 @@ export function DrumStopList({
               <span className={styles.coverageFields}>
                 {inkNames.map((inkName, inkIndex) => (
                   <span key={inkName} className={styles.coverageField}>
+                    <span
+                      className={styles.inkSwatch}
+                      aria-hidden="true"
+                      style={{ backgroundColor: inkHexes[inkIndex] ?? '#000000' }}
+                    />
                     <span className={styles.inkLabel}>{inkName}</span>
                     <CoverageField stop={stop} inkIndex={inkIndex} inkName={inkName} onRecoverage={onRecoverage} />
                   </span>
