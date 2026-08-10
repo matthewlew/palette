@@ -11,6 +11,8 @@ interface CarouselTrayProps {
   onRemove: (id: string) => void
   onReorder: (fromId: string, toId: string) => void
   onMove: (id: string, delta: -1 | 1) => void
+  /** Tapping a thumbnail (as opposed to dragging it) previews that gradient. */
+  onPreview?: (id: string) => void
 }
 
 /**
@@ -27,14 +29,64 @@ interface CarouselTrayProps {
  * WHAT goes in wants every gradient on screen, and choosing WHAT ORDER wants
  * only the chosen few. One surface can't be good at both.
  */
-export function CarouselTray({ gradients, onRemove, onReorder, onMove }: CarouselTrayProps) {
+/** Below this many pixels of pointer movement, a touch drag is still just a
+ * tap — used to tell "reorder this" from "tap to preview" apart. */
+const TOUCH_DRAG_THRESHOLD_PX = 6
+
+export function CarouselTray({ gradients, onRemove, onReorder, onMove, onPreview }: CarouselTrayProps) {
   const dragId = useRef<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   const last = gradients.length - 1
 
+  // Native HTML5 drag-and-drop (above) never fires on iOS/Android touch, so
+  // reordering was mouse-only in practice. This tracks a touch/pen drag by
+  // hand: find the item under the pointer on every move and reorder toward
+  // it, the same way the native onDragEnter/onDrop pair does for a mouse.
+  const touchDragId = useRef<string | null>(null)
+  const touchStart = useRef<{ x: number; y: number } | null>(null)
+  const touchMoved = useRef(false)
+  const [touchDraggingId, setTouchDraggingId] = useState<string | null>(null)
+
   function clearDrag() {
     dragId.current = null
     setDragOverId(null)
+  }
+
+  function clearTouchDrag() {
+    touchDragId.current = null
+    touchStart.current = null
+    touchMoved.current = false
+    setTouchDraggingId(null)
+  }
+
+  function handlePointerDown(e: React.PointerEvent, id: string) {
+    if (e.pointerType === 'mouse') return
+    touchDragId.current = id
+    touchStart.current = { x: e.clientX, y: e.clientY }
+    touchMoved.current = false
+  }
+
+  function handlePointerMove(e: React.PointerEvent) {
+    const id = touchDragId.current
+    const start = touchStart.current
+    if (!id || !start) return
+    const dx = e.clientX - start.x
+    const dy = e.clientY - start.y
+    if (!touchMoved.current) {
+      if (Math.hypot(dx, dy) < TOUCH_DRAG_THRESHOLD_PX) return
+      touchMoved.current = true
+      setTouchDraggingId(id)
+    }
+    e.preventDefault()
+    const target = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-tray-id]')
+    const overId = target?.dataset.trayId
+    if (overId && overId !== id) onReorder(id, overId)
+  }
+
+  function handlePointerUp(e: React.PointerEvent, id: string) {
+    if (e.pointerType === 'mouse') return
+    if (!touchMoved.current) onPreview?.(id)
+    clearTouchDrag()
   }
 
   return (
@@ -45,7 +97,11 @@ export function CarouselTray({ gradients, onRemove, onReorder, onMove }: Carouse
         return (
           <li
             key={gradient.id}
-            className={[styles.item, dragOverId === gradient.id ? styles.itemOver : '']
+            className={[
+              styles.item,
+              dragOverId === gradient.id ? styles.itemOver : '',
+              touchDraggingId === gradient.id ? styles.itemDragging : '',
+            ]
               .filter(Boolean)
               .join(' ')}
             data-testid="tray-item"
@@ -69,6 +125,16 @@ export function CarouselTray({ gradients, onRemove, onReorder, onMove }: Carouse
               clearDrag()
             }}
             onDragEnd={clearDrag}
+            onClick={(e) => {
+              // Native drag already suppresses the click that would follow a
+              // real mouse drag; this only ever fires for a plain click.
+              if ((e.target as HTMLElement).closest('button')) return
+              onPreview?.(gradient.id)
+            }}
+            onPointerDown={(e) => handlePointerDown(e, gradient.id)}
+            onPointerMove={handlePointerMove}
+            onPointerUp={(e) => handlePointerUp(e, gradient.id)}
+            onPointerCancel={clearTouchDrag}
             onKeyDown={(e) => {
               if (e.key === 'ArrowLeft') {
                 e.preventDefault()

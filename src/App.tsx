@@ -42,6 +42,9 @@ export function App() {
   // reveal it in full). Drives the tab bar back into view — see panelOpen
   // below — so dismissing the sheet always leaves a way back to the gallery.
   const [editSheetHidden, setEditSheetHidden] = useState(false)
+  // Multiselect's dock and studio render their own actions and previously sat
+  // on top of the tab bar, unhidden, while active.
+  const [selectionActive, setSelectionActive] = useState(false)
   const [toastText, setToastText] = useState<string | null>(null)
   // Import toast carries an Undo; copy toast does not (undoable = has ids).
   const [importToast, setImportToast] = useState<{ message: string; undoable: boolean } | null>(null)
@@ -244,7 +247,13 @@ export function App() {
         </>
       )}
       {mode === 'gallery' && (
-        <Gallery onRiff={handleRiff} onImport={handleImportJson} onStartType={handleStartType} onStartDrum={handleStartDrum} />
+        <Gallery
+          onRiff={handleRiff}
+          onImport={handleImportJson}
+          onStartType={handleStartType}
+          onStartDrum={handleStartDrum}
+          onSelectionActiveChange={setSelectionActive}
+        />
       )}
       {/* Edit mode renders its own shortcut hints inside the panel. */}
       {mode === 'create' && (
@@ -258,7 +267,7 @@ export function App() {
       )}
       <TabBar
         mode={mode === 'edit' ? 'create' : mode}
-        hidden={mode === 'create' && !chromeVisible}
+        hidden={(mode === 'create' && !chromeVisible) || (mode === 'gallery' && selectionActive)}
         panelOpen={mode === 'edit' && !editSheetHidden}
         editing={mode === 'edit'}
         recentGradients={saved.slice(-3)}

@@ -10,7 +10,7 @@ import {
 } from '../lib/carouselTemplates'
 import { buildCaption, captionParts, CAPTION_MAX } from '../lib/carouselCaption'
 import { renderSlide, SLIDE_SIZES, type SlideRatio } from '../lib/carouselRender'
-import { downloadCarouselZip } from '../lib/carouselExport'
+import { downloadCarouselZip, slideFilename } from '../lib/carouselExport'
 import { CarouselTray } from './CarouselTray'
 import { TemplateThumb } from './TemplateThumb'
 import styles from './CarouselStudio.module.css'
@@ -52,6 +52,9 @@ export function CarouselStudio({ onClose }: CarouselStudioProps) {
   const [templateId, setTemplateId] = useState('bars')
   const [exporting, setExporting] = useState(false)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
+  // Which slide the full-screen viewer is showing, opened by tapping a
+  // thumbnail — null means the viewer is closed.
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null)
   const copy = useCopyFeedback()
 
   const available = useMemo(() => templatesForCount(count), [count])
@@ -78,11 +81,35 @@ export function CarouselStudio({ onClose }: CarouselStudioProps) {
     [gradients, captionOptions]
   )
 
+  async function downloadSlidePng(index: number) {
+    const slide = slides[index]
+    if (!slide) return
+    const size = SLIDE_SIZES[ratio]
+    const canvas = document.createElement('canvas')
+    renderSlide(canvas, slide, gradients, parts, size.width, size.height, { framed, grain: true })
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+    if (!blob) return
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = slideFilename(index, slides.length, slide.kind)
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+
   async function handleExport() {
     if (exporting || slides.length === 0) return
     setExporting(true)
     setProgress({ done: 0, total: slides.length })
     try {
+      // One slide is just an image — downloading a zip to get at it is the
+      // exact complaint this mode used to draw. Skip the archive entirely.
+      if (slides.length === 1) {
+        await downloadSlidePng(0)
+        return
+      }
       await downloadCarouselZip(
         {
           templateId,
@@ -117,19 +144,21 @@ export function CarouselStudio({ onClose }: CarouselStudioProps) {
         className={`${styles.modal} glass-surface`}
         role="dialog"
         aria-modal="true"
-        aria-label="Carousel studio"
+        aria-label="Multiselect"
         data-testid="carousel-studio"
       >
         <header className={styles.header}>
           <div>
-            <h3 className={styles.title}>Carousel Studio</h3>
+            <h3 className={styles.title}>Multiselect</h3>
             <p className={styles.subtitle}>
               {count === 0
                 ? 'Pick gradients in the Gallery to start'
-                : `${count} picked · ${slides.length} slide${slides.length === 1 ? '' : 's'}`}
+                : slides.length === 1
+                ? `${count} picked · export as one image`
+                : `${count} picked · ${slides.length} slides for an Instagram carousel`}
             </p>
           </div>
-          <button type="button" className={styles.close} onClick={onClose} aria-label="Close carousel studio">
+          <button type="button" className={styles.close} onClick={onClose} aria-label="Close">
             ✕
           </button>
         </header>
@@ -139,18 +168,29 @@ export function CarouselStudio({ onClose }: CarouselStudioProps) {
             <p>
               Tap <strong>Select</strong> in the Gallery header, then tap gradients in the order you
               want them to appear. They collect in the tray at the bottom, where you can reorder
-              them.
+              them. Pick just one to export a single image, or several to compose an Instagram
+              carousel.
             </p>
           </div>
         ) : (
           <div className={styles.body}>
             <section className={styles.section}>
               <h4 className={styles.sectionTitle}>Order</h4>
+              <p className={styles.sectionHint}>Drag to reorder, tap to preview.</p>
               <CarouselTray
                 gradients={gradients}
                 onRemove={toggleCarouselPick}
                 onReorder={reorderCarouselPick}
                 onMove={moveCarouselPick}
+                onPreview={(id) => {
+                  // Jump the viewer to whichever composed slide this pick
+                  // actually ends up on — a template can bundle several
+                  // picks into one slide, so "my slide" isn't always "my
+                  // position in the tray".
+                  const pickIndex = gradients.findIndex((g) => g.id === id)
+                  const slideIndex = slides.findIndex((s) => s.slices.some((sl) => sl.index === pickIndex))
+                  setPreviewIndex(slideIndex === -1 ? 0 : slideIndex)
+                }}
               />
               <button type="button" className={styles.linkBtn} onClick={clearCarouselPicks}>
                 Clear all
@@ -251,6 +291,7 @@ export function CarouselStudio({ onClose }: CarouselStudioProps) {
                     framed={framed}
                     index={i}
                     role={i === 0 ? 'Start' : i === slides.length - 1 ? 'End' : null}
+                    onTap={() => setPreviewIndex(i)}
                   />
                 ))}
               </div>
@@ -297,11 +338,107 @@ export function CarouselStudio({ onClose }: CarouselStudioProps) {
           >
             {progress
               ? `Rendering ${progress.done}/${progress.total}…`
-              : `Export ${slides.length} slide${slides.length === 1 ? '' : 's'}`}
+              : slides.length === 1
+              ? 'Export image'
+              : `Export ${slides.length} slides`}
           </button>
         </footer>
       </div>
+
+      {previewIndex !== null && slides[previewIndex] && (
+        <SlideViewer
+          slide={slides[previewIndex]}
+          gradients={gradients}
+          parts={parts}
+          ratio={ratio}
+          framed={framed}
+          index={previewIndex}
+          total={slides.length}
+          onClose={() => setPreviewIndex(null)}
+          onPrev={previewIndex > 0 ? () => setPreviewIndex(previewIndex - 1) : undefined}
+          onNext={previewIndex < slides.length - 1 ? () => setPreviewIndex(previewIndex + 1) : undefined}
+          onExport={() => downloadSlidePng(previewIndex)}
+        />
+      )}
     </>
+  )
+}
+
+interface SlideViewerProps {
+  slide: ReturnType<typeof buildCarousel>[number]
+  gradients: Gradient[]
+  parts: ReturnType<typeof captionParts>
+  ratio: SlideRatio
+  framed: boolean
+  index: number
+  total: number
+  onClose: () => void
+  onPrev?: () => void
+  onNext?: () => void
+  onExport: () => void
+}
+
+/** Full-screen look at one slide — tapping a thumbnail in the strip used to do
+ * nothing at all, so there was no way to check a composition before
+ * committing to the whole zip. Renders through the same `renderSlide` path as
+ * export, just bigger, and offers exporting this one image on its own. */
+function SlideViewer({ slide, gradients, parts, ratio, framed, index, total, onClose, onPrev, onNext, onExport }: SlideViewerProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const size = SLIDE_SIZES[ratio]
+  const width = 640
+  const height = Math.round((width * size.height) / size.width)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    try {
+      renderSlide(canvas, slide, gradients, parts, width, height, { framed, grain: false })
+    } catch (e) {
+      console.warn('Slide viewer render failed', e)
+    }
+  }, [slide, gradients, parts, framed, height])
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+      else if (e.key === 'ArrowLeft') onPrev?.()
+      else if (e.key === 'ArrowRight') onNext?.()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onClose, onPrev, onNext])
+
+  return (
+    <div className={styles.viewerBackdrop} onClick={onClose} data-testid="slide-viewer">
+      <div className={styles.viewer} role="dialog" aria-modal="true" aria-label={`Slide ${index + 1} of ${total}`} onClick={(e) => e.stopPropagation()}>
+        <button type="button" className={styles.viewerClose} onClick={onClose} aria-label="Close preview">
+          ✕
+        </button>
+        {onPrev && (
+          <button type="button" className={styles.viewerPrev} onClick={onPrev} aria-label="Previous slide">
+            ‹
+          </button>
+        )}
+        {onNext && (
+          <button type="button" className={styles.viewerNext} onClick={onNext} aria-label="Next slide">
+            ›
+          </button>
+        )}
+        <canvas
+          ref={canvasRef}
+          className={styles.viewerCanvas}
+          style={{ aspectRatio: `${size.width} / ${size.height}` }}
+        />
+        <div className={styles.viewerFooter}>
+          <span>
+            {index + 1} / {total}
+          </span>
+          <button type="button" className={styles.viewerExportBtn} onClick={onExport}>
+            Export this image
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -315,11 +452,12 @@ interface SlidePreviewProps {
   /** 'Start' or 'End' for the two slides that carry a carousel — the hook and
    * the one people are left looking at. */
   role: 'Start' | 'End' | null
+  onTap: () => void
 }
 
 /** One slide, rendered through the same code path as the export so the preview
  * cannot disagree with the file you get. */
-function SlidePreview({ slide, gradients, parts, ratio, framed, index, role }: SlidePreviewProps) {
+function SlidePreview({ slide, gradients, parts, ratio, framed, index, role, onTap }: SlidePreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const size = SLIDE_SIZES[ratio]
   const height = Math.round((PREVIEW_WIDTH * size.height) / size.width)
@@ -338,12 +476,13 @@ function SlidePreview({ slide, gradients, parts, ratio, framed, index, role }: S
 
   return (
     <figure className={styles.slide}>
-      <canvas
-        ref={canvasRef}
-        className={styles.slideCanvas}
-        style={{ aspectRatio: `${size.width} / ${size.height}` }}
-        aria-label={`Slide ${index + 1}`}
-      />
+      <button type="button" className={styles.slideTapTarget} onClick={onTap} aria-label={`Preview slide ${index + 1}`}>
+        <canvas
+          ref={canvasRef}
+          className={styles.slideCanvas}
+          style={{ aspectRatio: `${size.width} / ${size.height}` }}
+        />
+      </button>
       <figcaption className={styles.slideCaption}>
         {index + 1}
         {slide.kind === 'caption' && <span className={styles.slideTag}>Caption</span>}
