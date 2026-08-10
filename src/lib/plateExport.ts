@@ -45,9 +45,15 @@ export function buildInkPlateGradient(gradient: Gradient, inkIndex: number): Gra
   return { ...gradient, stops }
 }
 
-function renderPlateCanvas(gradient: Gradient, inkIndex: number, widthPx: number, heightPx: number): HTMLCanvasElement {
+function renderPlateCanvas(
+  gradient: Gradient,
+  inkIndex: number,
+  widthPx: number,
+  heightPx: number,
+  background = '#ffffff'
+): HTMLCanvasElement {
   const canvas = document.createElement('canvas')
-  renderGradientToCanvas(canvas, buildInkPlateGradient(gradient, inkIndex), widthPx, heightPx, '#ffffff')
+  renderGradientToCanvas(canvas, buildInkPlateGradient(gradient, inkIndex), widthPx, heightPx, background)
   return canvas
 }
 
@@ -93,13 +99,33 @@ export interface DrumPlatePreview {
  * buildInkPlateGradient composite as the real export, just rasterized small
  * and returned as PNG data URLs instead of full 600dpi PDFs, so the export
  * flow can show what's about to be downloaded before committing to it.
+ *
+ * `background` is preview-only styling — a chosen paper stock's tint, so
+ * 0%-coverage areas read as that stock's color instead of print-white. The
+ * real export (renderDrumPlates, above) never takes this: the exported file
+ * is always a flattened white-base raster regardless of what stock someone
+ * previewed against, since the actual stock is a press-side choice the file
+ * itself can't and shouldn't bake in.
  */
-export function renderDrumPlatePreviews(gradient: Gradient): DrumPlatePreview[] {
+export function renderDrumPlatePreviews(gradient: Gradient, background = '#ffffff'): DrumPlatePreview[] {
   const inks = gradient.riso?.inks ?? []
   return inks.map((ink, i) => ({
     ink,
-    dataUrl: renderPlateCanvas(gradient, i, PREVIEW_WIDTH_PX, PREVIEW_HEIGHT_PX).toDataURL('image/png'),
+    dataUrl: renderPlateCanvas(gradient, i, PREVIEW_WIDTH_PX, PREVIEW_HEIGHT_PX, background).toDataURL('image/png'),
   }))
+}
+
+/**
+ * The true overprint composite (every ink's real hex, not a single ink's
+ * grayscale) at preview size, tinted the same way — the "Composite" tab's
+ * image. Reuses renderGradientToCanvas directly on `gradient` itself rather
+ * than any buildInkPlateGradient wrapper, since the composite IS what the
+ * main edit preview already renders; nothing ink-specific to substitute.
+ */
+export function renderCompositePreview(gradient: Gradient, background = '#ffffff'): string {
+  const canvas = document.createElement('canvas')
+  renderGradientToCanvas(canvas, gradient, PREVIEW_WIDTH_PX, PREVIEW_HEIGHT_PX, background)
+  return canvas.toDataURL('image/png')
 }
 
 /**

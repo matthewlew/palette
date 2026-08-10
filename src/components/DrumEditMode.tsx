@@ -24,7 +24,9 @@ import {
 import type { EditableStop } from '../lib/stopOrdering'
 import { INK_CATALOGUE, findInk } from '../lib/inkCatalogue'
 import { checkGradientCoverage } from '../lib/drumPreflight'
-import { downloadDrumPlatesZip, renderDrumPlatePreviews, type DrumPlatePreview } from '../lib/plateExport'
+import { downloadDrumPlatesZip, renderDrumPlatePreviews, renderCompositePreview, type DrumPlatePreview } from '../lib/plateExport'
+import { PAPER_STOCKS, DEFAULT_PAPER_STOCK, findPaperStock } from '../lib/paperStock'
+import { PaperTexture } from './PaperTexture'
 import { DrumPicker, MIN_DRUM_SLOTS, MAX_DRUM_SLOTS, STANDARD_DRUM_INKS } from './DrumPicker'
 import { DrumStopList } from './DrumStopList'
 import { DrumPreflight } from './DrumPreflight'
@@ -119,6 +121,15 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
   const [drumSheetOpen, setDrumSheetOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [platePreviews, setPlatePreviews] = useState<DrumPlatePreview[] | null>(null)
+  // Preview-only — see plateExport.ts's renderDrumPlatePreviews/
+  // renderCompositePreview `background` param. The export itself never sees
+  // this; it's always a flattened white-base raster.
+  const [paperStockId, setPaperStockId] = useState(DEFAULT_PAPER_STOCK.id)
+  const [compositePreview, setCompositePreview] = useState<string | null>(null)
+  const [previewTab, setPreviewTab] = useState<'plates' | 'composite'>('plates')
+  // Tapping a plate expands it to a single large view and collapses the
+  // rest, tapping again (or switching stock/tab) returns to the grid.
+  const [expandedPlateInk, setExpandedPlateInk] = useState<string | null>(null)
 
   const isDesktop = useIsDesktop()
   // Mobile: the sheet covers the bottom of the gradient, so tapping the
@@ -479,8 +490,30 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
     tickHaptic()
   }
 
+  /** Re-rasterizes both the per-ink plates and the composite against
+   * whichever stock is currently selected — called on open and again on
+   * every stock change, since the tint is baked into the raster rather than
+   * layered on top (see plateExport.ts). */
+  function refreshPlatePreviews(stockId: string) {
+    const stock = findPaperStock(stockId)
+    setPlatePreviews(renderDrumPlatePreviews(gradient, stock.color))
+    setCompositePreview(renderCompositePreview(gradient, stock.color))
+  }
+
   function handleOpenExportPreview() {
-    setPlatePreviews(renderDrumPlatePreviews(gradient))
+    refreshPlatePreviews(paperStockId)
+  }
+
+  function handleChangePaperStock(stockId: string) {
+    setPaperStockId(stockId)
+    if (platePreviews) refreshPlatePreviews(stockId)
+  }
+
+  function handleClosePlatePreview() {
+    setPlatePreviews(null)
+    setCompositePreview(null)
+    setPreviewTab('plates')
+    setExpandedPlateInk(null)
   }
 
   async function handleExport() {
@@ -492,7 +525,7 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
       // latest riso block, not a stale snapshot from mount.
       await downloadDrumPlatesZip(gradient)
       saveGradient(gradient)
-      setPlatePreviews(null)
+      handleClosePlatePreview()
     } finally {
       setExporting(false)
     }
@@ -686,20 +719,101 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
       <div className={styles.panelFooter}>
         {platePreviews ? (
           <div data-testid="drum-plate-preview" className={styles.platePreview}>
-            <div className={styles.plateGrid}>
-              {platePreviews.map((plate) => (
-                <div key={plate.ink} className={styles.plateThumb}>
-                  <img src={plate.dataUrl} alt={`${plate.ink} plate preview`} className={styles.plateImg} />
-                  <span className={styles.plateLabel}>{plate.ink}</span>
-                </div>
+            {/* Ideal stocks for riso ink adhesion are vellum/toothy finishes,
+                not smooth coated ones — the four offered are all in that
+                family (see paperStock.ts). Tint is baked into the raster
+                itself, so switching stock re-renders both previews. */}
+            <div className={styles.stockRow} role="radiogroup" aria-label="Paper stock">
+              {PAPER_STOCKS.map((stock) => (
+                <button
+                  key={stock.id}
+                  type="button"
+                  data-testid="drum-plate-stock"
+                  role="radio"
+                  aria-checked={stock.id === paperStockId}
+                  className={[styles.stockPill, stock.id === paperStockId && styles.stockPillOn].filter(Boolean).join(' ')}
+                  style={{ '--stock-color': stock.color } as React.CSSProperties}
+                  onClick={() => handleChangePaperStock(stock.id)}
+                >
+                  <span className={styles.stockSwatch} aria-hidden="true" />
+                  {stock.name}
+                </button>
               ))}
             </div>
+
+            <div className={styles.plateTabs} role="tablist">
+              <button
+                type="button"
+                data-testid="drum-plate-tab-plates"
+                role="tab"
+                aria-selected={previewTab === 'plates'}
+                className={[styles.plateTab, previewTab === 'plates' && styles.plateTabOn].filter(Boolean).join(' ')}
+                onClick={() => setPreviewTab('plates')}
+              >
+                Plates
+              </button>
+              <button
+                type="button"
+                data-testid="drum-plate-tab-composite"
+                role="tab"
+                aria-selected={previewTab === 'composite'}
+                className={[styles.plateTab, previewTab === 'composite' && styles.plateTabOn].filter(Boolean).join(' ')}
+                onClick={() => setPreviewTab('composite')}
+              >
+                Composite
+              </button>
+            </div>
+
+            {previewTab === 'composite' ? (
+              <div className={styles.compositeWrap}>
+                <div data-testid="drum-plate-composite" className={styles.compositeFrame}>
+                  {compositePreview && <img src={compositePreview} alt="Composite overprint preview" className={styles.compositeImg} />}
+                  <PaperTexture stock={findPaperStock(paperStockId)} />
+                </div>
+                {/* Same "viewing only" discipline PRD §10's Inkling review
+                    borrowed the pattern from — a composite is never what gets
+                    exported, only individual separations are. */}
+                <span className={styles.compositeNote}>Viewing only — export always prints separations</span>
+              </div>
+            ) : (
+              <div className={[styles.plateGrid, expandedPlateInk && styles.plateGridExpanded].filter(Boolean).join(' ')}>
+                {platePreviews.map((plate) => {
+                  const expanded = expandedPlateInk === plate.ink
+                  if (expandedPlateInk && !expanded) return null
+                  return (
+                    <button
+                      key={plate.ink}
+                      type="button"
+                      data-testid="drum-plate-thumb"
+                      aria-expanded={expanded}
+                      aria-label={`${expanded ? 'Collapse' : 'Expand'} ${plate.ink} plate preview`}
+                      className={[styles.plateThumb, expanded && styles.plateThumbExpanded].filter(Boolean).join(' ')}
+                      onClick={() => setExpandedPlateInk(expanded ? null : plate.ink)}
+                    >
+                      <span className={styles.plateImgFrame}>
+                        <img src={plate.dataUrl} alt={`${plate.ink} plate preview`} className={styles.plateImg} />
+                        <PaperTexture stock={findPaperStock(paperStockId)} />
+                      </span>
+                      <span className={styles.plateLabelRow}>
+                        <span
+                          className={styles.plateSwatch}
+                          aria-hidden="true"
+                          style={{ backgroundColor: findInk(plate.ink)?.hex ?? '#000000' }}
+                        />
+                        <span className={styles.plateLabel}>{plate.ink}</span>
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
             <div className={styles.plateActions}>
               <button
                 type="button"
                 data-testid="drum-plate-preview-cancel"
                 className={styles.plateCancelButton}
-                onClick={() => setPlatePreviews(null)}
+                onClick={handleClosePlatePreview}
               >
                 Cancel
               </button>
