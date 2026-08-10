@@ -31,6 +31,17 @@ interface DrumPickerProps {
    * to fall back to the Drawer's own uncontrolled open state. */
   open?: boolean
   onOpenChange?: (open: boolean) => void
+  /** Restores the standard 4-color loadout. Omit to hide the reset control
+   * entirely (e.g. the standalone test harness). Only ever shown when the
+   * loaded drums have actually drifted from that default — see `isDefaultLoadout`. */
+  onResetDrums?: () => void
+}
+
+/** Whether `names` is already the standard loadout, in the same order — the
+ * "Reset drums" control only earns a place in the UI when it would actually
+ * change something. */
+function isDefaultLoadout(names: string[]): boolean {
+  return names.length === STANDARD_DRUM_INKS.length && names.every((name, i) => name === STANDARD_DRUM_INKS[i])
 }
 
 /** A swatch + name option list — replaces a plain `<select>` because a native
@@ -78,16 +89,23 @@ function DrumSlots({
   onChangeSlot,
   onAddSlot,
   onRemoveSlot,
+  onResetDrums,
 }: {
   names: string[]
   onChangeSlot: (slotIndex: number, name: string) => void
   onAddSlot?: () => void
   onRemoveSlot?: (slotIndex: number) => void
+  onResetDrums?: () => void
 }) {
   const canRemove = !!onRemoveSlot && names.length > MIN_DRUM_SLOTS
   const canAdd = !!onAddSlot && names.length < MAX_DRUM_SLOTS
   return (
     <div className={styles.slots}>
+      {onResetDrums && !isDefaultLoadout(names) && (
+        <button type="button" data-testid="drum-reset" className={styles.resetButton} onClick={onResetDrums}>
+          Reset drums
+        </button>
+      )}
       {names.map((name, index) => (
         <div key={index} className={styles.slot} data-testid="drum-slot">
           <InkSelect value={name} onChange={(next) => onChangeSlot(index, next)} label={`Drum ${index + 1} ink`} />
@@ -137,6 +155,7 @@ export function DrumPicker({
   onRemoveSlot,
   open,
   onOpenChange,
+  onResetDrums,
 }: DrumPickerProps) {
   const names = selectedNames.length > 0 ? selectedNames : [INK_CATALOGUE[0].name]
   const isDesktop = useIsDesktop()
@@ -179,7 +198,7 @@ export function DrumPicker({
         </button>
         {open && (
           <div data-testid="drum-picker-inline" className={styles.inlinePanel}>
-            <DrumSlots names={names} onChangeSlot={onChangeSlot} onAddSlot={onAddSlot} onRemoveSlot={onRemoveSlot} />
+            <DrumSlots names={names} onChangeSlot={onChangeSlot} onAddSlot={onAddSlot} onRemoveSlot={onRemoveSlot} onResetDrums={onResetDrums} />
           </div>
         )}
       </div>
@@ -215,7 +234,7 @@ export function DrumPicker({
                   Done
                 </Drawer.Close>
               </div>
-              <DrumSlots names={names} onChangeSlot={onChangeSlot} onAddSlot={onAddSlot} onRemoveSlot={onRemoveSlot} />
+              <DrumSlots names={names} onChangeSlot={onChangeSlot} onAddSlot={onAddSlot} onRemoveSlot={onRemoveSlot} onResetDrums={onResetDrums} />
             </Drawer.Content>
           </Drawer.Popup>
         </Drawer.Viewport>

@@ -171,6 +171,20 @@
   gap: 6px;
 }
 
+.resetButton {
+  align-self: flex-start;
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-subdued);
+  font-family: var(--th-body);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .slot {
   display: flex;
   align-items: center;

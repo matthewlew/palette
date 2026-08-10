@@ -147,28 +147,6 @@
   align-self: center;
 }
 
-.drumRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 12px;
-}
-
-.resetDrumsButton {
-  flex: none;
-  min-height: 32px;
-  padding: 0 14px;
-  border-radius: var(--pill);
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-subdued);
-  font-family: var(--th-body);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
 /* On tablet/desktop the controls move to a fixed side panel so the gradient
    keeps the full viewport height — matches EditMode.module.css exactly. */
 @media (min-width: 768px) {

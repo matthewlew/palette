@@ -613,19 +613,15 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
           noiseEnabled={noiseEnabled}
           onToggleNoise={toggleNoise}
         />
-        <div className={styles.drumRow}>
-          <DrumPicker
-            selectedNames={inkNames}
-            onChangeSlot={handleChangeSlot}
-            onAddSlot={handleAddDrum}
-            onRemoveSlot={handleRemoveDrum}
-            open={drumSheetOpen}
-            onOpenChange={setDrumSheetOpen}
-          />
-          <button type="button" data-testid="drum-reset" className={styles.resetDrumsButton} onClick={handleResetDrums}>
-            Reset drums
-          </button>
-        </div>
+        <DrumPicker
+          selectedNames={inkNames}
+          onChangeSlot={handleChangeSlot}
+          onAddSlot={handleAddDrum}
+          onRemoveSlot={handleRemoveDrum}
+          open={drumSheetOpen}
+          onOpenChange={setDrumSheetOpen}
+          onResetDrums={handleResetDrums}
+        />
         {/* The standalone scrub bar — a strip of the gradient with circle
             handles, same control the palette side's EditMode uses (FlowEditor),
             distinct from the drag dots living on the preview itself
