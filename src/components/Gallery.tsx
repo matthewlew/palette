@@ -285,6 +285,16 @@ function Tile({
       >
         {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={6} angle={gradient.angle} />}
         <NoiseOverlay visible={noiseEnabled} />
+        {/* PRD §5.3's proposed mitigation for silent round-trip data loss: a
+            Drum gradient looks identical to a plain one once rendered (hex is
+            always the ground truth for display), so without this there is no
+            way to tell browsing the grid that one was authored in coverage,
+            not RGB — the cue is gone by the time it's just a saved tile. */}
+        {gradient.riso && (
+          <span className={styles.drumBadge} data-testid="tile-drum-badge" aria-hidden="true">
+            Drum
+          </span>
+        )}
         {/* The slide number this pick will occupy. Shown on the tile rather
             than only in the studio so the order is legible while you build it,
             which is the whole reason picking is ordered. */}
@@ -375,6 +385,14 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes 
   const removeSavedGradientById = useAppStore((s) => s.removeSavedGradientById)
   const toggleSaveGradient = useAppStore((s) => s.toggleSaveGradient)
   const isSaved = useAppStore((s) => s.isGradientSaved(gradient))
+  const setPendingViewerGradient = useAppStore((s) => s.setPendingViewerGradient)
+  /** Riffing from inside the viewer (as opposed to the flat-grid tile's own
+   * hover-edit) should return HERE on exit, not to the grid — see
+   * pendingViewerGradient. */
+  function handleEditFromViewer(target: Gradient) {
+    setPendingViewerGradient(target)
+    onRiff(target)
+  }
   const touchStartYRef = useRef<number | null>(null)
   const wheelAccumRef = useRef(0)
   const wheelResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -471,7 +489,7 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes 
       // Enter must not fire while a button has focus, where it already
       // means "activate".
       if ((e.key === 'Enter' && !onButton) || e.key === 'e' || e.key === 'E') {
-        onRiff(gradient)
+        handleEditFromViewer(gradient)
       }
       // Delete removes the open palette (undoable via the toast / ⌘Z).
       if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -581,6 +599,14 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes 
           Saved on {formatDate(live.createdAt)}
         </span>
       )}
+      {/* See the tile badge above for why this exists — same PRD §5.3 cue,
+          repeated here since the viewer is the other place this gradient is
+          ever just looked at rather than edited. */}
+      {live.riso && (
+        <span className={styles.viewerDrumBadge} data-testid="viewer-drum-badge" style={{ color: titleColor }}>
+          Made in Drum
+        </span>
+      )}
       {(live.note || live.stops.some((s) => s.label)) && (
         <div className={styles.viewerDetailsCard} onClick={(e) => e.stopPropagation()}>
           {live.note && <p className={styles.viewerDetailsNote}>{live.note}</p>}
@@ -641,7 +667,7 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes 
         <button
           type="button"
           className={MEDIA_CHIP}
-          onClick={() => onRiff(live)}
+          onClick={() => handleEditFromViewer(live)}
         >
           Edit
         </button>
@@ -745,12 +771,23 @@ interface GalleryProps {
   onRiff: (gradient: Gradient) => void
   onImport?: (jsonText: string) => void
   onStartType?: (type: GradientType) => void
+  /** Entry point into DrumEditMode — there's no real "new drum gradient"
+   * creation flow yet (ink-count selection etc. is unresolved scope), so
+   * this seeds a starter gradient and jumps straight to editing it. Shown
+   * both in the empty-Yours onboarding and as a standing header button once
+   * there are saves (see the header button below), since the onboarding
+   * spot disappears for good after the first save. */
+  onStartDrum?: () => void
   /** Fired when the full-screen viewer opens/closes so the shell can hide the
    * global ＋ Create nav (the viewer has its own Delete/Edit actions). */
   onViewerOpenChange?: (open: boolean) => void
+  /** Fired when the selection dock or Multiselect studio opens/closes, so the
+   * shell can duck the global nav out from under them — both already render
+   * their own actions and previously sat on top of the tab bar unhidden. */
+  onSelectionActiveChange?: (active: boolean) => void
 }
 
-export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: GalleryProps) {
+export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOpenChange, onSelectionActiveChange }: GalleryProps) {
   const saved = useAppStore((s) => s.saved)
   const removeSavedGradientById = useAppStore((s) => s.removeSavedGradientById)
   const lastDeleted = useAppStore((s) => s.lastDeleted)
@@ -783,13 +820,36 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   // whenever a gallery you've deliberately arranged should stay arranged.
   const [savesOrder, setSavesOrder] = useState<SavesOrder>('recent')
   const isAdmin = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('admin') === 'true'
-  const [open, setOpen] = useState<Gradient | null>(null)
+  const setPendingViewerGradient = useAppStore((s) => s.setPendingViewerGradient)
+  // Reopens the viewer on the gradient edit was riffed from, when edit was
+  // entered from inside the viewer itself (not the flat-grid tile's own
+  // hover-edit), or on any Drum edit exit — see pendingViewerGradient. Read
+  // once via getState (not the hook) so this mount is the only consumer; a
+  // live subscription would reopen the viewer on every future gallery mount,
+  // not just this one. Prefer the `saved` copy when one exists (it carries
+  // the canonical id), but the pending gradient itself still works when it
+  // was never saved — the viewer can render any gradient, not just saved ones.
+  const [open, setOpen] = useState<Gradient | null>(() => {
+    const pending = useAppStore.getState().pendingViewerGradient
+    if (!pending) return null
+    return useAppStore.getState().saved.find((g) => g.id === pending.id) ?? pending
+  })
   // Which tile the viewer flew out of. Held separately from `open` because the
   // two must disagree for exactly one frame at each end of the transition: the
   // tile has to already be wearing the shared `palette-card` name when the OLD
   // state is captured, and must have handed it to the viewer by the time the
-  // NEW state is.
-  const [heroId, setHeroId] = useState<string | null>(null)
+  // NEW state is. findSavedGradientId (not open?.id) because a gradient saved
+  // mid-edit got a fresh id from saveGradient — `open`'s own id may not match
+  // any tile at all, in which case there's simply no hero tile to fly from.
+  const [heroId, setHeroId] = useState<string | null>(() =>
+    open ? useAppStore.getState().findSavedGradientId(open) : null
+  )
+  // One-shot: consume the pending gradient so it doesn't reopen the viewer
+  // again on some later, unrelated gallery mount.
+  useEffect(() => {
+    if (useAppStore.getState().pendingViewerGradient) setPendingViewerGradient(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   /** Open the full-screen viewer as a zoom out of the tapped thumbnail.
    *
@@ -977,6 +1037,10 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
   useEffect(() => {
     onViewerOpenChange?.(open !== null)
   }, [open, onViewerOpenChange])
+
+  useEffect(() => {
+    onSelectionActiveChange?.(selectionVisible || studioOpen)
+  }, [selectionVisible, studioOpen, onSelectionActiveChange])
 
   const filteredSaves = saved.filter((gradient) => matchesFilters(gradient, typeFilter))
   const filtered = savesOrder === 'recent' ? byMostRecent(filteredSaves) : filteredSaves
@@ -1218,6 +1282,27 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
               {pickMode ? 'Cancel' : 'Select'}
             </button>
           </div>
+          {/* Drum's only entry point used to be the empty-Yours onboarding
+              screen, which vanishes for good on the first save — after that,
+              starting a new drum gradient was impossible without already
+              having one to riff from. Desktop has the header width to spare
+              for a permanent action; mobile's header is already tight below
+              640px (see the wrap comment above), so this stays desktop-only
+              until Drum gets a real creation flow that fits the ＋ Create nav.
+              Gated on saved.length > 0: below that the onboarding screen
+              (rendered further down) already offers its own "+ Drum" button —
+              without this check both were showing at once on an empty Yours. */}
+          {activeTab === 'saves' && saved.length > 0 && onStartDrum && (
+            <button
+              type="button"
+              data-testid="drum-start-button"
+              className={styles.drumStartButton}
+              onClick={onStartDrum}
+              title="Start a new Riso drum gradient"
+            >
+              + Drum
+            </button>
+          )}
           <BoardShare
             saved={saved}
             onImport={onImport ?? (() => {})}
@@ -1268,6 +1353,11 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
           <p className={styles.onboardingTitle}>Create a gradient</p>
           <p className={styles.onboardingSub}>Pick a shape to start — your saves land here.</p>
           <ShapeChoices onStartType={onStartType} />
+          {onStartDrum && (
+            <button type="button" data-testid="drum-dev-start" className={styles.emptyAction} onClick={onStartDrum}>
+              + Drum
+            </button>
+          )}
         </div>
       ) : (
         <>

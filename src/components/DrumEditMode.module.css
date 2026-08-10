@@ -217,25 +217,126 @@
   background: color-mix(in srgb, var(--text) 3%, transparent);
 }
 
+/* Paper stock picker — a row of pills, each carrying a small swatch of the
+   stock's own tint so the choice previews itself before it's made. */
+.stockRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.stockPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 10px 0 6px;
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-subdued);
+  font-family: var(--th-body);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.stockPillOn {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+.stockSwatch {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--text) 25%, transparent);
+  background: var(--stock-color);
+}
+
+/* Plates / Composite segmented control. */
+.plateTabs {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: var(--pill);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.plateTab {
+  flex: 1;
+  min-height: 30px;
+  border-radius: var(--pill);
+  border: none;
+  background: transparent;
+  color: var(--text-subdued);
+  font-family: var(--th-body);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.plateTabOn {
+  background: var(--background);
+  color: var(--text);
+}
+
 .plateGrid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 10px;
 }
 
+/* One plate expanded — the rest are unmounted (see the `return null` in the
+   map), so the grid collapses to a single full-width cell instead of an
+   empty two-column shell around it. */
+.plateGridExpanded {
+  grid-template-columns: 1fr;
+}
+
 .plateThumb {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.plateImgFrame {
+  position: relative;
+  display: block;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  overflow: hidden;
 }
 
 .plateImg {
+  display: block;
   width: 100%;
   aspect-ratio: 3 / 2;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: #fff;
   object-fit: cover;
+}
+
+.plateThumbExpanded .plateImg {
+  aspect-ratio: 3 / 2;
+}
+
+.plateLabelRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.plateSwatch {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--text) 25%, transparent);
 }
 
 .plateLabel {
@@ -243,6 +344,36 @@
   font-size: 12px;
   font-weight: 600;
   color: var(--text-subdued);
+}
+
+.compositeWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+
+.compositeFrame {
+  position: relative;
+  width: 100%;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.compositeImg {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+}
+
+.compositeNote {
+  font-family: var(--th-body);
+  font-size: 11px;
+  color: var(--text-subdued);
+  opacity: 0.8;
+  text-align: center;
 }
 
 .plateActions {

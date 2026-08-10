@@ -1,0 +1,28 @@
+.grain {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  pointer-events: none;
+  background-repeat: repeat;
+  background-size: 128px 128px;
+  mix-blend-mode: multiply;
+}
+
+@media (min-resolution: 2dppx) {
+  .grain {
+    background-size: 64px 64px;
+  }
+}
+
+@media (min-resolution: 3dppx) {
+  .grain {
+    background-size: 43px 43px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grain {
+    opacity: 0.05;
+  }
+}
