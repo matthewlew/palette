@@ -1247,8 +1247,11 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
               having one to riff from. Desktop has the header width to spare
               for a permanent action; mobile's header is already tight below
               640px (see the wrap comment above), so this stays desktop-only
-              until Drum gets a real creation flow that fits the ＋ Create nav. */}
-          {activeTab === 'saves' && onStartDrum && (
+              until Drum gets a real creation flow that fits the ＋ Create nav.
+              Gated on saved.length > 0: below that the onboarding screen
+              (rendered further down) already offers its own "+ Drum" button —
+              without this check both were showing at once on an empty Yours. */}
+          {activeTab === 'saves' && saved.length > 0 && onStartDrum && (
             <button
               type="button"
               data-testid="drum-start-button"
