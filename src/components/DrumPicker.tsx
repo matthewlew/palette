@@ -13,6 +13,10 @@ export const MIN_DRUM_SLOTS = 2
 /** @deprecated kept as an alias — some call sites still default off this name. */
 export const DRUM_SLOT_COUNT = MAX_DRUM_SLOTS
 
+/** The loadout most people start with — the standard 4-color set the "Reset
+ * drums" action returns to, and what a brand-new Drum gradient starts from. */
+export const STANDARD_DRUM_INKS = ['Black', 'Cornflower', 'Bright Red', 'Yellow']
+
 interface DrumPickerProps {
   /** One ink name per drum currently loaded — length IS the slot count. */
   selectedNames: string[]
@@ -167,6 +171,11 @@ export function DrumPicker({
         >
           {trigger}
           <span className={styles.stackLabel}>Drums</span>
+          <Icon
+            name="chevron-left"
+            size="sm"
+            className={[styles.chevron, open && styles.chevronOpen].filter(Boolean).join(' ')}
+          />
         </button>
         {open && (
           <div data-testid="drum-picker-inline" className={styles.inlinePanel}>
@@ -183,9 +192,15 @@ export function DrumPicker({
         data-testid="drum-stack-trigger"
         className={styles.stackButton}
         aria-label={`Drums: ${names.join(', ')}. Tap to edit.`}
+        aria-expanded={!!open}
       >
         {trigger}
         <span className={styles.stackLabel}>Drums</span>
+        <Icon
+          name="chevron-left"
+          size="sm"
+          className={[styles.chevron, open && styles.chevronOpen].filter(Boolean).join(' ')}
+        />
       </Drawer.Trigger>
 
       <Drawer.Portal>

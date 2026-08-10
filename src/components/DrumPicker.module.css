@@ -56,6 +56,16 @@
   color: var(--text);
 }
 
+.chevron {
+  color: var(--text-subdued);
+  transform: rotate(-90deg);
+  transition: transform 150ms var(--ease-decelerate, ease);
+}
+
+.chevronOpen {
+  transform: rotate(90deg);
+}
+
 .backdrop {
   position: fixed;
   inset: 0;
