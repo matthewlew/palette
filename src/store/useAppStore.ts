@@ -123,6 +123,13 @@ interface AppState {
    * app-level copy handler copy the open gradient instead of `current`. */
   viewerGradient: Gradient | null
   setViewerGradient: (gradient: Gradient | null) => void
+  /** Set when edit mode is entered from INSIDE the Gallery's full-screen
+   * viewer (not the flat-grid tile hover-edit). Gallery reads this once on
+   * mount to reopen the viewer on the same gradient instead of landing on
+   * the flat grid — so exiting edit keeps the "immersive" full-screen thread
+   * intact rather than dropping back to a browsing surface you weren't on. */
+  pendingViewerGradientId: string | null
+  setPendingViewerGradientId: (id: string | null) => void
   duplicateSavedGradient: (id: string) => void
   renameSavedGradient: (id: string, name: string) => void
   renameCurrentGradient: (name: string) => void
@@ -428,6 +435,8 @@ export const useAppStore = create<AppState>()(
       },
       viewerGradient: null,
       setViewerGradient: (gradient) => set({ viewerGradient: gradient }),
+      pendingViewerGradientId: null,
+      setPendingViewerGradientId: (id) => set({ pendingViewerGradientId: id }),
       duplicateSavedGradient: (id) => {
         const saved = get().saved
         const index = saved.findIndex((g) => g.id === id)

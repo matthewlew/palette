@@ -603,6 +603,27 @@
   white-space: nowrap;
 }
 
+/* Same slot as .viewerDate, one line further down when a date is present —
+   see the sibling-selector fallback below for when it isn't. */
+.viewerDrumBadge {
+  position: absolute;
+  top: calc(66px + var(--safe-t));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  font-family: var(--th-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.72;
+  white-space: nowrap;
+}
+
+.viewerDate + .viewerDrumBadge {
+  top: calc(86px + var(--safe-t));
+}
+
 /* Bottom-right action cluster, mirroring the create flow's Save pill. */
 /* Sits ABOVE the global TabBar rather than beside it.
  *
@@ -1159,6 +1180,28 @@
   border: 1.5px solid #fff;
   background: #fff;
   color: #101014;
+}
+
+/* Top-right, mirroring .pickBadge's top-left — the heart lives bottom-right,
+   so this is the one open corner on a tile. */
+.drumBadge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  padding: 3px 8px;
+  border-radius: var(--pill);
+  border: 1.5px solid rgba(255, 255, 255, 0.75);
+  background: rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  color: #fff;
+  font-family: var(--th-body);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
 }
 
 /* Text sibling of .toggleBtn, which is a fixed-size circle for icons only —

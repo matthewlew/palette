@@ -285,6 +285,16 @@ function Tile({
       >
         {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={6} angle={gradient.angle} />}
         <NoiseOverlay visible={noiseEnabled} />
+        {/* PRD §5.3's proposed mitigation for silent round-trip data loss: a
+            Drum gradient looks identical to a plain one once rendered (hex is
+            always the ground truth for display), so without this there is no
+            way to tell browsing the grid that one was authored in coverage,
+            not RGB — the cue is gone by the time it's just a saved tile. */}
+        {gradient.riso && (
+          <span className={styles.drumBadge} data-testid="tile-drum-badge" aria-hidden="true">
+            Drum
+          </span>
+        )}
         {/* The slide number this pick will occupy. Shown on the tile rather
             than only in the studio so the order is legible while you build it,
             which is the whole reason picking is ordered. */}
@@ -375,6 +385,14 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes 
   const removeSavedGradientById = useAppStore((s) => s.removeSavedGradientById)
   const toggleSaveGradient = useAppStore((s) => s.toggleSaveGradient)
   const isSaved = useAppStore((s) => s.isGradientSaved(gradient))
+  const setPendingViewerGradientId = useAppStore((s) => s.setPendingViewerGradientId)
+  /** Riffing from inside the viewer (as opposed to the flat-grid tile's own
+   * hover-edit) should return HERE on exit, not to the grid — see
+   * pendingViewerGradientId. */
+  function handleEditFromViewer(target: Gradient) {
+    setPendingViewerGradientId(target.id)
+    onRiff(target)
+  }
   const touchStartYRef = useRef<number | null>(null)
   const wheelAccumRef = useRef(0)
   const wheelResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -471,7 +489,7 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes 
       // Enter must not fire while a button has focus, where it already
       // means "activate".
       if ((e.key === 'Enter' && !onButton) || e.key === 'e' || e.key === 'E') {
-        onRiff(gradient)
+        handleEditFromViewer(gradient)
       }
       // Delete removes the open palette (undoable via the toast / ⌘Z).
       if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -581,6 +599,14 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes 
           Saved on {formatDate(live.createdAt)}
         </span>
       )}
+      {/* See the tile badge above for why this exists — same PRD §5.3 cue,
+          repeated here since the viewer is the other place this gradient is
+          ever just looked at rather than edited. */}
+      {live.riso && (
+        <span className={styles.viewerDrumBadge} data-testid="viewer-drum-badge" style={{ color: titleColor }}>
+          Made in Drum
+        </span>
+      )}
       {(live.note || live.stops.some((s) => s.label)) && (
         <div className={styles.viewerDetailsCard} onClick={(e) => e.stopPropagation()}>
           {live.note && <p className={styles.viewerDetailsNote}>{live.note}</p>}
@@ -641,7 +667,7 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes 
         <button
           type="button"
           className={MEDIA_CHIP}
-          onClick={() => onRiff(live)}
+          onClick={() => handleEditFromViewer(live)}
         >
           Edit
         </button>
@@ -794,13 +820,29 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
   // whenever a gallery you've deliberately arranged should stay arranged.
   const [savesOrder, setSavesOrder] = useState<SavesOrder>('recent')
   const isAdmin = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('admin') === 'true'
-  const [open, setOpen] = useState<Gradient | null>(null)
+  const setPendingViewerGradientId = useAppStore((s) => s.setPendingViewerGradientId)
+  // Reopens the viewer on the gradient edit was riffed from, when edit was
+  // entered from inside the viewer itself (not the flat-grid tile's own
+  // hover-edit) — see pendingViewerGradientId. Read once via getState (not
+  // the hook) so this mount is the only consumer; a live subscription would
+  // reopen the viewer on every future gallery mount, not just this one.
+  const [open, setOpen] = useState<Gradient | null>(() => {
+    const id = useAppStore.getState().pendingViewerGradientId
+    if (!id) return null
+    return useAppStore.getState().saved.find((g) => g.id === id) ?? null
+  })
   // Which tile the viewer flew out of. Held separately from `open` because the
   // two must disagree for exactly one frame at each end of the transition: the
   // tile has to already be wearing the shared `palette-card` name when the OLD
   // state is captured, and must have handed it to the viewer by the time the
   // NEW state is.
-  const [heroId, setHeroId] = useState<string | null>(null)
+  const [heroId, setHeroId] = useState<string | null>(open?.id ?? null)
+  // One-shot: consume the pending id so it doesn't reopen the viewer again on
+  // some later, unrelated gallery mount.
+  useEffect(() => {
+    if (useAppStore.getState().pendingViewerGradientId) setPendingViewerGradientId(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   /** Open the full-screen viewer as a zoom out of the tapped thumbnail.
    *

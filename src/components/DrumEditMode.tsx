@@ -140,6 +140,14 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
   const [canvasCursor, setCanvasCursor] = useState<{ x: number; y: number } | null>(null)
   const isHandleDraggingRef = useRef(false)
   const lastHandleDragEndRef = useRef(0)
+  // State twin of isHandleDraggingRef — the ref alone doesn't re-render, but
+  // ducking the floating chrome (back/share/title/save) out of a drag's way
+  // needs one, matching EditMode's chromeHidden.
+  const [handleDragging, setHandleDragging] = useState(false)
+  // Mobile only: the side panel never covers the gradient the way the bottom
+  // sheet does, so desktop has nothing to duck for — see EditMode's identical
+  // exemption.
+  const chromeHidden = handleDragging && !isDesktop
   // The standalone horizontal scrub bar (FlowEditor) — same strip-with-dots
   // control the palette side has, distinct from CanvasHandles' on-gradient
   // dots. Lives in the sheet, not on the preview.
@@ -613,19 +621,15 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
           noiseEnabled={noiseEnabled}
           onToggleNoise={toggleNoise}
         />
-        <div className={styles.drumRow}>
-          <DrumPicker
-            selectedNames={inkNames}
-            onChangeSlot={handleChangeSlot}
-            onAddSlot={handleAddDrum}
-            onRemoveSlot={handleRemoveDrum}
-            open={drumSheetOpen}
-            onOpenChange={setDrumSheetOpen}
-          />
-          <button type="button" data-testid="drum-reset" className={styles.resetDrumsButton} onClick={handleResetDrums}>
-            Reset drums
-          </button>
-        </div>
+        <DrumPicker
+          selectedNames={inkNames}
+          onChangeSlot={handleChangeSlot}
+          onAddSlot={handleAddDrum}
+          onRemoveSlot={handleRemoveDrum}
+          open={drumSheetOpen}
+          onOpenChange={setDrumSheetOpen}
+          onResetDrums={handleResetDrums}
+        />
         {/* The standalone scrub bar — a strip of the gradient with circle
             handles, same control the palette side's EditMode uses (FlowEditor),
             distinct from the drag dots living on the preview itself
@@ -731,12 +735,12 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
         type="button"
         data-testid="drum-edit-back"
         aria-label="Back"
-        className={[styles.backButton, MEDIA_ICON].join(' ')}
+        className={[styles.backButton, MEDIA_ICON, chromeHidden && styles.hidden].filter(Boolean).join(' ')}
         onClick={onExit}
       >
         <Icon name="chevron-left" size="md" />
       </button>
-      <BoardShare saved={saved} current={gradient} onImport={onImport} position="editor" />
+      <BoardShare saved={saved} current={gradient} onImport={onImport} chromeVisible={!chromeHidden} position="editor" />
       <div
         ref={previewRef}
         data-testid="drum-edit-preview"
@@ -759,7 +763,10 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
         onPointerLeave={handlePreviewPointerLeave}
         onWheel={handlePreviewWheel}
       >
-        <ScrollTicker index={scrollIndex} />
+        {/* Stays put during a handle drag — the one bit of chrome that
+            should remain when everything else ducks away, matching
+            EditMode's ScrollTicker. */}
+        <ScrollTicker index={scrollIndex} hidden={handleDragging} />
         {/* Turrell reads "Hard" as crisp: no blur between the nested squares. */}
         {gradient.type === 'square' && (
           <TurrellSquare
@@ -774,11 +781,17 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
         <PaletteTitle
           name={gradient.name ?? namePalette(gradient.stops.map((s) => s.hex))}
           onRename={renameCurrentGradient}
+          hidden={chromeHidden}
         />
         {/* The persistent save toggle EditMode keeps on the gradient itself —
             separate from (and safe alongside) the save that also fires when
             plates are exported: saveGradient dedupes by signature. */}
-        <LikeButton liked={isGradientSaved} onToggle={() => toggleSaveGradient(gradient)} gradient={gradient} />
+        <LikeButton
+          liked={isGradientSaved}
+          onToggle={() => toggleSaveGradient(gradient)}
+          hidden={chromeHidden}
+          gradient={gradient}
+        />
         <CanvasHandles
           stops={canvasStops}
           type={gradient.type}
@@ -793,6 +806,7 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
           onDraggingChange={(dragging) => {
             const wasDragging = isHandleDraggingRef.current
             isHandleDraggingRef.current = dragging
+            setHandleDragging(dragging)
             if (!dragging && wasDragging) lastHandleDragEndRef.current = Date.now()
           }}
         />

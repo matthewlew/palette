@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { Drawer } from '@base-ui/react/drawer'
 import { Select } from '@base-ui/react/select'
 import { INK_CATALOGUE, findInk } from '../lib/inkCatalogue'
@@ -31,19 +32,51 @@ interface DrumPickerProps {
    * to fall back to the Drawer's own uncontrolled open state. */
   open?: boolean
   onOpenChange?: (open: boolean) => void
+  /** Restores the standard 4-color loadout. Omit to hide the reset control
+   * entirely (e.g. the standalone test harness). Only ever shown when the
+   * loaded drums have actually drifted from that default — see `isDefaultLoadout`. */
+  onResetDrums?: () => void
+}
+
+/** Whether `names` is already the standard loadout, in the same order — the
+ * "Reset drums" control only earns a place in the UI when it would actually
+ * change something. */
+function isDefaultLoadout(names: string[]): boolean {
+  return names.length === STANDARD_DRUM_INKS.length && names.every((name, i) => name === STANDARD_DRUM_INKS[i])
 }
 
 /** A swatch + name option list — replaces a plain `<select>` because a native
  * popup can't reliably show a colour per option across browsers, and seeing
  * the drum you're about to load is the point (direct user feedback: "I want
- * to be able to preview the drums"). */
+ * to be able to preview the drums"). The catalogue is ~80 inks — PRD §7.3
+ * flagged browsing that many without a filter as unresolved, so the popup
+ * opens with a search field, not a raw scroll. */
 function InkSelect({ value, onChange, label }: { value: string; onChange: (name: string) => void; label: string }) {
   const hex = findInk(value)?.hex ?? '#000000'
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const searchRef = useRef<HTMLInputElement>(null)
+  const filtered = query.trim()
+    ? INK_CATALOGUE.filter((ink) => ink.name.toLowerCase().includes(query.trim().toLowerCase()))
+    : INK_CATALOGUE
+
+  useEffect(() => {
+    // Autofocus on open, not mount — the popup content stays mounted across
+    // opens (Base UI keeps it in the tree for exit animations), so a plain
+    // autoFocus prop would only fire once, the very first time this slot's
+    // dropdown opened.
+    if (open) searchRef.current?.focus()
+  }, [open])
+
   return (
     <Select.Root
       items={INK_CATALOGUE.map((ink) => ({ value: ink.name, label: ink.name }))}
       value={value}
       onValueChange={(next) => next && onChange(next)}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (!next) setQuery('')
+      }}
     >
       <Select.Trigger data-testid="drum-slot-select" aria-label={label} className={styles.select}>
         <span className={styles.preview} aria-hidden="true" style={{ backgroundColor: hex }} />
@@ -58,8 +91,25 @@ function InkSelect({ value, onChange, label }: { value: string; onChange: (name:
       <Select.Portal>
         <Select.Positioner className={styles.selectPositioner} sideOffset={4}>
           <Select.Popup className={styles.selectPopup}>
-            <Select.List>
-              {INK_CATALOGUE.map((ink) => (
+            {/* Typing here must not fall through to Select's own built-in
+                typeahead (which jumps focus to a matching item mid-keystroke)
+                — stopPropagation keeps the field the single source of truth
+                for what's visible below it. */}
+            <input
+              ref={searchRef}
+              type="text"
+              inputMode="search"
+              placeholder="Search inks…"
+              aria-label="Search inks"
+              data-testid="drum-ink-search"
+              className={styles.inkSearch}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
+            />
+            <Select.List className={styles.selectList}>
+              {filtered.length === 0 && <div className={styles.inkSearchEmpty}>No inks match "{query.trim()}"</div>}
+              {filtered.map((ink) => (
                 <Select.Item key={ink.name} value={ink.name} className={styles.selectItem} data-testid="drum-ink-option">
                   <span className={styles.optionSwatch} aria-hidden="true" style={{ backgroundColor: ink.hex }} />
                   <Select.ItemText className={styles.optionText}>{ink.name}</Select.ItemText>
@@ -78,11 +128,13 @@ function DrumSlots({
   onChangeSlot,
   onAddSlot,
   onRemoveSlot,
+  onResetDrums,
 }: {
   names: string[]
   onChangeSlot: (slotIndex: number, name: string) => void
   onAddSlot?: () => void
   onRemoveSlot?: (slotIndex: number) => void
+  onResetDrums?: () => void
 }) {
   const canRemove = !!onRemoveSlot && names.length > MIN_DRUM_SLOTS
   const canAdd = !!onAddSlot && names.length < MAX_DRUM_SLOTS
@@ -100,7 +152,7 @@ function DrumSlots({
               disabled={!canRemove}
               onClick={() => onRemoveSlot(index)}
             >
-              <Icon name="close" size="sm" />
+              <Icon name="trash" size="sm" />
             </button>
           )}
         </div>
@@ -108,6 +160,11 @@ function DrumSlots({
       {onAddSlot && (
         <button type="button" data-testid="drum-slot-add" className={styles.addButton} disabled={!canAdd} onClick={onAddSlot}>
           + Add drum
+        </button>
+      )}
+      {onResetDrums && !isDefaultLoadout(names) && (
+        <button type="button" data-testid="drum-reset" className={styles.resetButton} onClick={onResetDrums}>
+          Reset drums
         </button>
       )}
     </div>
@@ -137,6 +194,7 @@ export function DrumPicker({
   onRemoveSlot,
   open,
   onOpenChange,
+  onResetDrums,
 }: DrumPickerProps) {
   const names = selectedNames.length > 0 ? selectedNames : [INK_CATALOGUE[0].name]
   const isDesktop = useIsDesktop()
@@ -179,7 +237,7 @@ export function DrumPicker({
         </button>
         {open && (
           <div data-testid="drum-picker-inline" className={styles.inlinePanel}>
-            <DrumSlots names={names} onChangeSlot={onChangeSlot} onAddSlot={onAddSlot} onRemoveSlot={onRemoveSlot} />
+            <DrumSlots names={names} onChangeSlot={onChangeSlot} onAddSlot={onAddSlot} onRemoveSlot={onRemoveSlot} onResetDrums={onResetDrums} />
           </div>
         )}
       </div>
@@ -215,7 +273,7 @@ export function DrumPicker({
                   Done
                 </Drawer.Close>
               </div>
-              <DrumSlots names={names} onChangeSlot={onChangeSlot} onAddSlot={onAddSlot} onRemoveSlot={onRemoveSlot} />
+              <DrumSlots names={names} onChangeSlot={onChangeSlot} onAddSlot={onAddSlot} onRemoveSlot={onRemoveSlot} onResetDrums={onResetDrums} />
             </Drawer.Content>
           </Drawer.Popup>
         </Drawer.Viewport>

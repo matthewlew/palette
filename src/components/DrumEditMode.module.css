@@ -19,10 +19,19 @@
   margin-left: -2px;
 }
 
+/* Duck the back chevron out of the way while a canvas handle is being
+   dragged, matching the title/save/share chrome — see EditMode's own
+   .hidden. */
+.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .preview {
   flex: 1;
   min-height: 0;
   position: relative;
+  overflow: hidden;
   touch-action: manipulation;
 }
 
@@ -145,28 +154,6 @@
 .resetButton {
   min-height: 32px;
   align-self: center;
-}
-
-.drumRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 12px;
-}
-
-.resetDrumsButton {
-  flex: none;
-  min-height: 32px;
-  padding: 0 14px;
-  border-radius: var(--pill);
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-subdued);
-  font-family: var(--th-body);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
 }
 
 /* On tablet/desktop the controls move to a fixed side panel so the gradient

@@ -171,6 +171,21 @@
   gap: 6px;
 }
 
+.resetButton {
+  align-self: flex-start;
+  margin-top: 4px;
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-subdued);
+  font-family: var(--th-body);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .slot {
   display: flex;
   align-items: center;
@@ -229,13 +244,45 @@
 }
 
 .selectPopup {
-  max-height: 320px;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  max-height: 360px;
   padding: 6px;
   border: 1px solid var(--border);
   border-radius: var(--radius-base);
   background: var(--background);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+/* ~80 inks in the catalogue — scrolls under a search field that stays put,
+   rather than the whole popup (search included) scrolling out of reach. */
+.selectList {
+  overflow-y: auto;
+}
+
+.inkSearch {
+  flex: none;
+  height: 32px;
+  margin-bottom: 6px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--th-body);
+  font-size: 13px;
+}
+
+.inkSearch::placeholder {
+  color: var(--text-subdued);
+}
+
+.inkSearchEmpty {
+  padding: 12px 8px;
+  color: var(--text-subdued);
+  font-family: var(--th-body);
+  font-size: 13px;
+  text-align: center;
 }
 
 .selectItem {
