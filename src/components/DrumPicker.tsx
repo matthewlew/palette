@@ -2,6 +2,7 @@ import { Drawer } from '@base-ui/react/drawer'
 import { Select } from '@base-ui/react/select'
 import { INK_CATALOGUE, findInk } from '../lib/inkCatalogue'
 import { Icon } from '../icons'
+import { useIsDesktop } from '../hooks/useIsDesktop'
 import styles from './DrumPicker.module.css'
 
 /** A physical Riso only holds so many drums at once — swapping in a 5th ink
@@ -134,6 +135,47 @@ export function DrumPicker({
   onOpenChange,
 }: DrumPickerProps) {
   const names = selectedNames.length > 0 ? selectedNames : [INK_CATALOGUE[0].name]
+  const isDesktop = useIsDesktop()
+
+  const trigger = (
+    <span className={styles.stack} aria-hidden="true">
+      {names.map((name, i) => (
+        <span
+          key={i}
+          className={styles.stackSwatch}
+          style={{ backgroundColor: findInk(name)?.hex ?? '#000000', zIndex: names.length - i }}
+        />
+      ))}
+    </span>
+  )
+
+  // Desktop already has the side panel's own vertical space to spare, so
+  // popping a whole bottom sheet over it (complete with backdrop) reads as
+  // a mobile pattern borrowed wholesale rather than a real desktop control —
+  // an inline disclosure that expands the panel in place fits the same
+  // real estate the picker itself lives in.
+  if (isDesktop) {
+    return (
+      <div className={styles.desktopGroup}>
+        <button
+          type="button"
+          data-testid="drum-stack-trigger"
+          className={styles.stackButton}
+          aria-label={`Drums: ${names.join(', ')}. Tap to edit.`}
+          aria-expanded={!!open}
+          onClick={() => onOpenChange?.(!open)}
+        >
+          {trigger}
+          <span className={styles.stackLabel}>Drums</span>
+        </button>
+        {open && (
+          <div data-testid="drum-picker-inline" className={styles.inlinePanel}>
+            <DrumSlots names={names} onChangeSlot={onChangeSlot} onAddSlot={onAddSlot} onRemoveSlot={onRemoveSlot} />
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <Drawer.Root open={open} onOpenChange={onOpenChange}>
@@ -142,15 +184,7 @@ export function DrumPicker({
         className={styles.stackButton}
         aria-label={`Drums: ${names.join(', ')}. Tap to edit.`}
       >
-        <span className={styles.stack} aria-hidden="true">
-          {names.map((name, i) => (
-            <span
-              key={i}
-              className={styles.stackSwatch}
-              style={{ backgroundColor: findInk(name)?.hex ?? '#000000', zIndex: names.length - i }}
-            />
-          ))}
-        </span>
+        {trigger}
         <span className={styles.stackLabel}>Drums</span>
       </Drawer.Trigger>
 

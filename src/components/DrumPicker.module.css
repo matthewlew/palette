@@ -30,6 +30,25 @@
   margin-left: 0;
 }
 
+.desktopGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.inlinePanel {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 12px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-base);
+  background: color-mix(in srgb, var(--text) 3%, transparent);
+}
+
 .stackLabel {
   font-family: var(--th-body);
   font-size: 12px;

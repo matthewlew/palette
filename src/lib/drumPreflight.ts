@@ -19,9 +19,12 @@ export interface PreflightIssue {
   message: string
 }
 
-const SINGLE_INK_CEILING = 80
-const TOTAL_INK_CEILING = 180
-const GRADIENT_FLOOR = 10
+// Exported so gradient generation (riso.ts) can sample within these same
+// bounds instead of drawing uniform random coverage and letting most
+// candidates fail these checks after the fact.
+export const SINGLE_INK_CEILING = 80
+export const TOTAL_INK_CEILING = 180
+export const GRADIENT_FLOOR = 10
 
 /** Checks one stop's coverage vector against the verified press constraints
  * (PRD §3.5). All warning-only — these are artwork judgment calls, not

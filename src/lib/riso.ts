@@ -1,5 +1,6 @@
 import { hexToOklch, hexToSrgb } from './oklch'
 import { scorePalette } from './paletteScore'
+import { SINGLE_INK_CEILING, TOTAL_INK_CEILING, GRADIENT_FLOOR } from './drumPreflight'
 import type { GradientStop } from './gradient'
 
 /** Per-ink coverage percentage, 0-100. Array index is parallel to the ink
@@ -174,7 +175,15 @@ export type CoverageLocks = Record<number, Coverage>
 export type DrumPositionLocks = Record<number, number>
 
 function randomCoverage(inkCount: number): Coverage {
-  return Array.from({ length: inkCount }, () => Math.round(Math.random() * 100))
+  // Sample within [FLOOR, CEILING] rather than [0, 100] — this is a sandbox
+  // (colors freely explorable), not a penalty box (generate anything, then
+  // flag it): drawing from the full 0-100 range meant most candidates
+  // tripped the single-ink ceiling or the gradient floor before the user
+  // ever touched a slider. Zero stays reachable (an ink can be absent from
+  // a stop) — everything nonzero lands inside the safe band from the start.
+  return Array.from({ length: inkCount }, () =>
+    Math.random() < 0.15 ? 0 : Math.round(GRADIENT_FLOOR + Math.random() * (SINGLE_INK_CEILING - GRADIENT_FLOOR))
+  )
 }
 
 /** Coverage-space jitter for an existing candidate: nudges each ink's
@@ -183,13 +192,31 @@ function randomCoverage(inkCount: number): Coverage {
  * (multiple coverage vectors map to the same colour, so there's no single
  * inverse to solve for). Coverage is jittered directly instead. */
 function jitterCoverage(coverage: Coverage): Coverage {
-  return coverage.map((c) => clampCoverage(c + (Math.random() - 0.5) * 40))
+  return coverage.map((c) => (c === 0 ? 0 : clampCoverage(c + (Math.random() - 0.5) * 20)))
+}
+
+/** Pulls a candidate back inside the safe band after jitter can still push
+ * it out: snaps near-zero back to true zero (rather than a barely-there
+ * trace that reads as a mistake), clamps the single-ink ceiling, and scales
+ * the whole vector down if the cross-layer total still runs over. Keeps
+ * every generated candidate preflight-clean by construction, so exploring
+ * gradients doesn't mean wading through warnings first. */
+function sanitizeCoverage(coverage: Coverage): Coverage {
+  const snapped = coverage.map((c) => {
+    if (c <= 0) return 0
+    if (c < GRADIENT_FLOOR) return c < GRADIENT_FLOOR / 2 ? 0 : GRADIENT_FLOOR
+    return Math.min(c, SINGLE_INK_CEILING)
+  })
+  const total = snapped.reduce((sum, c) => sum + c, 0)
+  if (total <= TOTAL_INK_CEILING) return snapped
+  const scale = TOTAL_INK_CEILING / total
+  return snapped.map((c) => (c === 0 ? 0 : Math.max(GRADIENT_FLOOR, c * scale)))
 }
 
 function buildCandidateCoverage(inkCount: number, stopCount: number): Coverage[] {
   const coverages: Coverage[] = []
   for (let i = 0; i < stopCount; i++) {
-    coverages.push(jitterCoverage(randomCoverage(inkCount)))
+    coverages.push(sanitizeCoverage(jitterCoverage(randomCoverage(inkCount))))
   }
   return coverages
 }
