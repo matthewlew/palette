@@ -73,9 +73,14 @@ interface EditModeProps {
   gradient: Gradient
   onExit: () => void
   onImport?: (jsonText: string) => void
+  /** Fires whenever the mobile bottom sheet's open/closed state changes, so
+   * the app shell can bring the tab bar back while the sheet is dismissed —
+   * otherwise the tab bar stays hidden for all of edit mode and closing the
+   * sheet leaves the user with no way back to the gallery. */
+  onSheetHiddenChange?: (hidden: boolean) => void
 }
 
-export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProps) {
+export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenChange }: EditModeProps) {
   const setCurrentGradient = useAppStore((s) => s.setCurrentGradient)
   const activeColorSet = useAppStore((s) => s.activeColorSet)
   const saved = useAppStore((s) => s.saved)
@@ -161,6 +166,13 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   // obstructs the gradient the way the bottom sheet does, so tapping the
   // preview there still exits instead of needing a reveal state at all.
   const chromeHidden = (handleDragging || sheetHidden) && !isDesktop
+  // Surface the sheet's real open/closed state to the app shell, so it can
+  // bring the tab bar back the moment the sheet is dismissed rather than
+  // hiding it for the whole edit-mode duration.
+  useEffect(() => {
+    onSheetHiddenChange?.(sheetHidden)
+    return () => onSheetHiddenChange?.(false)
+  }, [sheetHidden, onSheetHiddenChange])
   // The sheet's OWN duck during a handle drag is separate from chromeHidden:
   // it is a transient opacity fade (the drag ends, it comes right back),
   // not the drawer's real open/closed state, which only the tap/swipe above
