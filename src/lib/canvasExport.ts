@@ -36,7 +36,12 @@ export function renderGradientToCanvas(
   canvas: HTMLCanvasElement,
   gradient: Gradient,
   width: number,
-  height: number
+  height: number,
+  /** Fill behind the gradient. Every case below overwrites the full canvas
+   * with its own fillRect, so this is only ever visible at a canvas-gradient
+   * clamp edge — but a plate export (see plateExport.ts) needs it to be
+   * white, since 0%-coverage paper is bare, not black ink. */
+  background = '#000000'
 ) {
   canvas.width = width
   canvas.height = height
@@ -69,7 +74,7 @@ export function renderGradientToCanvas(
   }
 
   // Clear background
-  ctx.fillStyle = '#000000'
+  ctx.fillStyle = background
   ctx.fillRect(0, 0, width, height)
 
   switch (type) {

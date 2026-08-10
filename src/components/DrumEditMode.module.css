@@ -35,3 +35,23 @@
   gap: 20px;
   padding: 12px 0 24px;
 }
+
+.exportButton {
+  align-self: center;
+  min-height: 44px;
+  padding: 0 24px;
+  margin: 0 12px;
+  border-radius: var(--pill);
+  border: none;
+  background: var(--text);
+  color: var(--background);
+  font-family: var(--th-body);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.exportButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

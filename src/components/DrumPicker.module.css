@@ -37,6 +37,20 @@
   color: var(--text);
 }
 
+/* Desktop's counterpart to the mobile trigger+sheet: plain in-flow content,
+   no collapse, no Drawer — matches EditMode's own isDesktop branch, which
+   swaps its Drawer sheet for a plain div for the same reason (room to spare,
+   nothing to save space from). */
+.desktopPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 12px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-base);
+}
+
 .backdrop {
   position: fixed;
   inset: 0;
@@ -145,11 +159,7 @@
 .slot {
   display: flex;
   align-items: center;
-  gap: 10px;
-  height: 36px;
-  padding: 0 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-base);
+  gap: 6px;
 }
 
 .preview {
@@ -160,13 +170,126 @@
   border: 1px solid color-mix(in srgb, var(--text) 25%, transparent);
 }
 
+/* The Select.Trigger — carries the row chrome the old native <select> got
+   from its `.slot` wrapper, since the trigger is now the thing with a
+   preview swatch, a value, and a chevron inside it. */
 .select {
   flex: 1 1 auto;
   min-width: 0;
-  height: 100%;
-  border: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-base);
   background: transparent;
   color: var(--text);
   font-family: var(--th-body);
   font-size: 13px;
+  cursor: pointer;
+}
+
+.selectValue {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selectIcon {
+  flex: none;
+  display: flex;
+  color: var(--text-subdued);
+}
+
+.selectChevron {
+  transform: rotate(-90deg);
+}
+
+.selectPositioner {
+  z-index: 22;
+}
+
+.selectPopup {
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-base);
+  background: var(--background);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.selectItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: var(--th-body);
+  font-size: 13px;
+  color: var(--text);
+}
+
+.selectItem[data-highlighted] {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.optionSwatch {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--text) 25%, transparent);
+}
+
+.optionText {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.removeButton {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-base);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-subdued);
+  cursor: pointer;
+}
+
+.removeButton:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.addButton {
+  align-self: flex-start;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--th-body);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.addButton:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
