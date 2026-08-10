@@ -11,8 +11,10 @@ import {
   type DrumEditableStop,
 } from '../lib/riso'
 import { findInk } from '../lib/inkCatalogue'
+import { checkGradientCoverage } from '../lib/drumPreflight'
 import { DrumPicker } from './DrumPicker'
 import { DrumStopList } from './DrumStopList'
+import { DrumPreflight } from './DrumPreflight'
 import { Icon } from '../icons'
 import type { Gradient } from '../store/types'
 import styles from './DrumEditMode.module.css'
@@ -121,6 +123,8 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
   }
 
   const hex = gradient.stops[0]?.hex ?? '#ffffff'
+  const preflightIssues = checkGradientCoverage(editableStops, inkNames)
+  const stopNumbers = Object.fromEntries(editableStops.map((s, i) => [s.id, i + 1]))
 
   return (
     <div data-testid="drum-edit-mode" className={styles.container}>
@@ -145,6 +149,7 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
       />
       <div className={styles.panel}>
         <DrumPicker selectedNames={inkNames} onToggle={handleToggleInk} maxSelected={MAX_INKS} />
+        <DrumPreflight issues={preflightIssues} stopNumbers={stopNumbers} />
         <DrumStopList
           stops={editableStops}
           inkNames={inkNames}
