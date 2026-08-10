@@ -38,6 +38,10 @@ export function App() {
   const importGradients = useAppStore((s) => s.importGradients)
   const undoImport = useAppStore((s) => s.undoImport)
   const chromeVisible = useIdleFade()
+  // Whether the mobile edit sheet is currently dismissed (gradient tapped to
+  // reveal it in full). Drives the tab bar back into view — see panelOpen
+  // below — so dismissing the sheet always leaves a way back to the gallery.
+  const [editSheetHidden, setEditSheetHidden] = useState(false)
   const [toastText, setToastText] = useState<string | null>(null)
   // Import toast carries an Undo; copy toast does not (undoable = has ids).
   const [importToast, setImportToast] = useState<{ message: string; undoable: boolean } | null>(null)
@@ -222,6 +226,7 @@ export function App() {
       )}
       {mode === 'edit' && current && !current.riso && (
         <EditMode
+          onSheetHiddenChange={setEditSheetHidden}
           gradient={current}
           onExit={() => withViewTransition(exitEditMode)}
           onImport={handleImportJson}
@@ -254,7 +259,7 @@ export function App() {
       <TabBar
         mode={mode === 'edit' ? 'create' : mode}
         hidden={mode === 'create' && !chromeVisible}
-        panelOpen={mode === 'edit'}
+        panelOpen={mode === 'edit' && !editSheetHidden}
         recentGradients={saved.slice(-3)}
         savedCount={saved.length}
         onChange={(next) => {
