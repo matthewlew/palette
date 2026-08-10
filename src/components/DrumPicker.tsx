@@ -1,17 +1,26 @@
 import { Drawer } from '@base-ui/react/drawer'
+import { Select } from '@base-ui/react/select'
 import { INK_CATALOGUE, findInk } from '../lib/inkCatalogue'
+import { useIsDesktop } from '../hooks/useIsDesktop'
+import { Icon } from '../icons'
 import styles from './DrumPicker.module.css'
 
-/** A physical Riso only holds so many drums at once — this fixes the count
- * rather than letting the list grow, matching "drums have to be swapped
- * out," not added to freely. */
-export const DRUM_SLOT_COUNT = 4
+/** A physical Riso only holds so many drums at once — swapping in a 5th ink
+ * means swapping one of these out, not growing the list forever. */
+export const MAX_DRUM_SLOTS = 4
+/** Below 2 inks there's no overprint to speak of — Drum's whole premise. */
+export const MIN_DRUM_SLOTS = 2
+/** @deprecated kept as an alias — some call sites still default off this name. */
+export const DRUM_SLOT_COUNT = MAX_DRUM_SLOTS
 
 interface DrumPickerProps {
-  /** Exactly `slotCount` ink names, one per drum. */
+  /** One ink name per drum currently loaded — length IS the slot count. */
   selectedNames: string[]
   onChangeSlot: (slotIndex: number, name: string) => void
-  slotCount?: number
+  /** Omit either to hide the add/remove controls (e.g. the standalone test
+   * harness that doesn't wire a count-changing parent). */
+  onAddSlot?: () => void
+  onRemoveSlot?: (slotIndex: number) => void
   /** Controlled open state, so a parent (DrumEditMode) can close the sheet
    * from outside it — e.g. tapping the gradient preview, matching how
    * EditMode's own bottom sheet dismisses on a preview tap. Omit either prop
@@ -20,12 +29,90 @@ interface DrumPickerProps {
   onOpenChange?: (open: boolean) => void
 }
 
+/** A swatch + name option list — replaces a plain `<select>` because a native
+ * popup can't reliably show a colour per option across browsers, and seeing
+ * the drum you're about to load is the point (direct user feedback: "I want
+ * to be able to preview the drums"). */
+function InkSelect({ value, onChange, label }: { value: string; onChange: (name: string) => void; label: string }) {
+  const hex = findInk(value)?.hex ?? '#000000'
+  return (
+    <Select.Root items={INK_CATALOGUE.map((ink) => ({ value: ink.name, label: ink.name }))} value={value} onValueChange={onChange}>
+      <Select.Trigger data-testid="drum-slot-select" aria-label={label} className={styles.select}>
+        <span className={styles.preview} aria-hidden="true" style={{ backgroundColor: hex }} />
+        <Select.Value className={styles.selectValue} />
+        <Select.Icon className={styles.selectIcon}>
+          {/* No down-chevron in the LDS glyph set — chevron-left rotated
+             reads the same and stays inside the existing icon library rather
+             than adding a one-off glyph. */}
+          <Icon name="chevron-left" size="sm" className={styles.selectChevron} />
+        </Select.Icon>
+      </Select.Trigger>
+      <Select.Portal>
+        <Select.Positioner className={styles.selectPositioner} sideOffset={4}>
+          <Select.Popup className={styles.selectPopup}>
+            <Select.List>
+              {INK_CATALOGUE.map((ink) => (
+                <Select.Item key={ink.name} value={ink.name} className={styles.selectItem} data-testid="drum-ink-option">
+                  <span className={styles.optionSwatch} aria-hidden="true" style={{ backgroundColor: ink.hex }} />
+                  <Select.ItemText className={styles.optionText}>{ink.name}</Select.ItemText>
+                </Select.Item>
+              ))}
+            </Select.List>
+          </Select.Popup>
+        </Select.Positioner>
+      </Select.Portal>
+    </Select.Root>
+  )
+}
+
+function DrumSlots({
+  names,
+  onChangeSlot,
+  onAddSlot,
+  onRemoveSlot,
+}: {
+  names: string[]
+  onChangeSlot: (slotIndex: number, name: string) => void
+  onAddSlot?: () => void
+  onRemoveSlot?: (slotIndex: number) => void
+}) {
+  const canRemove = !!onRemoveSlot && names.length > MIN_DRUM_SLOTS
+  const canAdd = !!onAddSlot && names.length < MAX_DRUM_SLOTS
+  return (
+    <div className={styles.slots}>
+      {names.map((name, index) => (
+        <div key={index} className={styles.slot} data-testid="drum-slot">
+          <InkSelect value={name} onChange={(next) => onChangeSlot(index, next)} label={`Drum ${index + 1} ink`} />
+          {onRemoveSlot && (
+            <button
+              type="button"
+              data-testid="drum-slot-remove"
+              aria-label={`Remove drum ${index + 1}`}
+              className={styles.removeButton}
+              disabled={!canRemove}
+              onClick={() => onRemoveSlot(index)}
+            >
+              <Icon name="close" size="sm" />
+            </button>
+          )}
+        </div>
+      ))}
+      {onAddSlot && (
+        <button type="button" data-testid="drum-slot-add" className={styles.addButton} disabled={!canAdd} onClick={onAddSlot}>
+          + Add drum
+        </button>
+      )}
+    </div>
+  )
+}
+
 /**
  * Collapses to a single row of overlapping swatches — like a stack of
  * avatars — behind one button, so the mobile edit panel isn't spending
  * vertical space on drum selection and stop editing at the same time.
- * Tapping it opens the actual picker (fixed drum slots, each a dropdown
- * over the ink catalogue with a live preview) in a bottom sheet.
+ * Tapping it opens the actual picker (one dropdown per loaded drum, each
+ * showing a live swatch preview, plus add/remove up to the press's drum
+ * count) in a bottom sheet.
  *
  * The stack is deliberately not itself interactive — no per-swatch tap
  * target — because the whole point is that a drum is a hidden setting, not
@@ -35,11 +122,29 @@ interface DrumPickerProps {
 export function DrumPicker({
   selectedNames,
   onChangeSlot,
-  slotCount = DRUM_SLOT_COUNT,
+  onAddSlot,
+  onRemoveSlot,
   open,
   onOpenChange,
 }: DrumPickerProps) {
-  const names = Array.from({ length: slotCount }, (_, i) => selectedNames[i] ?? INK_CATALOGUE[0].name)
+  const names = selectedNames.length > 0 ? selectedNames : [INK_CATALOGUE[0].name]
+  const isDesktop = useIsDesktop()
+
+  // Desktop has the vertical room EditMode's own side panel relies on — the
+  // whole point of the collapsed avatar stack was saving space on a small
+  // mobile sheet (PRD §6 item 1), a problem desktop doesn't have. Matching
+  // EditMode's `isDesktop` branch (a plain in-flow panel, no Drawer) rather
+  // than stretching the mobile bottom sheet full-width, which is what was
+  // happening before: a 1280px-wide overlay slid up from the bottom and sat
+  // on top of the tab bar.
+  if (isDesktop) {
+    return (
+      <div data-testid="drum-picker-panel" className={styles.desktopPanel}>
+        <p className={styles.heading}>Drums</p>
+        <DrumSlots names={names} onChangeSlot={onChangeSlot} onAddSlot={onAddSlot} onRemoveSlot={onRemoveSlot} />
+      </div>
+    )
+  }
 
   return (
     <Drawer.Root open={open} onOpenChange={onOpenChange}>
@@ -72,29 +177,7 @@ export function DrumPicker({
                   Done
                 </Drawer.Close>
               </div>
-              <div className={styles.slots}>
-                {names.map((name, index) => {
-                  const hex = findInk(name)?.hex ?? '#000000'
-                  return (
-                    <label key={index} className={styles.slot} data-testid="drum-slot">
-                      <span className={styles.preview} aria-hidden="true" style={{ backgroundColor: hex }} />
-                      <select
-                        data-testid="drum-slot-select"
-                        aria-label={`Drum ${index + 1} ink`}
-                        className={styles.select}
-                        value={name}
-                        onChange={(e) => onChangeSlot(index, e.target.value)}
-                      >
-                        {INK_CATALOGUE.map((ink) => (
-                          <option key={ink.name} value={ink.name}>
-                            {ink.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  )
-                })}
-              </div>
+              <DrumSlots names={names} onChangeSlot={onChangeSlot} onAddSlot={onAddSlot} onRemoveSlot={onRemoveSlot} />
             </Drawer.Content>
           </Drawer.Popup>
         </Drawer.Viewport>
