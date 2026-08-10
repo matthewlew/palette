@@ -42,6 +42,12 @@
   inset: 0;
   z-index: 20;
   background: color-mix(in srgb, #000 40%, transparent);
+  transition: opacity var(--dur-slow, 320ms) var(--ease-decelerate, ease);
+}
+
+.backdrop[data-starting-style],
+.backdrop[data-ending-style] {
+  opacity: 0;
 }
 
 .sheetViewport {
@@ -60,6 +66,30 @@
   border-top-right-radius: var(--radius-lg);
   box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.3);
   padding-bottom: var(--safe-b);
+  /* Same mechanism as EditMode's sheet: open/closed position and the live
+     drag both move this transform via the library's own CSS variable, so a
+     real finger-drag tracks 1:1 instead of animating underneath it. */
+  transform: translateY(var(--drawer-swipe-movement-y, 0px));
+  transition: transform var(--dur-slow, 320ms) var(--ease-decelerate, ease);
+}
+
+/* No transition while an actual finger is moving it. */
+.sheet[data-swiping] {
+  transition-duration: 0ms;
+}
+
+/* Both ends of a programmatic (non-drag) open/close — the drag case above
+   has its own transform via --drawer-swipe-movement-y and never reaches
+   this. */
+.sheet[data-starting-style],
+.sheet[data-ending-style] {
+  transform: translateY(100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet {
+    transition: none;
+  }
 }
 
 .sheetHandle {

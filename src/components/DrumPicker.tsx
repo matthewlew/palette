@@ -12,6 +12,12 @@ interface DrumPickerProps {
   selectedNames: string[]
   onChangeSlot: (slotIndex: number, name: string) => void
   slotCount?: number
+  /** Controlled open state, so a parent (DrumEditMode) can close the sheet
+   * from outside it — e.g. tapping the gradient preview, matching how
+   * EditMode's own bottom sheet dismisses on a preview tap. Omit either prop
+   * to fall back to the Drawer's own uncontrolled open state. */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
 /**
@@ -26,11 +32,17 @@ interface DrumPickerProps {
  * a color you pick directly (PRD §6 item 1's open question about the grid
  * reading as "pick your colors" instead of "load a drum").
  */
-export function DrumPicker({ selectedNames, onChangeSlot, slotCount = DRUM_SLOT_COUNT }: DrumPickerProps) {
+export function DrumPicker({
+  selectedNames,
+  onChangeSlot,
+  slotCount = DRUM_SLOT_COUNT,
+  open,
+  onOpenChange,
+}: DrumPickerProps) {
   const names = Array.from({ length: slotCount }, (_, i) => selectedNames[i] ?? INK_CATALOGUE[0].name)
 
   return (
-    <Drawer.Root>
+    <Drawer.Root open={open} onOpenChange={onOpenChange}>
       <Drawer.Trigger
         data-testid="drum-stack-trigger"
         className={styles.stackButton}

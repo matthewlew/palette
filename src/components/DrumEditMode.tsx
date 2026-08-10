@@ -73,6 +73,7 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
     )
   )
   const [activeStopId, setActiveStopId] = useState<string | null>(null)
+  const [drumSheetOpen, setDrumSheetOpen] = useState(false)
 
   useEffect(() => {
     setInkNames(padInkNames(gradient.riso?.inks ?? []))
@@ -167,7 +168,12 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
         }}
       />
       <div className={styles.panel}>
-        <DrumPicker selectedNames={inkNames} onChangeSlot={handleChangeSlot} />
+        <DrumPicker
+          selectedNames={inkNames}
+          onChangeSlot={handleChangeSlot}
+          open={drumSheetOpen}
+          onOpenChange={setDrumSheetOpen}
+        />
         <DrumPreflight issues={preflightIssues} stopNumbers={stopNumbers} />
         <DrumStopList
           stops={editableStops}
