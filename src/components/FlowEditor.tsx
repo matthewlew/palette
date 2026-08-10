@@ -4,6 +4,11 @@ import styles from './FlowEditor.module.css'
 
 const TAP_MOVEMENT_THRESHOLD_PX = 6
 const REMOVE_DISTANCE_PX = 56
+// Below this, the gesture hasn't committed to a direction yet — the same
+// idea as EditMode's touchAxisRef, applied to the stop handles: whichever
+// way the finger moves first wins the whole gesture, so a horizontal stop
+// drag can't also fight a vertical page scroll for the same touch.
+const AXIS_LOCK_PX = 8
 
 // How close to a screen edge a touch has to start for iOS to claim it for its
 // back/forward navigation. Only touches in this band need cancelling — see
@@ -46,6 +51,7 @@ export function FlowEditor({ stops, onMove, onTapStop, onRemoveStop, onAddStopAt
   const trackRef = containerRef ?? (internalRef as RefObject<HTMLDivElement>)
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null)
   const draggingIdRef = useRef<string | null>(null)
+  const axisRef = useRef<'none' | 'h' | 'v'>('none')
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [removeCandidateId, setRemoveCandidateId] = useState<string | null>(null)
 
@@ -68,6 +74,7 @@ export function FlowEditor({ stops, onMove, onTapStop, onRemoveStop, onAddStopAt
   function handlePointerDown(e: React.PointerEvent, id: string) {
     pointerStartRef.current = { x: e.clientX, y: e.clientY }
     draggingIdRef.current = id
+    axisRef.current = 'none'
     setDraggingId(id)
     const target = e.target as Element
     if (typeof target.setPointerCapture === 'function') {
@@ -85,9 +92,30 @@ export function FlowEditor({ stops, onMove, onTapStop, onRemoveStop, onAddStopAt
     const id = draggingIdRef.current
     if (!id) return
     const start = pointerStartRef.current
-    const dy = start ? Math.abs(e.clientY - start.y) : 0
-    setRemoveCandidateId(dy > REMOVE_DISTANCE_PX ? id : null)
-    onMove(id, positionFromClientX(e.clientX))
+    if (!start) return
+    const dx = e.clientX - start.x
+    const dy = e.clientY - start.y
+
+    if (axisRef.current === 'none' && Math.max(Math.abs(dx), Math.abs(dy)) >= AXIS_LOCK_PX) {
+      axisRef.current = Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v'
+    }
+
+    // Once the gesture has committed to an axis, the other one is locked out —
+    // a horizontal drag holds its position steady against vertical jitter (no
+    // stray dip toward "remove"), and a vertical drag-to-remove doesn't also
+    // creep the stop sideways along the track.
+    setRemoveCandidateId(axisRef.current !== 'h' && Math.abs(dy) > REMOVE_DISTANCE_PX ? id : null)
+    if (axisRef.current !== 'v') {
+      onMove(id, positionFromClientX(e.clientX))
+    }
+  }
+
+  function handlePointerCancel() {
+    draggingIdRef.current = null
+    setDraggingId(null)
+    setRemoveCandidateId(null)
+    pointerStartRef.current = null
+    axisRef.current = 'none'
   }
 
   function handlePointerUp(e: React.PointerEvent, id: string) {
@@ -204,6 +232,7 @@ export function FlowEditor({ stops, onMove, onTapStop, onRemoveStop, onAddStopAt
           }}
           onPointerDown={(e) => handlePointerDown(e, stop.id)}
           onPointerUp={(e) => handlePointerUp(e, stop.id)}
+          onPointerCancel={handlePointerCancel}
           onKeyDown={(e) => handleKeyDown(e, stop)}
         />
       ))}

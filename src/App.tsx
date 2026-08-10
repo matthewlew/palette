@@ -260,6 +260,7 @@ export function App() {
         mode={mode === 'edit' ? 'create' : mode}
         hidden={mode === 'create' && !chromeVisible}
         panelOpen={mode === 'edit' && !editSheetHidden}
+        editing={mode === 'edit'}
         recentGradients={saved.slice(-3)}
         savedCount={saved.length}
         onChange={(next) => {
