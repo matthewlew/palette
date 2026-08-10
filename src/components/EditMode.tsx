@@ -1103,7 +1103,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
           angle={gradient.angle}
           cursor={canvasCursor}
           size={canvasSize}
-          hidden={scrolling}
+          hidden={scrolling || chromeHidden}
           onReorder={(next) => commit(next, undefined, { reorder: true })}
           onResetSpacing={() => {
             handleResetDistribution()
