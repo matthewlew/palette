@@ -35,6 +35,10 @@ import { FlowEditor } from './FlowEditor'
 import { BoardShare } from './BoardShare'
 import { NoiseOverlay } from './NoiseOverlay'
 import { TurrellSquare } from './TurrellSquare'
+import { LikeButton } from './LikeButton'
+import { PaletteTitle } from './PaletteTitle'
+import { namePalette } from '../lib/naming'
+import { launchSaveFlight, saveFlightOrigin } from '../lib/saveFlight'
 import { tickHaptic } from '../lib/haptics'
 import { useIsDesktop } from '../hooks/useIsDesktop'
 import { MEDIA_ICON } from '../lib/mediaChrome'
@@ -91,6 +95,9 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
   const saveGradient = useAppStore((s) => s.saveGradient)
   const noiseEnabled = useAppStore((s) => s.noiseEnabled)
   const toggleNoise = useAppStore((s) => s.toggleNoise)
+  const isGradientSaved = useAppStore((s) => s.isGradientSaved(gradient))
+  const toggleSaveGradient = useAppStore((s) => s.toggleSaveGradient)
+  const renameCurrentGradient = useAppStore((s) => s.renameCurrentGradient)
   const lockedCoverage = useAppStore((s) => s.lockedCoverage)
   const toggleCoverageLock = useAppStore((s) => s.toggleCoverageLock)
   const syncCoverageLock = useAppStore((s) => s.syncCoverageLock)
@@ -206,12 +213,22 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
         return
       }
 
+      const onButton = target?.tagName === 'BUTTON'
       if (e.key === 'PageDown' || e.key === 'ArrowDown') {
         e.preventDefault()
         goToVariant(scrollIndexRef.current + 1)
       } else if (e.key === 'PageUp' || e.key === 'ArrowUp') {
         e.preventDefault()
         if (scrollIndexRef.current > 0) goToVariant(scrollIndexRef.current - 1)
+      } else if (e.key === 's' || e.key === 'S' || (e.key === ' ' && !onButton)) {
+        e.preventDefault()
+        const state = useAppStore.getState()
+        if (state.current) {
+          if (!state.isGradientSaved(state.current)) {
+            launchSaveFlight(state.current, saveFlightOrigin())
+          }
+          state.toggleSaveGradient(state.current)
+        }
       } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
         e.preventDefault()
         const currentGrad = gradientRef.current
@@ -754,6 +771,14 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
           />
         )}
         <NoiseOverlay visible={noiseEnabled} />
+        <PaletteTitle
+          name={gradient.name ?? namePalette(gradient.stops.map((s) => s.hex))}
+          onRename={renameCurrentGradient}
+        />
+        {/* The persistent save toggle EditMode keeps on the gradient itself —
+            separate from (and safe alongside) the save that also fires when
+            plates are exported: saveGradient dedupes by signature. */}
+        <LikeButton liked={isGradientSaved} onToggle={() => toggleSaveGradient(gradient)} gradient={gradient} />
         <CanvasHandles
           stops={canvasStops}
           type={gradient.type}
