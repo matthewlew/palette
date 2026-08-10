@@ -7,7 +7,7 @@ import { useCommunityGradients, type CommunityOrder } from '../hooks/useCommunit
 import { useHint } from '../hooks/useHint'
 import { useMasonryRowSpans } from '../hooks/useMasonryRowSpans'
 import { useFlipReorder } from '../hooks/useFlipReorder'
-import { useAppStore, pickedCarouselGradients } from '../store/useAppStore'
+import { useAppStore, pickedCarouselGradients, gradientSignature } from '../store/useAppStore'
 import type { GalleryLayout } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
 import { likePalette, unlikePalette } from '../lib/likes'
@@ -895,95 +895,60 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
   // stay "open this palette".
   const [pickMode, setPickMode] = useState(false)
   const [studioOpen, setStudioOpen] = useState(false)
-  const [downloadingPicks, setDownloadingPicks] = useState(false)
   const carouselPicks = useAppStore((s) => s.carouselPicks)
   const toggleCarouselPick = useAppStore((s) => s.toggleCarouselPick)
   const reorderCarouselPick = useAppStore((s) => s.reorderCarouselPick)
-  const moveCarouselPick = useAppStore((s) => s.moveCarouselPick)
   const clearCarouselPicks = useAppStore((s) => s.clearCarouselPicks)
-  const removeSavedGradientsByIds = useAppStore((s) => s.removeSavedGradientsByIds)
+  const saveGradient = useAppStore((s) => s.saveGradient)
 
-  // Picks outlive pick mode, so the bar is shown whenever there is a selection
-  // — otherwise leaving pick mode would strand a half-built carousel with no
-  // way back to it.
-  const selectionVisible = activeTab === 'saves' && carouselPicks.length > 0
+  // Tied to pick mode: turning Select off is "I'm done deciding", and a tray
+  // that stays up after that reads as stuck chrome, not a saved-for-later
+  // draft. The picks themselves are untouched — turning Select back on
+  // (Yours or Community) brings the same tray right back.
+  const selectionVisible = pickMode && carouselPicks.length > 0
 
-  /** Zip of 1080×1350 post PNGs for the selection — the same export the
-   * board-level "Export Posts" does, scoped to what you picked. */
-  async function handleDownloadPicks() {
-    if (downloadingPicks) return
-    const chosen = pickedCarouselGradients(saved, carouselPicks)
-    if (chosen.length === 0) return
-    setDownloadingPicks(true)
-    try {
-      // A single pick has no "order" to preserve and no reason to make the
-      // user unzip a folder to see the one image they asked for — download
-      // the PNG directly, the same way any other single-image export works.
-      if (chosen.length === 1) {
-        const gradient = chosen[0]
-        const canvas = document.createElement('canvas')
-        await renderVignetteToCanvas(canvas, gradient, 1080, 1350, 'post')
-        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
-        if (blob) {
-          const slug = (gradient.name ?? 'gradient').toLowerCase().replace(/\s+/g, '-')
-          const url = URL.createObjectURL(blob)
-          const a = document.createElement('a')
-          a.href = url
-          a.download = `${slug}-post.png`
-          document.body.appendChild(a)
-          a.click()
-          document.body.removeChild(a)
-          setTimeout(() => URL.revokeObjectURL(url), 1000)
-        }
-        return
-      }
-      const zip = new JSZip()
-      for (const gradient of chosen) {
-        const canvas = document.createElement('canvas')
-        await renderVignetteToCanvas(canvas, gradient, 1080, 1350, 'post')
-        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
-        if (blob) {
-          const slug = (gradient.name ?? 'gradient').toLowerCase().replace(/\s+/g, '-')
-          zip.file(`${slug}-post.png`, blob)
-        }
-      }
-      const zipBlob = await zip.generateAsync({ type: 'blob' })
-      const url = URL.createObjectURL(zipBlob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'palettes-selected.zip'
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      setTimeout(() => URL.revokeObjectURL(url), 1000)
-    } catch (e) {
-      console.error('Selection download failed', e)
-    } finally {
-      setDownloadingPicks(false)
-    }
-  }
-
-  /** Bulk delete lands as one undoable event, so the existing Undo toast
-   * covers the whole selection rather than the last item of it. */
-  function handleDeletePicks() {
-    if (carouselPicks.length === 0) return
-    removeSavedGradientsByIds(carouselPicks)
-    setPickMode(false)
-  }
-
-  function handleDoneSelecting() {
+  /** Leaves the whole selection: empties the deck and drops out of pick mode.
+   *
+   * One action for both because they are one intention. Separate "clear picks"
+   * and "stop selecting" buttons let you end up in pick mode with nothing
+   * picked, or with a deck you can no longer add to, neither of which is a
+   * state anyone asks for. */
+  function handleClearSelection() {
     clearCarouselPicks()
     setPickMode(false)
   }
 
-  // Only your own saves can be picked: the carousel renders from the local
-  // `saved` array by id, and a community palette has no entry there.
+  // The carousel renders from the local `saved` array by id, and a community
+  // palette has no entry there — so picking one saves it first (silently,
+  // like the viewer's "Save to Gallery"), then picks the saved copy. Matched
+  // by signature rather than id: a community palette you'd already saved
+  // shouldn't get a second copy just because you picked it from the other tab.
   const pickApi =
-    pickMode && activeTab === 'saves'
-      ? (gradient: Gradient) => ({
-          order: carouselPicks.indexOf(gradient.id) === -1 ? null : carouselPicks.indexOf(gradient.id) + 1,
-          onToggle: (g: Gradient) => toggleCarouselPick(g.id),
-        })
+    pickMode
+      ? (gradient: Gradient) => {
+          const isLocal = activeTab === 'saves'
+          const match = isLocal ? gradient : saved.find((g) => gradientSignature(g) === gradientSignature(gradient))
+          const order = match ? carouselPicks.indexOf(match.id) : -1
+          return {
+            order: order === -1 ? null : order + 1,
+            onToggle: (g: Gradient) => {
+              if (isLocal) {
+                toggleCarouselPick(g.id)
+                return
+              }
+              const existing = saved.find((sv) => gradientSignature(sv) === gradientSignature(g))
+              if (existing) {
+                toggleCarouselPick(existing.id)
+                return
+              }
+              saveGradient(g)
+              const created = useAppStore
+                .getState()
+                .saved.find((sv) => gradientSignature(sv) === gradientSignature(g))
+              if (created) toggleCarouselPick(created.id)
+            },
+          }
+        }
       : null
 
   async function handleExportAll() {
@@ -1305,20 +1270,18 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
               <Icon name="grid-dense" size="sm" />
             </button>
           </div>
-          {activeTab === 'saves' && (
-            <div className={styles.toggleGroup}>
-              <button
-                type="button"
-                data-testid="carousel-pick-toggle"
-                className={pickMode ? styles.selectBtnActive : styles.selectBtn}
-                onClick={() => setPickMode((v) => !v)}
-                aria-pressed={pickMode}
-                title="Select gradients in order"
-              >
-                {pickMode ? 'Cancel' : 'Select'}
-              </button>
-            </div>
-          )}
+          <div className={styles.toggleGroup}>
+            <button
+              type="button"
+              data-testid="carousel-pick-toggle"
+              className={pickMode ? styles.selectBtnActive : styles.selectBtn}
+              onClick={() => setPickMode((v) => !v)}
+              aria-pressed={pickMode}
+              title="Select gradients in order"
+            >
+              {pickMode ? 'Cancel' : 'Select'}
+            </button>
+          </div>
           {/* Drum's only entry point used to be the empty-Yours onboarding
               screen, which vanishes for good on the first save — after that,
               starting a new drum gradient was impossible without already
@@ -1621,18 +1584,22 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
       {selectionVisible && !studioOpen && (
         <CarouselDock
           gradients={pickedCarouselGradients(saved, carouselPicks)}
-          downloading={downloadingPicks}
-          onRemove={toggleCarouselPick}
-          onReorder={reorderCarouselPick}
-          onMove={moveCarouselPick}
-          onCarousel={() => setStudioOpen(true)}
-          onDownload={handleDownloadPicks}
-          onDelete={handleDeletePicks}
-          onDone={handleDoneSelecting}
+          onNext={() => setStudioOpen(true)}
+          onClear={handleClearSelection}
         />
       )}
 
-      {studioOpen && <CarouselStudio onClose={() => setStudioOpen(false)} />}
+      {studioOpen && (
+        <CarouselStudio
+          onClose={() => setStudioOpen(false)}
+          onAddMore={() => {
+            // Back to the grid with picking still armed — the studio's "+" is a
+            // detour to collect more, not an exit from the carousel.
+            setStudioOpen(false)
+            setPickMode(true)
+          }}
+        />
+      )}
     </div>
   )
 }

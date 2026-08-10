@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import { TemplateThumb } from './TemplateThumb'
-import { buildCarousel } from '../lib/carouselTemplates'
+import { getCoverStyle } from '../lib/carouselTemplates'
 import type { Gradient } from '../store/types'
 
 const gradients: Gradient[] = Array.from({ length: 9 }, (_, i) => ({
@@ -14,9 +14,9 @@ const gradients: Gradient[] = Array.from({ length: 9 }, (_, i) => ({
   ],
 }))
 
-function thumbFor(templateId: string, n: number, extraSlides = 0) {
-  const slides = buildCarousel(templateId, n, { captionTile: false })
-  render(<TemplateThumb slide={slides[0]} gradients={gradients} extraSlides={extraSlides} />)
+function thumbFor(styleId: string, n: number, extraSlides = 0) {
+  const slide = getCoverStyle(styleId)!.build(n)
+  render(<TemplateThumb slide={slide} gradients={gradients} extraSlides={extraSlides} />)
   return screen.getByTestId('template-thumb')
 }
 
@@ -26,12 +26,12 @@ afterEach(() => {
 
 describe('TemplateThumb', () => {
   it('draws one element per slice', () => {
-    const thumb = thumbFor('bars', 5)
+    const thumb = thumbFor('stack', 5)
     expect(thumb.querySelectorAll('[style*="left"]')).toHaveLength(5)
   })
 
   it('positions slices from the arrangement’s own fractions', () => {
-    const thumb = thumbFor('bars', 4)
+    const thumb = thumbFor('stack', 4)
     const first = thumb.querySelector('[style*="left"]') as HTMLElement
     // Quarter-width bars, straight off barRects — the preview reads the same
     // maths the exporter does, which is why it can't drift.
@@ -48,12 +48,12 @@ describe('TemplateThumb', () => {
   })
 
   it('shows how many slides follow the cover', () => {
-    const thumb = thumbFor('bars', 4, 4)
+    const thumb = thumbFor('stack', 4, 4)
     expect(thumb.textContent).toContain('+4')
   })
 
   it('says nothing when the cover is the only slide', () => {
-    expect(thumbFor('bars', 4).textContent).toBe('')
+    expect(thumbFor('stack', 4).textContent).toBe('')
   })
 
   it('is decorative, so screen readers skip it', () => {
@@ -63,8 +63,8 @@ describe('TemplateThumb', () => {
   })
 
   it('skips a slice whose gradient is missing rather than crashing', () => {
-    const slides = buildCarousel('bars', 5, { captionTile: false })
-    render(<TemplateThumb slide={slides[0]} gradients={gradients.slice(0, 2)} />)
+    const slide = getCoverStyle('stack')!.build(5)
+    render(<TemplateThumb slide={slide} gradients={gradients.slice(0, 2)} />)
     expect(screen.getByTestId('template-thumb').querySelectorAll('[style*="left"]')).toHaveLength(2)
   })
 })

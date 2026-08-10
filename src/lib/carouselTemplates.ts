@@ -36,8 +36,14 @@ export interface SlicePlacement extends SliceRect {
 
 export type SlideKind = 'composite' | 'caption'
 
+/** What a slide is for, which is what the sequence UI labels and what decides
+ * whether a slide can be dragged. Body slides are the gradients and carry the
+ * order; the cover and the summary are bookends that follow from it. */
+export type SlideRole = 'cover' | 'body' | 'summary'
+
 export interface CarouselSlide {
   kind: SlideKind
+  role: SlideRole
   /** Empty for a caption slide.
    *
    * ARRAY ORDER IS PAINT ORDER. It matters only where slices overlap, and
@@ -65,23 +71,22 @@ export type ArrangementId = 'bars' | 'bands' | 'grid' | 'hero' | 'feature' | 'wh
  * precisely what they do not do. */
 export const TILING_ARRANGEMENTS: ArrangementId[] = ['bars', 'bands', 'grid', 'hero', 'feature']
 
-export interface CarouselTemplate {
-  id: string
+/** How the optional cover slide packs every pick onto one image. */
+export type CoverStyle = 'stack' | 'grid' | 'wheatpaste'
+
+export interface CoverStyleSpec {
+  id: CoverStyle
   label: string
   /** One line for the picker, describing what you get. */
   description: string
-  /** Inclusive bounds on how many gradients this template accepts. */
+  /** Inclusive bounds on how many gradients this cover can hold. */
   minCount: number
   maxCount: number
-  /** Only counts satisfying this are offered — `grid` wants a count that
-   * actually fills its rows. Absent means "any count in range". */
-  prefers?: (n: number) => boolean
-  build: (n: number) => CarouselSlide[]
+  build: (n: number) => CarouselSlide
 }
 
-/** Instagram refuses a carousel with more than 20 slides. Templates that emit
- * a cover plus one slide per gradient are capped so the caption tile still
- * fits. */
+/** Instagram refuses a carousel with more than 20 slides, and a carousel is a
+ * cover plus one slide per pick plus a summary. */
 export const MAX_SLIDES = 20
 
 /**
@@ -257,6 +262,7 @@ export function arrange(id: ArrangementId, n: number): SliceRect[] {
 function compositeSlide(id: ArrangementId, n: number): CarouselSlide {
   return {
     kind: 'composite',
+    role: 'cover',
     slices: arrange(id, n).map((rect, i) => ({ ...rect, index: i })),
   }
 }
@@ -272,6 +278,7 @@ function wheatpasteSlide(n: number): CarouselSlide {
   const lastIndex = rects.length - 1
   return {
     kind: 'composite',
+    role: 'cover',
     overlap: true,
     slices: rects.map((rect, i) => ({
       ...rect,
@@ -282,58 +289,49 @@ function wheatpasteSlide(n: number): CarouselSlide {
   }
 }
 
-/** One full-bleed slide per gradient, in pick order. */
-function singleSlides(n: number): CarouselSlide[] {
+/**
+ * The body: one full-bleed slide per gradient, in pick order.
+ *
+ * This is no longer one template among many — it IS the carousel, and the
+ * cover and summary are optional bookends on it. That reshaping came from the
+ * UI: once the running order and the slide preview became one list, "template"
+ * stopped meaning anything a user could point at. What they can point at is a
+ * sequence of slides, with two switches for whether it opens with a cover and
+ * closes with a summary.
+ */
+export function bodySlides(n: number): CarouselSlide[] {
   return Array.from({ length: n }, (_, i) => ({
     kind: 'composite' as const,
+    role: 'body' as const,
     slices: [{ x: 0, y: 0, w: 1, h: 1, index: i }],
   }))
 }
 
-export const CAROUSEL_TEMPLATES: CarouselTemplate[] = [
+/**
+ * The cover styles, each packing every pick onto one image.
+ *
+ * Three, because each is doing something the others cannot: bars for a set
+ * meant to be read across, a mosaic for the counts that tile (4, 9), and the
+ * flyposted wall for when the point is the pile. The layout maths for the
+ * retired arrangements is kept above and still tested — adding one back is a
+ * five-line entry here.
+ */
+export const COVER_STYLES: CoverStyleSpec[] = [
   {
-    id: 'bars',
-    label: 'Vertical Stack',
-    description: 'All picks as vertical bars across one slide',
+    id: 'stack',
+    label: 'Stack',
+    description: 'Vertical bars across one slide',
     minCount: 2,
     maxCount: 10,
-    build: (n) => [compositeSlide('bars', n)],
-  },
-  {
-    id: 'bands',
-    label: 'Horizontal Bands',
-    description: 'All picks as horizontal bands down one slide',
-    minCount: 2,
-    maxCount: 10,
-    build: (n) => [compositeSlide('bands', n)],
+    build: (n) => compositeSlide('bars', n),
   },
   {
     id: 'grid',
     label: 'Grid',
-    description: 'A mosaic on one slide — 2×2, 3×3, or ragged',
+    description: 'A mosaic — 2×2, 3×3, or ragged',
     minCount: 3,
     maxCount: 9,
-    // Every count in range is offered now that the picker shows a live preview
-    // of the arrangement: a ragged last row stretches to full width and looks
-    // fine, and with the layout on screen there is no reason to decide for the
-    // user which counts are allowed to try it.
-    build: (n) => [compositeSlide('grid', n)],
-  },
-  {
-    id: 'hero',
-    label: 'Hero + Rail',
-    description: 'First pick large, the rest as a rail beside it',
-    minCount: 2,
-    maxCount: 9,
-    build: (n) => [compositeSlide('hero', n)],
-  },
-  {
-    id: 'feature',
-    label: 'Feature + Row',
-    description: 'First pick across the top, the rest in a row beneath',
-    minCount: 2,
-    maxCount: 9,
-    build: (n) => [compositeSlide('feature', n)],
+    build: (n) => compositeSlide('grid', n),
   },
   {
     id: 'wheatpaste',
@@ -341,80 +339,55 @@ export const CAROUSEL_TEMPLATES: CarouselTemplate[] = [
     description: 'One poster centred, the rest pasted behind its edges',
     minCount: 3,
     maxCount: WHEATPASTE_MAX,
-    build: (n) => [wheatpasteSlide(n)],
-  },
-  {
-    id: 'singles',
-    label: 'One Per Slide',
-    description: 'Every pick full-bleed, one slide each',
-    minCount: 1,
-    maxCount: MAX_SLIDES - 1,
-    build: (n) => singleSlides(n),
-  },
-  {
-    id: 'wheatpaste-then-singles',
-    label: 'Wheatpaste, then Singles',
-    description: 'Pasted wall as the cover, then each pick full-bleed',
-    minCount: 3,
-    maxCount: WHEATPASTE_MAX,
-    build: (n) => [wheatpasteSlide(n), ...singleSlides(n)],
-  },
-  {
-    id: 'stack-then-singles',
-    label: 'Stack, then Singles',
-    description: 'Vertical stack as the cover, then each pick full-bleed',
-    minCount: 2,
-    maxCount: 9,
-    build: (n) => [compositeSlide('bars', n), ...singleSlides(n)],
-  },
-  {
-    id: 'grid-then-singles',
-    label: 'Grid, then Singles',
-    description: 'Mosaic cover, then each pick full-bleed',
-    minCount: 3,
-    maxCount: 9,
-    build: (n) => [compositeSlide('grid', n), ...singleSlides(n)],
+    build: (n) => wheatpasteSlide(n),
   },
 ]
 
-export function getTemplate(id: string): CarouselTemplate | undefined {
-  return CAROUSEL_TEMPLATES.find((t) => t.id === id)
+export function getCoverStyle(id: string): CoverStyleSpec | undefined {
+  return COVER_STYLES.find((s) => s.id === id)
 }
 
-/**
- * The templates worth showing for a given pick count — the whole point of
- * choosing a count first. A template that can't hold N, or that would blow the
- * 20-slide ceiling once the caption tile is added, is not offered rather than
- * offered-and-broken.
- */
-export function templatesForCount(n: number): CarouselTemplate[] {
-  return CAROUSEL_TEMPLATES.filter((t) => {
-    if (n < t.minCount || n > t.maxCount) return false
-    if (t.prefers && !t.prefers(n)) return false
-    return t.build(n).length + 1 <= MAX_SLIDES
-  })
+/** The cover styles that can hold this many picks. Empty is a real answer —
+ * at one pick there is nothing to compose — and the caller drops the cover. */
+export function coverStylesForCount(n: number): CoverStyleSpec[] {
+  return COVER_STYLES.filter((s) => n >= s.minCount && n <= s.maxCount)
 }
 
 export interface BuildCarouselOptions {
-  /** Append the rendered caption tile as the final slide. */
-  captionTile?: boolean
+  /** Open with a composite of every pick, in this style. Absent, or a style
+   * that can't hold the count, means no cover slide. */
+  cover?: CoverStyle | null
+  /** Close with the rendered colophon tile. */
+  summary?: boolean
+}
+
+/** How many picks still fit, given the bookends currently switched on. */
+export function maxPicksFor(options: BuildCarouselOptions = {}): number {
+  const bookends = (options.cover ? 1 : 0) + (options.summary === false ? 0 : 1)
+  return MAX_SLIDES - bookends
 }
 
 /**
- * The full ordered slide list for a pick count. Slide order IS export order —
- * files are numbered from this, and Instagram uploads in filename order.
+ * The full ordered slide list. Slide order IS export order — files are numbered
+ * from this, and Instagram uploads in filename order.
  *
- * Returns an empty list for a count the template can't hold, so callers get
- * "nothing to export" rather than a malformed carousel.
+ * A cover style that can't hold the count is dropped rather than throwing or
+ * emitting nothing: the picks are the carousel, and losing all of them because
+ * a bookend no longer fits would be the wrong trade. The studio surfaces the
+ * same fact by disabling that style's chip.
  */
-export function buildCarousel(
-  templateId: string,
-  n: number,
-  options: BuildCarouselOptions = {}
-): CarouselSlide[] {
-  const template = getTemplate(templateId)
-  if (!template || n < template.minCount || n > template.maxCount) return []
-  const slides = template.build(n)
-  if (options.captionTile === false) return slides
-  return [...slides, { kind: 'caption', slices: [] }]
+export function buildCarousel(n: number, options: BuildCarouselOptions = {}): CarouselSlide[] {
+  if (n <= 0) return []
+
+  const summary = options.summary !== false
+  const style = options.cover ? getCoverStyle(options.cover) : undefined
+  const cover = style && n >= style.minCount && n <= style.maxCount ? style.build(n) : null
+
+  const body = bodySlides(Math.min(n, maxPicksFor({ cover: cover ? options.cover : null, summary })))
+
+  return [
+    ...(cover ? [cover] : []),
+    ...body,
+    ...(summary ? [{ kind: 'caption' as const, role: 'summary' as const, slices: [] }] : []),
+  ]
 }

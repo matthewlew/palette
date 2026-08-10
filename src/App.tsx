@@ -40,6 +40,10 @@ export function App() {
   const importGradients = useAppStore((s) => s.importGradients)
   const undoImport = useAppStore((s) => s.undoImport)
   const chromeVisible = useIdleFade()
+  // The carousel studio is a full-screen create-a-post flow, so the tab bar
+  // goes away with everything else: offering Gallery and Create mid-curation
+  // is offering two unlabelled ways to abandon what you are making.
+  const carouselStudioOpen = useAppStore((s) => s.carouselStudioOpen)
   // Whether the mobile edit sheet is currently dismissed (gradient tapped to
   // reveal it in full). Drives the tab bar back into view — see panelOpen
   // below — so dismissing the sheet always leaves a way back to the gallery.
@@ -281,7 +285,7 @@ export function App() {
       )}
       <TabBar
         mode={mode === 'edit' ? 'create' : mode}
-        hidden={(mode === 'create' && !chromeVisible) || (mode === 'gallery' && selectionActive)}
+        hidden={carouselStudioOpen || (mode === 'create' && !chromeVisible) || (mode === 'gallery' && selectionActive)}
         panelOpen={mode === 'edit' && !editSheetHidden}
         editing={mode === 'edit'}
         recentGradients={saved.slice(-3)}

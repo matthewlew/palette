@@ -14,7 +14,6 @@ import { captionParts, buildCaption, type CaptionOptions } from './carouselCapti
 import { renderSlide, SLIDE_SIZES, type SlideRatio, type SlideStyle } from './carouselRender'
 
 export interface CarouselSpec {
-  templateId: string
   gradients: Gradient[]
   ratio: SlideRatio
   style?: SlideStyle
@@ -57,7 +56,7 @@ export async function renderCarouselSlides(
   spec: CarouselSpec,
   onProgress?: (done: number, total: number) => void
 ): Promise<RenderedSlide[]> {
-  const slides = buildCarousel(spec.templateId, spec.gradients.length, spec.carousel)
+  const slides = buildCarousel(spec.gradients.length, spec.carousel)
   if (slides.length === 0) return []
 
   const { width, height } = SLIDE_SIZES[spec.ratio]
@@ -79,6 +78,88 @@ export async function renderCarouselSlides(
   }
 
   return out
+}
+
+/** How a carousel actually reached the user, so the UI can say so. */
+export type CarouselDelivery = 'shared' | 'downloaded' | 'cancelled'
+
+export interface CarouselExportResult {
+  delivery: CarouselDelivery
+  count: number
+}
+
+/** Whether this browser can hand a set of PNGs to the OS share sheet.
+ *
+ * `canShare({ files })` is the only honest test: iOS Safari has `navigator.share`
+ * but rejects file payloads in some contexts, and Firefox has neither. */
+function canShareFiles(files: File[]): boolean {
+  const nav = navigator as Navigator & { canShare?: (data: ShareData) => boolean }
+  return typeof nav.share === 'function' && typeof nav.canShare === 'function' && nav.canShare({ files })
+}
+
+function triggerDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+/**
+ * Renders the carousel and gets the images onto the device.
+ *
+ * The share sheet is tried first because it is the only route that reaches the
+ * iOS camera roll: `navigator.share` with an array of PNG files gives Safari's
+ * "Save N Images", which drops them straight into Photos where Instagram picks
+ * them up. A zip was the wrong shape for a phone entirely — iOS files it in
+ * Files, and unpacking it and getting the PNGs into Photos is several steps
+ * that all happen outside this app.
+ *
+ * Desktop browsers (and anything without file sharing) fall back to one
+ * download per slide, which is where a zip was actually earning its keep — so
+ * the filenames stay zero-padded and numbered either way.
+ *
+ * The caption rides along as the share sheet's `text`, and is copyable in the
+ * studio regardless; it is deliberately not a file, since a .txt in the payload
+ * makes iOS offer "Save to Files" instead of "Save Images".
+ */
+export async function exportCarousel(
+  spec: CarouselSpec,
+  onProgress?: (done: number, total: number) => void
+): Promise<CarouselExportResult> {
+  const slides = await renderCarouselSlides(spec, onProgress)
+  if (slides.length === 0) return { delivery: 'downloaded', count: 0 }
+
+  const files = slides.map(
+    (slide) => new File([slide.blob], slide.filename, { type: 'image/png' })
+  )
+
+  if (canShareFiles(files)) {
+    const parts = captionParts(spec.gradients, spec.caption)
+    try {
+      await navigator.share({ files, title: parts.title, text: buildCaption(spec.gradients, spec.caption) })
+      return { delivery: 'shared', count: files.length }
+    } catch (e) {
+      // Dismissing the sheet throws AbortError. That is a decision, not a
+      // failure, so don't "helpfully" dump N downloads on someone who just
+      // backed out.
+      if (e instanceof Error && e.name === 'AbortError') {
+        return { delivery: 'cancelled', count: 0 }
+      }
+      // Anything else: fall through to downloads rather than losing the render.
+      console.warn('Carousel share failed, falling back to downloads', e)
+    }
+  }
+
+  for (const slide of slides) {
+    triggerDownload(slide.blob, slide.filename)
+    // Browsers throttle or silently drop a burst of simultaneous downloads.
+    await new Promise((resolve) => setTimeout(resolve, 120))
+  }
+  return { delivery: 'downloaded', count: slides.length }
 }
 
 /**

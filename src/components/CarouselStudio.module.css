@@ -1,89 +1,109 @@
-.backdrop {
+/* A takeover, not a dialog. There is no backdrop and nothing behind it to
+   click back to: leaving happens through Cancel, which is the point of a
+   curation session. */
+.screen {
   position: fixed;
   inset: 0;
-  z-index: 99;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-
-.modal {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
   z-index: 100;
-  width: min(760px, 95vw);
-  max-height: 90vh;
-  border-radius: var(--radius-xl);
   display: flex;
   flex-direction: column;
+  background: #0d0d11;
   color: #fff;
   box-sizing: border-box;
-  overflow: hidden;
 }
 
 .header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 26px 28px 18px;
+  flex: none;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: max(14px, var(--safe-t, 0px)) 18px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.heading {
+  text-align: center;
+}
+
 .title {
-  margin: 0 0 4px 0;
+  margin: 0;
   font-family: var(--th-display);
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
 }
 
 .subtitle {
-  margin: 0;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .close {
-  flex: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
+  justify-self: start;
   border: 0;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.8);
+  background: transparent;
+  padding: 6px 2px;
+  color: rgba(255, 255, 255, 0.6);
   font-size: 14px;
   cursor: pointer;
 }
 
 .close:hover {
-  background: rgba(255, 255, 255, 0.16);
   color: #fff;
 }
 
-/* The only scrolling region, so the header and the export button stay put
-   while a long pick list moves under them. */
+.save {
+  justify-self: end;
+  border: 0;
+  background: transparent;
+  padding: 6px 2px;
+  color: #7fb4ff;
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.save:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* The only scrolling region, so the header and the save button stay put while
+   a long sequence moves under them. */
 .body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  /* Without this, scrolling past the top/bottom of this list chains into the
-     Gallery grid still mounted underneath the backdrop — the classic
-     fixed-overlay-over-scrollable-page rubber-band bug. */
-  overscroll-behavior: contain;
-  padding: 20px 28px 24px;
+  padding: 20px 18px 24px;
   display: flex;
   flex-direction: column;
   gap: 26px;
 }
 
 .empty {
-  padding: 40px 28px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
   font-size: 14px;
-  line-height: 1.6;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.emptyAdd {
+  border: 0;
+  border-radius: var(--pill);
+  background: #fff;
+  color: #101014;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 20px;
+  cursor: pointer;
 }
 
 .section {
@@ -101,10 +121,16 @@
   color: rgba(255, 255, 255, 0.45);
 }
 
-.sectionHint {
-  margin: -6px 0 0;
+.hint {
+  margin: -6px 0 2px;
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.warn {
+  margin: 0;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
+  color: #f6b8a0;
 }
 
 .linkBtn {
@@ -122,16 +148,16 @@
   color: #fff;
 }
 
-/* ---- Templates ---- */
+/* ---- Cover styles ---- */
 
-.templateGrid {
+.coverGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 8px;
 }
 
-.templateCard,
-.templateCardActive {
+.coverCard,
+.coverCardActive {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -145,49 +171,42 @@
   transition: background 0.15s, border-color 0.15s;
 }
 
-.templateCard:hover:not(:disabled) {
+.coverCard:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.09);
 }
 
-.templateCardActive {
+.coverCardActive {
   border-color: rgba(255, 255, 255, 0.75);
   background: rgba(255, 255, 255, 0.13);
 }
 
-.templateCard:disabled {
+.coverCard:disabled {
   opacity: 0.32;
   cursor: not-allowed;
 }
 
-/* The words beside the preview; the card itself is now a row. */
-.templateText {
+.coverText {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
 }
 
-.templateLabel {
+.coverLabel {
   font-size: 13px;
   font-weight: 600;
 }
 
-.templateDesc {
+.coverDesc {
   font-size: 11px;
   line-height: 1.35;
   color: rgba(255, 255, 255, 0.55);
 }
 
-.templateLabel,
-.templateDesc {
+.coverLabel,
+.coverDesc {
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.warn {
-  margin: 0;
-  font-size: 12px;
-  color: #f6b8a0;
 }
 
 /* ---- Chips ---- */
@@ -209,8 +228,13 @@
   cursor: pointer;
 }
 
-.chip:hover {
+.chip:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.1);
+}
+
+.chip:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .chipActive {
@@ -218,66 +242,6 @@
   border-color: #fff;
   color: #101014;
   font-weight: 600;
-}
-
-/* ---- Slide strip ---- */
-
-.slideStrip {
-  display: flex;
-  gap: 10px;
-  overflow-x: auto;
-  padding-bottom: 8px;
-  scroll-snap-type: x proximity;
-}
-
-.slide {
-  flex: none;
-  margin: 0;
-  width: 116px;
-  scroll-snap-align: start;
-}
-
-.slideTapTarget {
-  display: block;
-  width: 100%;
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: pointer;
-  border-radius: 6px;
-}
-
-.slideTapTarget:focus-visible {
-  outline: 2px solid #fff;
-  outline-offset: 2px;
-}
-
-.slideCanvas {
-  display: block;
-  width: 100%;
-  height: auto;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.04);
-  pointer-events: none;
-}
-
-.slideCaption {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 5px;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  color: rgba(255, 255, 255, 0.45);
-}
-
-.slideTag {
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.1);
-  font-size: 9px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 /* ---- Caption ---- */
@@ -310,12 +274,17 @@
   overflow-y: auto;
   padding: 12px 14px;
   border-radius: var(--radius-md, 10px);
-  background: rgba(0, 0, 0, 0.28);
+  background: rgba(0, 0, 0, 0.32);
+  /* Set in the UI face, not a monospace one. This is a preview of an
+     Instagram caption — prose that will be read in a sans-serif app — and
+     setting it as code made a paragraph of English look like a config file.
+     Monospace earns its place where column alignment carries meaning; here
+     nothing lines up. */
   font-family: inherit;
-  text-align: left;
   font-size: 12.5px;
-  line-height: 1.6;
-  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.55;
+  text-align: left;
+  color: rgba(255, 255, 255, 0.82);
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -332,7 +301,8 @@
 /* ---- Footer ---- */
 
 .footer {
-  padding: 16px 28px;
+  flex: none;
+  padding: 14px 18px max(14px, var(--safe-b));
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -353,132 +323,18 @@
   cursor: not-allowed;
 }
 
-/* ---- Full-screen slide viewer ---- */
-
-.viewerBackdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 101;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  box-sizing: border-box;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-}
-
-.viewer {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  max-width: 100%;
-  max-height: 100%;
-}
-
-.viewerCanvas {
-  display: block;
-  max-width: min(80vw, 480px);
-  max-height: 70vh;
-  width: auto;
-  height: auto;
-  border-radius: 10px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-}
-
-.viewerClose,
-.viewerPrev,
-.viewerNext {
-  position: absolute;
-  border: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-  cursor: pointer;
-}
-
-.viewerClose {
-  top: -44px;
-  right: 0;
-  width: 32px;
-  height: 32px;
-  font-size: 14px;
-}
-
-.viewerPrev,
-.viewerNext {
-  top: 50%;
-  transform: translateY(-50%);
-  width: 40px;
-  height: 40px;
-  font-size: 20px;
-}
-
-.viewerPrev {
-  left: -52px;
-}
-
-.viewerNext {
-  right: -52px;
-}
-
-.viewerFooter {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  color: rgba(255, 255, 255, 0.7);
+.done {
+  margin: 10px 0 0;
+  text-align: center;
   font-size: 12px;
-  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.6);
 }
 
-.viewerExportBtn {
-  border: 0;
-  border-radius: var(--radius-md, 10px);
-  background: #fff;
-  color: #101014;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 9px 16px;
-  cursor: pointer;
-}
-
-@media (max-width: 700px) {
-  .viewerPrev {
-    left: 4px;
-  }
-
-  .viewerNext {
-    right: 4px;
-  }
-
-  .viewerCanvas {
-    max-width: 92vw;
-  }
-}
-
-@media (max-width: 600px) {
-  .modal {
-    width: 100vw;
-    max-width: 100vw;
-    height: 100dvh;
-    max-height: 100dvh;
-    top: 0;
-    left: 0;
-    transform: none;
-    border-radius: 0;
-  }
-
+@media (min-width: 760px) {
   .header,
   .body,
   .footer {
-    padding-left: 18px;
-    padding-right: 18px;
-  }
-
-  .footer {
-    padding-bottom: max(16px, var(--safe-b));
+    padding-left: max(24px, calc(50vw - 380px));
+    padding-right: max(24px, calc(50vw - 380px));
   }
 }

@@ -1,0 +1,211 @@
+/* Wraps rather than scrolls, so the whole carousel is comparable at a glance.
+   auto-fill keeps the slides a readable size and lets the column count follow
+   the container — 3 across on a phone, 6 on a wide screen. */
+.sequence {
+  list-style: none;
+  margin: 0;
+  padding: 2px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 14px 10px;
+  align-items: start;
+}
+
+.item {
+  border-radius: 8px;
+  outline-offset: 3px;
+  /* Nothing here is text, and a long-press that selects the slide instead of
+     lifting it is the gesture failing in the most confusing way possible. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  transition: transform 140ms ease, opacity 140ms ease;
+}
+
+.itemBody {
+  cursor: grab;
+}
+
+/* The bookends are shown in place but can't be dragged — a cover made of every
+   pick has no position of its own, and a summary that isn't last isn't one.
+   They still open full screen, so the cursor says "look", not "move". */
+.itemFixed {
+  cursor: zoom-in;
+}
+
+.itemFixed .frame {
+  /* Set apart from the draggable slides without a label having to say so. */
+  opacity: 0.9;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+/* The lifted slide. Scaled up and dimmed rather than removed from the flow:
+   its gap staying put is what tells you where it came from. */
+.itemActive {
+  cursor: grabbing;
+  opacity: 0.55;
+  transform: scale(1.06);
+  z-index: 2;
+}
+
+/* The gap the dragged slide will land in. A left edge rather than a full
+   outline: the drop inserts BEFORE this slide, and an edge says where far
+   better than a box around the whole thumbnail does. */
+.itemOver .frame {
+  box-shadow: inset 3px 0 0 0 #fff;
+}
+
+.frame {
+  position: relative;
+  width: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: #1a1a20;
+  isolation: isolate;
+  /* The whole slide is a drag target; children must not eat the pointer or
+     elementFromPoint would report them and the hit test would miss. */
+  pointer-events: none;
+}
+
+.canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.number {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  color: #fff;
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+/* Out of the way until hovered or focused — it would otherwise cover the
+   gradient it belongs to. */
+.item:hover .remove,
+.item:focus-visible .remove,
+.item:focus-within .remove {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  /* No hover to reveal it, so the remove affordance is always visible. */
+  .remove {
+    opacity: 1;
+  }
+}
+
+.caption {
+  display: block;
+  margin-top: 5px;
+  text-align: center;
+  font-size: 9px;
+  line-height: 1.3;
+}
+
+.name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.badge {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* ---- Add ---- */
+
+.addItem {
+  align-self: stretch;
+}
+
+.add {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  /* Matches a portrait slide's height closely enough to sit in the row rather
+     than under it, at any ratio. */
+  min-height: 88px;
+  aspect-ratio: 4 / 5;
+  border-radius: 8px;
+  border: 1px dashed rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+
+.add:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #fff;
+}
+
+.plus {
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 300;
+}
+
+.addLabel {
+  font-size: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .item,
+  .remove,
+  .add {
+    transition: none;
+  }
+
+  .itemActive {
+    transform: none;
+  }
+}
