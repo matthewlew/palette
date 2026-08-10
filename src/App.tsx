@@ -219,7 +219,11 @@ export function App() {
   return (
     <>
       {mode === 'edit' && current && current.riso && (
-        <DrumEditMode gradient={current} onExit={() => withViewTransition(exitEditMode)} />
+        <DrumEditMode
+          gradient={current}
+          onExit={() => withViewTransition(exitEditMode)}
+          onImport={handleImportJson}
+        />
       )}
       {mode === 'edit' && current && !current.riso && (
         <EditMode

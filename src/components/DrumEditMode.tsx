@@ -30,6 +30,7 @@ import { ScrollTicker } from './ScrollTicker'
 import { GeometryTabs } from './GeometryTabs'
 import { CanvasHandles } from './CanvasHandles'
 import { FlowEditor } from './FlowEditor'
+import { BoardShare } from './BoardShare'
 import { useIsDesktop } from '../hooks/useIsDesktop'
 import { MEDIA_ICON } from '../lib/mediaChrome'
 import { Icon } from '../icons'
@@ -71,19 +72,18 @@ function nextUnusedInk(names: string[]): string {
 interface DrumEditModeProps {
   gradient: Gradient
   onExit: () => void
+  onImport?: (jsonText: string) => void
 }
 
 /**
  * The Drum counterpart to EditMode — a screen, not just a component, wiring
  * DrumPicker (ink selection) and DrumStopList (coverage editing) to the
- * store. Deliberately smaller than EditMode: no flow editor, no canvas
- * handles, no gesture navigation — those are EditMode's answers to problems
- * (drag-to-reorder stops spatially, swipe between rolodex candidates) that
- * PRD §6/§7 leave open for Drum's own design pass. This is the minimum that
- * makes DrumPicker/DrumStopList reachable and store-backed.
+ * store.
  */
-export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
+export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEditModeProps) {
   const setCurrentGradient = useAppStore((s) => s.setCurrentGradient)
+  const saved = useAppStore((s) => s.saved)
+  const saveGradient = useAppStore((s) => s.saveGradient)
   const lockedCoverage = useAppStore((s) => s.lockedCoverage)
   const toggleCoverageLock = useAppStore((s) => s.toggleCoverageLock)
   const syncCoverageLock = useAppStore((s) => s.syncCoverageLock)
@@ -370,6 +370,7 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
       // `editableStops` by every `commit()` call above — this is always the
       // latest riso block, not a stale snapshot from mount.
       await downloadDrumPlatesZip(gradient)
+      saveGradient(gradient)
       setPlatePreviews(null)
     } finally {
       setExporting(false)
@@ -603,6 +604,7 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
       >
         <Icon name="chevron-left" size="md" />
       </button>
+      <BoardShare saved={saved} current={gradient} onImport={onImport} position="editor" />
       <div
         ref={previewRef}
         data-testid="drum-edit-preview"
