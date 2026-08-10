@@ -12,6 +12,7 @@ import {
 } from '../lib/riso'
 import { INK_CATALOGUE, findInk } from '../lib/inkCatalogue'
 import { checkGradientCoverage } from '../lib/drumPreflight'
+import { downloadDrumPlatesZip } from '../lib/plateExport'
 import { DrumPicker, MIN_DRUM_SLOTS, MAX_DRUM_SLOTS } from './DrumPicker'
 import { DrumStopList } from './DrumStopList'
 import { DrumPreflight } from './DrumPreflight'
@@ -84,6 +85,7 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
   })
   const [activeStopId, setActiveStopId] = useState<string | null>(null)
   const [drumSheetOpen, setDrumSheetOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     const names = clampInkNames(gradient.riso?.inks ?? [])
@@ -180,6 +182,19 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
   const preflightIssues = checkGradientCoverage(editableStops, inkNames)
   const stopNumbers = Object.fromEntries(editableStops.map((s, i) => [s.id, i + 1]))
 
+  async function handleExport() {
+    if (exporting) return
+    setExporting(true)
+    try {
+      // `gradient` is the store's `current`, kept in step with `inkNames` and
+      // `editableStops` by every `commit()` call above — this is always the
+      // latest riso block, not a stale snapshot from mount.
+      await downloadDrumPlatesZip(gradient)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div data-testid="drum-edit-mode" className={styles.container}>
       <button type="button" data-testid="drum-edit-back" aria-label="Back" className={styles.backButton} onClick={onExit}>
@@ -226,6 +241,15 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
           activeStopId={activeStopId}
           onSelect={setActiveStopId}
         />
+        <button
+          type="button"
+          data-testid="drum-export-plates"
+          className={styles.exportButton}
+          disabled={exporting}
+          onClick={handleExport}
+        >
+          {exporting ? 'Exporting…' : 'Export plates'}
+        </button>
       </div>
     </div>
   )
