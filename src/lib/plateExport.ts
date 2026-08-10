@@ -80,6 +80,28 @@ export interface DrumPlate {
   bytes: Uint8Array
 }
 
+const PREVIEW_WIDTH_PX = 240
+const PREVIEW_HEIGHT_PX = 160
+
+export interface DrumPlatePreview {
+  ink: string
+  dataUrl: string
+}
+
+/**
+ * Cheap raster previews of what renderDrumPlates would produce — same
+ * buildInkPlateGradient composite as the real export, just rasterized small
+ * and returned as PNG data URLs instead of full 600dpi PDFs, so the export
+ * flow can show what's about to be downloaded before committing to it.
+ */
+export function renderDrumPlatePreviews(gradient: Gradient): DrumPlatePreview[] {
+  const inks = gradient.riso?.inks ?? []
+  return inks.map((ink, i) => ({
+    ink,
+    dataUrl: renderPlateCanvas(gradient, i, PREVIEW_WIDTH_PX, PREVIEW_HEIGHT_PX).toDataURL('image/png'),
+  }))
+}
+
 /**
  * Renders one flattened grayscale PDF per ink drum, at fixed 600dpi over a
  * 4x6" postcard sheet. Returns the raw plates rather than triggering a

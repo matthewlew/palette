@@ -9,19 +9,23 @@ import {
   addStop,
   moveStop,
   toGradientCoverageStops,
+  generateGradientCoverage,
   type DrumEditableStop,
 } from '../lib/riso'
 import { INK_CATALOGUE, findInk } from '../lib/inkCatalogue'
 import { checkGradientCoverage } from '../lib/drumPreflight'
-import { downloadDrumPlatesZip } from '../lib/plateExport'
+import { downloadDrumPlatesZip, renderDrumPlatePreviews, type DrumPlatePreview } from '../lib/plateExport'
 import { DrumPicker, MIN_DRUM_SLOTS, MAX_DRUM_SLOTS } from './DrumPicker'
 import { DrumStopList } from './DrumStopList'
 import { DrumPreflight } from './DrumPreflight'
+import { ScrollTicker } from './ScrollTicker'
 import { useIsDesktop } from '../hooks/useIsDesktop'
 import { MEDIA_ICON } from '../lib/mediaChrome'
 import { Icon } from '../icons'
 import type { Gradient } from '../store/types'
 import styles from './DrumEditMode.module.css'
+
+const SCROLL_STEP_PX = 60
 
 const MAX_STOPS = 8
 
@@ -89,6 +93,7 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
   const [activeStopId, setActiveStopId] = useState<string | null>(null)
   const [drumSheetOpen, setDrumSheetOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [platePreviews, setPlatePreviews] = useState<DrumPlatePreview[] | null>(null)
 
   const isDesktop = useIsDesktop()
   // Mobile: the sheet covers the bottom of the gradient, so tapping the
@@ -97,18 +102,40 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
   // gradient, so there's nothing to reveal — see handlePreviewPointerUp.
   const [sheetHidden, setSheetHidden] = useState(false)
   const previewPointerStartRef = useRef<{ x: number; y: number } | null>(null)
+  const previewLastYRef = useRef<number | null>(null)
+  const previewRef = useRef<HTMLDivElement>(null)
   const PREVIEW_TAP_THRESHOLD_PX = 10
+
+  // Scroll-through-variants feed, mirroring the Create feed (Feed.tsx):
+  // scrolling the preview steps through a history of coverage variants for
+  // the currently loaded drums, generating a fresh one past the end and
+  // keeping everything already seen so scrolling back reaches it again.
+  // Lives in a ref (not state) so the wheel/pointer listeners — bound once,
+  // deliberately minimal deps — always see the latest history without
+  // rebinding.
+  const scrollHistoryRef = useRef<DrumEditableStop[][]>([editableStops])
+  const scrollIndexRef = useRef(0)
+  const [scrollIndex, setScrollIndex] = useState(0)
+  const scrollAccumRef = useRef(0)
+  const inkNamesRef = useRef(inkNames)
+  inkNamesRef.current = inkNames
+  const lockedCoverageRef = useRef(lockedCoverage)
+  lockedCoverageRef.current = lockedCoverage
+  const lockedDrumPositionsRef = useRef(lockedDrumPositions)
+  lockedDrumPositionsRef.current = lockedDrumPositions
 
   useEffect(() => {
     const names = clampInkNames(gradient.riso?.inks ?? [])
-    setInkNames(names)
-    setEditableStops(
-      toEditableStops(
-        gradient.stops,
-        (gradient.riso?.coverage ?? gradient.stops.map(() => [])).map((row) => clampCoverageRow(row, names.length))
-      )
+    const stops = toEditableStops(
+      gradient.stops,
+      (gradient.riso?.coverage ?? gradient.stops.map(() => [])).map((row) => clampCoverageRow(row, names.length))
     )
+    setInkNames(names)
+    setEditableStops(stops)
     setActiveStopId(null)
+    scrollHistoryRef.current = [stops]
+    scrollIndexRef.current = 0
+    setScrollIndex(0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gradient.id])
 
@@ -119,6 +146,10 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
     const nextHexes = nextInkNames.map((name) => findInk(name)?.hex ?? '#000000')
     const { stops, coverage } = toGradientCoverageStops(nextStops, nextHexes)
     setCurrentGradient({ ...gradient, stops, riso: { inks: nextInkNames, coverage } })
+    // Keep the scroll-feed's current slot in step with hand edits (a stop
+    // drag, a lock, a manual recoverage) so scrolling away and back doesn't
+    // discard them in favor of the variant as it was first generated.
+    scrollHistoryRef.current[scrollIndexRef.current] = nextStops
   }
 
   /** Swapping a drum's ink never changes the slot count, so every stop's
@@ -138,6 +169,12 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
     setInkNames(nextNames)
     const nextStops = editableStops.map((s) => ({ ...s, coverage: [...s.coverage, 0] }))
     commit(nextStops, nextNames)
+    // The scroll history's coverage vectors are one shorter than the new
+    // slot count — resetting to just this stop avoids a length mismatch the
+    // next time a scroll-generated variant tries to zip coverage with inks.
+    scrollHistoryRef.current = [nextStops]
+    scrollIndexRef.current = 0
+    setScrollIndex(0)
   }
 
   /** Swapping a drum out for good removes its coverage column from every
@@ -151,6 +188,9 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
       coverage: s.coverage.filter((_, i) => i !== slotIndex),
     }))
     commit(nextStops, nextNames)
+    scrollHistoryRef.current = [nextStops]
+    scrollIndexRef.current = 0
+    setScrollIndex(0)
   }
 
   function handleRecoverage(id: string, inkIndex: number, percent: number) {
@@ -194,6 +234,28 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
   const preflightIssues = checkGradientCoverage(editableStops, inkNames)
   const stopNumbers = Object.fromEntries(editableStops.map((s, i) => [s.id, i + 1]))
 
+  /** Steps the preview through the scroll-feed's variant history — same
+   * shape as Feed.tsx's goTo: within history, replays what's already been
+   * generated; past the end, generates one more with the currently loaded
+   * inks (honoring whatever coverage/position locks are set) and appends it
+   * so scrolling back reaches it again. */
+  function goToVariant(newIndex: number) {
+    if (newIndex < 0 || newIndex === scrollIndexRef.current) return
+    const history = scrollHistoryRef.current
+    if (newIndex >= history.length) {
+      const hexes = inkNamesRef.current.map((name) => findInk(name)?.hex ?? '#000000')
+      const { stops, coverage } = generateGradientCoverage(hexes, lockedCoverageRef.current, lockedDrumPositionsRef.current)
+      history.push(toEditableStops(stops, coverage))
+    }
+    scrollIndexRef.current = newIndex
+    setScrollIndex(newIndex)
+    commit(history[newIndex])
+  }
+
+  function handleOpenExportPreview() {
+    setPlatePreviews(renderDrumPlatePreviews(gradient))
+  }
+
   async function handleExport() {
     if (exporting) return
     setExporting(true)
@@ -202,22 +264,64 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
       // `editableStops` by every `commit()` call above — this is always the
       // latest riso block, not a stale snapshot from mount.
       await downloadDrumPlatesZip(gradient)
+      setPlatePreviews(null)
     } finally {
       setExporting(false)
     }
   }
 
+  /** Trackpad/mouse-wheel counterpart to the pointer-drag scrub above —
+   * same STEP_PX accumulation, just fed by wheel delta instead of drag
+   * distance. */
+  function handlePreviewWheel(e: React.WheelEvent) {
+    scrollAccumRef.current += e.deltaY
+    consumeScrollAccum()
+  }
+
+  function consumeScrollAccum() {
+    while (scrollAccumRef.current >= SCROLL_STEP_PX) {
+      scrollAccumRef.current -= SCROLL_STEP_PX
+      goToVariant(scrollIndexRef.current + 1)
+    }
+    while (scrollAccumRef.current <= -SCROLL_STEP_PX) {
+      if (scrollIndexRef.current <= 0) {
+        scrollAccumRef.current = 0
+        break
+      }
+      scrollAccumRef.current += SCROLL_STEP_PX
+      goToVariant(scrollIndexRef.current - 1)
+    }
+  }
+
   /** Matches EditMode's own preview tap: a genuine tap (not a scroll/drag)
    * toggles the sheet on mobile, or exits straight out on desktop, where the
-   * side panel never covers the gradient so there's nothing to reveal. */
+   * side panel never covers the gradient so there's nothing to reveal. A
+   * drag past the tap threshold instead scrubs through the variant feed —
+   * see goToVariant/consumeScrollAccum. */
   function handlePreviewPointerDown(e: React.PointerEvent) {
     if ((e.target as HTMLElement).closest('button')) return
     previewPointerStartRef.current = { x: e.clientX, y: e.clientY }
+    previewLastYRef.current = e.clientY
+    scrollAccumRef.current = 0
+  }
+
+  function handlePreviewPointerMove(e: React.PointerEvent) {
+    if (previewPointerStartRef.current === null) return
+    if ((e.target as HTMLElement).closest('button')) return
+    const lastY = previewLastYRef.current
+    if (lastY === null) return
+    // Dragging up (finger/cursor moves to smaller Y) steps forward, matching
+    // the wheel-down convention used everywhere else in the app.
+    const delta = lastY - e.clientY
+    previewLastYRef.current = e.clientY
+    scrollAccumRef.current += delta
+    consumeScrollAccum()
   }
 
   function handlePreviewPointerUp(e: React.PointerEvent) {
     const start = previewPointerStartRef.current
     previewPointerStartRef.current = null
+    previewLastYRef.current = null
     if ((e.target as HTMLElement).closest('button')) return
     if (start) {
       const dx = e.clientX - start.x
@@ -268,10 +372,41 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
         data-testid="drum-export-plates"
         className={styles.exportButton}
         disabled={exporting}
-        onClick={handleExport}
+        onClick={handleOpenExportPreview}
       >
-        {exporting ? 'Exporting…' : 'Export plates'}
+        Export plates
       </button>
+      {platePreviews && (
+        <div data-testid="drum-plate-preview" className={styles.platePreview}>
+          <div className={styles.plateGrid}>
+            {platePreviews.map((plate) => (
+              <div key={plate.ink} className={styles.plateThumb}>
+                <img src={plate.dataUrl} alt={`${plate.ink} plate preview`} className={styles.plateImg} />
+                <span className={styles.plateLabel}>{plate.ink}</span>
+              </div>
+            ))}
+          </div>
+          <div className={styles.plateActions}>
+            <button
+              type="button"
+              data-testid="drum-plate-preview-cancel"
+              className={styles.plateCancelButton}
+              onClick={() => setPlatePreviews(null)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              data-testid="drum-plate-preview-download"
+              className={styles.exportButton}
+              disabled={exporting}
+              onClick={handleExport}
+            >
+              {exporting ? 'Exporting…' : 'Download plates'}
+            </button>
+          </div>
+        </div>
+      )}
     </>
   )
 
@@ -287,6 +422,7 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
         <Icon name="chevron-left" size="md" />
       </button>
       <div
+        ref={previewRef}
         data-testid="drum-edit-preview"
         className={styles.preview}
         style={{
@@ -302,8 +438,12 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
           backgroundColor: gradient.type === 'square' ? hex : undefined,
         }}
         onPointerDown={handlePreviewPointerDown}
+        onPointerMove={handlePreviewPointerMove}
         onPointerUp={handlePreviewPointerUp}
-      />
+        onWheel={handlePreviewWheel}
+      >
+        <ScrollTicker index={scrollIndex} />
+      </div>
       {isDesktop ? (
         <div data-testid="drum-edit-sheet" className={styles.sheet} onPointerDown={handleSheetPointerDown}>
           <div className={styles.panel}>{panelBody}</div>

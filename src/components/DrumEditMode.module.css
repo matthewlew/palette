@@ -142,3 +142,62 @@
   opacity: 0.5;
   cursor: default;
 }
+
+.platePreview {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-base);
+  background: color-mix(in srgb, var(--text) 3%, transparent);
+}
+
+.plateGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.plateThumb {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.plateImg {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: #fff;
+  object-fit: cover;
+}
+
+.plateLabel {
+  font-family: var(--th-body);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-subdued);
+}
+
+.plateActions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.plateCancelButton {
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--th-body);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
