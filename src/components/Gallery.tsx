@@ -385,12 +385,12 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes 
   const removeSavedGradientById = useAppStore((s) => s.removeSavedGradientById)
   const toggleSaveGradient = useAppStore((s) => s.toggleSaveGradient)
   const isSaved = useAppStore((s) => s.isGradientSaved(gradient))
-  const setPendingViewerGradientId = useAppStore((s) => s.setPendingViewerGradientId)
+  const setPendingViewerGradient = useAppStore((s) => s.setPendingViewerGradient)
   /** Riffing from inside the viewer (as opposed to the flat-grid tile's own
    * hover-edit) should return HERE on exit, not to the grid — see
-   * pendingViewerGradientId. */
+   * pendingViewerGradient. */
   function handleEditFromViewer(target: Gradient) {
-    setPendingViewerGradientId(target.id)
+    setPendingViewerGradient(target)
     onRiff(target)
   }
   const touchStartYRef = useRef<number | null>(null)
@@ -820,27 +820,34 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
   // whenever a gallery you've deliberately arranged should stay arranged.
   const [savesOrder, setSavesOrder] = useState<SavesOrder>('recent')
   const isAdmin = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('admin') === 'true'
-  const setPendingViewerGradientId = useAppStore((s) => s.setPendingViewerGradientId)
+  const setPendingViewerGradient = useAppStore((s) => s.setPendingViewerGradient)
   // Reopens the viewer on the gradient edit was riffed from, when edit was
   // entered from inside the viewer itself (not the flat-grid tile's own
-  // hover-edit) — see pendingViewerGradientId. Read once via getState (not
-  // the hook) so this mount is the only consumer; a live subscription would
-  // reopen the viewer on every future gallery mount, not just this one.
+  // hover-edit), or on any Drum edit exit — see pendingViewerGradient. Read
+  // once via getState (not the hook) so this mount is the only consumer; a
+  // live subscription would reopen the viewer on every future gallery mount,
+  // not just this one. Prefer the `saved` copy when one exists (it carries
+  // the canonical id), but the pending gradient itself still works when it
+  // was never saved — the viewer can render any gradient, not just saved ones.
   const [open, setOpen] = useState<Gradient | null>(() => {
-    const id = useAppStore.getState().pendingViewerGradientId
-    if (!id) return null
-    return useAppStore.getState().saved.find((g) => g.id === id) ?? null
+    const pending = useAppStore.getState().pendingViewerGradient
+    if (!pending) return null
+    return useAppStore.getState().saved.find((g) => g.id === pending.id) ?? pending
   })
   // Which tile the viewer flew out of. Held separately from `open` because the
   // two must disagree for exactly one frame at each end of the transition: the
   // tile has to already be wearing the shared `palette-card` name when the OLD
   // state is captured, and must have handed it to the viewer by the time the
-  // NEW state is.
-  const [heroId, setHeroId] = useState<string | null>(open?.id ?? null)
-  // One-shot: consume the pending id so it doesn't reopen the viewer again on
-  // some later, unrelated gallery mount.
+  // NEW state is. findSavedGradientId (not open?.id) because a gradient saved
+  // mid-edit got a fresh id from saveGradient — `open`'s own id may not match
+  // any tile at all, in which case there's simply no hero tile to fly from.
+  const [heroId, setHeroId] = useState<string | null>(() =>
+    open ? useAppStore.getState().findSavedGradientId(open) : null
+  )
+  // One-shot: consume the pending gradient so it doesn't reopen the viewer
+  // again on some later, unrelated gallery mount.
   useEffect(() => {
-    if (useAppStore.getState().pendingViewerGradientId) setPendingViewerGradientId(null)
+    if (useAppStore.getState().pendingViewerGradient) setPendingViewerGradient(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

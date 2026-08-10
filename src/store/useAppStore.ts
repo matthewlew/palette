@@ -128,13 +128,16 @@ interface AppState {
    * app-level copy handler copy the open gradient instead of `current`. */
   viewerGradient: Gradient | null
   setViewerGradient: (gradient: Gradient | null) => void
-  /** Set when edit mode is entered from INSIDE the Gallery's full-screen
-   * viewer (not the flat-grid tile hover-edit). Gallery reads this once on
-   * mount to reopen the viewer on the same gradient instead of landing on
-   * the flat grid — so exiting edit keeps the "immersive" full-screen thread
-   * intact rather than dropping back to a browsing surface you weren't on. */
-  pendingViewerGradientId: string | null
-  setPendingViewerGradientId: (id: string | null) => void
+  /** Set whenever edit mode exits back toward the Gallery — from riffing
+   * INSIDE the Gallery's full-screen viewer, or (for Drum, which has no
+   * flat-grid-adjacent feed to fall back to at all) from any edit exit.
+   * Gallery reads this once on mount to reopen the viewer on this gradient
+   * instead of landing on the flat grid, so exiting edit keeps the
+   * "immersive" full-screen thread intact. Holds the gradient itself, not
+   * just an id, so it still works for a gradient that was never saved — the
+   * viewer can show it even though it has nothing to look up in `saved`. */
+  pendingViewerGradient: Gradient | null
+  setPendingViewerGradient: (gradient: Gradient | null) => void
   duplicateSavedGradient: (id: string) => void
   renameSavedGradient: (id: string, name: string) => void
   renameCurrentGradient: (name: string) => void
@@ -444,8 +447,8 @@ export const useAppStore = create<AppState>()(
       },
       viewerGradient: null,
       setViewerGradient: (gradient) => set({ viewerGradient: gradient }),
-      pendingViewerGradientId: null,
-      setPendingViewerGradientId: (id) => set({ pendingViewerGradientId: id }),
+      pendingViewerGradient: null,
+      setPendingViewerGradient: (gradient) => set({ pendingViewerGradient: gradient }),
       duplicateSavedGradient: (id) => {
         const saved = get().saved
         const index = saved.findIndex((g) => g.id === id)
