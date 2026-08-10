@@ -1,0 +1,166 @@
+import { useEffect, useState } from 'react'
+import { useAppStore } from '../store/useAppStore'
+import { buildGradientCss } from '../lib/gradient'
+import {
+  toEditableStops,
+  equalizeEditableStops,
+  removeStopAt,
+  addStop,
+  moveStop,
+  toGradientCoverageStops,
+  type DrumEditableStop,
+} from '../lib/riso'
+import { findInk } from '../lib/inkCatalogue'
+import { DrumPicker } from './DrumPicker'
+import { DrumStopList } from './DrumStopList'
+import { Icon } from '../icons'
+import type { Gradient } from '../store/types'
+import styles from './DrumEditMode.module.css'
+
+const MAX_STOPS = 8
+const MAX_INKS = 8
+
+interface DrumEditModeProps {
+  gradient: Gradient
+  onExit: () => void
+}
+
+/**
+ * The Drum counterpart to EditMode — a screen, not just a component, wiring
+ * DrumPicker (ink selection) and DrumStopList (coverage editing) to the
+ * store. Deliberately smaller than EditMode: no flow editor, no canvas
+ * handles, no gesture navigation — those are EditMode's answers to problems
+ * (drag-to-reorder stops spatially, swipe between rolodex candidates) that
+ * PRD §6/§7 leave open for Drum's own design pass. This is the minimum that
+ * makes DrumPicker/DrumStopList reachable and store-backed.
+ */
+export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
+  const setCurrentGradient = useAppStore((s) => s.setCurrentGradient)
+  const lockedCoverage = useAppStore((s) => s.lockedCoverage)
+  const toggleCoverageLock = useAppStore((s) => s.toggleCoverageLock)
+  const syncCoverageLock = useAppStore((s) => s.syncCoverageLock)
+  const releaseCoverageLockAt = useAppStore((s) => s.releaseCoverageLockAt)
+  const lockedDrumPositions = useAppStore((s) => s.lockedDrumPositions)
+  const toggleDrumPositionLock = useAppStore((s) => s.toggleDrumPositionLock)
+  const syncDrumPositionLock = useAppStore((s) => s.syncDrumPositionLock)
+  const releaseDrumPositionLockAt = useAppStore((s) => s.releaseDrumPositionLockAt)
+
+  const [inkNames, setInkNames] = useState<string[]>(() => gradient.riso?.inks ?? [])
+  const [editableStops, setEditableStops] = useState<DrumEditableStop[]>(() =>
+    toEditableStops(gradient.stops, gradient.riso?.coverage ?? gradient.stops.map(() => []))
+  )
+  const [activeStopId, setActiveStopId] = useState<string | null>(null)
+
+  useEffect(() => {
+    setInkNames(gradient.riso?.inks ?? [])
+    setEditableStops(toEditableStops(gradient.stops, gradient.riso?.coverage ?? gradient.stops.map(() => [])))
+    setActiveStopId(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gradient.id])
+
+  const inkHexes = inkNames.map((name) => findInk(name)?.hex ?? '#000000')
+
+  function commit(nextStops: DrumEditableStop[], nextInkNames: string[] = inkNames) {
+    setEditableStops(nextStops)
+    const nextHexes = nextInkNames.map((name) => findInk(name)?.hex ?? '#000000')
+    const { stops, coverage } = toGradientCoverageStops(nextStops, nextHexes)
+    setCurrentGradient({ ...gradient, stops, riso: { inks: nextInkNames, coverage } })
+  }
+
+  function handleToggleInk(name: string) {
+    const idx = inkNames.indexOf(name)
+    if (idx === -1) {
+      if (inkNames.length >= MAX_INKS) return
+      const nextNames = [...inkNames, name]
+      const nextStops = editableStops.map((s) => ({ ...s, coverage: [...s.coverage, 0] }))
+      setInkNames(nextNames)
+      commit(nextStops, nextNames)
+    } else {
+      const nextNames = inkNames.filter((_, i) => i !== idx)
+      const nextStops = editableStops.map((s) => ({ ...s, coverage: s.coverage.filter((_, i) => i !== idx) }))
+      setInkNames(nextNames)
+      commit(nextStops, nextNames)
+    }
+  }
+
+  function handleRecoverage(id: string, inkIndex: number, percent: number) {
+    const nextStops = editableStops.map((s) =>
+      s.id === id ? { ...s, coverage: s.coverage.map((c, i) => (i === inkIndex ? percent : c)) } : s
+    )
+    commit(nextStops)
+    const index = nextStops.findIndex((s) => s.id === id)
+    const stop = nextStops[index]
+    if (index !== -1 && lockedCoverage[index] !== undefined) syncCoverageLock(index, stop.coverage)
+  }
+
+  function handleReposition(id: string, position: number) {
+    const nextStops = moveStop(editableStops, id, position)
+    commit(nextStops)
+    const index = nextStops.findIndex((s) => s.id === id)
+    if (index !== -1) syncDrumPositionLock(index, Math.round(nextStops[index].position))
+  }
+
+  function handleRemove(id: string) {
+    if (editableStops.length <= 2) return
+    if (activeStopId === id) setActiveStopId(null)
+    const index = editableStops.findIndex((s) => s.id === id)
+    if (index !== -1) {
+      releaseCoverageLockAt(index)
+      releaseDrumPositionLockAt(index)
+    }
+    commit(removeStopAt(editableStops, id))
+  }
+
+  function handleAdd() {
+    if (editableStops.length >= MAX_STOPS) return
+    const seedCoverage = inkNames.map(() => 30)
+    const nextStops = addStop(editableStops, seedCoverage)
+    const equalized = equalizeEditableStops(nextStops, lockedDrumPositions)
+    commit(equalized)
+    setActiveStopId(nextStops[nextStops.length - 1].id)
+  }
+
+  const hex = gradient.stops[0]?.hex ?? '#ffffff'
+
+  return (
+    <div data-testid="drum-edit-mode" className={styles.container}>
+      <button type="button" data-testid="drum-edit-back" aria-label="Back" className={styles.backButton} onClick={onExit}>
+        <Icon name="chevron-left" size="md" />
+      </button>
+      <div
+        data-testid="drum-edit-preview"
+        className={styles.preview}
+        style={{
+          backgroundImage:
+            gradient.type === 'square'
+              ? undefined
+              : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
+                  repeat: gradient.repeatEnabled,
+                  hard: gradient.hardStops,
+                  fanAnchor: gradient.fanAnchor,
+                  angle: gradient.angle,
+                }),
+          backgroundColor: gradient.type === 'square' ? hex : undefined,
+        }}
+      />
+      <div className={styles.panel}>
+        <DrumPicker selectedNames={inkNames} onToggle={handleToggleInk} maxSelected={MAX_INKS} />
+        <DrumStopList
+          stops={editableStops}
+          inkNames={inkNames}
+          inkHexes={inkHexes}
+          lockedCoverage={lockedCoverage}
+          lockedPositions={lockedDrumPositions}
+          onRecoverage={handleRecoverage}
+          onReposition={handleReposition}
+          onToggleCoverageLock={toggleCoverageLock}
+          onTogglePositionLock={toggleDrumPositionLock}
+          onRemove={handleRemove}
+          onAdd={handleAdd}
+          activeStopId={activeStopId}
+          onSelect={setActiveStopId}
+        />
+      </div>
+    </div>
+  )
+}

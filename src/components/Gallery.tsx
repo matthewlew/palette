@@ -745,12 +745,17 @@ interface GalleryProps {
   onRiff: (gradient: Gradient) => void
   onImport?: (jsonText: string) => void
   onStartType?: (type: GradientType) => void
+  /** Dev-only entry point into DrumEditMode — there's no real "new drum
+   * gradient" creation flow yet (ink-count selection etc. is unresolved
+   * scope), so this seeds a starter gradient and jumps straight to editing
+   * it. Optional and rendered in one out-of-the-way spot, not a real tile. */
+  onStartDrum?: () => void
   /** Fired when the full-screen viewer opens/closes so the shell can hide the
    * global ＋ Create nav (the viewer has its own Delete/Edit actions). */
   onViewerOpenChange?: (open: boolean) => void
 }
 
-export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: GalleryProps) {
+export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOpenChange }: GalleryProps) {
   const saved = useAppStore((s) => s.saved)
   const removeSavedGradientById = useAppStore((s) => s.removeSavedGradientById)
   const lastDeleted = useAppStore((s) => s.lastDeleted)
@@ -1284,6 +1289,11 @@ export function Gallery({ onRiff, onImport, onStartType, onViewerOpenChange }: G
           <p className={styles.onboardingTitle}>Create a gradient</p>
           <p className={styles.onboardingSub}>Pick a shape to start — your saves land here.</p>
           <ShapeChoices onStartType={onStartType} />
+          {onStartDrum && (
+            <button type="button" data-testid="drum-dev-start" className={styles.emptyAction} onClick={onStartDrum}>
+              Drum (dev)
+            </button>
+          )}
         </div>
       ) : (
         <>
