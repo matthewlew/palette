@@ -745,10 +745,12 @@ interface GalleryProps {
   onRiff: (gradient: Gradient) => void
   onImport?: (jsonText: string) => void
   onStartType?: (type: GradientType) => void
-  /** Dev-only entry point into DrumEditMode — there's no real "new drum
-   * gradient" creation flow yet (ink-count selection etc. is unresolved
-   * scope), so this seeds a starter gradient and jumps straight to editing
-   * it. Optional and rendered in one out-of-the-way spot, not a real tile. */
+  /** Entry point into DrumEditMode — there's no real "new drum gradient"
+   * creation flow yet (ink-count selection etc. is unresolved scope), so
+   * this seeds a starter gradient and jumps straight to editing it. Shown
+   * both in the empty-Yours onboarding and as a standing header button once
+   * there are saves (see the header button below), since the onboarding
+   * spot disappears for good after the first save. */
   onStartDrum?: () => void
   /** Fired when the full-screen viewer opens/closes so the shell can hide the
    * global ＋ Create nav (the viewer has its own Delete/Edit actions). */
@@ -1239,6 +1241,24 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
               </button>
             </div>
           )}
+          {/* Drum's only entry point used to be the empty-Yours onboarding
+              screen, which vanishes for good on the first save — after that,
+              starting a new drum gradient was impossible without already
+              having one to riff from. Desktop has the header width to spare
+              for a permanent action; mobile's header is already tight below
+              640px (see the wrap comment above), so this stays desktop-only
+              until Drum gets a real creation flow that fits the ＋ Create nav. */}
+          {activeTab === 'saves' && onStartDrum && (
+            <button
+              type="button"
+              data-testid="drum-start-button"
+              className={styles.drumStartButton}
+              onClick={onStartDrum}
+              title="Start a new Riso drum gradient"
+            >
+              + Drum
+            </button>
+          )}
           <BoardShare
             saved={saved}
             onImport={onImport ?? (() => {})}
@@ -1291,7 +1311,7 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
           <ShapeChoices onStartType={onStartType} />
           {onStartDrum && (
             <button type="button" data-testid="drum-dev-start" className={styles.emptyAction} onClick={onStartDrum}>
-              Drum (dev)
+              + Drum
             </button>
           )}
         </div>
