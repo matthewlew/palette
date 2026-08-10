@@ -6,6 +6,7 @@ import { Gallery } from './components/Gallery'
 import { TabBar } from './components/TabBar'
 import { EditMode } from './components/EditMode'
 import { DrumEditMode } from './components/DrumEditMode'
+import { STANDARD_DRUM_INKS } from './components/DrumPicker'
 import { generateGradientCoverage } from './lib/riso'
 import { findInk } from './lib/inkCatalogue'
 import { ShortcutHints, type ShortcutHintItem } from './components/ShortcutHints'
@@ -120,18 +121,14 @@ export function App() {
 
   // Dev-only entry point: there's no "new drum gradient" creation flow yet
   // (PRD leaves ink-count selection etc. unresolved) — this seeds a starter
-  // gradient with DRUM_SLOT_COUNT inks loaded so DrumEditMode's fixed drum
-  // slots are already populated when the screen first opens.
-  const DRUM_STARTER_INKS = ['Black', 'Cornflower', 'Bright Red', 'Yellow']
-
   function handleStartDrum() {
-    const inkHexes = DRUM_STARTER_INKS.map((name) => findInk(name)?.hex ?? '#000000')
+    const inkHexes = STANDARD_DRUM_INKS.map((name) => findInk(name)?.hex ?? '#000000')
     const { stops, coverage } = generateGradientCoverage(inkHexes)
     const gradient: Gradient = {
       id: crypto.randomUUID(),
       type: 'linear',
       stops,
-      riso: { inks: DRUM_STARTER_INKS, coverage },
+      riso: { inks: STANDARD_DRUM_INKS, coverage },
     }
     withViewTransition(() => {
       setCurrentGradient(gradient)

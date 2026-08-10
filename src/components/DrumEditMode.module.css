@@ -81,18 +81,62 @@
   background: rgba(128, 128, 128, 0.4);
 }
 
+/* Split into a scrolling content area and a footer that never scrolls with
+   it, so Export (and the plate preview it opens) stay anchored at a fixed
+   spot in the panel instead of trailing off wherever the stop list happens
+   to end. */
 .panel {
+  flex: 1;
+  min-height: 0;
+  max-height: 62dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.panelScroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 20px;
-  padding: 12px 0 24px;
-  max-height: 62dvh;
+  padding: 12px 0 16px;
   padding-left: var(--safe-l);
   padding-right: var(--safe-r);
-  padding-bottom: var(--safe-b);
+}
+
+.panelFooter {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-top: 1px solid var(--border);
+  padding: 12px 0;
+  padding-left: var(--safe-l);
+  padding-right: var(--safe-r);
+  padding-bottom: calc(12px + var(--safe-b));
+}
+
+.drumRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 12px;
+}
+
+.resetDrumsButton {
+  flex: none;
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-subdued);
+  font-family: var(--th-body);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 /* On tablet/desktop the controls move to a fixed side panel so the gradient
@@ -119,6 +163,9 @@
 
   .panel {
     max-height: none;
+  }
+
+  .panelScroll {
     padding-top: 24px;
   }
 }
@@ -127,7 +174,6 @@
   align-self: center;
   min-height: 44px;
   padding: 0 24px;
-  margin: 0 12px;
   border-radius: var(--pill);
   border: none;
   background: var(--text);
@@ -147,7 +193,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin: 0 12px;
+  align-self: stretch;
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-base);

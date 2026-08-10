@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { Drawer } from '@base-ui/react/drawer'
 import { useAppStore } from '../store/useAppStore'
-import { buildGradientCss } from '../lib/gradient'
+import {
+  buildGradientCss,
+  angleForTypeChange,
+  nextRotationAngle,
+  nextFanRotation,
+  type GradientType,
+} from '../lib/gradient'
 import {
   toEditableStops,
   equalizeEditableStops,
@@ -10,15 +16,19 @@ import {
   moveStop,
   toGradientCoverageStops,
   generateGradientCoverage,
+  coverageToHex,
   type DrumEditableStop,
 } from '../lib/riso'
+import type { EditableStop } from '../lib/stopOrdering'
 import { INK_CATALOGUE, findInk } from '../lib/inkCatalogue'
 import { checkGradientCoverage } from '../lib/drumPreflight'
 import { downloadDrumPlatesZip, renderDrumPlatePreviews, type DrumPlatePreview } from '../lib/plateExport'
-import { DrumPicker, MIN_DRUM_SLOTS, MAX_DRUM_SLOTS } from './DrumPicker'
+import { DrumPicker, MIN_DRUM_SLOTS, MAX_DRUM_SLOTS, STANDARD_DRUM_INKS } from './DrumPicker'
 import { DrumStopList } from './DrumStopList'
 import { DrumPreflight } from './DrumPreflight'
 import { ScrollTicker } from './ScrollTicker'
+import { GeometryTabs } from './GeometryTabs'
+import { CanvasHandles } from './CanvasHandles'
 import { useIsDesktop } from '../hooks/useIsDesktop'
 import { MEDIA_ICON } from '../lib/mediaChrome'
 import { Icon } from '../icons'
@@ -106,6 +116,16 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
   const previewRef = useRef<HTMLDivElement>(null)
   const PREVIEW_TAP_THRESHOLD_PX = 10
 
+  // CanvasHandles (drag-to-reposition stops, the horizontal scrub bar EditMode
+  // has) needs the preview's live pixel size and pointer position to place its
+  // dots; isHandleDraggingRef mutes the scroll-variant-feed accumulation below
+  // while a handle drag is in progress, so dragging a stop doesn't also scrub
+  // through generated variants.
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 })
+  const [canvasCursor, setCanvasCursor] = useState<{ x: number; y: number } | null>(null)
+  const isHandleDraggingRef = useRef(false)
+  const lastHandleDragEndRef = useRef(0)
+
   // Scroll-through-variants feed, mirroring the Create feed (Feed.tsx):
   // scrolling the preview steps through a history of coverage variants for
   // the currently loaded drums, generating a fresh one past the end and
@@ -123,6 +143,23 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
   lockedCoverageRef.current = lockedCoverage
   const lockedDrumPositionsRef = useRef(lockedDrumPositions)
   lockedDrumPositionsRef.current = lockedDrumPositions
+
+  // Measure the canvas up front (and on resize) so handles mount already at
+  // their anchors instead of sliding in from the corner the first time the
+  // pointer moves and size is first read — same fix as EditMode.
+  useEffect(() => {
+    const el = previewRef.current
+    if (!el) return
+    const measure = () => {
+      const rect = el.getBoundingClientRect()
+      setCanvasSize({ width: rect.width, height: rect.height })
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     const names = clampInkNames(gradient.riso?.inks ?? [])
@@ -230,6 +267,60 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
     setActiveStopId(nextStops[nextStops.length - 1].id)
   }
 
+  /** Shape/effect edits (type, angle, reversed, repeat, hard stops) never
+   * touch coverage or ink loadout — same split as EditMode's
+   * commitPreservingPositions, just re-deriving stops/coverage from the
+   * current editableStops instead of a plain hex list. */
+  function commitGeometry(
+    overrides: Partial<Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops' | 'fanAnchor' | 'angle'>>
+  ) {
+    const { stops, coverage } = toGradientCoverageStops(editableStops, inkHexes)
+    setCurrentGradient({ ...gradient, ...overrides, stops, riso: { inks: inkNames, coverage } })
+  }
+
+  function handleSelectType(type: GradientType) {
+    const angle = angleForTypeChange(gradient.type, type, gradient.angle)
+    commitGeometry({ type, angle })
+  }
+
+  function handleToggleReversed() {
+    const reversedPositions = editableStops.map((s) => ({ ...s, position: 100 - s.position }))
+    commit(reversedPositions)
+  }
+
+  function handleToggleRepeat() {
+    commitGeometry({ repeatEnabled: !gradient.repeatEnabled })
+  }
+
+  function handleToggleHardStops() {
+    commitGeometry({ hardStops: !gradient.hardStops })
+  }
+
+  function handleRotateAngle() {
+    commitGeometry({ angle: nextRotationAngle(gradient.type, gradient.angle) })
+  }
+
+  function handleRotateFan() {
+    const { angle, fanAnchor } = nextFanRotation(gradient.angle)
+    commitGeometry({ angle, fanAnchor })
+  }
+
+  /** Loads the standard 4-color set back in, replacing whatever's currently
+   * loaded — the escape hatch back to the loadout most people never need to
+   * leave. Coverage carries over slot-for-slot where a slot survives, and
+   * starts at 0% for any newly (re)introduced ink, same as Add drum. */
+  function handleResetDrums() {
+    const nextStops = editableStops.map((s) => ({
+      ...s,
+      coverage: STANDARD_DRUM_INKS.map((_, i) => s.coverage[i] ?? 0),
+    }))
+    setInkNames(STANDARD_DRUM_INKS)
+    commit(nextStops, STANDARD_DRUM_INKS)
+    scrollHistoryRef.current = [nextStops]
+    scrollIndexRef.current = 0
+    setScrollIndex(0)
+  }
+
   const hex = gradient.stops[0]?.hex ?? '#ffffff'
   const preflightIssues = checkGradientCoverage(editableStops, inkNames)
   const stopNumbers = Object.fromEntries(editableStops.map((s, i) => [s.id, i + 1]))
@@ -293,21 +384,31 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
     }
   }
 
+  // A tap/drag that started or lands on a canvas handle is that handle's own
+  // gesture, not the preview's — same guard EditMode uses for its FlowEditor
+  // dots.
+  const PREVIEW_INTERACTIVE_SELECTOR = 'button, [data-testid="canvas-handles"]'
+
   /** Matches EditMode's own preview tap: a genuine tap (not a scroll/drag)
    * toggles the sheet on mobile, or exits straight out on desktop, where the
    * side panel never covers the gradient so there's nothing to reveal. A
    * drag past the tap threshold instead scrubs through the variant feed —
    * see goToVariant/consumeScrollAccum. */
   function handlePreviewPointerDown(e: React.PointerEvent) {
-    if ((e.target as HTMLElement).closest('button')) return
+    if ((e.target as HTMLElement).closest(PREVIEW_INTERACTIVE_SELECTOR)) return
     previewPointerStartRef.current = { x: e.clientX, y: e.clientY }
     previewLastYRef.current = e.clientY
     scrollAccumRef.current = 0
   }
 
   function handlePreviewPointerMove(e: React.PointerEvent) {
-    if (previewPointerStartRef.current === null) return
-    if ((e.target as HTMLElement).closest('button')) return
+    const rect = previewRef.current?.getBoundingClientRect()
+    if (rect) {
+      setCanvasSize({ width: rect.width, height: rect.height })
+      setCanvasCursor({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+    }
+    if (previewPointerStartRef.current === null || isHandleDraggingRef.current) return
+    if ((e.target as HTMLElement).closest(PREVIEW_INTERACTIVE_SELECTOR)) return
     const lastY = previewLastYRef.current
     if (lastY === null) return
     // Dragging up (finger/cursor moves to smaller Y) steps forward, matching
@@ -318,11 +419,16 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
     consumeScrollAccum()
   }
 
+  function handlePreviewPointerLeave() {
+    setCanvasCursor(null)
+  }
+
   function handlePreviewPointerUp(e: React.PointerEvent) {
     const start = previewPointerStartRef.current
     previewPointerStartRef.current = null
     previewLastYRef.current = null
-    if ((e.target as HTMLElement).closest('button')) return
+    if (isHandleDraggingRef.current || Date.now() - lastHandleDragEndRef.current < 350) return
+    if ((e.target as HTMLElement).closest(PREVIEW_INTERACTIVE_SELECTOR)) return
     if (start) {
       const dx = e.clientX - start.x
       const dy = e.clientY - start.y
@@ -335,6 +441,27 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
     onExit()
   }
 
+  // CanvasHandles works over EditableStop (id/hex/position) rather than
+  // DrumEditableStop (id/coverage/position) — hex here is only for the dot's
+  // display color, derived the same way the preview itself resolves a stop's
+  // composite. Reordering only ever changes `position`; the coverage that
+  // came in on each id is looked back up and carried through untouched.
+  const canvasStops: EditableStop[] = editableStops.map((s) => ({
+    id: s.id,
+    hex: coverageToHex(s.coverage, inkHexes),
+    position: s.position,
+  }))
+
+  function handleCanvasReorder(next: EditableStop[]) {
+    const byId = new Map(editableStops.map((s) => [s.id, s]))
+    const nextStops = next.map((ns) => ({
+      id: ns.id,
+      coverage: byId.get(ns.id)?.coverage ?? inkNames.map(() => 0),
+      position: ns.position,
+    }))
+    commit(nextStops)
+  }
+
   /** Clears the active stop when the sheet's own background (not a child
    * control) is pressed — same handler EditMode uses on its sheet. */
   function handleSheetPointerDown(e: React.PointerEvent) {
@@ -343,70 +470,94 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
 
   const panelBody = (
     <>
-      <DrumPicker
-        selectedNames={inkNames}
-        onChangeSlot={handleChangeSlot}
-        onAddSlot={handleAddDrum}
-        onRemoveSlot={handleRemoveDrum}
-        open={drumSheetOpen}
-        onOpenChange={setDrumSheetOpen}
-      />
-      <DrumPreflight issues={preflightIssues} stopNumbers={stopNumbers} />
-      <DrumStopList
-        stops={editableStops}
-        inkNames={inkNames}
-        inkHexes={inkHexes}
-        lockedCoverage={lockedCoverage}
-        lockedPositions={lockedDrumPositions}
-        onRecoverage={handleRecoverage}
-        onReposition={handleReposition}
-        onToggleCoverageLock={toggleCoverageLock}
-        onTogglePositionLock={toggleDrumPositionLock}
-        onRemove={handleRemove}
-        onAdd={handleAdd}
-        activeStopId={activeStopId}
-        onSelect={setActiveStopId}
-      />
-      <button
-        type="button"
-        data-testid="drum-export-plates"
-        className={styles.exportButton}
-        disabled={exporting}
-        onClick={handleOpenExportPreview}
-      >
-        Export plates
-      </button>
-      {platePreviews && (
-        <div data-testid="drum-plate-preview" className={styles.platePreview}>
-          <div className={styles.plateGrid}>
-            {platePreviews.map((plate) => (
-              <div key={plate.ink} className={styles.plateThumb}>
-                <img src={plate.dataUrl} alt={`${plate.ink} plate preview`} className={styles.plateImg} />
-                <span className={styles.plateLabel}>{plate.ink}</span>
-              </div>
-            ))}
-          </div>
-          <div className={styles.plateActions}>
-            <button
-              type="button"
-              data-testid="drum-plate-preview-cancel"
-              className={styles.plateCancelButton}
-              onClick={() => setPlatePreviews(null)}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              data-testid="drum-plate-preview-download"
-              className={styles.exportButton}
-              disabled={exporting}
-              onClick={handleExport}
-            >
-              {exporting ? 'Exporting…' : 'Download plates'}
-            </button>
-          </div>
+      <div className={styles.panelScroll}>
+        <GeometryTabs
+          gradient={gradient}
+          stops={gradient.stops}
+          onSelectType={handleSelectType}
+          onToggleReversed={handleToggleReversed}
+          onToggleRepeat={handleToggleRepeat}
+          onToggleHardStops={handleToggleHardStops}
+          onRotateFan={handleRotateFan}
+          onRotate={handleRotateAngle}
+        />
+        <div className={styles.drumRow}>
+          <DrumPicker
+            selectedNames={inkNames}
+            onChangeSlot={handleChangeSlot}
+            onAddSlot={handleAddDrum}
+            onRemoveSlot={handleRemoveDrum}
+            open={drumSheetOpen}
+            onOpenChange={setDrumSheetOpen}
+          />
+          <button type="button" data-testid="drum-reset" className={styles.resetDrumsButton} onClick={handleResetDrums}>
+            Reset drums
+          </button>
         </div>
-      )}
+        <DrumPreflight issues={preflightIssues} stopNumbers={stopNumbers} />
+        <DrumStopList
+          stops={editableStops}
+          inkNames={inkNames}
+          inkHexes={inkHexes}
+          lockedCoverage={lockedCoverage}
+          lockedPositions={lockedDrumPositions}
+          onRecoverage={handleRecoverage}
+          onReposition={handleReposition}
+          onToggleCoverageLock={toggleCoverageLock}
+          onTogglePositionLock={toggleDrumPositionLock}
+          onRemove={handleRemove}
+          onAdd={handleAdd}
+          activeStopId={activeStopId}
+          onSelect={setActiveStopId}
+        />
+      </div>
+      {/* Anchored footer, outside the scrolling area above, so Export stays
+          reachable at a fixed spot regardless of how long the stop list
+          grows — not trailing off the bottom of a scroll the user has to
+          hunt for. */}
+      <div className={styles.panelFooter}>
+        {platePreviews ? (
+          <div data-testid="drum-plate-preview" className={styles.platePreview}>
+            <div className={styles.plateGrid}>
+              {platePreviews.map((plate) => (
+                <div key={plate.ink} className={styles.plateThumb}>
+                  <img src={plate.dataUrl} alt={`${plate.ink} plate preview`} className={styles.plateImg} />
+                  <span className={styles.plateLabel}>{plate.ink}</span>
+                </div>
+              ))}
+            </div>
+            <div className={styles.plateActions}>
+              <button
+                type="button"
+                data-testid="drum-plate-preview-cancel"
+                className={styles.plateCancelButton}
+                onClick={() => setPlatePreviews(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                data-testid="drum-plate-preview-download"
+                className={styles.exportButton}
+                disabled={exporting}
+                onClick={handleExport}
+              >
+                {exporting ? 'Exporting…' : 'Download plates'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            data-testid="drum-export-plates"
+            className={styles.exportButton}
+            disabled={exporting}
+            onClick={handleOpenExportPreview}
+          >
+            Export plates
+          </button>
+        )}
+      </div>
     </>
   )
 
@@ -440,9 +591,27 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
         onPointerDown={handlePreviewPointerDown}
         onPointerMove={handlePreviewPointerMove}
         onPointerUp={handlePreviewPointerUp}
+        onPointerLeave={handlePreviewPointerLeave}
         onWheel={handlePreviewWheel}
       >
         <ScrollTicker index={scrollIndex} />
+        <CanvasHandles
+          stops={canvasStops}
+          type={gradient.type}
+          spoke="up"
+          fanAnchor={gradient.fanAnchor}
+          repeat={gradient.repeatEnabled}
+          angle={gradient.angle}
+          cursor={canvasCursor}
+          size={canvasSize}
+          onReorder={handleCanvasReorder}
+          onResetSpacing={() => commit(equalizeEditableStops(editableStops, lockedDrumPositions))}
+          onDraggingChange={(dragging) => {
+            const wasDragging = isHandleDraggingRef.current
+            isHandleDraggingRef.current = dragging
+            if (!dragging && wasDragging) lastHandleDragEndRef.current = Date.now()
+          }}
+        />
       </div>
       {isDesktop ? (
         <div data-testid="drum-edit-sheet" className={styles.sheet} onPointerDown={handleSheetPointerDown}>
