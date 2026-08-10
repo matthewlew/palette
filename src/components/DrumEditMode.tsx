@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { Drawer } from '@base-ui/react/drawer'
 import { useAppStore } from '../store/useAppStore'
 import {
@@ -29,6 +29,7 @@ import { DrumPreflight } from './DrumPreflight'
 import { ScrollTicker } from './ScrollTicker'
 import { GeometryTabs } from './GeometryTabs'
 import { CanvasHandles } from './CanvasHandles'
+import { FlowEditor } from './FlowEditor'
 import { useIsDesktop } from '../hooks/useIsDesktop'
 import { MEDIA_ICON } from '../lib/mediaChrome'
 import { Icon } from '../icons'
@@ -125,6 +126,10 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
   const [canvasCursor, setCanvasCursor] = useState<{ x: number; y: number } | null>(null)
   const isHandleDraggingRef = useRef(false)
   const lastHandleDragEndRef = useRef(0)
+  // The standalone horizontal scrub bar (FlowEditor) — same strip-with-dots
+  // control the palette side has, distinct from CanvasHandles' on-gradient
+  // dots. Lives in the sheet, not on the preview.
+  const blockContainerRef = useRef<HTMLDivElement>(null) as RefObject<HTMLDivElement>
 
   // Scroll-through-variants feed, mirroring the Create feed (Feed.tsx):
   // scrolling the preview steps through a history of coverage variants for
@@ -265,6 +270,16 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
     const equalized = equalizeEditableStops(nextStops, lockedDrumPositions)
     commit(equalized)
     setActiveStopId(nextStops[nextStops.length - 1].id)
+  }
+
+  /** FlowEditor's own "+": lands the new stop exactly where the track was
+   * tapped, unlike handleAdd's widest-gap placement. */
+  function handleAddStopAt(position: number) {
+    if (editableStops.length >= MAX_STOPS) return
+    const seedCoverage = inkNames.map(() => 30)
+    const newStop: DrumEditableStop = { id: crypto.randomUUID(), coverage: seedCoverage, position }
+    commit([...editableStops, newStop])
+    setActiveStopId(newStop.id)
   }
 
   /** Shape/effect edits (type, angle, reversed, repeat, hard stops) never
@@ -493,6 +508,22 @@ export function DrumEditMode({ gradient, onExit }: DrumEditModeProps) {
           <button type="button" data-testid="drum-reset" className={styles.resetDrumsButton} onClick={handleResetDrums}>
             Reset drums
           </button>
+        </div>
+        {/* The standalone scrub bar — a strip of the gradient with circle
+            handles, same control the palette side's EditMode uses (FlowEditor),
+            distinct from the drag dots living on the preview itself
+            (CanvasHandles). Repositioning here and on the preview are the same
+            action; both funnel through handleReposition/commit. */}
+        <div className={styles.blockArea}>
+          <FlowEditor
+            stops={canvasStops}
+            onMove={handleReposition}
+            onTapStop={setActiveStopId}
+            onRemoveStop={handleRemove}
+            onAddStopAt={handleAddStopAt}
+            containerRef={blockContainerRef}
+            activeStopId={activeStopId}
+          />
         </div>
         <DrumPreflight issues={preflightIssues} stopNumbers={stopNumbers} />
         <DrumStopList

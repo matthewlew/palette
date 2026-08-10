@@ -117,6 +117,15 @@
   padding-bottom: calc(12px + var(--safe-b));
 }
 
+.blockArea {
+  position: relative;
+  flex: 0 0 72px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+}
+
 .drumRow {
   display: flex;
   align-items: center;
