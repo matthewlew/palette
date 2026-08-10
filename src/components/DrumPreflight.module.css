@@ -6,14 +6,22 @@
   text-align: left;
 }
 
-.heading {
-  margin: 0;
-  font-family: var(--th-body);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+/* Quiet by design — a note, not an alarm. A gradient mid-exploration is
+   allowed to be over spec; this just says a heads-up exists, not that
+   something is broken. */
+.summary {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 4px 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--pill);
+  background: transparent;
   color: var(--text-subdued);
+  font-family: var(--th-body);
+  font-size: 12px;
+  cursor: pointer;
 }
 
 .list {
@@ -26,16 +34,13 @@
 }
 
 .row {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
   padding: 6px 8px;
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, #ffb020 12%, transparent);
+  background: color-mix(in srgb, var(--text) 5%, transparent);
   font-family: var(--th-body);
   font-size: 12px;
   line-height: 1.4;
-  color: var(--text);
+  color: var(--text-subdued);
 }
 
 .mark {
@@ -46,8 +51,8 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #ffb020;
-  color: #1a1300;
+  background: color-mix(in srgb, var(--text-subdued) 25%, transparent);
+  color: var(--text-subdued);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px;
   font-weight: 700;

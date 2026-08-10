@@ -37,20 +37,6 @@
   color: var(--text);
 }
 
-/* Desktop's counterpart to the mobile trigger+sheet: plain in-flow content,
-   no collapse, no Drawer — matches EditMode's own isDesktop branch, which
-   swaps its Drawer sheet for a plain div for the same reason (room to spare,
-   nothing to save space from). */
-.desktopPanel {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 0 12px;
-  padding: 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-base);
-}
-
 .backdrop {
   position: fixed;
   inset: 0;
