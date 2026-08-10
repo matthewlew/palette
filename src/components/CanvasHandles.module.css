@@ -11,6 +11,15 @@
   transition-duration: 0s;
 }
 
+/* .dot sets pointer-events: auto so it's clickable/draggable on its own —
+   that also means the parent's pointer-events: none above does NOT reach it
+   (an element's own pointer-events wins over an ancestor's). Without this,
+   an "invisible" hidden overlay still eats every tap/drag across the whole
+   canvas via its 48px dot hit targets. */
+.hidden .dot {
+  pointer-events: none;
+}
+
 .dot {
   position: absolute;
   width: 48px;

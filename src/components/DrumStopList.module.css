@@ -1,0 +1,251 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 12px 0;
+  text-align: left;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.heading {
+  margin: 0;
+  font-family: var(--th-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-subdued);
+}
+
+.addButton {
+  min-height: 26px;
+  padding: 0 12px;
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--th-body);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.addButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  border-color: var(--text-subdued);
+}
+
+.addButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 320px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  touch-action: pan-y;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 2px;
+  border-radius: var(--radius-base);
+  border: 1px solid transparent;
+}
+
+.row:hover {
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+}
+
+.rowActive {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  border-color: var(--border);
+}
+
+/* A plain composited-color preview, not an input — coverage is what's
+   edited here, hex is derived and read-only (PRD §3.7). */
+.swatch {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border: 1px solid color-mix(in srgb, var(--text) 25%, transparent);
+  border-radius: var(--radius-sm);
+}
+
+.coverageFields {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.coverageField {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 4px 2px 2px;
+  border-radius: var(--pill);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.inkSwatch {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--text) 25%, transparent);
+}
+
+.inkLabel {
+  font-family: var(--th-body);
+  font-size: 11px;
+  color: var(--text-subdued);
+  white-space: nowrap;
+}
+
+.coverageWrap {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding-right: 2px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+}
+
+.coverageWrap:hover {
+  border-color: var(--border);
+}
+
+.coverageWrap:focus-within {
+  border-color: var(--text-subdued);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.coverage {
+  width: 30px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  text-align: right;
+}
+
+.coverage:focus {
+  outline: none;
+}
+
+.coverageUnit {
+  color: var(--text-subdued);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  padding-left: 1px;
+}
+
+.positionWrap {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding-right: 4px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+}
+
+.positionWrap:hover {
+  border-color: var(--border);
+}
+
+.positionWrap:focus-within {
+  border-color: var(--text-subdued);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.position {
+  width: 30px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  text-align: right;
+}
+
+.position:focus {
+  outline: none;
+}
+
+.positionUnit {
+  color: var(--text-subdued);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  padding-left: 1px;
+}
+
+.iconButton {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-subdued);
+  cursor: pointer;
+  transition: color 150ms ease, background 150ms ease, border-color 150ms ease;
+}
+
+.iconButton::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: var(--control-tap);
+  height: var(--control-tap);
+}
+
+.iconButton:hover:not(:disabled) {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+}
+
+.iconButton:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.iconButtonOn {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 14%, transparent);
+  border-color: var(--border);
+}

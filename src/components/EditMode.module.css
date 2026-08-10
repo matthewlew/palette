@@ -40,6 +40,15 @@
   overflow: hidden;
   touch-action: manipulation;
   view-transition-name: palette-card;
+  /* Matches the sheet's own open/close timing (see .sheet below) so the
+     gradient shrinking to make room for the sheet reads as one motion. */
+  transition: height var(--dur-slow, 320ms) var(--ease-decelerate, ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preview {
+    transition: none;
+  }
 }
 
 /* Fixed positioning container for the mobile sheet — see Drawer.Viewport.

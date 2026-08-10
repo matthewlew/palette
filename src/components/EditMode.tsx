@@ -73,9 +73,14 @@ interface EditModeProps {
   gradient: Gradient
   onExit: () => void
   onImport?: (jsonText: string) => void
+  /** Fires whenever the mobile bottom sheet's open/closed state changes, so
+   * the app shell can bring the tab bar back while the sheet is dismissed —
+   * otherwise the tab bar stays hidden for all of edit mode and closing the
+   * sheet leaves the user with no way back to the gallery. */
+  onSheetHiddenChange?: (hidden: boolean) => void
 }
 
-export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProps) {
+export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenChange }: EditModeProps) {
   const setCurrentGradient = useAppStore((s) => s.setCurrentGradient)
   const activeColorSet = useAppStore((s) => s.activeColorSet)
   const saved = useAppStore((s) => s.saved)
@@ -151,6 +156,12 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   // itself — swiping the sheet down closes it the same way a tap does; see
   // the Drawer.Root below.
   const [sheetHidden, setSheetHidden] = useState(false)
+  // Measured height of the mobile sheet, so the gradient preview above it can
+  // shrink to the space actually left over instead of being covered by a
+  // sheet that's floating on top of it (Drawer.Portal renders the sheet
+  // outside the flex layout — see .preview's comment in EditMode.module.css).
+  const sheetPopupRef = useRef<HTMLDivElement>(null)
+  const [sheetHeight, setSheetHeight] = useState(0)
   const isDraggingRef = useRef(false)
   const lastHandleDragEndRef = useRef(0)
   const pendingGradientRef = useRef<Gradient | null>(null)
@@ -161,6 +172,13 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
   // obstructs the gradient the way the bottom sheet does, so tapping the
   // preview there still exits instead of needing a reveal state at all.
   const chromeHidden = (handleDragging || sheetHidden) && !isDesktop
+  // Surface the sheet's real open/closed state to the app shell, so it can
+  // bring the tab bar back the moment the sheet is dismissed rather than
+  // hiding it for the whole edit-mode duration.
+  useEffect(() => {
+    onSheetHiddenChange?.(sheetHidden)
+    return () => onSheetHiddenChange?.(false)
+  }, [sheetHidden, onSheetHiddenChange])
   // The sheet's OWN duck during a handle drag is separate from chromeHidden:
   // it is a transient opacity fade (the drag ends, it comes right back),
   // not the drawer's real open/closed state, which only the tap/swipe above
@@ -307,6 +325,23 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
+
+  // Mobile only — the desktop panel is an in-flow flex sibling that already
+  // sizes the preview correctly. Tracks the sheet's real rendered height
+  // (its content can grow/shrink — adding a color stop, opening the sheet
+  // hint, etc.) so the preview can be shrunk by exactly that amount instead
+  // of guessing a fixed offset.
+  useEffect(() => {
+    if (isDesktop) return
+    const el = sheetPopupRef.current
+    if (!el) return
+    const measure = () => setSheetHeight(el.getBoundingClientRect().height)
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [isDesktop])
 
   useEffect(() => {
     const el = previewRef.current
@@ -1046,6 +1081,9 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
                   angle: gradient.angle,
                   smooth: gradient.smoothEnabled,
                 }),
+          // Shrink to the space actually left above the sheet instead of
+          // sitting at full height underneath it — see sheetPopupRef above.
+          height: isDesktop ? undefined : `calc(100dvh - ${sheetHidden ? 0 : sheetHeight}px)`,
         }}
         onPointerDown={handlePreviewPointerDown}
         onPointerUp={handlePreviewPointerUp}
@@ -1091,7 +1129,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           angle={gradient.angle}
           cursor={canvasCursor}
           size={canvasSize}
-          hidden={scrolling}
+          hidden={scrolling || chromeHidden}
           onReorder={(next) => commit(next, undefined, { reorder: true })}
           onResetSpacing={() => {
             handleResetDistribution()
@@ -1151,6 +1189,7 @@ export function EditMode({ gradient, onExit, onImport = () => {} }: EditModeProp
           <Drawer.Portal>
             <Drawer.Viewport className={styles.sheetViewport}>
               <Drawer.Popup
+                ref={sheetPopupRef}
                 data-testid="edit-sheet"
                 className={[styles.sheet, sheetDuckHidden && styles.hidden].filter(Boolean).join(' ')}
                 onPointerDown={handleSheetPointerDown}

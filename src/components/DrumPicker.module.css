@@ -1,0 +1,357 @@
+.stackButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  margin: 4px 12px 0;
+  padding: 6px 12px 6px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--pill);
+  background: transparent;
+  cursor: pointer;
+}
+
+.stack {
+  display: flex;
+  align-items: center;
+}
+
+.stackSwatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--background);
+  /* Overlap like an avatar stack — each swatch after the first tucks
+     under the previous one instead of sitting flush beside it. */
+  margin-left: -10px;
+}
+
+.stackSwatch:first-child {
+  margin-left: 0;
+}
+
+.desktopGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.inlinePanel {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 12px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-base);
+  background: color-mix(in srgb, var(--text) 3%, transparent);
+}
+
+.stackLabel {
+  font-family: var(--th-body);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.chevron {
+  color: var(--text-subdued);
+  transform: rotate(-90deg);
+  transition: transform 150ms var(--ease-decelerate, ease);
+}
+
+.chevronOpen {
+  transform: rotate(90deg);
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: color-mix(in srgb, #000 40%, transparent);
+  transition: opacity var(--dur-slow, 320ms) var(--ease-decelerate, ease);
+}
+
+.backdrop[data-starting-style],
+.backdrop[data-ending-style] {
+  opacity: 0;
+}
+
+.sheetViewport {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 21;
+}
+
+.sheet {
+  display: flex;
+  flex-direction: column;
+  background: var(--background);
+  border-top-left-radius: var(--radius-lg);
+  border-top-right-radius: var(--radius-lg);
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.3);
+  padding-bottom: var(--safe-b);
+  /* Same mechanism as EditMode's sheet: open/closed position and the live
+     drag both move this transform via the library's own CSS variable, so a
+     real finger-drag tracks 1:1 instead of animating underneath it. */
+  transform: translateY(var(--drawer-swipe-movement-y, 0px));
+  transition: transform var(--dur-slow, 320ms) var(--ease-decelerate, ease);
+}
+
+/* No transition while an actual finger is moving it. */
+.sheet[data-swiping] {
+  transition-duration: 0ms;
+}
+
+/* Both ends of a programmatic (non-drag) open/close — the drag case above
+   has its own transform via --drawer-swipe-movement-y and never reaches
+   this. */
+.sheet[data-starting-style],
+.sheet[data-ending-style] {
+  transform: translateY(100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet {
+    transition: none;
+  }
+}
+
+.sheetHandle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  margin: 10px auto 4px;
+}
+
+.sheetContent {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 12px 20px;
+}
+
+.sheetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.heading {
+  margin: 0;
+  font-family: var(--th-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-subdued);
+}
+
+.closeButton {
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--th-body);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.slots {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.resetButton {
+  align-self: flex-start;
+  margin-top: 4px;
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-subdued);
+  font-family: var(--th-body);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.slot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.preview {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--text) 25%, transparent);
+}
+
+/* The Select.Trigger — carries the row chrome the old native <select> got
+   from its `.slot` wrapper, since the trigger is now the thing with a
+   preview swatch, a value, and a chevron inside it. */
+.select {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-base);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--th-body);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.selectValue {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selectIcon {
+  flex: none;
+  display: flex;
+  color: var(--text-subdued);
+}
+
+.selectChevron {
+  transform: rotate(-90deg);
+}
+
+.selectPositioner {
+  z-index: 22;
+}
+
+.selectPopup {
+  display: flex;
+  flex-direction: column;
+  max-height: 360px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-base);
+  background: var(--background);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+/* ~80 inks in the catalogue — scrolls under a search field that stays put,
+   rather than the whole popup (search included) scrolling out of reach. */
+.selectList {
+  overflow-y: auto;
+}
+
+.inkSearch {
+  flex: none;
+  height: 32px;
+  margin-bottom: 6px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--th-body);
+  font-size: 13px;
+}
+
+.inkSearch::placeholder {
+  color: var(--text-subdued);
+}
+
+.inkSearchEmpty {
+  padding: 12px 8px;
+  color: var(--text-subdued);
+  font-family: var(--th-body);
+  font-size: 13px;
+  text-align: center;
+}
+
+.selectItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: var(--th-body);
+  font-size: 13px;
+  color: var(--text);
+}
+
+.selectItem[data-highlighted] {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.optionSwatch {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--text) 25%, transparent);
+}
+
+.optionText {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.removeButton {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-base);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-subdued);
+  cursor: pointer;
+}
+
+.removeButton:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.addButton {
+  align-self: flex-start;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--th-body);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.addButton:disabled {
+  opacity: 0.35;
+  cursor: default;
+}

@@ -1,0 +1,266 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  position: relative;
+  background: var(--background);
+}
+
+.backButton {
+  position: absolute;
+  top: calc(16px + var(--safe-t));
+  left: var(--edge-l);
+  z-index: 1;
+  width: 44px;
+}
+
+.backButton svg {
+  display: block;
+  margin-left: -2px;
+}
+
+/* Duck the back chevron out of the way while a canvas handle is being
+   dragged, matching the title/save/share chrome — see EditMode's own
+   .hidden. */
+.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.preview {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  touch-action: manipulation;
+}
+
+/* Fixed positioning container for the mobile sheet — the Popup inside it
+   carries the actual visual sheet; this anchors it to the bottom edge, full
+   width, above everything else. Same recipe as EditMode.module.css. */
+.sheetViewport {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+}
+
+.sheet {
+  display: flex;
+  flex-direction: column;
+  background: var(--background);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.12);
+  transform: translateY(var(--drawer-swipe-movement-y, 0px));
+  transition: transform var(--dur-slow, 320ms) var(--ease-decelerate, ease);
+}
+
+.sheet[data-swiping] {
+  transition-duration: 0ms;
+}
+
+.sheet[data-starting-style],
+.sheet[data-ending-style] {
+  transform: translateY(100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet {
+    transition: none;
+  }
+}
+
+.sheetHandle {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 14px;
+  margin: 0 0 2px;
+}
+
+.sheetHandle::after {
+  content: '';
+  display: block;
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(128, 128, 128, 0.4);
+}
+
+/* Split into a scrolling content area and a footer that never scrolls with
+   it, so Export (and the plate preview it opens) stay anchored at a fixed
+   spot in the panel instead of trailing off wherever the stop list happens
+   to end. */
+.panel {
+  flex: 1;
+  min-height: 0;
+  max-height: 62dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.panelScroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 12px 0 16px;
+  padding-left: var(--safe-l);
+  padding-right: var(--safe-r);
+}
+
+.panelFooter {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-top: 1px solid var(--border);
+  padding: 12px 0;
+  padding-left: var(--safe-l);
+  padding-right: var(--safe-r);
+  padding-bottom: calc(12px + var(--safe-b));
+}
+
+.blockArea {
+  position: relative;
+  flex: 0 0 72px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+}
+
+.stopActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 12px;
+}
+
+.stopHint {
+  font-size: var(--text-caption);
+  color: var(--text-subdued);
+  opacity: 0.8;
+  min-width: 0;
+}
+
+/* Appears only when the stops have actually drifted off the even ladder. */
+.resetButton {
+  min-height: 32px;
+  align-self: center;
+}
+
+/* On tablet/desktop the controls move to a fixed side panel so the gradient
+   keeps the full viewport height — matches EditMode.module.css exactly. */
+@media (min-width: 768px) {
+  .container {
+    flex-direction: row;
+  }
+
+  .preview {
+    min-width: 0;
+  }
+
+  .sheet {
+    flex: 0 0 var(--edit-panel-w);
+    min-width: 0;
+    max-width: var(--edit-panel-w);
+    order: 2;
+    height: 100%;
+    box-sizing: border-box;
+    border-radius: var(--radius-xl) 0 0 var(--radius-xl);
+    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.12);
+  }
+
+  .panel {
+    max-height: none;
+  }
+
+  .panelScroll {
+    padding-top: 24px;
+  }
+}
+
+.exportButton {
+  align-self: center;
+  min-height: 44px;
+  padding: 0 24px;
+  border-radius: var(--pill);
+  border: none;
+  background: var(--text);
+  color: var(--background);
+  font-family: var(--th-body);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.exportButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.platePreview {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-self: stretch;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-base);
+  background: color-mix(in srgb, var(--text) 3%, transparent);
+}
+
+.plateGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.plateThumb {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.plateImg {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: #fff;
+  object-fit: cover;
+}
+
+.plateLabel {
+  font-family: var(--th-body);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-subdued);
+}
+
+.plateActions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.plateCancelButton {
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--th-body);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
