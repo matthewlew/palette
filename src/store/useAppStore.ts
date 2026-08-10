@@ -105,6 +105,11 @@ interface AppState {
   setCurrentGradient: (gradient: Gradient) => void
   saveGradient: (gradient: Gradient) => void
   isGradientSaved: (gradient: Gradient) => boolean
+  /** The id `saved` actually holds this gradient's content under, or null if
+   * it isn't saved. saveGradient assigns a FRESH id on save — the id on
+   * `gradient` itself (e.g. edit mode's in-progress `current`) is never the
+   * one to look it up by afterward; this is. */
+  findSavedGradientId: (gradient: Gradient) => string | null
   removeSavedGradient: (gradient: Gradient) => void
   removeSavedGradientById: (id: string) => void
   /** The most recent explicit deletion, held so it can be undone. Not
@@ -335,6 +340,10 @@ export const useAppStore = create<AppState>()(
       isGradientSaved: (gradient) => {
         const signature = gradientSignature(gradient)
         return get().saved.some((g) => gradientSignature(g) === signature)
+      },
+      findSavedGradientId: (gradient) => {
+        const signature = gradientSignature(gradient)
+        return get().saved.find((g) => gradientSignature(g) === signature)?.id ?? null
       },
       removeSavedGradient: (gradient) => {
         const signature = gradientSignature(gradient)

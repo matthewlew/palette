@@ -35,6 +35,7 @@ export function App() {
   const saved = useAppStore((s) => s.saved)
   const setCurrentGradient = useAppStore((s) => s.setCurrentGradient)
   const exitEditMode = useAppStore((s) => s.exitEditMode)
+  const setPendingViewerGradientId = useAppStore((s) => s.setPendingViewerGradientId)
   const setMode = useAppStore((s) => s.setMode)
   const importGradients = useAppStore((s) => s.importGradients)
   const undoImport = useAppStore((s) => s.undoImport)
@@ -224,7 +225,22 @@ export function App() {
       {mode === 'edit' && current && current.riso && (
         <DrumEditMode
           gradient={current}
-          onExit={() => withViewTransition(exitEditMode)}
+          onExit={() =>
+            withViewTransition(() => {
+              // Drum has no Create-feed equivalent to fall back to (unlike
+              // EditMode, whose exitEditMode usually lands back in that
+              // full-screen rolodex) — every Drum edit session, not just ones
+              // riffed from an already-open viewer, should prefer reopening
+              // the Gallery's full-screen viewer over dropping to the flat
+              // grid. current.id is NOT the id to use here — saveGradient
+              // assigns a fresh one on save, so the in-progress `current`'s id
+              // never matches what's actually in `saved`; findSavedGradientId
+              // looks it up by content instead. Null (never saved) is a
+              // no-op: Gallery's pending-id lookup falls back to the grid.
+              setPendingViewerGradientId(useAppStore.getState().findSavedGradientId(current))
+              exitEditMode()
+            })
+          }
           onImport={handleImportJson}
         />
       )}
