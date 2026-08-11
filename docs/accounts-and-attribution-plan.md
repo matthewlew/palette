@@ -255,6 +255,60 @@ for the same reason, plus the match is inferred rather than proven.
 
 ---
 
+## 6c. Signing out
+
+`supabase.auth.signOut()`, then straight back into `signInAnonymously()`. The
+app is never sessionless — it goes back to being an unnamed browser with a
+fresh uid, which is the same state a first-time visitor is in.
+
+### The local cache is cleared, and that is the safety story
+
+`palette-saved-gradients` is a **cache** once §2's `palette_saves` is live; the
+server holds the truth. Sign-out wipes it, and signing back in refills it from
+the server. Nothing is lost because nothing local was authoritative.
+
+Leaving it in place is the actual hazard: the next anonymous session would open
+onto the previous person's gallery, and anything re-published from it would
+land under a new byline.
+
+**This gates the build order.** Sign-out cannot ship before step 5. In between,
+clearing the cache would destroy real data and not clearing it would leak — so
+the sign-out affordance in step 3 waits for saves to be server-side.
+
+If a save is still pending sync when the user signs out, flush first and block
+on it; if the flush fails (offline), say so and let them cancel rather than
+silently dropping the write.
+
+### Gradients cannot be pulled into a different account
+
+Not because the prompts are worded carefully — because neither reassignment
+path can reach a row owned by a real account:
+
+- **Claim** (§5) only writes `author_id` where it is currently `null`. A row you
+  authored is not null, so it is not claimable by anyone, ever, including you.
+- **Merge** (§6) only moves rows owned by the **current anonymous uid**. After
+  you sign out, your rows belong to your account, not to the fresh anon uid, so
+  they are not in the candidate set. The only rows the next person's merge
+  prompt can offer are ones they made themselves after you left.
+
+Both scopes are enforced in the RPCs' `where` clauses, not in the UI.
+
+### Saved is not authored
+
+Two different things that "keep my gradients" can mean, and sign-out treats
+them differently:
+
+- **Saved** — your shelf. Follows the account: cleared locally on sign-out,
+  restored on sign-in.
+- **Authored** — public and permanent. Signing out does not unpublish anything
+  or strip a byline.
+
+There is deliberately no "take my work back down" action in this plan. If one
+is wanted it is a separate feature, and it needs an answer for what happens to
+everyone who has already saved that gradient.
+
+---
+
 ## 7. Export and re-import
 
 Exported JSON carries `author: { id, username }`. On import the gradient keeps
@@ -274,7 +328,8 @@ Each step is shippable on its own and safe to stop after.
    unaffected: the column is nullable and nothing reads it yet.
 2. **Auth lib + session hook.** Anonymous bootstrap live in production, no UI.
    This is the step 0004 waits on.
-3. **Sign in with Google + username picker.** Both `.lds-modal`.
+3. **Sign in with Google + username picker.** Both `.lds-modal`. Sign-*out*
+   is held back to step 5 — see §6c.
 4. **Write and render attribution.** `author_id` on publish; byline on tile and
    viewer; `/u/:username` is not in this phase.
 5. **Saves move server-side**, localStorage demoted to cache.
