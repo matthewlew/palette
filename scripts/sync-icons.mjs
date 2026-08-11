@@ -29,6 +29,7 @@ const USED = {
   heart: 'Drawer empty state, HeartButton unliked',
   'heart-fill': 'HeartButton liked, LikeCountBadge',
   lock: 'ColorList locked, LockedColors summary',
+  'more-horizontal': 'Gallery mobile overflow menu',
   'lock-open': 'ColorList unlocked',
   'pause-fill': 'PlayButton playing',
   pin: 'ColorList position unpinned',

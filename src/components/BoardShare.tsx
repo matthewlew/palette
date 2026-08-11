@@ -189,18 +189,26 @@ export function BoardShare({
 
       {isOpen && (
         <div className={styles.dropdown} data-testid="share-dropdown">
-          {/* ───── Primary: Share as Image ───── */}
-          <button
-            type="button"
-            className={styles.menuItem}
-            onClick={handleShareAsImage}
-            disabled={!hasCurrent || sharing}
-          >
-            <span className={styles.menuItemText}>
-              {sharing ? 'Generating…' : 'Share as Image'}
-            </span>
-            <span className={styles.menuItemHint}>Poster with gradient + name</span>
-          </button>
+          {/* ───── Primary: Share as Image ─────
+              Rendered only when there IS a gradient to share. Opened from the
+              gallery header there is no current gradient, so every primary
+              action greyed out and the menu's only live row was "More options
+              •••" — a menu whose sole offer is a second menu. An action that
+              cannot be taken here is not information; it is a dead row with a
+              tooltip nobody reads. */}
+          {hasCurrent && (
+            <button
+              type="button"
+              className={styles.menuItem}
+              onClick={handleShareAsImage}
+              disabled={sharing}
+            >
+              <span className={styles.menuItemText}>
+                {sharing ? 'Generating…' : 'Share as Image'}
+              </span>
+              <span className={styles.menuItemHint}>Poster with gradient + name</span>
+            </button>
+          )}
 
           {/* ───── Secondary: Copy / Share Link ───── */}
           {hasCurrent && (
@@ -216,40 +224,46 @@ export function BoardShare({
             </button>
           )}
 
-          {/* ───── Divider ───── */}
-          <div className={styles.divider} />
-
-          {/* ───── More options toggle ───── */}
-          <button
-            type="button"
-            className={styles.menuItem}
-            onClick={() => setShowMore(!showMore)}
-          >
-            <span className={styles.menuItemText}>
-              {showMore ? 'Less options' : 'More options •••'}
-            </span>
-          </button>
-
-          {/* ───── Overflow submenu ───── */}
-          {showMore && (
+          {/* ───── Divider and the collapse ─────
+              Both only earn their place when something sits above them to be
+              collapsed away from. With no current gradient the primary section
+              is empty, so the overflow IS the menu and opens expanded. */}
+          {hasCurrent && (
             <>
+              <div className={styles.divider} />
               <button
                 type="button"
                 className={styles.menuItem}
-                onClick={() => { setIsOpen(false); setExportOpen(true) }}
-                disabled={!hasCurrent}
+                onClick={() => setShowMore(!showMore)}
               >
-                <span className={styles.menuItemText}>Export Image…</span>
-                <span className={styles.menuItemHint}>Wallpaper, Story, OG sizes</span>
+                <span className={styles.menuItemText}>
+                  {showMore ? 'Less options' : 'More options •••'}
+                </span>
               </button>
+            </>
+          )}
 
-              {onExportAll && (
+          {/* ───── Overflow submenu ───── */}
+          {(showMore || !hasCurrent) && (
+            <>
+              {hasCurrent && (
+                <button
+                  type="button"
+                  className={styles.menuItem}
+                  onClick={() => { setIsOpen(false); setExportOpen(true) }}
+                >
+                  <span className={styles.menuItemText}>Export Image…</span>
+                  <span className={styles.menuItemHint}>Wallpaper, Story, OG sizes</span>
+                </button>
+              )}
+
+              {onExportAll && saved.length > 0 && (
                 <button
                   type="button"
                   data-testid="export-all-posts"
                   className={styles.menuItem}
                   onClick={() => { setIsOpen(false); onExportAll() }}
-                  disabled={exportingAll || saved.length === 0}
+                  disabled={exportingAll}
                 >
                   <span className={styles.menuItemText}>
                     {exportingAll ? 'Zipping…' : 'Export Posts…'}
@@ -258,15 +272,16 @@ export function BoardShare({
                 </button>
               )}
 
-              <button
-                type="button"
-                className={styles.menuItem}
-                onClick={() => { setIsOpen(false); setJsonModal('export-board') }}
-                disabled={saved.length === 0}
-              >
-                <span className={styles.menuItemText}>Export Board JSON…</span>
-                <span className={styles.menuItemHint}>Backup your full collection</span>
-              </button>
+              {saved.length > 0 && (
+                <button
+                  type="button"
+                  className={styles.menuItem}
+                  onClick={() => { setIsOpen(false); setJsonModal('export-board') }}
+                >
+                  <span className={styles.menuItemText}>Export Board JSON…</span>
+                  <span className={styles.menuItemHint}>Backup your full collection</span>
+                </button>
+              )}
 
               <button
                 type="button"
@@ -281,12 +296,11 @@ export function BoardShare({
                 <span className={styles.menuItemHint}>Paste a board or gradient export</span>
               </button>
 
-              {isCurator && (
+              {isCurator && hasCurrent && (
                 <button
                   type="button"
                   className={styles.menuItem}
                   onClick={() => current && curatedFeedback.copy(toCuratedEntryJson(current))}
-                  disabled={!hasCurrent}
                 >
                   <span className={styles.menuItemText}>
                     {curatedFeedback.copied ? '✓ Copied' : 'Copy as curated entry'}

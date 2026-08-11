@@ -11,7 +11,7 @@ import { useAppStore, pickedCarouselGradients, gradientSignature } from '../stor
 import type { GalleryLayout } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
 import { likePalette, unlikePalette } from '../lib/likes'
-import { Icon } from '../icons'
+import { Icon, type IconName } from '../icons'
 import { HeartButton, LikeCountBadge } from './HeartButton'
 import { TileBoundary } from './TileBoundary'
 import { namePalette } from '../lib/naming'
@@ -753,6 +753,15 @@ const COMMUNITY_ORDERS: { id: CommunityOrder; label: string; hint: string }[] = 
   { id: 'popular', label: 'Popular', hint: 'Most liked first' },
 ]
 
+/** The three grid densities, in the order they appear everywhere they appear:
+ * as an icon segmented control on desktop and as a labelled row inside the
+ * mobile overflow menu. One list so the two forms cannot drift apart. */
+const LAYOUTS: { id: GalleryLayout; icon: IconName; label: string }[] = [
+  { id: 'grid', icon: 'grid', label: 'Grid' },
+  { id: 'masonry', icon: 'grid-masonry', label: 'Masonry' },
+  { id: 'dense', icon: 'grid-dense', label: 'Dense' },
+]
+
 /**
  * Newest first. Saves from before createdAt was recorded sort last rather than
  * first: an absent timestamp is unknown, not old, and floating a pile of
@@ -806,6 +815,10 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
   // stays the default: a feed people return to should lead with what is new,
   // and an all-time popular list is the same handful of palettes every visit.
   const [communityOrder, setCommunityOrder] = useState<CommunityOrder>('recent')
+  // Mobile overflow: layout, sort, shape filter and Select, which on desktop
+  // are four separate controls strung along the bar.
+  const [moreOpen, setMoreOpen] = useState(false)
+  const moreRef = useRef<HTMLDivElement>(null)
   const {
     gradients: communityGradients,
     loading: communityLoading,
@@ -1025,6 +1038,25 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [undoDelete, redoDelete])
+
+  // Dismiss the overflow menu on an outside press, and on Escape. Pointerdown
+  // rather than click so a press that lands on a tile closes the menu before
+  // the tile acts on it — otherwise the first tap outside is spent closing.
+  useEffect(() => {
+    if (!moreOpen) return
+    function onDown(e: PointerEvent) {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false)
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setMoreOpen(false)
+    }
+    document.addEventListener('pointerdown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [moreOpen])
 
   // Visiting the Gallery answers the "Saved to your Gallery" hint forever.
   useEffect(() => {
@@ -1249,7 +1281,21 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
             under it, and left nothing on the page saying what the app IS. The
             product name is the thing a phone has no room to say twice, so it
             gets the slot. */}
-        <span className={`lds-nav__logo ${styles.wordmark}`}>Palette</span>
+        <span className={`lds-nav__logo ${styles.wordmark}`}>
+          {/* public/favicon.svg — the mark the browser tab already shows, so
+              the app is identified by the same thing in both places. Decorative
+              here: the word beside it is the accessible name.
+              BASE_URL, not a leading slash: the app is served from /palette/,
+              where a root-relative path 404s. */}
+          <img
+            src={`${import.meta.env.BASE_URL}favicon.svg`}
+            alt=""
+            className={styles.logoMark}
+            width="18"
+            height="17"
+          />
+          <span className={styles.logoWord}>Palette</span>
+        </span>
         <div className={styles.titleArea}>
           <div className={styles.toggleGroup}>
             <button
@@ -1346,7 +1392,7 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
           {/* Last in the row, and the only text action among the icons: Select
               switches the whole grid into a different mode, so it reads as the
               row's terminal commitment rather than one more toggle. */}
-          <div className={styles.toggleGroup}>
+          <div className={styles.soloGroup}>
             <button
               type="button"
               data-testid="carousel-pick-toggle"
@@ -1357,6 +1403,119 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
             >
               Select
             </button>
+          </div>
+
+          {/* MOBILE OVERFLOW.
+           *
+           * Everything above renders on both breakpoints and the CSS hides the
+           * wide half below 768px; this button and its menu are the reverse. It
+           * is the same trick the shape filter already used — one control as a
+           * chip row on desktop and a native select on mobile — because the
+           * alternative is a JS breakpoint, and a JS breakpoint means the two
+           * forms can disagree about state.
+           *
+           * What it absorbs is a whole row of the bar plus the filter/sort row
+           * beneath it: three stacked bands of navigation above the first
+           * palette on a 390px screen, none of which was the palettes. */}
+          <div className={styles.moreWrap} ref={moreRef}>
+            <button
+              type="button"
+              data-testid="gallery-more"
+              className={moreOpen ? styles.moreBtnOpen : styles.moreBtn}
+              onClick={() => setMoreOpen((v) => !v)}
+              aria-label="View and filter options"
+              aria-expanded={moreOpen}
+              aria-haspopup="menu"
+            >
+              <Icon name="more-horizontal" size="sm" />
+            </button>
+
+            {moreOpen && (
+              <div className={styles.moreMenu} data-testid="gallery-more-menu" role="menu">
+                <p className={styles.moreLabel}>Layout</p>
+                <div className={styles.moreRow}>
+                  {LAYOUTS.map(({ id, icon, label }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={galleryLayout === id}
+                      className={galleryLayout === id ? styles.moreChipOn : styles.moreChip}
+                      onClick={() => setGalleryLayout(id)}
+                    >
+                      <Icon name={icon} size="sm" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                <p className={styles.moreLabel}>Sort</p>
+                <div className={styles.moreRow}>
+                  {(activeTab === 'saves' ? SAVES_ORDERS : COMMUNITY_ORDERS).map(({ id, label }) => {
+                    const on = activeTab === 'saves' ? savesOrder === id : communityOrder === id
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={on}
+                        data-testid={`more-order-${id}`}
+                        className={on ? styles.moreChipOn : styles.moreChip}
+                        onClick={() =>
+                          activeTab === 'saves'
+                            ? setSavesOrder(id as SavesOrder)
+                            : setCommunityOrder(id as CommunityOrder)
+                        }
+                      >
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {availableTypeChips.length > 0 && (
+                  <>
+                    <p className={styles.moreLabel}>Shape</p>
+                    <div className={styles.moreRow}>
+                      <button
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={!hasFilters}
+                        className={!hasFilters ? styles.moreChipOn : styles.moreChip}
+                        onClick={() => setTypeFilter(null)}
+                      >
+                        All <span className={styles.chipCount}>{totalCount}</span>
+                      </button>
+                      {availableTypeChips.map(({ type, label, count }) => (
+                        <button
+                          key={type}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={typeFilter === type}
+                          className={typeFilter === type ? styles.moreChipOn : styles.moreChip}
+                          onClick={() => setTypeFilter(typeFilter === type ? null : type)}
+                        >
+                          {label} <span className={styles.chipCount}>{count}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {/* Closes the menu on the way in: Select changes what the whole
+                    grid does, and leaving a panel open over the tiles you are
+                    now meant to be tapping would fight the mode it just set. */}
+                <button
+                  type="button"
+                  role="menuitem"
+                  data-testid="more-select"
+                  className={styles.moreAction}
+                  onClick={() => { setMoreOpen(false); setPickMode(true) }}
+                >
+                  Select palettes
+                </button>
+              </div>
+            )}
           </div>
         </div>
           </>

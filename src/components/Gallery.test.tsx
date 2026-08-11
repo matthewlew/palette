@@ -235,8 +235,9 @@ describe('Gallery JSON Import', () => {
     expect(shareTrigger).toBeInTheDocument()
     fireEvent.click(shareTrigger)
 
-    // Import JSON now lives under the "More options" overflow submenu.
-    fireEvent.click(screen.getByRole('button', { name: /more options/i }))
+    // Opened from the gallery header there is no current gradient, so the
+    // overflow is not collapsed behind "More options" — it is the menu.
+    expect(screen.queryByRole('button', { name: /more options/i })).toBeNull()
 
     // Click "Import JSON..." menu item
     const importBtn = screen.getByRole('button', { name: /import json/i })
@@ -421,10 +422,20 @@ describe('Gallery bulk export', () => {
     // As a labelled pill beside the icon-only share trigger it was the odd one
     // out in a row where nothing shared a size, and it is a slow bulk action
     // rather than a primary control.
+    // Export Posts needs something to export — with an empty board it is
+    // omitted rather than shown greyed out.
+    useAppStore.setState({
+      saved: [{
+        id: 'e1',
+        type: 'linear',
+        stops: [{ hex: '#ff0000', position: 0 }, { hex: '#0000ff', position: 100 }],
+        name: 'E1',
+      }],
+      mode: 'gallery',
+    })
     render(<Gallery onRiff={vi.fn()} />)
     expect(screen.queryByRole('button', { name: /Export Posts/ })).not.toBeInTheDocument()
     fireEvent.click(screen.getByLabelText('Share options'))
-    fireEvent.click(screen.getByText(/More options/))
     expect(screen.getByTestId('export-all-posts')).toBeInTheDocument()
   })
 })

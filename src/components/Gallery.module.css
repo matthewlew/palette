@@ -89,8 +89,10 @@
   background: color-mix(in srgb, var(--text) 6%, transparent);
   border: 1px solid var(--border);
   border-radius: var(--pill);
-  padding: 2px;
-  align-items: center;
+  /* Flush segments — see .toggleGroup for why the 2px moat went. */
+  padding: 0;
+  align-items: stretch;
+  overflow: hidden;
 }
 
 .filterSelectWrap {
@@ -709,7 +711,26 @@
 /* Layout delta only. The type is `.lds-nav__logo`, applied alongside at the
    call site — this sets nothing the design system already decides. */
 .wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   flex-shrink: 0;
+}
+
+.logoMark {
+  display: block;
+  width: 18px;
+  height: 17px;
+  flex-shrink: 0;
+}
+
+/* Only on the narrowest handsets still in use does the mark go it alone. Above
+   that the word stays: naming the app is the job this slot exists for, and the
+   row it shares — three 36px icons — leaves it well over 200px to do it in. */
+@media (max-width: 340px) {
+  .logoWord {
+    display: none;
+  }
 }
 
 /* Says which mode you are in, in the slot the wordmark normally holds, so the
@@ -732,17 +753,23 @@
     justify-content: flex-end;
   }
 
-  /* `margin-right: auto` is what spans the bar: the field settles next to the
-     tabs and every remaining pixel collects to its right, which parks the
-     icon controls on the window edge. Without it the whole row packs left and
-     a wide window leaves the right half of the bar empty — the controls drift
-     further from the edge the wider the screen gets, which is backwards for a
-     bar that is supposed to frame the page. */
+  /* Search is centred on the BAR, not on the space left over between the tabs
+     and the icons — which are different centres, and only the first is the one
+     the eye checks. `position: absolute` + a 50% left edge pulled back by half
+     its own width puts it on the bar's true midline and takes it out of the
+     flex flow, so the tabs stay hard left and the actions hard right no matter
+     how wide either side grows.
+   *
+   * Symmetric `auto` margins would have been simpler and wrong: they centre
+   * within the leftover run, so the field drifts left as the tab counts gain
+   * digits and right as actions come and go. */
   .headerActions :global([data-testid='search-container']) {
-    flex: 0 1 320px;
-    max-width: 320px;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(340px, 32vw);
+    max-width: none;
     min-width: 0;
-    margin-right: auto;
   }
 }
 
@@ -781,25 +808,26 @@
    Below 640px the actions drop to their own full-width line and wrap, and the
    search takes a whole row so it stays usable rather than being squeezed to a
    stub between the two buttons. */
-/* Two rows below 640px, and NOT the stack the mock draws (identity + icons,
-   then tabs + Select).
+/* MOBILE: two rows, and the overflow menu absorbs the third.
  *
- * Measured at 375px the bar has 343px of content width. The mock's first row
- * comes to 379px before gaps — the search field is a real input on this
- * breakpoint, not an icon, so it cannot share a line with the wordmark and
- * four controls. Splitting it the other way fits with room to spare: the
- * wordmark (52) and the tab pills (175) make 227 on row one, and the actions
- * take the whole of row two, where search flexes into whatever the fixed-width
- * controls leave.
+ * The bar was three stacked bands of navigation above the first palette on a
+ * 390px screen — identity + tabs, then search + layout + share + Select, then
+ * filter + sort. None of them was the palettes.
  *
- * The intent the mock is expressing survives the swap — the app is named on
- * every screen, the tabs stay above the fold, and nothing is squeezed under
- * its tap target. What moves is which row the search field sits on. */
-@media (max-width: 640px) {
+ * What collapses it is the search field becoming a search ICON. At its full
+ * width it was the reason the actions needed a row of their own; at 36px the
+ * row is three icons, which fits beside the logo with room to spare. That
+ * frees row two for the tabs alone, and the third row folds into ⋯ — layout,
+ * sort, shape and Select, which are all "how am I looking at this" rather than
+ * "where am I". Two rows: who and where, then how.
+ *
+ * The field itself is unchanged and one tap away. Tapping the icon expands it
+ * in place (see .searching below), where it gets the full width it wanted. */
+@media (max-width: 767px) {
   .header,
   .headerSelecting {
     flex-wrap: wrap;
-    gap: var(--space-2);
+    gap: var(--space-2) 8px;
   }
 
   /* Select mode stays one row at every width: it is two elements, and the
@@ -808,29 +836,100 @@
     flex-wrap: nowrap;
   }
 
+  /* Row one is the logo and the actions; the tabs are pushed to row two by
+     taking the full width. `order` rather than DOM order because desktop wants
+     the tabs BETWEEN the two — reordering the markup would fix mobile and
+     break the wider layout. */
+  .wordmark {
+    order: 1;
+  }
+
   .headerActions {
-    width: 100%;
-    flex-wrap: wrap;
+    order: 2;
+    margin-left: auto;
     gap: 8px;
   }
 
-  /* Search shares the row with the layout toggles and the share trigger
-     rather than taking one of its own: at 375px they come to ~318px of the
-     335px available, so a whole 44px row was being spent on nothing. It flexes
-     down as the fixed-width controls need room, and min-width:0 is what lets
-     it actually shrink instead of overflowing. */
-  .headerActions :global([data-testid='search-container']) {
-    /* 1 1 0, not 1 1 auto: an auto basis resolves to the container's own
-       width:100%, which claims the whole line and wraps everything else onto
-       the next one — the exact row this was meant to reclaim. A zero basis
-       makes it take only what is left after the fixed-width controls. */
+  .titleArea {
+    order: 3;
+    width: 100%;
+  }
+
+  /* Both tabs share the row evenly instead of sizing to their labels: "Yours 12"
+     and "Community 142" are different lengths and a switch whose halves are
+     visibly unequal reads as one selected thing beside one smaller thing. */
+  .titleArea > .toggleGroup {
+    width: 100%;
+  }
+
+  .titleArea > .toggleGroup > * {
     flex: 1 1 0;
+  }
+
+  /* Collapsed to its icon. The field expands over the whole bar on focus —
+     `.searching` — so this is a state, not a smaller permanent field. */
+  .headerActions :global([data-testid='search-container']) {
+    flex: 0 0 auto;
+    width: var(--control-h);
     min-width: 0;
     max-width: none;
+  }
+
+  /* Focused, it takes the bar. Absolute rather than a flex-grow so the row
+     behind it does not reflow as it opens — the field arrives in place instead
+     of shoving its neighbours aside, which is both calmer and the only way to
+     get the full width on a 390px screen. The header is `position: sticky`, so
+     this resolves against its padding box. */
+  .headerActions :global([data-testid='search-container']):focus-within {
+    position: absolute;
+    left: calc(var(--space-4) + var(--safe-l));
+    right: calc(var(--space-4) + var(--safe-r));
+    width: auto;
+    z-index: 6;
+  }
+
+  /* …and the row it lands on clears out, or the logo shows through the field
+     and the share/⋯ triggers sit on top of its right end. `:has()` because the
+     focus is on a DESCENDANT of a LATER sibling — there is no combinator that
+     reaches back to the logo from there, and doing it in JS would mean an
+     onFocus/onBlur pair racing the same iOS keyboard the CSS-only collapse was
+     chosen to protect.
+
+     `visibility`, not `display` — the field is absolutely positioned, so it
+     needs none of their width, but it does need the row they occupy to still
+     be there. Removing them from the flow collapsed row one entirely: the tabs
+     slid up into it and the field, anchored to a box that no longer had a
+     first row, hung off the top of the bar. Hidden-but-present keeps the two
+     rows the rest of the layout is built on. */
+  .header:has(:global([data-testid='search-container']):focus-within) .wordmark,
+  .header:has(:global([data-testid='search-container']):focus-within) .headerActions > *:not([data-testid='search-container']) {
+    visibility: hidden;
+  }
+
+  /* Everything the ⋯ menu now owns. Rendered on both breakpoints and hidden
+     here rather than branched in JS: two forms of one control that only ever
+     disagree if something has to keep them in sync. */
+  .headerActions > .toggleGroup,
+  .headerActions > .soloGroup,
+  .filterBar {
+    display: none;
   }
 }
 
 
+/* A segmented control: one track, and the selected segment fills it.
+ *
+ * The track used to hold its children off its own edge with `padding: 2px`
+ * over a 1px border, so the selected pill floated with a 3px moat around it
+ * and read as a pill sitting INSIDE a box rather than as one segment of a
+ * switch. It also threw the bar's optical margins out: the row's left edge is
+ * plain text sitting flush on the gutter, while its right edge was a filled
+ * pill stopping 3px short of one — so the two sides measured the same and did
+ * not look it.
+ *
+ * Zero padding, and the segments carry the radius instead. Nothing about the
+ * track's own footprint changes, so the height and the tap targets are as they
+ * were; the fill just reaches the edge it is supposed to reach. */
 .toggleGroup {
   display: inline-flex;
   height: var(--control-h);
@@ -838,8 +937,163 @@
   background: color-mix(in srgb, var(--text) 6%, transparent);
   border: 1px solid var(--border);
   border-radius: var(--pill);
-  padding: 2px;
+  padding: 0;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+/* ── MOBILE OVERFLOW ─────────────────────────────────────────────────────
+   Hidden above 768px, where all of it is on the bar already. */
+.moreWrap {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+/* Desktop puts every one of these controls on the bar itself, so there is
+   nothing left for an overflow to hold. Declared AFTER .moreWrap, not beside
+   the mobile block above: same specificity, so source order decides, and from
+   up there the `display: inline-flex` below would have won it back. */
+@media (min-width: 768px) {
+  .moreWrap {
+    display: none;
+  }
+}
+
+.moreBtn,
+.moreBtnOpen {
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
+  width: var(--control-h);
+  height: var(--control-h);
+  box-sizing: border-box;
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+/* Held down for as long as the menu is: a trigger that springs back while its
+   own panel is open reads as a separate, unrelated surface. */
+.moreBtnOpen {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--c-950);
+}
+
+/* The same recipe as the share dropdown it sits beside — see
+   BoardShare.module.css .dropdown. Two menus hanging off one bar that did not
+   match would read as two different apps. */
+.moreMenu {
+  position: absolute;
+  top: calc(var(--control-h) + 8px);
+  right: 0;
+  z-index: 5;
+  min-width: 260px;
+  max-width: calc(100vw - 32px);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /* #root centres text for the app's full-bleed surfaces; a menu is a list and
+     reads from the left edge like one. */
+  text-align: left;
+  border-radius: var(--radius-lg);
+  /* Nearly opaque. The panel sits over the grid, and at the share menu's 0.94
+     the tiles behind it read straight through the blur as coloured blocks
+     under the labels. */
+  background: rgba(20, 20, 24, 0.985);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.moreLabel {
+  margin: 4px 0 0;
+  font-family: var(--th-body);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-subdued);
+}
+
+.moreLabel:first-child {
+  margin-top: 0;
+}
+
+.moreRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.moreChip,
+.moreChipOn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--th-display);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.moreChip {
+  background: transparent;
+  color: var(--text-subdued);
+}
+
+.moreChip:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+}
+
+.moreChipOn {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--c-950);
+}
+
+/* Not a chip: the one row in the menu that leaves it. */
+.moreAction {
+  margin-top: 4px;
+  height: var(--control-h);
+  border-radius: var(--radius-base);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--th-display);
+  cursor: pointer;
+}
+
+.moreAction:hover {
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+}
+
+/* A group of one is not a segmented control — it is a button, and the track
+   around it is a second border drawn 3px outside the first. Controls that
+   stand alone in the bar (Select, the share trigger) opt out of the track and
+   keep only the layout. */
+.soloGroup {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-h);
+  box-sizing: border-box;
 }
 
 /* Every bar control keeps a 44px tap target even though its visual box is
@@ -858,15 +1112,17 @@
   bottom: calc((var(--control-tap) - var(--control-h)) / -2);
 }
 
+/* Full height of the track, pill-radius rather than a circle: a circle inside
+   a pill can only ever be flush on two of its four sides. */
 .toggleBtn,
 .toggleBtnActive {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: calc(var(--control-h) - 6px);
-  height: calc(var(--control-h) - 6px);
-  border-radius: 50%;
+  width: calc(var(--control-h) + 2px);
+  height: 100%;
+  border-radius: var(--pill);
   border: none;
   background: transparent;
   color: var(--text-subdued);
@@ -895,7 +1151,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: var(--control-h);
+  height: 100%;
   border-radius: var(--pill);
   padding: 0 14px;
   border: none;
@@ -1307,8 +1563,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: calc(var(--control-h) - 6px);
-  padding: 0 14px;
+  height: var(--control-h);
+  padding: 0 16px;
   border-radius: var(--pill);
   border: none;
   font: inherit;
@@ -1319,19 +1575,23 @@
   transition: background 150ms ease, color 150ms ease;
 }
 
+/* Standing alone in the bar now, so it draws its own edge rather than
+   borrowing a segmented track's. */
 .selectBtn {
-  background: transparent;
-  color: var(--text-subdued);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  border: 1px solid var(--border);
+  color: var(--text);
 }
 
 .selectBtn:hover {
   color: var(--text);
-  background: color-mix(in srgb, var(--text) 8%, transparent);
+  background: color-mix(in srgb, var(--text) 12%, transparent);
 }
 
 .selectBtnActive {
-  background: #fff;
-  color: #111;
+  background: var(--text);
+  border: 1px solid var(--text);
+  color: var(--c-950);
 }
 
 /* Standing header entry point into Drum — desktop-only, see the comment at
