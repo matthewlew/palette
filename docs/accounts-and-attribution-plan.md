@@ -35,10 +35,8 @@ Consequences worth stating up front:
   already attached to a different uid — i.e. the user signed in on another
   browser first. That is the one case where a real merge is needed; see §6.
 
-No email/password, and no magic links. The free tier's built-in SMTP is
-throttled to a couple of messages an hour and is not meant for real traffic, so
-email is the one auth method that would eventually cost money. Google only at
-launch; Apple and GitHub are the same three lines when wanted.
+No email/password, and no magic links — a product call, not a budget one. See
+§11.
 
 ---
 
