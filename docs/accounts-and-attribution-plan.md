@@ -221,6 +221,40 @@ from an anonymous uid to a permanent one, never the reverse.
 
 ---
 
+## 6b. What the user is told when they sign in
+
+Three different things can happen to gradients at sign-in, and they do not
+deserve the same treatment. The rule: **ask when rows change owner, confirm
+when they don't.**
+
+**Nothing moved — confirm.** The ordinary case. They were signed out, made
+gradients, signed in on the same browser. Those rows were written under the
+anonymous uid and Google linking attached an identity to that same uid, so
+ownership never changed. There is nothing to consent to.
+
+Silence is still wrong, though: from the user's side they were logged out,
+made things, and logged in, and the anxiety about whether the work survived is
+real even when the risk is not. So a one-line dismissible confirmation, and
+deliberately *not* the word "migrated" — it describes a transfer that did not
+happen and invites "migrated from where?", which the user cannot answer:
+
+> Signed in as @ada — your 6 gradients are on your account.
+
+**Rows moved — ask.** The merge case in §6: this Google account already exists
+on another uid, so the anonymous uid's gradients genuinely have to be
+reassigned. Listed with previews, opt-in, and declining is a real option that
+leaves them on the anonymous uid.
+
+This is the shared-machine case, and it is why it cannot be automatic. Sign
+out, hand the laptop over, the next person makes a few gradients and signs in
+as themselves — folding silently would either hand them your work or hand
+yours to them, depending on who signs in first.
+
+**Someone else's unsigned rows — ask.** The DNA claim in §5. Never automatic
+for the same reason, plus the match is inferred rather than proven.
+
+---
+
 ## 7. Export and re-import
 
 Exported JSON carries `author: { id, username }`. On import the gradient keeps
