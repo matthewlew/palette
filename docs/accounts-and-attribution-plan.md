@@ -372,5 +372,286 @@ Each step is shippable on its own and safe to stop after.
 ## 10. Cost
 
 $0. Supabase free tier: 50k MAU, 500MB database, unlimited API requests. Google
-OAuth is free. The one paid trap avoided is transactional email, which is why
-there is no email/password option.
+OAuth is free.
+
+An earlier draft said email was excluded on cost grounds. Not quite true, and
+worth correcting: Supabase's built-in SMTP is throttled and team-only, but
+custom SMTP pointed at Resend's free tier (3,000/month, 100/day) is genuinely
+$0 and would carry this app a long way. Excluding email is a **product** call —
+see §11.
+
+---
+
+## 11. Providers, and the absence of a sign-up
+
+**Google only at launch.** One button, no inbox round-trip, no deliverability
+to operate, and none of the OTP edge cases (expired link, link opened in a
+different browser, mail in spam). The anonymous-first model makes it cheap to
+be restrictive: someone with no Google account still gets the entire app minus
+a byline, because the account is an upgrade rather than a gate. Apple, GitHub
+and email-OTP are each one more button and one more provider config when
+wanted.
+
+**There is no sign-up.** No separate flow, no "create account" CTA, no
+password, no confirm-password, no verification step. Signing in with Google
+either finds an identity or mints one. The only moment that resembles
+registration is choosing a username, and that is a separate step because it is
+a separate decision — a public name, chosen once, that goes on your work.
+
+Copy must never imply an account is being created or that anything is being
+transferred. The user's mental model should be: *this browser had my work on
+it; now my account does.*
+
+---
+
+## 12. Copy
+
+Voice: plain, second person, no exclamation marks, no "Oops". State what
+happened and what to do. Sentence case throughout, matching LDS.
+
+### Nav
+
+| State | Element |
+|---|---|
+| Signed out | `.lds-btn` — **Sign in** |
+| Signed in, has username | `.lds-chip` — avatar + **@ada** |
+| Signed in, no username yet | `.lds-chip` — avatar + **Pick a username** |
+
+### Sign-in sheet (`.lds-modal`)
+
+The body changes with the entry point; the title and CTA do not.
+
+**Title:** Sign in to Palette
+**CTA:** Continue with Google
+**Dismiss:** Not now
+
+Body, from the nav:
+
+> Your gradients live on this browser. Sign in to keep them, put your name on
+> what you publish, and pick up where you left off anywhere.
+
+Body, from a publish attempt:
+
+> Published gradients carry their author's name. Sign in to publish this one.
+
+Body, after a failed anonymous bootstrap (§13):
+
+> Sign in to save gradients. This browser isn't holding onto them right now.
+
+There is no legal footnote until there is something to link to. If terms and a
+privacy policy exist by launch: *By continuing you agree to the Terms and
+Privacy Policy.* — 11px, subdued, links inline.
+
+### Username picker (`.lds-modal`)
+
+**Title:** Pick a username
+**Body:** This is the name on every gradient you publish. You can't change it
+later.
+**Field:** prefix `@`, placeholder `username`
+**Hint (resting):** 3–20 characters. Letters, numbers and underscores.
+**Primary CTA:** Claim username
+**Secondary:** Skip for now
+
+"You can't change it later" is a promise the schema has to keep — see §13. If
+renames are allowed instead, the line becomes *You can change it once.* and
+`profiles` needs a rename-audit column. Decide before shipping, not after.
+
+Inline validation, replacing the hint:
+
+| Condition | Message |
+|---|---|
+| Too short | At least 3 characters. |
+| Too long | 20 characters max. |
+| Bad characters | Letters, numbers and underscores only. |
+| Leading/trailing `_` | Can't start or end with an underscore. |
+| Taken | @ada is taken. |
+| Reserved | That one's reserved. |
+| Profane | Pick something else. |
+| Available | @ada is available. |
+| Checking | (spinner, no text) |
+
+"Pick something else" for profanity is deliberate: no lecture, no naming of
+what was matched, no argument to be had with a filter that is sometimes wrong.
+
+### Confirmations and toasts
+
+| Moment | Copy |
+|---|---|
+| Signed in, nothing moved | Signed in as @ada — your 6 gradients are on your account. |
+| Signed in, no gradients yet | Signed in as @ada. |
+| Merge (§6b) | Added the 3 gradients you made while signed out. **Not yours? Undo** |
+| Undo taken | Removed. Those 3 gradients are unsigned again. |
+| Username claimed | You're @ada. |
+| Signed out | Signed out. |
+
+Singular/plural handled properly everywhere — "1 gradient", not "1 gradients"
+and not "1 gradient(s)".
+
+### Claim prompt (§5, `.lds-modal`)
+
+**Title:** Are these yours?
+**Body:** 4 unsigned gradients match ones saved on this browser. Claiming puts
+your name on them for good.
+**Primary:** Claim 4
+**Secondary:** Not mine
+
+Previews in a grid above the buttons. This is the one true consent prompt in
+the product, because it is the one place we are inferring rather than knowing.
+
+### Sign out (`.lds-modal`)
+
+**Title:** Sign out?
+**Body:** Your gradients stay on your account. They'll be cleared from this
+browser — sign back in to get them.
+**Primary:** Sign out
+**Secondary:** Cancel
+
+If a save is still syncing: **Body appends** — One gradient is still saving.
+Sign out will wait for it.
+
+If offline with unsynced work:
+
+> **Title:** Can't sign out yet
+> **Body:** One gradient hasn't saved. Signing out now would lose it.
+> Reconnect and try again.
+> **Primary:** OK
+
+### Delete account (`.lds-modal`)
+
+Reached from the account sheet, never from the nav directly.
+
+**Title:** Delete your account?
+**Body:**
+
+> This deletes your username, your saved collection, and your likes.
+>
+> **Gradients you published stay up.** They're part of the community gallery
+> and other people have saved them — they'll just no longer have your name on
+> them.
+>
+> This can't be undone.
+
+**Confirm field label:** Type **delete** to confirm
+**Primary (destructive, disabled until matched):** Delete account
+**Secondary:** Cancel
+
+**After:** Your account is deleted. — then the app returns to a fresh
+anonymous session, i.e. a first-visit state.
+
+The published-gradients paragraph is bold because it is the one thing users
+will be wrong about by default. `author_id` is `on delete set null` (§2), so
+the work survives and the byline does not. If the intended behaviour is instead
+to unpublish, that is a different migration and a different conversation — see
+§13.
+
+### Errors
+
+| Case | Copy |
+|---|---|
+| OAuth popup blocked | Your browser blocked the sign-in window. Allow pop-ups for this site and try again. |
+| OAuth cancelled | (silent — the user meant it) |
+| OAuth failed | Couldn't reach Google. Try again. |
+| Network on username claim | Couldn't save that. Try again. |
+| Session expired mid-action | You've been signed out. Sign in to continue. |
+| Anonymous bootstrap failed | (silent; app degrades — see §13) |
+
+---
+
+## 13. Edge cases
+
+### Session and bootstrap
+
+**Anonymous sign-in is rate limited.** Supabase caps anonymous sign-ins per IP
+(30/hour by default). A school, office or café on one NAT can exhaust it, and
+CAPTCHA is the documented mitigation — which we do not want on first load. So
+**the app must run with no session at all**: the public feed reads fine (RLS
+`select` is `true` for `anon`), local saves keep working out of localStorage,
+and only publishing and liking are unavailable. This is exactly today's
+behaviour, which makes it a real fallback rather than a theoretical one. Retry
+the bootstrap on the next load, never in a loop.
+
+**Storage blocked** (private mode, partitioned storage, strict ITP). The auth
+session cannot persist, so every load is a new anonymous user, and saves live
+for the session only. Same degraded path as above. `clientId.ts` already
+handles this shape and its fallback logic is worth keeping as a reference even
+after the file goes.
+
+**Two tabs, sign out in one.** `onAuthStateChange` fires in both — Supabase
+broadcasts across tabs on the same origin. The other tab must clear its cache
+and re-render as signed out rather than keep a stale gallery on screen.
+
+**Expired JWT.** The client refreshes automatically. A write that fails on an
+expired token retries once after a refresh, then surfaces "You've been signed
+out."
+
+**Return URL.** The app is served from `/palette/` on GitHub Pages, so
+`redirectTo` must be the full base URL, and it must be in the Supabase
+allow-list. Getting this wrong lands users on a 404 at the domain root — the
+single most likely launch bug in this whole plan.
+
+### Identity
+
+**Google account already linked to another uid** — `identity_already_exists`.
+The merge path, §6b. Not surfaced as an error.
+
+**Signing in on a second browser.** Each browser has its own anonymous uid.
+The second one merges into the account on sign-in, same as any other merge.
+Nothing special.
+
+**Signing in as a different person on a browser that's already signed in.**
+Sign out first, which resets to a fresh anon uid; then the normal path. The
+account sheet's Sign in link, if shown while signed in, must sign out first
+rather than attempt a link.
+
+**Deleted account, then signs in with the same Google account.** A brand new
+uid with no history. Their old published gradients are unsigned (`author_id`
+null), so the DNA claim in §5 may offer them back if local copies still match
+— which is arguably correct, and worth deciding on rather than discovering.
+
+### Usernames
+
+**Taken between the availability check and submit.** The unique index is the
+authority; the RPC returns the conflict and the field shows "@ada is taken."
+Never check-then-insert.
+
+**Skipped, then publishes.** The picker re-opens; publishing without a byline
+is not possible.
+
+**Freed by account deletion.** The row cascades and the handle becomes
+available again, which lets someone else become @ada. Their gradients are
+already unsigned so nothing is misattributed, but a reader who remembers the
+name will be misled. Consider tombstoning handles for 30 days; cheap to add,
+awkward to retrofit.
+
+**Case.** `citext` — @Ada and @ada are the same handle. Display preserves what
+was typed; uniqueness ignores it.
+
+**Profanity filter is wrong sometimes.** `bad-words` has famous false
+positives, and legitimate names will be rejected. There is no appeal path in
+this plan, which is a real (small) cost of the "Pick something else" copy.
+
+### Data
+
+**Publishing offline.** Fails as today, caught by the caller. No queue.
+
+**Sign-out with unsynced saves.** Flush and block; refuse if offline (§12).
+
+**Undo after merge.** Un-signs the rows; cannot return them to the anonymous
+uid, which no longer exists (§6b).
+
+**A gradient saved by others, then its author deletes their account.** The
+gradient stays, `palette_saves` rows for other users are untouched, the byline
+goes. Nobody else's collection is affected by someone else's deletion — this
+is the whole reason for `on delete set null`.
+
+### Open questions
+
+1. **Username renames.** §12's copy promises "You can't change it later."
+   Cheapest to keep and honest, but users will ask. Allowing one rename needs
+   an audit column and a decision about whether old bylines re-render.
+2. **Does deletion unpublish?** This plan says no, loudly, in the delete copy.
+   Reasonable to disagree; changing it means published work can vanish from
+   other people's saved collections.
+3. **Nudging anonymous users to sign in.** Nothing in this plan pushes anyone
+   toward an account. Whether to prompt after N saves, or only at publish, is a
+   product call.
