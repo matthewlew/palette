@@ -213,8 +213,8 @@ common enough to matter, that is the moment to reconsider, not now.
 ### Account-merge case
 
 When Google linking fails because that identity is already on another uid, we
-sign in as the existing (real) account and offer to fold the anonymous uid's
-rows into it — same explicit, listed, opt-in prompt as §5. A
+sign in as the existing (real) account and fold the anonymous uid's rows into
+it automatically, reporting it afterwards with an undo (§6b). A
 `merge_anonymous(from_uid)` RPC reassigns `palettes.author_id`,
 `palette_saves`, and `palette_likes`, then deletes the anonymous user. Only ever
 from an anonymous uid to a permanent one, never the reverse.
@@ -240,18 +240,31 @@ happen and invites "migrated from where?", which the user cannot answer:
 
 > Signed in as @ada — your 6 gradients are on your account.
 
-**Rows moved — ask.** The merge case in §6: this Google account already exists
-on another uid, so the anonymous uid's gradients genuinely have to be
-reassigned. Listed with previews, opt-in, and declining is a real option that
-leaves them on the anonymous uid.
+**Rows moved — automatic, with an undo.** The merge case in §6: this Google
+account already exists on another uid, so the anonymous uid's gradients are
+reassigned to it. Not gated behind a prompt — told after the fact:
 
-This is the shared-machine case, and it is why it cannot be automatic. Sign
-out, hand the laptop over, the next person makes a few gradients and signs in
-as themselves — folding silently would either hand them your work or hand
-yours to them, depending on who signs in first.
+> Added the 3 gradients you made while signed out. *Not yours? Undo*
 
-**Someone else's unsigned rows — ask.** The DNA claim in §5. Never automatic
-for the same reason, plus the match is inferred rather than proven.
+An earlier draft made this a consent prompt, on the shared-machine argument.
+That argument is mostly wrong, and the reason is §6c: once you sign out, your
+rows belong to your **account**, not to the anonymous uid. The anon uid only
+ever holds work made since the last sign-out — by whoever is actually sitting
+at the browser. When that person signs in, adding it to their collection is
+simply correct, and a modal in front of it taxes the common path to guard a
+door the ownership model already locked.
+
+The residual misfire is narrow: A signs out, B makes gradients without signing
+in, and then **A** returns and signs in. Undo covers it imperfectly. It can
+un-sign the rows (`author_id` back to null) but cannot hand them to B — the
+anonymous uid is gone and the browser is signed in as A. They sit unattributed,
+recoverable only through the §5 claim by someone whose local copy still
+matches. A lossy edge, accepted in exchange for not prompting on every
+sign-in.
+
+**Someone else's unsigned rows — ask.** The DNA claim in §5 stays explicit.
+Different situation: merge *knows* who made the rows, claim is inferring
+ownership of rows nobody signed from a colour match that could be coincidence.
 
 ---
 
@@ -260,6 +273,15 @@ for the same reason, plus the match is inferred rather than proven.
 `supabase.auth.signOut()`, then straight back into `signInAnonymously()`. The
 app is never sessionless — it goes back to being an unnamed browser with a
 fresh uid, which is the same state a first-time visitor is in.
+
+### What we say
+
+> **Sign out?** Your gradients stay on your account. They'll be cleared from
+> this browser — sign back in to get them.
+
+Not "signing out saves your gradients": that reads as an action being taken at
+sign-out and invites "saves them where?". They are already saved. The only
+thing changing is what this browser holds.
 
 ### The local cache is cleared, and that is the safety story
 
