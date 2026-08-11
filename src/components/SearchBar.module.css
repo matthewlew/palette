@@ -32,6 +32,7 @@
   gap: 8px;
 }
 
+
 .searchInput {
   width: 100%;
   height: var(--control-h);
@@ -127,4 +128,53 @@
 .clearButton svg {
   width: 12px;
   height: 12px;
+}
+
+/* COLLAPSED TO ITS ICON, mobile only.
+ *
+ * At full width this field was the reason the gallery bar needed a whole row
+ * for its actions. Collapsed it is a 36px control that sits beside the share
+ * and overflow triggers, and the row it used to need goes back to the tabs.
+ *
+ * The collapse is CSS on the real input, not an icon button that swaps one in.
+ * Tapping it therefore focuses the actual field — one gesture, no state to
+ * keep in sync, and the DOM node survives, which is what keeps iOS from
+ * dropping focus and closing the keyboard mid-transition. Only the placeholder
+ * and the box are hidden; everything about the input is still there.
+ *
+ * The width comes from the consumer (Gallery.module.css), which also expands
+ * it on :focus-within — the header is what it expands ACROSS, so the header
+ * owns that half. */
+@media (max-width: 767px) {
+  .searchContainer {
+    max-width: none;
+  }
+
+  /* Centres the icon in a 36px box: 36 - 16 icon = 20, halved. Overridden
+     back to the text-field padding the moment the field has focus.
+   *
+   * `min-width: 0` is what makes the 36px stick. An <input> has an intrinsic
+   * minimum width from its `size` attribute that `width: 100%` does not beat,
+   * so the collapsed field measured 62px against its 36px container and the
+   * 26px of overflow ran under the share trigger beside it. */
+  .searchInput {
+    padding: 0 0 0 32px;
+    min-width: 0;
+  }
+
+  .searchIcon {
+    left: 10px;
+  }
+
+  .searchInput::placeholder {
+    color: transparent;
+  }
+
+  .searchContainer:focus-within .searchInput {
+    padding: 0 28px 0 32px;
+  }
+
+  .searchContainer:focus-within .searchInput::placeholder {
+    color: var(--text-subdued);
+  }
 }

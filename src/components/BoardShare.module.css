@@ -75,9 +75,25 @@
    it takes --control-h and lines up with the tabs, layout toggles and filter
    select. The fixed/viewer variants keep 44px: there it floats over a gradient
    with nothing to align to, and the bigger target is the right call. */
+/* It also drops the glass. Floating over a gradient, the blurred surface and
+   the bright white border are what keep the icon legible against unknown
+   artwork; sitting in the bar they made this one trigger read as a lit-up
+   button beside its matte neighbours — brighter than Search and ⋯ either side
+   of it, for no reason the user could act on. In the bar it takes the same
+   recipe they do. */
 .inline .triggerButton {
   width: var(--control-h);
   height: var(--control-h);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.inline .triggerButton:hover {
+  background: color-mix(in srgb, var(--text) 12%, transparent);
 }
 
 .triggerButton:active {
@@ -96,7 +112,9 @@
   gap: 4px;
   z-index: 4;
   animation: fadeIn 150ms ease-out;
-  background: rgba(22, 22, 26, 0.94);
+  /* Nearly opaque, matching the gallery's ⋯ menu. At 0.94 over the grid the
+     tiles read straight through the blur as coloured blocks behind the labels. */
+  background: rgba(20, 20, 24, 0.985);
   border: 1px solid rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);

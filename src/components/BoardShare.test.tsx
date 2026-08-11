@@ -23,8 +23,12 @@ const board: Gradient[] = [
 ]
 
 /** Reveal the overflow submenu (Export Image / Export Board JSON / Import). */
+/** With a current gradient the overflow is collapsed behind "More options";
+ * without one the primary section is empty, so the overflow IS the menu and
+ * is already open. See BoardShare's dropdown. */
 function openMore() {
-  fireEvent.click(screen.getByRole('button', { name: /more options/i }))
+  const toggle = screen.queryByRole('button', { name: /more options/i })
+  if (toggle) fireEvent.click(toggle)
 }
 
 beforeEach(() => {
@@ -53,16 +57,17 @@ describe('BoardShare Component', () => {
     expect(screen.getByTestId('share-dropdown')).toBeInTheDocument()
   })
 
-  it('disables image/JSON actions that need a current gradient or saves', () => {
+  it('omits actions that have no target rather than showing them disabled', () => {
     render(<BoardShare saved={[]} onImport={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: /share options/i }))
 
-    // No current gradient -> the primary "Share as Image" is disabled.
-    expect(screen.getByRole('button', { name: /share as image/i })).toBeDisabled()
+    // Nothing to share and nothing saved, so neither action is offered — the
+    // menu used to be four greyed rows over a live "More options •••".
+    expect(screen.queryByRole('button', { name: /share as image/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /export board json/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /more options/i })).toBeNull()
 
-    openMore()
-    // No saves -> exporting the board JSON is disabled; import always works.
-    expect(screen.getByRole('button', { name: /export board json/i })).toBeDisabled()
+    // Import needs neither, so it is the menu.
     expect(screen.getByRole('button', { name: /import json/i })).not.toBeDisabled()
   })
 
