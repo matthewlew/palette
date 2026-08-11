@@ -653,3 +653,40 @@ is the whole reason for `on delete set null`.
 3. **Nudging anonymous users to sign in.** Nothing in this plan pushes anyone
    toward an account. Whether to prompt after N saves, or only at publish, is a
    product call.
+
+---
+
+## 14. Why Supabase Auth and not Clerk
+
+Clerk is the better auth product in general and the wrong fit here. Recorded so
+it is not re-litigated from memory.
+
+**Clerk has no anonymous users.** This is decisive. §1's whole mechanism is
+that every browser holds a real uid before anyone signs in, so signing in links
+an identity onto rows the user already owns and nothing changes hands. Clerk
+has no such thing as a user who has not signed in, so the design collapses back
+to sign-in-creates-account-then-sweep-localStorage: every sign-in becomes a
+migration, and the shared-browser hazard becomes permanent instead of the
+narrow case in §6b. §§6b and 6c would both be rewritten in the worse direction.
+
+**No foreign key to `auth.users`.** RLS under Clerk reads
+`auth.jwt() ->> 'sub'` — a Clerk user id string, not a uuid in `auth.users`. So
+`palettes.author_id` becomes `text` with no FK, `on delete set null` does not
+exist, and the deletion behaviour in §12 (published work survives, byline goes)
+becomes a webhook to receive and a sweep to write. Receiving a webhook needs a
+server. This app has none.
+
+**Its main benefit is a liability here.** What Clerk sells is prebuilt UI —
+`<SignIn/>`, `<UserButton/>`, a management dashboard. This app has a design
+system it must not deviate from. Theming Clerk into LDS via the appearance API
+is more work than the two `.lds-modal`s in §12 and lands less exactly right.
+
+**Verify before relying on these two**, quoted from memory: Clerk's free tier is
+around 10k MAU with paid plans from roughly $25/mo, and a *production* Clerk
+instance wants DNS records on a domain you control. Palette is served from
+`matthewlew.github.io`, where we do not control DNS — if that still holds,
+Clerk is not deployable here at all until Palette has its own domain.
+
+**When Clerk would win:** organisations and teams, MFA, many providers with
+abuse protection, a real backend, and a custom domain. That is a different
+application. Here, auth's entire job is to put a name on a gradient.
