@@ -1210,7 +1210,46 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
         .filter(Boolean)
         .join(' ')}
     >
-      <div className={styles.header}>
+      {/* SELECT MODE takes the whole bar rather than adding a control to it.
+       *
+       * The mode changes what a tap on a tile MEANS — open becomes pick — so
+       * the bar has to answer "what am I in" before it answers anything else.
+       * Leaving the browse row up and marking one button "Cancel" made the
+       * mode a detail of a control instead of the state of the screen, and on
+       * mobile that button was below the fold of a two-row bar.
+       *
+       * The count lives here; the picks themselves live in the dock at the
+       * bottom, which owns Clear and Next. This bar is the mode indicator and
+       * the way out of it, nothing more — two places for one state is only
+       * confusing if they say the same thing. */}
+      <div className={pickMode ? styles.headerSelecting : styles.header} data-lds-nav="">
+        {pickMode ? (
+          <>
+            <span className={styles.selectingCount} data-testid="select-mode-count" aria-live="polite">
+              {carouselPicks.length === 0
+                ? 'Tap palettes to select'
+                : `${carouselPicks.length} selected`}
+            </span>
+            <button
+              type="button"
+              data-testid="carousel-pick-toggle"
+              className={styles.selectBtnActive}
+              onClick={() => setPickMode(false)}
+              aria-pressed
+            >
+              Cancel
+            </button>
+          </>
+        ) : (
+          <>
+        {/* The wordmark stays at every width — including mobile, where the bar
+            used to lead with the screen's name ("Gallery") instead. The tabs
+            directly below already say which half of the gallery you are in, so
+            a screen title spent the one always-visible slot restating the row
+            under it, and left nothing on the page saying what the app IS. The
+            product name is the thing a phone has no room to say twice, so it
+            gets the slot. */}
+        <span className={`lds-nav__logo ${styles.wordmark}`}>Palette</span>
         <div className={styles.titleArea}>
           <div className={styles.toggleGroup}>
             <button
@@ -1218,14 +1257,20 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
               className={activeTab === 'saves' ? styles.toggleBtnActiveTab : styles.toggleBtnTab}
               onClick={() => setActiveTab('saves')}
             >
-              Yours <span className={styles.titleCount}>({saved.length})</span>
+              Yours <span className={styles.titleCount}>{saved.length}</span>
             </button>
             <button
               type="button"
               className={activeTab === 'community' ? styles.toggleBtnActiveTab : styles.toggleBtnTab}
               onClick={() => setActiveTab('community')}
             >
+              {/* Only once the first page has actually landed. Rendering "0"
+                  during the initial query reads as "the community is empty",
+                  which is the opposite of what the tab is advertising. */}
               Community
+              {communityGradients.length > 0 && (
+                <span className={styles.titleCount}>{communityGradients.length}</span>
+              )}
             </button>
           </div>
         </div>
@@ -1270,18 +1315,6 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
               <Icon name="grid-dense" size="sm" />
             </button>
           </div>
-          <div className={styles.toggleGroup}>
-            <button
-              type="button"
-              data-testid="carousel-pick-toggle"
-              className={pickMode ? styles.selectBtnActive : styles.selectBtn}
-              onClick={() => setPickMode((v) => !v)}
-              aria-pressed={pickMode}
-              title="Select gradients in order"
-            >
-              {pickMode ? 'Cancel' : 'Select'}
-            </button>
-          </div>
           {/* Drum's only entry point used to be the empty-Yours onboarding
               screen, which vanishes for good on the first save — after that,
               starting a new drum gradient was impossible without already
@@ -1310,7 +1343,24 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
             onExportAll={handleExportAll}
             exportingAll={exporting}
           />
+          {/* Last in the row, and the only text action among the icons: Select
+              switches the whole grid into a different mode, so it reads as the
+              row's terminal commitment rather than one more toggle. */}
+          <div className={styles.toggleGroup}>
+            <button
+              type="button"
+              data-testid="carousel-pick-toggle"
+              className={styles.selectBtn}
+              onClick={() => setPickMode(true)}
+              aria-pressed={false}
+              title="Select gradients in order"
+            >
+              Select
+            </button>
+          </div>
         </div>
+          </>
+        )}
       </div>
 
       {searchResults ? (

@@ -42,6 +42,7 @@
      leave the sort control floating on its own over the results. Neither
      describes a search — the query owns what's on screen and in what order. */
   .searching .titleArea,
+  .searching .wordmark,
   .searching .filterBar {
     display: none;
   }
@@ -663,13 +664,86 @@
 
 
 
+/* The bar stays put while the grid scrolls under it. `.container` is the
+   scroller (position:fixed + overflow-y:auto), so sticky resolves against it
+   rather than the viewport.
+ *
+ * The bleed is what makes it opaque edge to edge: the container carries the
+ * page's horizontal padding, so a sticky child inset by that padding leaves two
+ * gutters where tiles scroll through in the open. Negative margins pull the bar
+ * back out to the container's edges and equal padding puts its own content back
+ * where it was. The top does the same against the container's top padding, so
+ * nothing shows above the bar as it pins.
+ *
+ * No blur: the tiles below are large areas of saturated gradient, and a
+ * translucent bar over them turned the tab labels into low-contrast mush. A
+ * solid surface is the only thing that holds APCA over arbitrary artwork. */
 .header {
+  position: sticky;
+  top: calc(max(var(--space-3), var(--safe-t)) * -1);
+  z-index: 3;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: var(--space-3);
-  padding: 0 var(--space-1);
+  gap: var(--space-3);
+  margin: calc(max(var(--space-3), var(--safe-t)) * -1)
+          calc((var(--space-4) + var(--safe-r)) * -1)
+          var(--space-3)
+          calc((var(--space-4) + var(--safe-l)) * -1);
+  padding: max(var(--space-3), var(--safe-t))
+           calc(var(--space-4) + var(--safe-r))
+           var(--space-2)
+           calc(var(--space-4) + var(--safe-l));
+  background: var(--c-950);
   flex-shrink: 0;
+}
+
+/* Select mode owns the whole bar — see the call site. Same box as .header so
+   the swap does not shift the grid underneath by a pixel; only the contents
+   change. */
+.headerSelecting {
+  composes: header;
+  justify-content: space-between;
+}
+
+/* Layout delta only. The type is `.lds-nav__logo`, applied alongside at the
+   call site — this sets nothing the design system already decides. */
+.wordmark {
+  flex-shrink: 0;
+}
+
+/* Says which mode you are in, in the slot the wordmark normally holds, so the
+   bar reads as a different bar rather than the same one with a badge. */
+.selectingCount {
+  font-family: var(--th-display);
+  font-size: var(--text-subhead);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-subhead);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+  /* Search takes the slack between the tabs and the action icons, so the bar
+     reads as three zones (identity / find / act) at any window width instead
+     of the controls bunching against the right edge on a wide screen. */
+  .headerActions {
+    flex: 1 1 auto;
+    justify-content: flex-end;
+  }
+
+  /* `margin-right: auto` is what spans the bar: the field settles next to the
+     tabs and every remaining pixel collects to its right, which parks the
+     icon controls on the window edge. Without it the whole row packs left and
+     a wide window leaves the right half of the bar empty — the controls drift
+     further from the edge the wider the screen gets, which is backwards for a
+     bar that is supposed to frame the page. */
+  .headerActions :global([data-testid='search-container']) {
+    flex: 0 1 320px;
+    max-width: 320px;
+    min-width: 0;
+    margin-right: auto;
+  }
 }
 
 .title {
@@ -707,10 +781,31 @@
    Below 640px the actions drop to their own full-width line and wrap, and the
    search takes a whole row so it stays usable rather than being squeezed to a
    stub between the two buttons. */
+/* Two rows below 640px, and NOT the stack the mock draws (identity + icons,
+   then tabs + Select).
+ *
+ * Measured at 375px the bar has 343px of content width. The mock's first row
+ * comes to 379px before gaps — the search field is a real input on this
+ * breakpoint, not an icon, so it cannot share a line with the wordmark and
+ * four controls. Splitting it the other way fits with room to spare: the
+ * wordmark (52) and the tab pills (175) make 227 on row one, and the actions
+ * take the whole of row two, where search flexes into whatever the fixed-width
+ * controls leave.
+ *
+ * The intent the mock is expressing survives the swap — the app is named on
+ * every screen, the tabs stay above the fold, and nothing is squeezed under
+ * its tap target. What moves is which row the search field sits on. */
 @media (max-width: 640px) {
-  .header {
+  .header,
+  .headerSelecting {
     flex-wrap: wrap;
     gap: var(--space-2);
+  }
+
+  /* Select mode stays one row at every width: it is two elements, and the
+     whole point of it is to be read at a glance. */
+  .headerSelecting {
+    flex-wrap: nowrap;
   }
 
   .headerActions {
