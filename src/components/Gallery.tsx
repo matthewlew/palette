@@ -26,6 +26,7 @@ import { CarouselStudio } from './CarouselStudio'
 import { CarouselDock } from './CarouselDock'
 import { Hint } from './Hint'
 import { LoadingBar } from './LoadingBar'
+import { AuthNav } from './AuthNav'
 import JSZip from 'jszip'
 import { renderVignetteToCanvas } from '../lib/vignette'
 import { MEDIA_CHIP, MEDIA_ICON, MEDIA_ON } from '../lib/mediaChrome'
@@ -1404,6 +1405,8 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
               Select
             </button>
           </div>
+
+          <AuthNav />
 
           {/* MOBILE OVERFLOW.
            *

@@ -18,6 +18,11 @@ let table: Row[] = []
 
 vi.mock('../lib/supabase', () => ({
   supabase: {
+    auth: {
+      getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+      signInAnonymously: () => Promise.resolve({ data: { session: null, user: null }, error: null }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+    },
     from: () => {
       const chain: Record<string, unknown> = {}
       chain.select = () => chain

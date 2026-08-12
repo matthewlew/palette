@@ -57,3 +57,38 @@ export async function isAvailable(raw: string): Promise<boolean> {
   if (error) throw error
   return data === null
 }
+
+export type ClaimUsernameError = 'taken' | 'reserved' | 'profane' | 'already-set' | 'unknown'
+
+interface ClaimedProfile {
+  id: string
+  username: string
+  display_name: string | null
+  avatar_url: string | null
+}
+
+/**
+ * The one write path onto profiles.username — see the claim_username RPC in
+ * supabase/migrations/0004_claim_username_rpc.sql. The unique index is the
+ * authority on availability, not the isAvailable() check above, so this can
+ * still fail with 'taken' even right after that check passed.
+ */
+export async function claimUsername(raw: string): Promise<ClaimedProfile> {
+  const username = normalizeUsername(raw)
+  const { data, error } = await supabase.rpc('claim_username', { p_username: username })
+
+  if (error) {
+    if (error.code === '23505') {
+      throw new Error('taken' satisfies ClaimUsernameError)
+    }
+    if (error.code === '23514') {
+      throw new Error('reserved' satisfies ClaimUsernameError)
+    }
+    if (error.message?.includes('already set')) {
+      throw new Error('already-set' satisfies ClaimUsernameError)
+    }
+    throw new Error('unknown' satisfies ClaimUsernameError)
+  }
+
+  return data as ClaimedProfile
+}
