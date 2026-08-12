@@ -740,6 +740,11 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
     // Switching into radial or Turrell centres the origin unless it was
     // already an origin type — see angleForTypeChange.
     const angle = angleForTypeChange(gradient.type, type, gradient.angle)
+    // Stamped here rather than left to the [gradient.id, gradient.type] effect
+    // below: that effect only fires after this commit re-renders with the new
+    // `gradient` prop, so a scroll fired in the same tick (or in a test that
+    // never awaits the re-render) would still read the OLD locked shape.
+    feedSession.lockedType = type
     feedSession.lockedAngle = angle
     commitPreservingPositions({ type, angle })
   }
