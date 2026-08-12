@@ -1,5 +1,6 @@
 import type { GradientStop } from '../lib/gradient'
 import { repeatedStops, getRadialConfig, turrellExtent, TURRELL_SOFTNESS_PERCENT } from '../lib/gradient'
+import { cropClipPath, type GradientCrop } from '../lib/gradientCrop'
 import styles from './TurrellSquare.module.css'
 
 interface TurrellSquareProps {
@@ -10,9 +11,16 @@ interface TurrellSquareProps {
   /** Origin of the nested squares, mirroring the radial rotate cycle: undefined
    * = centered; a degree (0/45/…/315) anchors the nest at that edge/corner. */
   angle?: number
+  /** Circle/oval crop the nest re-fits to. Extents transfer as-is (per the
+   * crop design), but each square layer needs its own clip to the crop's
+   * boundary curve — an ambient clip-path on a distant ancestor would still
+   * cut the shape correctly, but it also hard-crops each layer's blur right
+   * at the boundary. Splitting blur (wrapper) from clip (layer), the same way
+   * OvalRadialLayers does, keeps the blur soft past the crop edge. */
+  crop?: GradientCrop
 }
 
-export function TurrellSquare({ stops: initialStops, reversed = false, blurPx, repeatEnabled = false, angle }: TurrellSquareProps) {
+export function TurrellSquare({ stops: initialStops, reversed = false, blurPx, repeatEnabled = false, angle, crop }: TurrellSquareProps) {
   const stops = repeatEnabled ? repeatedStops(initialStops) : initialStops
 
   // Where the nested squares converge. Center (undefined) keeps the classic
@@ -57,13 +65,24 @@ export function TurrellSquare({ stops: initialStops, reversed = false, blurPx, r
   const sortedLayers = [...layers].sort((a, b) => b.factor - a.factor)
   const outerHex = sortedLayers.length > 0 ? sortedLayers[0].hex : 'transparent'
 
+  // Cropped (circle/oval): the outer fill is clipped too, so the ambient
+  // --crop-backdrop behind the preview shows through the corners instead of
+  // this rectangle's own color painting over it.
+  const clip = crop && crop !== 'rectangle' ? cropClipPath(crop) : undefined
+
   return (
-    // The container is painted in the outermost layer's color to prevent stale 
+    // The container is painted in the outermost layer's color to prevent stale
     // texture gaps at the edges when the blurred layers are GPU composited.
-    <div 
-      data-testid="turrell-square" 
-      className={styles.container} 
-      style={{ position: 'absolute', inset: 0, overflow: 'hidden', backgroundColor: outerHex }}
+    <div
+      data-testid="turrell-square"
+      className={styles.container}
+      style={{
+        position: 'absolute',
+        inset: 0,
+        overflow: 'hidden',
+        backgroundColor: outerHex,
+        clipPath: clip,
+      }}
     >
       {sortedLayers.map((layer, index) => {
         const isOutermost = index === 0
@@ -85,20 +104,52 @@ export function TurrellSquare({ stops: initialStops, reversed = false, blurPx, r
             ? `calc(${layer.heightPercent}% + ${bleedPercent}%)`
             : `calc(${layer.heightPercent}% + ${bleedPx}px)`
           : `${layer.heightPercent}%`
+        const filter = blurPx != null ? `blur(${blurPx}px)` : undefined
+        // No crop: same single-element layer as before (clip-path runs after
+        // filter, so a plain layer with only its own default/inline blur is
+        // unaffected either way). Cropped: split blur (wrapper, unclipped) from
+        // clip (inner layer) so the blur stays soft past the crop boundary
+        // instead of being hard-cut by a clip-path on the same blurred element.
+        if (!clip) {
+          return (
+            <div
+              key={layer.id}
+              data-testid="turrell-layer"
+              className={styles.layer}
+              style={{
+                backgroundColor: layer.hex,
+                width,
+                height,
+                left: originX,
+                top: originY,
+                filter,
+              }}
+            />
+          )
+        }
         return (
           <div
             key={layer.id}
-            data-testid="turrell-layer"
-            className={styles.layer}
+            data-testid="turrell-layer-blur"
             style={{
-              backgroundColor: layer.hex,
-              width,
-              height,
-              left: originX,
-              top: originY,
-              filter: blurPx != null ? `blur(${blurPx}px)` : undefined,
+              position: 'absolute',
+              inset: 0,
+              filter: filter ?? `blur(${TURRELL_SOFTNESS_PERCENT}cqmin)`,
             }}
-          />
+          >
+            <div
+              data-testid="turrell-layer"
+              className={styles.layerClipped}
+              style={{
+                backgroundColor: layer.hex,
+                width,
+                height,
+                left: originX,
+                top: originY,
+                clipPath: clip,
+              }}
+            />
+          </div>
         )
       })}
     </div>

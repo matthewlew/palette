@@ -293,7 +293,7 @@ function Tile({
           viewTransitionName: isHero && !viewerOpen ? 'palette-card' : 'none',
         }}
       >
-        {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={6} angle={gradient.angle} />}
+        {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={6} angle={gradient.angle} crop={gradient.crop} />}
         {gradient.type === 'radial' && gradient.crop === 'oval' && (
           <OvalRadialLayers stops={gradient.stops} angle={gradient.angle} layerCount={12} />
         )}
@@ -569,7 +569,7 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes 
           the fold, unlike the other shapes' background-image. */}
       {gradient.type === 'square' && (
         <div className={styles.viewerSquare}>
-          <TurrellSquare stops={live.stops} reversed={live.reversed} angle={live.angle} />
+          <TurrellSquare stops={live.stops} reversed={live.reversed} angle={live.angle} crop={live.crop} />
         </div>
       )}
       <NoiseOverlay visible={noiseEnabled} />
