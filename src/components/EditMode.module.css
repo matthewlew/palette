@@ -31,10 +31,17 @@
 
 .preview {
   /* On mobile the sheet is no longer a flex sibling — Drawer.Portal renders
-     it elsewhere in the DOM, fixed over the top of whatever's here — so this
-     is free to fill the whole container. Desktop's side panel below is
-     still an in-flow sibling, and still takes flex:1 down to a shared width. */
-  flex: 1;
+     it elsewhere in the DOM, fixed over the top of whatever's here — and, as
+     the ONLY flex child of .container, `flex-grow` would restretch it to the
+     container's full height regardless of any explicit `height` (basis or
+     not) set below, since there's nothing else to share the row with. `flex:
+     none` lets the inline `height: calc(100dvh - sheetHeight)` set in
+     EditMode.tsx fully govern its size instead; the fallback height here
+     covers the instant before that JS-measured value is available. Desktop's
+     side panel below IS an in-flow sibling and restores flex:1 to share the
+     row width with it. */
+  flex: none;
+  height: 100%;
   min-height: 0;
   position: relative;
   overflow: hidden;
@@ -168,6 +175,11 @@
   }
 
   .preview {
+    /* Desktop's side panel is an in-flow row sibling again, so the preview
+       goes back to growing/shrinking to share the row with it (the JS never
+       sets an inline height here — see isDesktop in EditMode.tsx). */
+    flex: 1;
+    height: auto;
     /* Without this, wide sheet content can flex the preview down to 0. */
     min-width: 0;
   }
