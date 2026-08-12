@@ -162,7 +162,13 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
   // shrink to the space actually left over instead of being covered by a
   // sheet that's floating on top of it (Drawer.Portal renders the sheet
   // outside the flex layout — see .preview's comment in EditMode.module.css).
-  const sheetPopupRef = useRef<HTMLDivElement>(null)
+  // A callback ref (not useRef) because Base UI's Drawer.Portal mounts the
+  // Popup's DOM node a tick after EditMode's own mount — a plain ref read in
+  // an effect keyed on [isDesktop] would see `null` on that first run and,
+  // with nothing to change isDesktop, never observe the sheet at all. Storing
+  // the node in state makes its arrival itself a dependency the effect below
+  // reacts to.
+  const [sheetPopupEl, setSheetPopupEl] = useState<HTMLDivElement | null>(null)
   const [sheetHeight, setSheetHeight] = useState(0)
   const isDraggingRef = useRef(false)
   const lastHandleDragEndRef = useRef(0)
@@ -344,7 +350,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
   // of guessing a fixed offset.
   useEffect(() => {
     if (isDesktop) return
-    const el = sheetPopupRef.current
+    const el = sheetPopupEl
     if (!el) return
     const measure = () => setSheetHeight(el.getBoundingClientRect().height)
     measure()
@@ -352,7 +358,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
     const observer = new ResizeObserver(measure)
     observer.observe(el)
     return () => observer.disconnect()
-  }, [isDesktop])
+  }, [isDesktop, sheetPopupEl])
 
   useEffect(() => {
     const el = previewRef.current
@@ -1238,7 +1244,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
           <Drawer.Portal>
             <Drawer.Viewport className={styles.sheetViewport}>
               <Drawer.Popup
-                ref={sheetPopupRef}
+                ref={setSheetPopupEl}
                 data-testid="edit-sheet"
                 className={[styles.sheet, sheetDuckHidden && styles.hidden].filter(Boolean).join(' ')}
                 onPointerDown={handleSheetPointerDown}
