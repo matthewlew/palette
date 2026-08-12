@@ -1098,6 +1098,17 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
           // Shrink to the space actually left above the sheet instead of
           // sitting at full height underneath it — see sheetPopupRef above.
           height: isDesktop ? undefined : `calc(100dvh - ${sheetHidden ? 0 : sheetHeight}px)`,
+          // Circle crop's clip-path assumes a square box (cropClipPath's
+          // default aspect) — on a portrait phone that box is normally taller
+          // than it is wide, so pin the width to whichever of the two screen
+          // axes is smaller instead of letting it stay full viewport width.
+          // Without this the "circle" clip radius (computed off the box's
+          // diagonal, per the CSS spec for circle(<percentage>)) exceeds both
+          // half-dimensions and the shape overflows the viewport uncropped.
+          width: !isDesktop && gradient.crop === 'circle'
+            ? `min(100%, calc(100dvh - ${sheetHidden ? 0 : sheetHeight}px))`
+            : undefined,
+          margin: !isDesktop && gradient.crop === 'circle' ? '0 auto' : undefined,
         }}
         onPointerDown={handlePreviewPointerDown}
         onPointerUp={handlePreviewPointerUp}
