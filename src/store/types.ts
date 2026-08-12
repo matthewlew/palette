@@ -1,4 +1,5 @@
 import type { FanAnchor, GradientStop, GradientType } from '../lib/gradient'
+import type { GradientCrop } from '../lib/gradientCrop'
 import type { RisoData } from '../lib/gradientCodec'
 
 export interface Gradient {
@@ -23,6 +24,13 @@ export interface Gradient {
   fanAnchor?: FanAnchor
   /** Rotation angle in degrees (0-360) */
   angle?: number
+  /** Crop shape the gradient renders into. `undefined` = today's full-bleed
+   * rectangle. Circle/oval re-fit the geometry to the boundary curve at
+   * render time (see lib/gradientCrop.ts) rather than masking a rectangle
+   * render, and never mutate `stops`/`angle` — switching back to rectangle
+   * loses nothing. Distinct from lib/vignette.ts's `VignetteShape`, which is
+   * an unrelated, mask-only decorative export shape. */
+  crop?: GradientCrop
   createdAt?: number
   note?: string
   /** How many people have liked this in the community feed. Only meaningful on

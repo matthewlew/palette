@@ -44,8 +44,11 @@ describe('TurrellSquare', () => {
     const layers = screen.getAllByTestId('turrell-layer')
     // Outermost layer oversizes past the container so its blur can't bleed
     // a background halo at the edges; the rest shrink monotonically.
-    expect(layers[0].style.width).toBe('calc(100% + 96px)')
-    expect(layers[0].style.height).toBe('calc(100% + 96px)')
+    // Outermost layer's default blur/bleed is now a percentage of the
+    // container's own size (TURRELL_SOFTNESS_PERCENT * 4), not a flat px
+    // bleed, so the on-screen render stays resolution-independent.
+    expect(layers[0].style.width).toBe('calc(107%)')
+    expect(layers[0].style.height).toBe('calc(107%)')
     const sizes = layers.slice(1).map((l) => {
       const width = parseFloat(l.style.width)
       const height = parseFloat(l.style.height)
@@ -64,8 +67,8 @@ describe('TurrellSquare', () => {
   it('handles a single stop without dividing by zero, rendering it beyond full size', () => {
     render(<TurrellSquare stops={[{ hex: '#ff0000', position: 0 }]} />)
     const layer = screen.getByTestId('turrell-layer')
-    expect(layer.style.width).toBe('calc(100% + 96px)')
-    expect(layer.style.height).toBe('calc(100% + 96px)')
+    expect(layer.style.width).toBe('calc(107%)')
+    expect(layer.style.height).toBe('calc(107%)')
   })
 
   it('sizes layers from each stop\'s actual position, not just its index', () => {

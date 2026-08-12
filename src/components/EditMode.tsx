@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { useAppStore } from '../store/useAppStore'
-import { buildGradientCss, nextRotationAngle, nextFanRotation, SELECTABLE_GEOMETRY, angleForTypeChange, defaultAngleForType, type GradientType } from '../lib/gradient'
+import { nextRotationAngle, nextFanRotation, SELECTABLE_GEOMETRY, angleForTypeChange, defaultAngleForType, type GradientType } from '../lib/gradient'
+import { buildCroppedGradientCss, cropClipPath, type GradientCrop } from '../lib/gradientCrop'
+import { OvalRadialLayers } from './OvalRadialLayers'
 import {
   toEditableStops,
   equalizeEditableStops,
@@ -172,6 +174,13 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
   // obstructs the gradient the way the bottom sheet does, so tapping the
   // preview there still exits instead of needing a reveal state at all.
   const chromeHidden = (handleDragging || sheetHidden) && !isDesktop
+  // Save is deliberately NOT gated by the sheet's closed state, unlike the
+  // rest of chromeHidden: tapping the preview to see the full gradient is
+  // itself a reason to save it, and hiding Save there made it reachable only
+  // by reopening the sheet first (or a round trip through the tap toggle) —
+  // still ducks during a handle drag, matching the same transient reasoning
+  // the sheet's own duck uses.
+  const saveHidden = handleDragging && !isDesktop
   // Surface the sheet's real open/closed state to the app shell, so it can
   // bring the tab bar back the moment the sheet is dismissed rather than
   // hiding it for the whole edit-mode duration.
@@ -702,7 +711,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
   // positions the user has already dragged into place — only handle removal/
   // addition/sorting re-equalizes, since those change stop count or order.
   function commitPreservingPositions(
-    overrides: Partial<Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops' | 'smoothEnabled' | 'fanAnchor' | 'angle'>>
+    overrides: Partial<Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops' | 'smoothEnabled' | 'fanAnchor' | 'angle' | 'crop'>>
   ) {
     setCurrentGradient({
       ...gradient,
@@ -731,8 +740,20 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
     // Switching into radial or Turrell centres the origin unless it was
     // already an origin type — see angleForTypeChange.
     const angle = angleForTypeChange(gradient.type, type, gradient.angle)
+    // Stamped here rather than left to the [gradient.id, gradient.type] effect
+    // below: that effect only fires after this commit re-renders with the new
+    // `gradient` prop, so a scroll fired in the same tick (or in a test that
+    // never awaits the re-render) would still read the OLD locked shape.
+    feedSession.lockedType = type
     feedSession.lockedAngle = angle
     commitPreservingPositions({ type, angle })
+  }
+
+  function handleSelectCrop(crop: GradientCrop) {
+    // 'rectangle' is stored as undefined, matching the Gradient interface's
+    // "unset = today's full-bleed behaviour" default so old saves stay byte-
+    // identical to a freshly-created rectangle gradient.
+    commitPreservingPositions({ crop: crop === 'rectangle' ? undefined : crop })
   }
 
   function handleToggleReversed() {
@@ -982,6 +1003,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
         order={activeOrder}
         orderLabel={ORDER_LABELS[activeOrder]}
         onCycleOrder={handleSortCycle}
+        onSelectCrop={handleSelectCrop}
       />
 
       <div className={styles.blockArea}>
@@ -1072,18 +1094,33 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
         className={styles.preview}
         style={{
           backgroundImage:
-            gradient.type === 'square'
+            gradient.type === 'square' || (gradient.type === 'radial' && gradient.crop === 'oval')
               ? undefined
-              : buildGradientCss(gradient.type, animatedStops, gradient.reversed, {
+              : (buildCroppedGradientCss(gradient.type, animatedStops, gradient.reversed ?? false, {
                   repeat: gradient.repeatEnabled,
                   hard: gradient.hardStops,
                   fanAnchor: gradient.fanAnchor,
                   angle: gradient.angle,
                   smooth: gradient.smoothEnabled,
-                }),
+                }, gradient.crop) ?? undefined),
+          clipPath: cropClipPath(gradient.crop),
+          // Circle/oval: light/dark-mode aware backdrop behind the shape
+          // instead of the gradient's own last colour bleeding to the edges.
+          backgroundColor: gradient.crop && gradient.crop !== 'rectangle' ? 'var(--crop-backdrop, Canvas)' : undefined,
           // Shrink to the space actually left above the sheet instead of
           // sitting at full height underneath it — see sheetPopupRef above.
           height: isDesktop ? undefined : `calc(100dvh - ${sheetHidden ? 0 : sheetHeight}px)`,
+          // Circle crop's clip-path assumes a square box (cropClipPath's
+          // default aspect) — on a portrait phone that box is normally taller
+          // than it is wide, so pin the width to whichever of the two screen
+          // axes is smaller instead of letting it stay full viewport width.
+          // Without this the "circle" clip radius (computed off the box's
+          // diagonal, per the CSS spec for circle(<percentage>)) exceeds both
+          // half-dimensions and the shape overflows the viewport uncropped.
+          width: !isDesktop && gradient.crop === 'circle'
+            ? `min(100%, calc(100dvh - ${sheetHidden ? 0 : sheetHeight}px))`
+            : undefined,
+          margin: !isDesktop && gradient.crop === 'circle' ? '0 auto' : undefined,
         }}
         onPointerDown={handlePreviewPointerDown}
         onPointerUp={handlePreviewPointerUp}
@@ -1102,7 +1139,11 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
             repeatEnabled={gradient.repeatEnabled}
             blurPx={gradient.hardStops ? 0 : undefined}
             angle={gradient.angle}
+            crop={gradient.crop}
           />
+        )}
+        {gradient.type === 'radial' && gradient.crop === 'oval' && (
+          <OvalRadialLayers stops={animatedStops} angle={gradient.angle} />
         )}
         <NoiseOverlay visible={noiseEnabled} />
         <PaletteTitle
@@ -1117,7 +1158,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
         <LikeButton
           liked={isGradientSaved}
           onToggle={() => toggleSaveGradient(gradient)}
-          hidden={chromeHidden}
+          hidden={saveHidden}
           gradient={gradient}
         />
         <CanvasHandles

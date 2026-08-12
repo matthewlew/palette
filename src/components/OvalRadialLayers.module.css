@@ -1,0 +1,21 @@
+.container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  container-type: size;
+}
+
+.blurWrap {
+  position: absolute;
+  inset: 0;
+  /* Blur lives on this wrapper, clip on .layer inside it — clip-path runs
+     after filter in CSS, so putting both on one element would blur and then
+     throw the blur away at the re-clip. */
+  filter: blur(1.75cqmin);
+}
+
+.layer {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}

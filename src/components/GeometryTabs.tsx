@@ -1,9 +1,16 @@
 import { useRef, useState } from 'react'
 import { buildGradientCss, angleForTypeChange, SHAPE_LABELS, type GradientType, type GradientStop } from '../lib/gradient'
+import type { GradientCrop } from '../lib/gradientCrop'
 import type { Gradient } from '../store/types'
 import { TurrellSquare } from './TurrellSquare'
 import { useIsDesktop } from '../hooks/useIsDesktop'
 import styles from './GeometryTabs.module.css'
+
+const CROPS: { id: GradientCrop; label: string }[] = [
+  { id: 'rectangle', label: 'Rectangle' },
+  { id: 'circle', label: 'Circle' },
+  { id: 'oval', label: 'Oval' },
+]
 
 interface GeometryTabsProps {
   gradient: Gradient
@@ -31,6 +38,9 @@ interface GeometryTabsProps {
    * stays exactly what it was before the chip moved. */
   order?: string
   onCycleOrder?: () => void
+  /** Crop shape (Rectangle/Circle/Oval), sitting with the other Shape
+   * controls since it's a geometry choice, not an effect. */
+  onSelectCrop?: (crop: GradientCrop) => void
 }
 
 const TABS: { type: GradientType; label: string }[] = [
@@ -72,6 +82,7 @@ export function GeometryTabs({
   orderLabel,
   order,
   onCycleOrder,
+  onSelectCrop,
 }: GeometryTabsProps) {
   const tabsRef = useRef<HTMLDivElement>(null)
   // Only consulted on mobile — the desktop media query shows both panels
@@ -213,6 +224,25 @@ export function GeometryTabs({
         )
       })}
         </div>
+        {onSelectCrop && (
+          <div className={styles.filters} data-testid="crop-selector" role="group" aria-label="Crop shape">
+            {CROPS.map(({ id, label }) => {
+              const active = (gradient.crop ?? 'rectangle') === id
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  data-testid={`crop-${id}`}
+                  aria-pressed={active}
+                  className={chipClass(active)}
+                  onClick={() => onSelectCrop(id)}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+        )}
       </section>
 
       <section
