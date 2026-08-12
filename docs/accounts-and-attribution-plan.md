@@ -291,9 +291,24 @@ Leaving it in place is the actual hazard: the next anonymous session would open
 onto the previous person's gallery, and anything re-published from it would
 land under a new byline.
 
-**This gates the build order.** Sign-out cannot ship before step 5. In between,
-clearing the cache would destroy real data and not clearing it would leak — so
-the sign-out affordance in step 3 waits for saves to be server-side.
+**This gates the build order — but less tightly than first written.** The
+original rule was that sign-out cannot ship before step 5, because clearing the
+cache would destroy real data and not clearing it would leak.
+
+The second half of that is wrong *before* step 5. Until saves are
+account-scoped they belong to the browser, exactly as they have for every user
+to date, so not clearing them leaks nothing — it preserves current behaviour
+rather than changing it. There is no account copy to be out of step with,
+because there is no account copy.
+
+So sign-out ships in step 3 in a **non-clearing** form, with copy that says so
+("gradients saved on this browser stay on this browser for now"). At step 5
+both halves change together: saves become account-scoped, clearing begins, and
+the copy becomes §12's. What genuinely cannot ship early is *clearing*, not
+sign-out.
+
+The cost of holding sign-out back was concrete and was being paid immediately:
+a signed-in user with no way out, and no way to test sign-in twice.
 
 If a save is still pending sync when the user signs out, flush first and block
 on it; if the flush fails (offline), say so and let them cancel rather than

@@ -60,7 +60,25 @@ export async function linkGoogle(): Promise<void> {
     provider: 'google',
     options: { redirectTo },
   })
-  if (error) throw error
+  if (!error) return
+
+  // That Google account already owns a different uid — the merge case in plan
+  // §6, which happens on any second sign-in (another browser, or after a
+  // sign-out). Signing in as the account that already exists is correct on its
+  // own and is what the user asked for; folding this browser's anonymous rows
+  // into it is the separate, deferred half (step 6). Without this fallback,
+  // signing back in after signing out simply fails.
+  if (isIdentityAlreadyExists(error)) {
+    await signInWithGoogle()
+    return
+  }
+
+  throw error
+}
+
+function isIdentityAlreadyExists(error: { code?: string; message?: string }): boolean {
+  if (error.code === 'identity_already_exists') return true
+  return (error.message ?? '').toLowerCase().includes('already')
 }
 
 /**

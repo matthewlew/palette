@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useSession } from '../hooks/useSession'
 import { SignInModal } from './SignInModal'
 import { UsernameModal } from './UsernameModal'
+import { AccountModal } from './AccountModal'
 import styles from './AuthNav.module.css'
 
 const TOAST_DURATION_MS = 4000
@@ -20,6 +21,7 @@ const TOAST_DURATION_MS = 4000
 export function AuthNav() {
   const { user, profile, isAnonymous, loading } = useSession()
   const [signInOpen, setSignInOpen] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const wasAnonymous = useRef(isAnonymous)
@@ -56,9 +58,14 @@ export function AuthNav() {
       )}
 
       {!isAnonymous && profile && (
-        <span className={styles.chip} data-testid="nav-account-chip">
+        <button
+          type="button"
+          className={styles.chip}
+          onClick={() => setAccountOpen(true)}
+          data-testid="nav-account-chip"
+        >
           @{profile.username}
-        </span>
+        </button>
       )}
 
       {!isAnonymous && !profile && user && (
@@ -73,6 +80,17 @@ export function AuthNav() {
       )}
 
       {signInOpen && <SignInModal context="nav" onClose={() => setSignInOpen(false)} />}
+
+      {accountOpen && profile && (
+        <AccountModal
+          username={profile.username}
+          onSignedOut={() => {
+            setAccountOpen(false)
+            showToast('Signed out.')
+          }}
+          onClose={() => setAccountOpen(false)}
+        />
+      )}
 
       {pickingUsername && (
         <UsernameModal
