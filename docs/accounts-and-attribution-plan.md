@@ -380,6 +380,26 @@ Each step is shippable on its own and safe to stop after.
 6. **Claim flow** (§5) and **merge** (§6).
 7. **0004** — likes repointed to `auth.uid()`, `clientId.ts` deleted.
 
+### As built
+
+Migration numbers drifted: `0004` went to the `claim_username` RPC, so the
+claim RPC is `0005` and the likes repoint is `0006`.
+
+The claim RPC takes **row ids, not colour DNA**. Both are equally forgeable —
+a caller can invent either — so the DNA carries no security the ids do not,
+while matching in SQL would mean reconstructing the client's DNA string from a
+jsonb column whose exact shape varies by deployment. The protection was never
+the DNA; it is `where author_id is null`, and that is unchanged. The client
+still *matches* by DNA, in `lib/claimPalettes.ts`, which is where the guess
+belongs.
+
+**Merge (§6) is still not built.** It is the one gap left, and it is narrower
+than it looks: because linking Google keeps the same uid, the ordinary
+sign-in path never needs it. It bites only when the anonymous uid differs from
+the account's — sign out, publish, sign back in — which strands those rows
+under a dead uid where the claim cannot reach them either, since their
+`author_id` is set rather than null. Everything else in §§5–6 is in place.
+
 ## 9. Tests
 
 - `username.ts` — shape, reserved words, profanity, normalisation. Pure, cheap,

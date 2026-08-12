@@ -4,6 +4,9 @@ import { useSavedSync } from '../hooks/useSavedSync'
 import { SignInModal } from './SignInModal'
 import { UsernameModal } from './UsernameModal'
 import { AccountModal } from './AccountModal'
+import { ClaimModal } from './ClaimModal'
+import { useAppStore } from '../store/useAppStore'
+import { findClaimable, type ClaimCandidate } from '../lib/claimPalettes'
 import styles from './AuthNav.module.css'
 
 const TOAST_DURATION_MS = 4000
@@ -38,6 +41,34 @@ export function AuthNav() {
     }
     wasAnonymous.current = isAnonymous
   }, [isAnonymous, user])
+
+  // Offered once per signed-in account with a username, and only when the
+  // shelf has something to match against. Deliberately after the username
+  // picker: claiming without a handle would produce owned rows that still
+  // render unsigned, which the RPC rejects anyway.
+  const saved = useAppStore((s) => s.saved)
+  const [claimCandidates, setClaimCandidates] = useState<ClaimCandidate[] | null>(null)
+  const claimOfferedRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    const accountId = !loading && !isAnonymous && profile ? profile.id : null
+    if (!accountId || claimOfferedRef.current === accountId) return
+    claimOfferedRef.current = accountId
+
+    let cancelled = false
+    findClaimable(useAppStore.getState().saved)
+      .then((found) => {
+        if (!cancelled && found.length > 0) setClaimCandidates(found)
+      })
+      .catch((err) => console.error('Could not check for claimable gradients:', err))
+
+    return () => {
+      cancelled = true
+    }
+    // `saved` is read via getState rather than depended on: this is a one-shot
+    // offer at sign-in, not something that should re-fire on every save.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, isAnonymous, profile])
 
   function showToast(message: string) {
     setToast(message)
@@ -105,6 +136,21 @@ export function AuthNav() {
             showToast(`You're @${username}.`)
           }}
           onSkip={() => setPickingUsername(false)}
+        />
+      )}
+
+      {claimCandidates && claimCandidates.length > 0 && (
+        <ClaimModal
+          candidates={claimCandidates}
+          onClaimed={(count) => {
+            setClaimCandidates(null)
+            showToast(
+              count === 1
+                ? 'Claimed. 1 gradient now carries your name.'
+                : `Claimed. ${count} gradients now carry your name.`,
+            )
+          }}
+          onDismiss={() => setClaimCandidates(null)}
         />
       )}
 

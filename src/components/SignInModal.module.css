@@ -114,6 +114,26 @@
   color: #ff8080;
 }
 
+/* Claim previews (ClaimModal). Here rather than in a sheet of their own
+   because this file is already the shared auth-sheet surface — same modal,
+   same padding, same type — and a fourth near-identical stylesheet to hold
+   two rules would be the wrong trade. */
+.previewGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 8px;
+  margin: 0 0 20px 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.preview {
+  aspect-ratio: 4 / 5;
+  border-radius: var(--radius-sm, 6px);
+  background-size: cover;
+  background-position: center;
+}
+
 .legal {
   margin: 16px 0 0 0;
   font-size: 11px;
