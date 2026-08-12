@@ -21,3 +21,12 @@
      which always wins over a class rule. */
   filter: blur(1.75cqmin);
 }
+
+/* Cropped variant: no filter here — blur lives on the unclipped wrapper
+   (see the crop branch in TurrellSquare.tsx), clip-path lives here instead. */
+.layerClipped {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) translateZ(0);
+}

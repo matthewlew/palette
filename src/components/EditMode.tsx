@@ -1116,6 +1116,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
             repeatEnabled={gradient.repeatEnabled}
             blurPx={gradient.hardStops ? 0 : undefined}
             angle={gradient.angle}
+            crop={gradient.crop}
           />
         )}
         {gradient.type === 'radial' && gradient.crop === 'oval' && (
