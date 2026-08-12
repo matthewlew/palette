@@ -174,6 +174,13 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
   // obstructs the gradient the way the bottom sheet does, so tapping the
   // preview there still exits instead of needing a reveal state at all.
   const chromeHidden = (handleDragging || sheetHidden) && !isDesktop
+  // Save is deliberately NOT gated by the sheet's closed state, unlike the
+  // rest of chromeHidden: tapping the preview to see the full gradient is
+  // itself a reason to save it, and hiding Save there made it reachable only
+  // by reopening the sheet first (or a round trip through the tap toggle) —
+  // still ducks during a handle drag, matching the same transient reasoning
+  // the sheet's own duck uses.
+  const saveHidden = handleDragging && !isDesktop
   // Surface the sheet's real open/closed state to the app shell, so it can
   // bring the tab bar back the moment the sheet is dismissed rather than
   // hiding it for the whole edit-mode duration.
@@ -1146,7 +1153,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
         <LikeButton
           liked={isGradientSaved}
           onToggle={() => toggleSaveGradient(gradient)}
-          hidden={chromeHidden}
+          hidden={saveHidden}
           gradient={gradient}
         />
         <CanvasHandles
