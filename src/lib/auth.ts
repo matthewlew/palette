@@ -45,6 +45,16 @@ export async function signInWithGoogle(): Promise<void> {
  * fall through to signInWithGoogle() to sign in as that existing account.
  */
 export async function linkGoogle(): Promise<void> {
+  // No session to link onto — anonymous sign-in is disabled, rate limited, or
+  // storage is blocked (plan §13). Plain OAuth still works and still produces
+  // an account; all that is lost is the "nothing migrates" property, because
+  // there were no anonymous-owned rows to carry over in the first place.
+  const { data } = await supabase.auth.getSession()
+  if (!data.session) {
+    await signInWithGoogle()
+    return
+  }
+
   const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL}`
   const { error } = await supabase.auth.linkIdentity({
     provider: 'google',

@@ -38,11 +38,20 @@ export function SignInModal({ context, onClose }: SignInModalProps) {
     } catch (err) {
       setPending(false)
       const message = err instanceof Error ? err.message : ''
-      if (message.toLowerCase().includes('popup')) {
+      const lower = message.toLowerCase()
+      // The generic fallback used to swallow every cause, including the two
+      // that are configuration rather than connectivity — which made a
+      // dashboard toggle look like a network blip. Name those two.
+      if (lower.includes('popup')) {
         setError('Your browser blocked the sign-in window. Allow pop-ups for this site and try again.')
+      } else if (lower.includes('manual linking') || lower.includes('not enabled')) {
+        setError('Sign-in is not fully configured yet. (Manual linking is disabled in Supabase.)')
+      } else if (lower.includes('session') || lower.includes('not authenticated') || lower.includes('anonymous')) {
+        setError("This browser doesn't have a session yet. Reload and try again.")
       } else {
         setError("Couldn't reach Google. Try again.")
       }
+      console.error('Sign-in failed:', err)
     }
   }
 
