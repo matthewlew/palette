@@ -247,6 +247,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
     setTickerIndex(feedSession.index)
     feedSession.lockedType = gradient.type
     feedSession.lockedAngle = gradient.angle
+    feedSession.lockedCrop = gradient.crop
     setActiveStopId(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gradient.id, gradient.type])
@@ -292,7 +293,8 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
         // Via the ref: this runs inside listeners bound once at mount, so a
         // lock set moments ago must not be read from a stale closure.
         ...makeGradient(typeToUse, activeColorSet, lockedColorsRef.current, lockedPositionsRef.current),
-        angle: feedSession.lockedAngle ?? defaultAngleForType(typeToUse)
+        angle: feedSession.lockedAngle ?? defaultAngleForType(typeToUse),
+        crop: feedSession.lockedCrop
       }
       history.push(fresh)
     }
@@ -753,7 +755,13 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
     // 'rectangle' is stored as undefined, matching the Gradient interface's
     // "unset = today's full-bleed behaviour" default so old saves stay byte-
     // identical to a freshly-created rectangle gradient.
-    commitPreservingPositions({ crop: crop === 'rectangle' ? undefined : crop })
+    const resolvedCrop = crop === 'rectangle' ? undefined : crop
+    // Stamped synchronously, mirroring handleSelectType's lockedType above:
+    // the [gradient.id, gradient.type] effect only fires after this commit
+    // re-renders with the new `gradient` prop, so a scroll fired in the same
+    // tick would still read the OLD locked crop otherwise.
+    feedSession.lockedCrop = resolvedCrop
+    commitPreservingPositions({ crop: resolvedCrop })
   }
 
   function handleToggleReversed() {

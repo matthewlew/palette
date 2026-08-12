@@ -3,6 +3,7 @@ import { useAppStore } from '../store/useAppStore'
 import { generateGradientStops, type ColorLocks, type PositionLocks } from '../lib/palette'
 import { GradientPage } from './GradientPage'
 import { SELECTABLE_GEOMETRY, type GradientType, nextRotationAngle, defaultAngleForType, angleForTypeChange } from '../lib/gradient'
+import type { GradientCrop } from '../lib/gradientCrop'
 import type { Gradient } from '../store/types'
 import type { ColorSet } from '../lib/colorSets'
 import { withViewTransition } from '../lib/viewTransition'
@@ -59,11 +60,12 @@ export const SHAPE_STEP_PX = 80
 export const feedSession: { 
   history: Gradient[]; 
   index: number; 
-  lockedType: GradientType | null; 
+  lockedType: GradientType | null;
   lockedAngle: number | undefined;
   lockedHardStops: boolean | undefined;
   lockedRepeatEnabled: boolean | undefined;
   lockedReversed: boolean | undefined;
+  lockedCrop: GradientCrop | undefined;
 } = {
   history: [],
   index: 0,
@@ -72,6 +74,7 @@ export const feedSession: {
   lockedHardStops: undefined,
   lockedRepeatEnabled: undefined,
   lockedReversed: undefined,
+  lockedCrop: undefined,
 }
 
 export function resetFeedSession() {
@@ -82,6 +85,7 @@ export function resetFeedSession() {
   feedSession.lockedHardStops = undefined
   feedSession.lockedRepeatEnabled = undefined
   feedSession.lockedReversed = undefined
+  feedSession.lockedCrop = undefined
 }
 
 /** Riff: seed the Create rolodex with a gradient picked in the Gallery.
@@ -102,6 +106,7 @@ export function startFeedWithType(gradient: Gradient) {
   feedSession.lockedHardStops = gradient.hardStops
   feedSession.lockedRepeatEnabled = gradient.repeatEnabled
   feedSession.lockedReversed = gradient.reversed
+  feedSession.lockedCrop = gradient.crop
 }
 
 export function riffIntoFeed(gradient: Gradient) {
@@ -112,6 +117,7 @@ export function riffIntoFeed(gradient: Gradient) {
   feedSession.lockedHardStops = gradient.hardStops
   feedSession.lockedRepeatEnabled = gradient.repeatEnabled
   feedSession.lockedReversed = gradient.reversed
+  feedSession.lockedCrop = gradient.crop
 }
 
 interface FeedProps {
@@ -232,6 +238,7 @@ export function Feed({ chromeVisible = true }: FeedProps) {
         feedSession.lockedHardStops = current.hardStops
         feedSession.lockedRepeatEnabled = current.repeatEnabled
         feedSession.lockedReversed = current.reversed
+        feedSession.lockedCrop = current.crop
       }
       setDisplayed(feedSession.history[feedSession.index])
       setTickerIndex(feedSession.index)
@@ -261,6 +268,7 @@ export function Feed({ chromeVisible = true }: FeedProps) {
     feedSession.lockedHardStops = current.hardStops
     feedSession.lockedRepeatEnabled = current.repeatEnabled
     feedSession.lockedReversed = current.reversed
+    feedSession.lockedCrop = current.crop
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current])
 
@@ -288,7 +296,8 @@ export function Feed({ chromeVisible = true }: FeedProps) {
         angle: feedSession.lockedAngle ?? defaultAngleForType(typeToUse),
         hardStops: feedSession.lockedHardStops ?? false,
         repeatEnabled: feedSession.lockedRepeatEnabled ?? false,
-        reversed: feedSession.lockedReversed ?? false
+        reversed: feedSession.lockedReversed ?? false,
+        crop: feedSession.lockedCrop
       }
       history.push(fresh)
     }
