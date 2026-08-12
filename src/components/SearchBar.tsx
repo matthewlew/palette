@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Gradient } from '../store/types'
-import { toGradient } from '../lib/paletteRow'
+import { toGradient, PALETTE_SELECT } from '../lib/paletteRow'
 import { COLOR_NOUNS, type HueFamily } from '../lib/namingWords'
 import { parseQuery } from '../lib/shapeSearch'
 import { Icon } from '../icons'
@@ -69,7 +69,7 @@ export function SearchBar({ onResults, saved = [], onActiveChange, onCancel }: S
       try {
         let queryBuilder = supabase
           .from('palettes')
-          .select('*')
+          .select(PALETTE_SELECT)
 
         // Shape words filter on the `shape` column; whatever is left is matched
         // against the name. Searching "radial" used to look for the WORD radial

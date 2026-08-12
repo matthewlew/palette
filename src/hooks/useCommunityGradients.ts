@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Gradient } from '../store/types'
-import { toGradient, paletteDna as dna, type PaletteRow } from '../lib/paletteRow'
+import { toGradient, paletteDna as dna, PALETTE_SELECT, type PaletteRow } from '../lib/paletteRow'
 
 /** Rows per request, and the size of the first page.
  *
@@ -64,7 +64,7 @@ export function useCommunityGradients(order: CommunityOrder = 'recent') {
     if (from > 0) setLoadingMore(true)
 
     try {
-      let query = supabase.from('palettes').select('*')
+      let query = supabase.from('palettes').select(PALETTE_SELECT)
       // Popular leads with the count and falls back to newest, so that among
       // the many palettes sharing a like count the fresh ones come first.
       if (order === 'popular') {

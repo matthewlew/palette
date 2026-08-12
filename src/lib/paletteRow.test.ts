@@ -128,3 +128,29 @@ describe('paletteDna', () => {
     expect(paletteDna(toGradient(row())!)).not.toBe(paletteDna(toGradient(row({ shape: 'radial' }))!))
   })
 })
+
+describe('author', () => {
+  it('carries the byline when the row has one', () => {
+    const g = toGradient(row({ author_id: 'u1', author: { username: 'ada' } }))
+    expect(g!.author).toEqual({ id: 'u1', username: 'ada' })
+  })
+
+  it('leaves a legacy row unsigned rather than inventing a name', () => {
+    // The ~119 pre-accounts rows. Nobody signed them, so no byline — see the
+    // accounts plan §5.
+    expect(toGradient(row())!.author).toBeUndefined()
+  })
+
+  it('leaves a row unsigned when the author deleted their account', () => {
+    // on delete set null (migration 0003): the gradient survives, the byline
+    // does not.
+    const g = toGradient(row({ author_id: null, author: null }))
+    expect(g!.author).toBeUndefined()
+  })
+
+  it('leaves a row unsigned when the author never claimed a username', () => {
+    // author_id without a profile row is a legal state (plan §4), and a
+    // byline needs something to actually say.
+    expect(toGradient(row({ author_id: 'u1', author: null }))!.author).toBeUndefined()
+  })
+})

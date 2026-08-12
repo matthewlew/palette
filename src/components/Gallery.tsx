@@ -351,9 +351,16 @@ function Tile({
           {gradient.name ?? namePalette(gradient.stops.map(s => s.hex))}
         </span>
         {gradient.note && <span className={styles.tileDesc}>{gradient.note}</span>}
-        {gradient.createdAt && (
+        {/* Byline and date share one line rather than adding a third row to
+            the caption — the tile is already name + date, and an author is a
+            detail of the same provenance. Unattributed rows (legacy, or an
+            author who deleted their account) just show the date, which is
+            honest: nobody signed them. */}
+        {(gradient.author || gradient.createdAt) && (
           <span className={styles.tileDate} style={{ color: tileInk, opacity: 0.6 }}>
-            {formatDate(gradient.createdAt)}
+            {gradient.author && `@${gradient.author.username}`}
+            {gradient.author && gradient.createdAt && ' · '}
+            {gradient.createdAt && formatDate(gradient.createdAt)}
           </span>
         )}
       </div>
@@ -595,9 +602,11 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes 
           onRename={(name) => renameSavedGradient(gradient.id, name)}
         />
       </div>
-      {live.createdAt && (
+      {(live.author || live.createdAt) && (
         <span className={styles.viewerDate} style={{ color: titleColor }}>
-          Saved on {formatDate(live.createdAt)}
+          {live.author && `@${live.author.username}`}
+          {live.author && live.createdAt && ' · '}
+          {live.createdAt && `Saved on ${formatDate(live.createdAt)}`}
         </span>
       )}
       {/* See the tile badge above for why this exists — same PRD §5.3 cue,

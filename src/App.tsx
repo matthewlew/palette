@@ -21,6 +21,7 @@ import { useIdleFade } from './hooks/useIdleFade'
 import type { Gradient } from './store/types'
 import type { GradientType } from './lib/gradient'
 import { supabase } from './lib/supabase'
+import { PALETTE_SELECT } from './lib/paletteRow'
 
 const CREATE_SHORTCUTS: ShortcutHintItem[] = [
   { keys: ['↑', '↓'], label: 'Browse' },
@@ -86,7 +87,7 @@ export function App() {
       
       supabase
         .from('palettes')
-        .select('*')
+        .select(PALETTE_SELECT)
         .eq('slug', slug)
         .single()
         .then(({ data, error }) => {

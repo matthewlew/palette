@@ -48,6 +48,17 @@ export async function publishPalette(
   let displayName = baseName
   let slug = generateSlug(displayName)
 
+  // Who is publishing. Null when there is no session at all (anonymous
+  // sign-in disabled or rate limited — accounts plan §13), which keeps
+  // publishing working exactly as it did before accounts existed.
+  let authorId: string | null = null
+  try {
+    const { data } = await supabase.auth.getSession()
+    authorId = data.session?.user.id ?? null
+  } catch {
+    /* no session — publish unattributed */
+  }
+
   // Dedup: if a gradient with this slug and identical colors + shape already
   // exists, reuse it instead of spawning a near-duplicate "Name 2" row (common
   // when the same gradient is exported/shared repeatedly). Best-effort — any
@@ -55,13 +66,19 @@ export async function publishPalette(
   try {
     const { data: existing } = await supabase
       .from('palettes')
-      .select('slug,colors,shape')
+      .select('slug,colors,shape,author_id')
       .eq('slug', slug)
       .maybeSingle()
     if (
       existing &&
       existing.shape === shape &&
-      JSON.stringify(existing.colors) === JSON.stringify(hexes)
+      JSON.stringify(existing.colors) === JSON.stringify(hexes) &&
+      // Reuse only when it is the same person's row (a re-share should not
+      // spawn a second copy) or when nobody owns it. A DIFFERENT author
+      // publishing the same colours gets their own row and their own byline
+      // — reusing here would file their work under someone else's name.
+      // Accounts plan §6.
+      (existing.author_id == null || existing.author_id === authorId)
     ) {
       return { success: true, slug: existing.slug, displayName }
     }
@@ -80,7 +97,8 @@ export async function publishPalette(
       colors: hexes,
       shape: shape,
       angle: angle ?? null,
-      offsets: offsets ?? null
+      offsets: offsets ?? null,
+      author_id: authorId,
     })
 
     if (!error) {
