@@ -12,6 +12,7 @@ import {
   mirrorSequence,
   TURRELL_SOFTNESS_PERCENT,
 } from './gradient'
+import { compressStopsForCrop, superellipsePoints, SUPERELLIPSE_N } from './gradientCrop'
 
 function getLinearGradientCoords(angle: number = 0, width: number, height: number) {
   const step = (Math.round((180 + angle) / 45) * 45) % 360
@@ -259,6 +260,58 @@ export function renderGradientToCanvas(
 }
 
 /**
+ * Renders a circle/oval-cropped gradient to a SQUARE canvas with transparent
+ * corners (alpha, not a paper/opaque backdrop) — the crop's re-fit geometry
+ * plus a boundary clip, matching what the live editor shows.
+ *
+ * The linear/mirror stop compression and the circle clip are exact re-fits.
+ * The radial+oval "hard case" (see gradientCrop.ts's buildCroppedGradientCss)
+ * and the fan pivot/span refit are not re-derived here — this renders the
+ * gradient's plain geometry and clips it to the boundary, which is correct
+ * for every shape except an oval radial, where it is the same simplification
+ * OvalRadialLayers exists to avoid on screen. Exporting that exact case as a
+ * PNG (rather than live DOM layers) is a known gap.
+ */
+export function renderCroppedGradientToCanvas(canvas: HTMLCanvasElement, gradient: Gradient, size: number) {
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  const crop = gradient.crop
+  if (!crop || crop === 'rectangle') {
+    renderGradientToCanvas(canvas, gradient, size, size)
+    return
+  }
+
+  let refitted: Gradient = gradient
+  if (gradient.type === 'linear' || gradient.type === 'mirror') {
+    refitted = { ...gradient, stops: compressStopsForCrop(gradient.stops, crop, gradient.angle ?? 0) }
+  }
+
+  const off = document.createElement('canvas')
+  renderGradientToCanvas(off, refitted, size, size, 'rgba(0,0,0,0)')
+
+  ctx.clearRect(0, 0, size, size)
+  ctx.save()
+  ctx.beginPath()
+  if (crop === 'circle') {
+    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2)
+  } else {
+    const points = superellipsePoints(SUPERELLIPSE_N, 128)
+    points.forEach(([x, y], i) => {
+      const px = size / 2 + (x * size) / 2
+      const py = size / 2 + (y * size) / 2
+      if (i === 0) ctx.moveTo(px, py)
+      else ctx.lineTo(px, py)
+    })
+    ctx.closePath()
+  }
+  ctx.clip()
+  ctx.drawImage(off, 0, 0)
+  ctx.restore()
+}
+
+/**
  * Renders a gradient to an offscreen canvas and returns a PNG data URL. Used to
  * embed a faithful raster of gradient types that SVG gradients can't express
  * (angular/square/fan) when copying to the clipboard for Figma. Throws where
@@ -277,7 +330,13 @@ export function gradientToPngDataUrl(gradient: Gradient, size = 1024): string {
  */
 export async function downloadGradientAsPng(gradient: Gradient, width: number, height: number) {
   const canvas = document.createElement('canvas')
-  renderGradientToCanvas(canvas, gradient, width, height)
+  if (gradient.crop && gradient.crop !== 'rectangle') {
+    // Circle/oval always export as a square PNG with transparent corners,
+    // regardless of the requested (rectangular) width/height.
+    renderCroppedGradientToCanvas(canvas, gradient, Math.min(width, height) || width || height)
+  } else {
+    renderGradientToCanvas(canvas, gradient, width, height)
+  }
 
   const filename = `${(gradient.name ?? 'gradient').toLowerCase().replace(/\s+/g, '-')}-${width}x${height}.png`
   await shareOrDownloadCanvas(canvas, filename, gradient.name ?? 'Gradient')

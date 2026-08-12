@@ -1,5 +1,5 @@
-import type { GradientStop, GradientType, FanAnchor } from './gradient'
-import { resolveFanConfig } from './gradient'
+import type { GradientStop, GradientType, FanAnchor, GradientFilters } from './gradient'
+import { resolveFanConfig, getRadialConfig, buildGradientCss, applyReversed, fanSequence, smoothStops } from './gradient'
 
 /** The three crop shapes a gradient can render into. `undefined`/`'rectangle'`
  * on a saved Gradient means today's full-bleed behaviour — this stays optional
@@ -194,4 +194,59 @@ export function refitFanForCrop(
   if (!crop || crop === 'rectangle') return base
   const { from, span } = fanRefit(crop, base.px, base.py)
   return { from, span, px: base.px, py: base.py }
+}
+
+function stopsToCss(stops: GradientStop[]): string {
+  return stops.map((s) => `${s.hex} ${s.position}%`).join(', ')
+}
+
+/**
+ * Crop-aware CSS background for a gradient. Handles every shape except
+ * `radial` under an `oval` crop — a plain CSS radial-gradient can only emit
+ * elliptical isolines (no per-angle radius), so inside a non-circular
+ * superellipse boundary its ramp ends early on the diagonals and flat-fills
+ * the rest. Returns `null` for that one case; render `OvalRadialLayers`
+ * instead (see that component).
+ */
+export function buildCroppedGradientCss(
+  type: GradientType,
+  stops: GradientStop[],
+  reversed: boolean,
+  filters: GradientFilters,
+  crop: GradientCrop | undefined,
+): string | null {
+  if (!crop || crop === 'rectangle') return buildGradientCss(type, stops, reversed, filters)
+
+  const angle = filters.angle ?? 0
+  const smooth = !!filters.smooth && !filters.hard
+
+  if (type === 'radial') {
+    if (crop === 'oval') return null
+    const orderedStops = applyReversed(stops, reversed)
+    const origin = getRadialConfig(filters.angle)
+    const { rx, ry } = radialCropAxes(crop, origin.px, origin.py)
+    const finalStops = smooth ? smoothStops(orderedStops) : orderedStops
+    return `radial-gradient(${(rx * 100).toFixed(2)}% ${(ry * 100).toFixed(2)}% at ${origin.px * 100}% ${origin.py * 100}%, ${stopsToCss(finalStops)})`
+  }
+
+  if (type === 'linear' || type === 'mirror') {
+    const orderedStops = applyReversed(stops, reversed)
+    const refit = refitStopsForCrop({ type, stops: orderedStops, crop, angle })
+    // The refit stops are already reversed/ordered — buildGradientCss would
+    // re-apply `reversed`, so hand it a passthrough (already-final) order.
+    return buildGradientCss(type, refit, false, { ...filters })
+  }
+
+  if (type === 'fan') {
+    const orderedStops = applyReversed(stops, reversed)
+    const { from, span } = refitFanForCrop(crop, filters.fanAnchor, filters.angle)
+    const sequence = fanSequence(orderedStops, span)
+    const finalStops = smooth ? smoothStops(sequence) : sequence
+    const { px, py } = resolveFanConfig(filters.fanAnchor, filters.angle)
+    return `conic-gradient(from ${from}deg at ${px * 100}% ${py * 100}%, ${stopsToCss(finalStops)})`
+  }
+
+  // angular and square are angle-parameterized/self-contained and unaffected
+  // by the boundary curve — they only need the external clip-path.
+  return buildGradientCss(type, stops, reversed, filters)
 }
