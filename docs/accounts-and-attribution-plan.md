@@ -310,6 +310,15 @@ sign-out.
 The cost of holding sign-out back was concrete and was being paid immediately:
 a signed-in user with no way out, and no way to test sign-in twice.
 
+**As built (step 5 landed).** Clearing is now on, but scoped by evidence rather
+than by assumption: sign-out clears exactly those gradients carrying a
+`paletteId`, which is set only once `savedSync` has recorded the save
+server-side. Anything unsynced — saved offline, or a push that failed — stays
+on the browser, and the sheet says how many. That is stricter than "flush and
+block on it": nothing has to succeed at sign-out time for sign-out to be safe,
+because the test is what the server already has rather than what we hope it is
+about to accept.
+
 If a save is still pending sync when the user signs out, flush first and block
 on it; if the flush fails (offline), say so and let them cancel rather than
 silently dropping the write.

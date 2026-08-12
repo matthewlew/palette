@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSession } from '../hooks/useSession'
+import { useSavedSync } from '../hooks/useSavedSync'
 import { SignInModal } from './SignInModal'
 import { UsernameModal } from './UsernameModal'
 import { AccountModal } from './AccountModal'
@@ -25,6 +26,11 @@ export function AuthNav() {
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const wasAnonymous = useRef(isAnonymous)
+
+  // Only for a named account. An anonymous uid is per-browser and disposable —
+  // syncing to it would write rows nobody can ever reach again, and would make
+  // the shelf look account-backed when it is not.
+  useSavedSync(!isAnonymous && user ? user.id : null)
 
   useEffect(() => {
     if (wasAnonymous.current && !isAnonymous && user) {

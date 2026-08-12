@@ -66,7 +66,7 @@ export async function publishPalette(
   try {
     const { data: existing } = await supabase
       .from('palettes')
-      .select('slug,colors,shape,author_id')
+      .select('id,slug,colors,shape,author_id')
       .eq('slug', slug)
       .maybeSingle()
     if (
@@ -80,7 +80,7 @@ export async function publishPalette(
       // Accounts plan §6.
       (existing.author_id == null || existing.author_id === authorId)
     ) {
-      return { success: true, slug: existing.slug, displayName }
+      return { success: true, id: existing.id as string, slug: existing.slug, displayName }
     }
   } catch {
     /* ignore — proceed to insert */
@@ -91,20 +91,27 @@ export async function publishPalette(
 
   while (!isSaved) {
     // 2. Try to insert it into Supabase
-    const { error } = await supabase.from('palettes').insert({
-      slug: slug,
-      display_name: displayName,
-      colors: hexes,
-      shape: shape,
-      angle: angle ?? null,
-      offsets: offsets ?? null,
-      author_id: authorId,
-    })
+    // `select().single()` so the caller gets the row id back: palette_saves
+    // references palettes(id), so a save cannot be recorded server-side
+    // without it.
+    const { data: inserted, error } = await supabase
+      .from('palettes')
+      .insert({
+        slug: slug,
+        display_name: displayName,
+        colors: hexes,
+        shape: shape,
+        angle: angle ?? null,
+        offsets: offsets ?? null,
+        author_id: authorId,
+      })
+      .select('id')
+      .single()
 
     if (!error) {
       // Success! It was totally unique.
       isSaved = true
-      return { success: true, slug, displayName }
+      return { success: true, id: inserted?.id as string | undefined, slug, displayName }
     } 
     
     // 3. If there is a conflict (slug is already taken)

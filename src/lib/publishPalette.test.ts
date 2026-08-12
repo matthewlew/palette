@@ -27,7 +27,13 @@ vi.mock('./supabase', () => ({
       chain.maybeSingle = () => Promise.resolve({ data: existingRow, error: null })
       chain.insert = (payload: Record<string, unknown>) => {
         inserts.push(payload)
-        return Promise.resolve({ error: null })
+        // publishPalette reads the new row's id back so the save layer can
+        // reference it — see savedSync.pushSave.
+        return {
+          select: () => ({
+            single: () => Promise.resolve({ data: { id: 'new-row-id' }, error: null }),
+          }),
+        }
       }
       return chain
     },

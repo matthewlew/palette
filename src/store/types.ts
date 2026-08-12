@@ -40,6 +40,11 @@ export interface Gradient {
    * yet) and on legacy rows, which nobody signed — see the accounts plan §5.
    * Absent is rendered as no byline rather than as "unknown". */
   author?: { id: string; username: string }
+  /** The `palettes` row this gradient corresponds to, once it has one.
+   * Distinct from `id`, which for a local save is a client-minted uuid that
+   * has never been near the database. Needed to record the save server-side,
+   * since palette_saves references palettes(id). */
+  paletteId?: string
   /** Drum's ink coverage metadata (PRD §3.7/§5.1). Absent on every `palette`
    * gradient. `stops[i].hex` stays authoritative and renders exactly as it
    * does today — this is additive metadata, never a second source of truth

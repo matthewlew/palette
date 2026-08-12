@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { signOut } from '../lib/auth'
+import { useAppStore } from '../store/useAppStore'
 // Shares SignInModal's stylesheet rather than duplicating a third
 // near-identical sheet: these are the same surface at the same size, differing
 // only in what they say.
@@ -30,12 +31,22 @@ interface AccountModalProps {
  */
 export function AccountModal({ username, onSignedOut, onClose }: AccountModalProps) {
   const [pending, setPending] = useState(false)
+  const saved = useAppStore((s) => s.saved)
+  const replaceSaved = useAppStore((s) => s.replaceSaved)
+
+  // Anything the server does not hold yet — a save made while offline, or one
+  // whose sync failed. Clearing those would destroy them, so they stay.
+  const unsynced = saved.filter((g) => !g.paletteId)
 
   async function handleSignOut() {
     if (pending) return
     setPending(true)
     try {
       await signOut()
+      // Clear only what the account can give back. `paletteId` is set by the
+      // sync in lib/savedSync.ts once a save is recorded server-side, so it is
+      // the evidence that signing back in will restore this gradient.
+      replaceSaved(unsynced)
       onSignedOut()
     } catch {
       setPending(false)
@@ -58,8 +69,16 @@ export function AccountModal({ username, onSignedOut, onClose }: AccountModalPro
         </button>
         <h3 className={styles.title}>@{username}</h3>
         <p className={styles.body}>
-          Gradients you publish carry this name. Gradients saved on this browser stay on this
-          browser for now — saving to your account comes later.
+          Your gradients stay on your account. They'll be cleared from this browser — sign back in
+          to get them.
+          {unsynced.length > 0 && (
+            <>
+              {' '}
+              {unsynced.length === 1
+                ? "One gradient hasn't saved to your account yet and will stay on this browser."
+                : `${unsynced.length} gradients haven't saved to your account yet and will stay on this browser.`}
+            </>
+          )}
         </p>
 
         <button
