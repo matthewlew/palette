@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { useAppStore } from '../store/useAppStore'
-import { buildGradientCss, nextRotationAngle, nextFanRotation, SELECTABLE_GEOMETRY, angleForTypeChange, defaultAngleForType, type GradientType } from '../lib/gradient'
+import { nextRotationAngle, nextFanRotation, SELECTABLE_GEOMETRY, angleForTypeChange, defaultAngleForType, type GradientType } from '../lib/gradient'
+import { buildCroppedGradientCss, cropClipPath, type GradientCrop } from '../lib/gradientCrop'
+import { OvalRadialLayers } from './OvalRadialLayers'
 import {
   toEditableStops,
   equalizeEditableStops,
@@ -702,7 +704,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
   // positions the user has already dragged into place — only handle removal/
   // addition/sorting re-equalizes, since those change stop count or order.
   function commitPreservingPositions(
-    overrides: Partial<Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops' | 'smoothEnabled' | 'fanAnchor' | 'angle'>>
+    overrides: Partial<Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops' | 'smoothEnabled' | 'fanAnchor' | 'angle' | 'crop'>>
   ) {
     setCurrentGradient({
       ...gradient,
@@ -733,6 +735,13 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
     const angle = angleForTypeChange(gradient.type, type, gradient.angle)
     feedSession.lockedAngle = angle
     commitPreservingPositions({ type, angle })
+  }
+
+  function handleSelectCrop(crop: GradientCrop) {
+    // 'rectangle' is stored as undefined, matching the Gradient interface's
+    // "unset = today's full-bleed behaviour" default so old saves stay byte-
+    // identical to a freshly-created rectangle gradient.
+    commitPreservingPositions({ crop: crop === 'rectangle' ? undefined : crop })
   }
 
   function handleToggleReversed() {
@@ -982,6 +991,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
         order={activeOrder}
         orderLabel={ORDER_LABELS[activeOrder]}
         onCycleOrder={handleSortCycle}
+        onSelectCrop={handleSelectCrop}
       />
 
       <div className={styles.blockArea}>
@@ -1072,15 +1082,19 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
         className={styles.preview}
         style={{
           backgroundImage:
-            gradient.type === 'square'
+            gradient.type === 'square' || (gradient.type === 'radial' && gradient.crop === 'oval')
               ? undefined
-              : buildGradientCss(gradient.type, animatedStops, gradient.reversed, {
+              : (buildCroppedGradientCss(gradient.type, animatedStops, gradient.reversed ?? false, {
                   repeat: gradient.repeatEnabled,
                   hard: gradient.hardStops,
                   fanAnchor: gradient.fanAnchor,
                   angle: gradient.angle,
                   smooth: gradient.smoothEnabled,
-                }),
+                }, gradient.crop) ?? undefined),
+          clipPath: cropClipPath(gradient.crop),
+          // Circle/oval: light/dark-mode aware backdrop behind the shape
+          // instead of the gradient's own last colour bleeding to the edges.
+          backgroundColor: gradient.crop && gradient.crop !== 'rectangle' ? 'var(--crop-backdrop, Canvas)' : undefined,
           // Shrink to the space actually left above the sheet instead of
           // sitting at full height underneath it — see sheetPopupRef above.
           height: isDesktop ? undefined : `calc(100dvh - ${sheetHidden ? 0 : sheetHeight}px)`,
@@ -1103,6 +1117,9 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
             blurPx={gradient.hardStops ? 0 : undefined}
             angle={gradient.angle}
           />
+        )}
+        {gradient.type === 'radial' && gradient.crop === 'oval' && (
+          <OvalRadialLayers stops={animatedStops} angle={gradient.angle} />
         )}
         <NoiseOverlay visible={noiseEnabled} />
         <PaletteTitle

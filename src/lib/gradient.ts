@@ -208,6 +208,18 @@ export const TURRELL_EXTENT_FLOOR = 0.1
  * component, the PNG export, this file's sampler, and (by hand, because it is a
  * separate Deno runtime) the preview edge function. Every one of those has
  * drifted from the others at least once. */
+/** Turrell's default blur/softness, as a percentage of its container's
+ * shorter edge (CSS `cqmin`) — resolution-independent by construction, unlike
+ * a flat pixel radius. Was a hardcoded ~24px, which worked out to roughly
+ * 4-6% of a typical canvas: high enough that the banded, concentric-square
+ * character was barely legible from an oval-refit radial gradient at the
+ * same blur. This lower value keeps the bands legible while still softening
+ * the edges. Shared by the live TurrellSquare component (via CSS `cqmin`)
+ * and canvasExport's Turrell path, so on-screen and exported renders match —
+ * they used to diverge (a flat 24px on screen vs `24 * width/400` on
+ * export), agreeing only at width=400. */
+export const TURRELL_SOFTNESS_PERCENT = 1.75
+
 export function turrellExtent(position: number, stopCount: number): number {
   if (stopCount <= 1) return 1
   return TURRELL_EXTENT_FLOOR + (position / 100) * (1 - TURRELL_EXTENT_FLOOR)

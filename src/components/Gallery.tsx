@@ -17,6 +17,8 @@ import { TileBoundary } from './TileBoundary'
 import { namePalette } from '../lib/naming'
 import { titleColorAt, paletteInkOn } from '../lib/titleColor'
 import { TurrellSquare } from './TurrellSquare'
+import { OvalRadialLayers } from './OvalRadialLayers'
+import { cropClipPath } from '../lib/gradientCrop'
 import { BoardShare } from './BoardShare'
 import { PaletteTitle } from './PaletteTitle'
 import { NoiseOverlay } from './NoiseOverlay'
@@ -266,8 +268,16 @@ function Tile({
         className={styles.tilePreview}
         style={{
           backgroundImage: tileBackground(gradient),
+          clipPath: cropClipPath(gradient.crop),
+          backgroundColor: gradient.crop && gradient.crop !== 'rectangle' ? 'var(--crop-backdrop, Canvas)' : undefined,
+          // Circle crops are always 1:1 — sizing the tile itself to a square
+          // (rather than clipping a circle inside a taller/wider rect) is
+          // what keeps a circle tile from leaving dead rectangular space
+          // around a circular thumbnail.
           aspectRatio:
-            galleryLayout === 'masonry' ? aspectRatio : galleryLayout === 'dense' ? '1 / 1' : '4 / 5',
+            gradient.crop === 'circle'
+              ? '1 / 1'
+              : galleryLayout === 'masonry' ? aspectRatio : galleryLayout === 'dense' ? '1 / 1' : '4 / 5',
           // The hero tile borrows the SHARED `palette-card` name, the same one
           // the full-screen viewer carries, so opening morphs the thumbnail
           // into the full-screen view (and closing morphs it back) instead of
@@ -284,6 +294,9 @@ function Tile({
         }}
       >
         {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={6} angle={gradient.angle} />}
+        {gradient.type === 'radial' && gradient.crop === 'oval' && (
+          <OvalRadialLayers stops={gradient.stops} angle={gradient.angle} layerCount={12} />
+        )}
         <NoiseOverlay visible={noiseEnabled} />
         {/* PRD §5.3's proposed mitigation for silent round-trip data loss: a
             Drum gradient looks identical to a plain one once rendered (hex is
@@ -519,7 +532,11 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes 
       aria-modal="true"
       aria-label={live.name ?? 'Gradient'}
       className={styles.viewer}
-      style={{ backgroundImage: tileBackground(live) }}
+      style={{
+        backgroundImage: tileBackground(live),
+        clipPath: cropClipPath(live.crop),
+        backgroundColor: live.crop && live.crop !== 'rectangle' ? 'var(--crop-backdrop, Canvas)' : undefined,
+      }}
       onClick={() => {
         // Doing it is learning it — once they've tapped out, the hint has
         // served its purpose and never returns.
