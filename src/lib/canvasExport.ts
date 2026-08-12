@@ -10,6 +10,7 @@ import {
   turrellExtent,
   angularSequence,
   mirrorSequence,
+  TURRELL_SOFTNESS_PERCENT,
 } from './gradient'
 
 function getLinearGradientCoords(angle: number = 0, width: number, height: number) {
@@ -201,7 +202,12 @@ export function renderGradientToCanvas(
       ctx.fillStyle = layers[0]?.hex ?? '#000000'
       ctx.fillRect(0, 0, width, height)
 
-      const blurRadius = 24 * (width / 400)
+      // Proportional to the shorter edge, matching TurrellSquare's own
+      // default (TURRELL_SOFTNESS_PERCENT of container cqmin) — this used to
+      // be `24 * (width / 400)` against the component's flat 24px, which
+      // only agreed at width=400 and made large exports blurrier than the
+      // on-screen render at every other size.
+      const blurRadius = (TURRELL_SOFTNESS_PERCENT / 100) * Math.min(width, height)
 
       for (const layer of layers) {
         const sizeX = 2 * reachX * layer.factor * width

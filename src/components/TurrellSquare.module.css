@@ -3,6 +3,10 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
+  /* Lets .layer's default blur read the container's own shorter edge via
+     cqmin, so the default softness is a resolution-independent percentage
+     instead of a flat pixel radius (see TURRELL_SOFTNESS_PERCENT). */
+  container-type: size;
 }
 
 .layer {
@@ -13,5 +17,7 @@
      so the GPU re-rasterizes it on content change instead of reusing a stale
      texture whose edges bleed random colors until a resize forces a repaint. */
   transform: translate(-50%, -50%) translateZ(0);
-  filter: blur(24px);
+  /* Default only — an explicit blurPx prop overrides this via inline style,
+     which always wins over a class rule. */
+  filter: blur(1.75cqmin);
 }

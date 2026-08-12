@@ -1,5 +1,5 @@
 import type { GradientStop } from '../lib/gradient'
-import { repeatedStops, getRadialConfig, turrellExtent } from '../lib/gradient'
+import { repeatedStops, getRadialConfig, turrellExtent, TURRELL_SOFTNESS_PERCENT } from '../lib/gradient'
 import styles from './TurrellSquare.module.css'
 
 interface TurrellSquareProps {
@@ -67,9 +67,24 @@ export function TurrellSquare({ stops: initialStops, reversed = false, blurPx, r
     >
       {sortedLayers.map((layer, index) => {
         const isOutermost = index === 0
-        const bleedPx = (blurPx ?? 24) * 4
-        const width = isOutermost ? `calc(${layer.widthPercent}% + ${bleedPx}px)` : `${layer.widthPercent}%`
-        const height = isOutermost ? `calc(${layer.heightPercent}% + ${bleedPx}px)` : `${layer.heightPercent}%`
+        // When blurPx is explicit, the caller has tuned it in px for its own
+        // container size and the bleed matches in px. Left undefined, the
+        // layer falls back to the CSS module's proportional default blur, so
+        // the bleed has to be proportional too — a flat px bleed here would
+        // silently reintroduce the resolution-dependence the CSS default was
+        // fixed to avoid.
+        const bleedPercent = blurPx == null ? TURRELL_SOFTNESS_PERCENT * 4 : undefined
+        const bleedPx = blurPx != null ? blurPx * 4 : undefined
+        const width = isOutermost
+          ? bleedPercent != null
+            ? `calc(${layer.widthPercent}% + ${bleedPercent}%)`
+            : `calc(${layer.widthPercent}% + ${bleedPx}px)`
+          : `${layer.widthPercent}%`
+        const height = isOutermost
+          ? bleedPercent != null
+            ? `calc(${layer.heightPercent}% + ${bleedPercent}%)`
+            : `calc(${layer.heightPercent}% + ${bleedPx}px)`
+          : `${layer.heightPercent}%`
         return (
           <div
             key={layer.id}
