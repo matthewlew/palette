@@ -7,7 +7,8 @@ import { AccountModal } from './AccountModal'
 import { ClaimModal } from './ClaimModal'
 import { useAppStore } from '../store/useAppStore'
 import { findClaimable, type ClaimCandidate } from '../lib/claimPalettes'
-import { consumeSignInPending } from '../lib/auth'
+import { consumeSignInPending, consumePriorUid } from '../lib/auth'
+import { mergeAnonymousAccount } from '../lib/mergeAccount'
 import styles from './AuthNav.module.css'
 
 const TOAST_DURATION_MS = 4000
@@ -17,11 +18,13 @@ const TOAST_DURATION_MS = 4000
  *
  *  - signed out (anonymous, no linked identity) → "Sign in" button
  *  - linked but no username yet → "Pick a username" chip, reopens the picker
- *  - linked with a username → "@handle" chip
+ *  - linked with a username → "@handle" chip, opens the account sheet
  *
- * Sign-out is deliberately not here yet: plan §6c gates it on saves being
- * server-side (step 5), so building it now would ship a control that clears
- * data it can't yet restore.
+ * It also owns the three things that can only happen on the way back from an
+ * OAuth redirect, in this order: fold in the session left behind (§6), confirm
+ * the sign-in, and offer to claim unsigned gradients that match the shelf (§5).
+ * They live here rather than in the modals because a redirect returns to the
+ * nav, not to whatever was open when it left.
  */
 export function AuthNav() {
   const { user, profile, isAnonymous, loading } = useSession()
@@ -59,6 +62,19 @@ export function AuthNav() {
     if (isAnonymous || !user) return
     if (!consumeSignInPending()) return
     signInAnnouncedRef.current = true
+
+    // Fold in the session left behind at the redirect, if it was a different
+    // one. A no-op on the ordinary path, where linking keeps the same uid.
+    // Saves need no special handling here: they are still in this browser's
+    // shelf, so useSavedSync's union pushes them up regardless.
+    const priorUid = consumePriorUid()
+    if (priorUid && priorUid !== user.id) {
+      mergeAnonymousAccount(priorUid).catch((err) =>
+        // Worth knowing about, but not worth interrupting a successful sign-in
+        // over: nothing is lost, the rows simply keep their old byline.
+        console.error('Could not merge your previous session:', err),
+      )
+    }
 
     // A first-time signer has no profile yet and is about to meet the username
     // picker, which announces itself with "You're @name." Toasting here too

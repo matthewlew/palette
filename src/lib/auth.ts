@@ -42,12 +42,32 @@ export function ensureSession(): Promise<void> {
  */
 const SIGN_IN_PENDING_KEY = 'palette-sign-in-pending'
 
-function markSignInPending(): void {
+/**
+ * The uid this browser held when it left for Google, so the page that comes
+ * back can fold that session's work into whatever account it lands in (plan
+ * §6). Same reasoning as the mark above: the redirect destroys the document,
+ * and after it the old uid is simply gone.
+ */
+const PRIOR_UID_KEY = 'palette-prior-uid'
+
+function markSignInPending(priorUid?: string): void {
   try {
     sessionStorage.setItem(SIGN_IN_PENDING_KEY, '1')
+    if (priorUid) sessionStorage.setItem(PRIOR_UID_KEY, priorUid)
   } catch {
     // Storage blocked (plan §13). The sign-in still works; it just completes
-    // without the confirmation toast.
+    // without the confirmation toast, and without merging.
+  }
+}
+
+/** The pre-redirect uid, once. Clears it. */
+export function consumePriorUid(): string | null {
+  try {
+    const uid = sessionStorage.getItem(PRIOR_UID_KEY)
+    if (uid) sessionStorage.removeItem(PRIOR_UID_KEY)
+    return uid
+  } catch {
+    return null
   }
 }
 
@@ -63,7 +83,11 @@ export function consumeSignInPending(): boolean {
 }
 
 export async function signInWithGoogle(): Promise<void> {
-  markSignInPending()
+  // Whatever session is being left behind — anonymous, in the ordinary case.
+  // Recorded before the redirect because afterwards there is no way to ask.
+  const { data } = await supabase.auth.getSession()
+  markSignInPending(data.session?.user.id)
+
   const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL}`
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
@@ -89,7 +113,11 @@ export async function linkGoogle(): Promise<void> {
     return
   }
 
-  markSignInPending()
+  // On the happy path linkIdentity keeps this very uid, so the merge that
+  // reads this is a no-op. It matters on the fallback below, where Google
+  // already owns a different account and this session is left behind.
+  markSignInPending(data.session.user.id)
+
   const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL}`
   const { error } = await supabase.auth.linkIdentity({
     provider: 'google',

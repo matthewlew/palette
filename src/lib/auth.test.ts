@@ -22,7 +22,8 @@ vi.mock('./supabase', () => ({
   },
 }))
 
-const { signInWithGoogle, linkGoogle, consumeSignInPending } = await import('./auth')
+const { signInWithGoogle, linkGoogle, consumeSignInPending, consumePriorUid } =
+  await import('./auth')
 
 beforeEach(() => {
   oauthCalls.length = 0
@@ -30,6 +31,34 @@ beforeEach(() => {
   hasSession = true
   linkError = null
   sessionStorage.clear()
+})
+
+describe('consumePriorUid', () => {
+  it('remembers the session being left behind, which the redirect destroys', async () => {
+    // The merge in plan §6 needs the OLD uid, and after the round trip there
+    // is no way to ask for it — the session it belonged to is gone.
+    await signInWithGoogle()
+    expect(consumePriorUid()).toBe('u')
+  })
+
+  it('fires once, so a re-render cannot re-merge', async () => {
+    await signInWithGoogle()
+    expect(consumePriorUid()).toBe('u')
+    expect(consumePriorUid()).toBeNull()
+  })
+
+  it('is null when there was no session to leave behind', async () => {
+    hasSession = false
+    await signInWithGoogle()
+    expect(consumePriorUid()).toBeNull()
+  })
+
+  it('records the anonymous uid on the link path too', async () => {
+    // linkIdentity normally keeps the same uid, making the merge a no-op — but
+    // on identity_already_exists this session really is abandoned.
+    await linkGoogle()
+    expect(consumePriorUid()).toBe('u')
+  })
 })
 
 describe('consumeSignInPending', () => {

@@ -393,12 +393,24 @@ the DNA; it is `where author_id is null`, and that is unchanged. The client
 still *matches* by DNA, in `lib/claimPalettes.ts`, which is where the guess
 belongs.
 
-**Merge (§6) is still not built.** It is the one gap left, and it is narrower
-than it looks: because linking Google keeps the same uid, the ordinary
-sign-in path never needs it. It bites only when the anonymous uid differs from
-the account's — sign out, publish, sign back in — which strands those rows
-under a dead uid where the claim cannot reach them either, since their
-`author_id` is set rather than null. Everything else in §§5–6 is in place.
+**Merge (§6) landed in `0007`,** closing the last gap. It matters only when
+the anonymous uid differs from the account's — sign out, publish, sign back in
+— since linking Google otherwise keeps the same uid and there is nothing to
+fold in. Those rows were stranded under a dead uid that the claim could not
+reach either, their `author_id` being set rather than null.
+
+It runs **without asking**, unlike claiming, and the difference is the point:
+claiming infers ownership from a colour match and can be wrong about a
+stranger's gradient, whereas here the browser genuinely held the session being
+merged. There is no inference to consent to.
+
+The honest caveat is the security model. After sign-out there is no longer any
+way to *prove* an anonymous session was yours, so knowing its uid is the proof
+— a bearer secret, an unguessable v4 uuid held only by the browser that owned
+it. The RPC's guards cap what that buys: the target must still be anonymous
+and must never have claimed a username, so no named account can be absorbed,
+and the most a guessed uuid could reach is one anonymous session's unsigned
+work. The alternative was stranding those rows permanently.
 
 ## 9. Tests
 
