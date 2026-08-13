@@ -72,6 +72,7 @@
   }
 }
 
+
 /* Wins over BOTH .hidden and .overCanvas on specificity (two classes to their
    one), so it doesn't depend on source order surviving a future edit. Used
    while a save is in flight: the bar is the destination, and a thumbnail
@@ -284,4 +285,40 @@
   overflow: hidden;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+}
+
+/* PHONE IN LANDSCAPE — a case the width breakpoints alone get wrong.
+ *
+ * A phone on its side is past 768px, so it takes the desktop branch: the bar
+ * centres on the canvas left of the panel. That centre is only ~300px wide
+ * once the panel and the notch inset are out, and the Save pill occupies its
+ * right end — so the two met in the middle of the one strip of canvas either
+ * could use.
+ *
+ * Docked to the notch side instead. Nothing here needs to be centred: it is a
+ * floating control, not a title, and against a 430px-tall viewport the corner
+ * is where iOS puts its own. Save keeps the opposite corner, hard against the
+ * panel — the inset is on the left in this orientation, so the right side has
+ * no gap to leave.
+ *
+ * Keyed on HEIGHT, which is what actually distinguishes this case. An iPad in
+ * landscape is also wide, and at 744px+ tall it has room for the centred bar,
+ * so it must not be caught by this. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .bar,
+  .overCanvas {
+    left: var(--edge-l);
+    transform: none;
+  }
+
+  /* Same move iOS makes on its own bars in landscape: a shorter row, because
+     the scarce axis is now the one the bar eats into. The tap target is still
+     36px against a 430px viewport, which is proportionally more generous than
+     44 against 932. */
+  .tab,
+  .tabOn,
+  .action {
+    height: 36px;
+    padding: 0 16px;
+  }
 }
