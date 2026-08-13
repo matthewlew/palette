@@ -16,19 +16,27 @@ comment on column public.palette_likes.user_id is
 -- Legacy rows keep the client id they were written with; new rows do not need
 -- one. The original primary key (palette_id, client_id) therefore cannot
 -- stand, since client_id is about to be absent.
-alter table public.palette_likes
-  alter column client_id drop not null;
-
+--
+-- Order matters: Postgres refuses to make a column nullable while it is part
+-- of a primary key, so the constraint goes first. Its name is read from the
+-- catalog rather than assumed to be `palette_likes_pkey`, which depends on how
+-- the table was originally created.
 do $$
+declare
+  v_pkey text;
 begin
-  if exists (
-    select 1 from pg_constraint
-     where conrelid = 'public.palette_likes'::regclass
-       and contype = 'p'
-  ) then
-    alter table public.palette_likes drop constraint palette_likes_pkey;
+  select conname into v_pkey
+    from pg_constraint
+   where conrelid = 'public.palette_likes'::regclass
+     and contype = 'p';
+
+  if v_pkey is not null then
+    execute format('alter table public.palette_likes drop constraint %I', v_pkey);
   end if;
 end $$;
+
+alter table public.palette_likes
+  alter column client_id drop not null;
 
 -- One like per palette per user, and the same guarantee for the legacy rows
 -- that still have only a client id. Partial indexes rather than one primary
