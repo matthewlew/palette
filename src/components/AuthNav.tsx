@@ -7,6 +7,7 @@ import { AccountModal } from './AccountModal'
 import { ClaimModal } from './ClaimModal'
 import { useAppStore } from '../store/useAppStore'
 import { findClaimable, type ClaimCandidate } from '../lib/claimPalettes'
+import { consumeSignInPending } from '../lib/auth'
 import styles from './AuthNav.module.css'
 
 const TOAST_DURATION_MS = 4000
@@ -41,6 +42,30 @@ export function AuthNav() {
     }
     wasAnonymous.current = isAnonymous
   }, [isAnonymous, user])
+
+  // Confirm a completed sign-in redirect.
+  //
+  // The transition itself is unobservable here: OAuth reloads the document, so
+  // by first render the session is simply named and there is no "before" to
+  // compare against — which is why this reads a mark left before the redirect
+  // rather than watching `isAnonymous` change (see lib/auth.ts).
+  //
+  // Waits for `loading` to settle, so the profile below is a real answer and
+  // not just "not fetched yet".
+  const signInAnnouncedRef = useRef(false)
+
+  useEffect(() => {
+    if (loading || signInAnnouncedRef.current) return
+    if (isAnonymous || !user) return
+    if (!consumeSignInPending()) return
+    signInAnnouncedRef.current = true
+
+    // A first-time signer has no profile yet and is about to meet the username
+    // picker, which announces itself with "You're @name." Toasting here too
+    // would stack two messages about the same event.
+    if (profile) showToast(`Signed in as @${profile.username}.`)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, isAnonymous, user, profile])
 
   // Offered once per signed-in account with a username, and only when the
   // shelf has something to match against. Deliberately after the username

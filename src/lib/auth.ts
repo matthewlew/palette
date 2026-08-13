@@ -29,7 +29,41 @@ export function ensureSession(): Promise<void> {
   return bootstrapping
 }
 
+/**
+ * Marks that a sign-in redirect is in flight, so the page that comes back can
+ * tell "the user just signed in" from "the user was already signed in".
+ *
+ * OAuth is a full page navigation: the app is torn down and rebuilt, and the
+ * session is already named by first render. Nothing held in a ref or in React
+ * state survives to observe the transition, so the intent has to be written
+ * somewhere that outlives the document. sessionStorage rather than
+ * localStorage, so it dies with the tab and cannot make a later cold start
+ * announce a sign-in that happened yesterday.
+ */
+const SIGN_IN_PENDING_KEY = 'palette-sign-in-pending'
+
+function markSignInPending(): void {
+  try {
+    sessionStorage.setItem(SIGN_IN_PENDING_KEY, '1')
+  } catch {
+    // Storage blocked (plan §13). The sign-in still works; it just completes
+    // without the confirmation toast.
+  }
+}
+
+/** True exactly once per completed sign-in redirect. Clears the mark. */
+export function consumeSignInPending(): boolean {
+  try {
+    if (sessionStorage.getItem(SIGN_IN_PENDING_KEY) === null) return false
+    sessionStorage.removeItem(SIGN_IN_PENDING_KEY)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function signInWithGoogle(): Promise<void> {
+  markSignInPending()
   const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL}`
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
@@ -55,6 +89,7 @@ export async function linkGoogle(): Promise<void> {
     return
   }
 
+  markSignInPending()
   const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL}`
   const { error } = await supabase.auth.linkIdentity({
     provider: 'google',
