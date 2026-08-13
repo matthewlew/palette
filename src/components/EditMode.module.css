@@ -45,6 +45,9 @@
   min-height: 0;
   position: relative;
   overflow: hidden;
+  /* Lets .previewSurface size a circle crop's square box off the preview's
+     own shorter axis via cq units, with no JS measurement. */
+  container-type: size;
   touch-action: manipulation;
   view-transition-name: palette-card;
   /* Matches the sheet's own open/close timing (see .sheet below) so the
@@ -56,6 +59,18 @@
   .preview {
     transition: none;
   }
+}
+
+/* The gradient picture itself, separate from .preview so a circle/oval crop
+   clips the picture without also clipping the chrome sitting over it (Save,
+   title, back, share, handles). Centred, because a circle crop is narrower
+   than the preview. */
+.previewSurface {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  overflow: hidden;
 }
 
 /* Fixed positioning container for the mobile sheet — see Drawer.Viewport.

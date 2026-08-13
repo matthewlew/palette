@@ -276,6 +276,15 @@
   background-position: center;
 }
 
+/* The tile's gradient picture. Separate from .tilePreview so a circle/oval
+   crop's clip-path can't reach the tile chrome layered over it. */
+.tileSurface {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+}
+
 .tileMeta {
   padding: 0 var(--space-1);
   display: flex;
@@ -572,6 +581,19 @@
 .viewerSquare {
   position: absolute;
   inset: 0;
+}
+
+/* The viewer's gradient picture, separate from .viewer so the crop clips the
+   picture and not the chrome over it. Centred: a circle crop is narrower than
+   the portrait viewport. */
+.viewerSurface {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
 }
 
 /* Close lives top-LEFT (matching EditMode's back button) so the share

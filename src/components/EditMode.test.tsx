@@ -896,3 +896,21 @@ describe('EditMode canvas handles', () => {
 })
 
 
+
+describe('EditMode crop', () => {
+  it('clips the gradient surface, never the preview the chrome lives on', () => {
+    const cropped: Gradient = { ...gradient, crop: 'circle' }
+    useAppStore.getState().setCurrentGradient(cropped)
+    render(<EditMode gradient={cropped} onExit={vi.fn()} />)
+    const surface = screen.getByTestId('edit-mode-surface')
+    expect(surface.style.clipPath).toBe('circle(50%)')
+    expect(surface.style.aspectRatio).toBe('1 / 1')
+    // The Save pill, the title and the back button all sit outside the clipped
+    // surface — a clip on the preview would cut them off.
+    const preview = screen.getByTestId('edit-mode-preview')
+    expect(preview.style.clipPath).toBe('')
+    expect(preview.contains(screen.getByTestId('like-button'))).toBe(true)
+    expect(surface.contains(screen.getByTestId('like-button'))).toBe(false)
+    expect(surface.contains(screen.getByTestId('palette-title-button'))).toBe(false)
+  })
+})
