@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { claimPalettes, type ClaimCandidate } from '../lib/claimPalettes'
+import { claimErrorMessage, claimPalettes, type ClaimCandidate } from '../lib/claimPalettes'
 import { tileBackground } from '../lib/tileBackground'
 import styles from './SignInModal.module.css'
 
@@ -35,9 +35,10 @@ export function ClaimModal({ candidates, onClaimed, onDismiss }: ClaimModalProps
     try {
       const claimed = await claimPalettes(candidates.map((c) => c.paletteId))
       onClaimed(claimed)
-    } catch {
+    } catch (err) {
       setPending(false)
-      setError("Couldn't claim those. Try again.")
+      setError(claimErrorMessage(err))
+      console.error('Claim failed:', err)
     }
   }
 

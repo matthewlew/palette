@@ -66,7 +66,57 @@ export async function findClaimable(local: Gradient[]): Promise<ClaimCandidate[]
 export async function claimPalettes(paletteIds: string[]): Promise<number> {
   if (paletteIds.length === 0) return 0
 
-  const { data, error } = await supabase.rpc('claim_palettes', { p_ids: paletteIds })
+  // Stringified at the boundary. The RPC takes `text[]` and compares
+  // `id::text` precisely because palettes.id is uuid in some deployments and
+  // bigint in others (0005's own note) — but on a bigint deployment PostgREST
+  // hands back JSON numbers, `PaletteRow.id: string` quietly does not hold,
+  // and the body goes out as `[1,2]` against a text[] parameter.
+  const { data, error } = await supabase.rpc('claim_palettes', { p_ids: paletteIds.map(String) })
   if (error) throw error
   return (data as number) ?? 0
+}
+
+/**
+ * What to put on screen when a claim fails.
+ *
+ * Every branch below is a DIFFERENT problem needing a different response, and
+ * the modal used to answer all of them with "Try again" — advice that is wrong
+ * for all but one, and which threw away the only evidence of which had
+ * happened. Same treatment SignInModal already gives its own failures.
+ *
+ * The RPC's two guards should be unreachable from the modal: it is only
+ * offered to a signed-in account that already has a profile. Reaching them
+ * anyway means the browser's session and the server's disagree, so the advice
+ * is to re-establish the session rather than to retry the same call.
+ *
+ * The fallback carries the raw message rather than replacing it. An
+ * unrecognised failure is exactly the one worth being able to read.
+ */
+export function claimErrorMessage(err: unknown): string {
+  const message = err instanceof Error ? err.message : typeof err === 'string' ? err : ''
+  const code = typeof err === 'object' && err !== null && 'code' in err ? String(err.code) : ''
+  const lower = message.toLowerCase()
+
+  // PGRST202: PostgREST could not find the function. The client is talking to
+  // a database that never ran 0005 — a deploy problem, not a user problem.
+  if (code === 'PGRST202' || lower.includes('could not find the function')) {
+    return 'Claiming is not available on this server yet. (The claim function is missing.)'
+  }
+  // PGRST203: two overloads of the same name, so PostgREST cannot pick one.
+  if (code === 'PGRST203' || lower.includes('could not choose the best candidate')) {
+    return 'Claiming is misconfigured on this server. (More than one claim function.)'
+  }
+  if (code === '28000' || lower.includes('not authenticated')) {
+    return "You're signed out on this server. Reload and sign in again."
+  }
+  if (code === '23503' || lower.includes('no profile')) {
+    return 'Pick a username first, then claim.'
+  }
+  if (code === '42501' || lower.includes('permission denied')) {
+    return "This account isn't allowed to claim. Reload and sign in again."
+  }
+  if (lower.includes('fetch') || lower.includes('network')) {
+    return "Couldn't reach the server. Check your connection and try again."
+  }
+  return message ? `Couldn't claim those: ${message}` : "Couldn't claim those. Try again."
 }
