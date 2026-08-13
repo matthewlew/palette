@@ -1,0 +1,142 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 100;
+  width: min(420px, 92vw);
+  max-height: 90vh;
+  border-radius: var(--radius-xl);
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  color: #fff;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.closeButton {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.closeButton:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+
+.title {
+  margin: 0 0 10px 0;
+  font-family: var(--th-display);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-align: left;
+}
+
+.body {
+  margin: 0 0 24px 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: left;
+}
+
+.primaryButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--control-h);
+  border-radius: var(--pill);
+  border: 0;
+  background: #fff;
+  color: #111;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primaryButton:hover {
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.primaryButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.dismissButton {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--control-h);
+  border-radius: var(--pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dismissButton:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.error {
+  margin: 0 0 16px 0;
+  font-size: 13px;
+  color: #ff8080;
+}
+
+/* Claim previews (ClaimModal). Here rather than in a sheet of their own
+   because this file is already the shared auth-sheet surface — same modal,
+   same padding, same type — and a fourth near-identical stylesheet to hold
+   two rules would be the wrong trade. */
+.previewGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 8px;
+  margin: 0 0 20px 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.preview {
+  aspect-ratio: 4 / 5;
+  border-radius: var(--radius-sm, 6px);
+  background-size: cover;
+  background-position: center;
+}
+
+.legal {
+  margin: 16px 0 0 0;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+}

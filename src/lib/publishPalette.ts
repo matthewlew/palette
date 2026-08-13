@@ -48,6 +48,17 @@ export async function publishPalette(
   let displayName = baseName
   let slug = generateSlug(displayName)
 
+  // Who is publishing. Null when there is no session at all (anonymous
+  // sign-in disabled or rate limited — accounts plan §13), which keeps
+  // publishing working exactly as it did before accounts existed.
+  let authorId: string | null = null
+  try {
+    const { data } = await supabase.auth.getSession()
+    authorId = data.session?.user.id ?? null
+  } catch {
+    /* no session — publish unattributed */
+  }
+
   // Dedup: if a gradient with this slug and identical colors + shape already
   // exists, reuse it instead of spawning a near-duplicate "Name 2" row (common
   // when the same gradient is exported/shared repeatedly). Best-effort — any
@@ -55,15 +66,21 @@ export async function publishPalette(
   try {
     const { data: existing } = await supabase
       .from('palettes')
-      .select('slug,colors,shape')
+      .select('id,slug,colors,shape,author_id')
       .eq('slug', slug)
       .maybeSingle()
     if (
       existing &&
       existing.shape === shape &&
-      JSON.stringify(existing.colors) === JSON.stringify(hexes)
+      JSON.stringify(existing.colors) === JSON.stringify(hexes) &&
+      // Reuse only when it is the same person's row (a re-share should not
+      // spawn a second copy) or when nobody owns it. A DIFFERENT author
+      // publishing the same colours gets their own row and their own byline
+      // — reusing here would file their work under someone else's name.
+      // Accounts plan §6.
+      (existing.author_id == null || existing.author_id === authorId)
     ) {
-      return { success: true, slug: existing.slug, displayName }
+      return { success: true, id: existing.id as string, slug: existing.slug, displayName }
     }
   } catch {
     /* ignore — proceed to insert */
@@ -74,19 +91,27 @@ export async function publishPalette(
 
   while (!isSaved) {
     // 2. Try to insert it into Supabase
-    const { error } = await supabase.from('palettes').insert({
-      slug: slug,
-      display_name: displayName,
-      colors: hexes,
-      shape: shape,
-      angle: angle ?? null,
-      offsets: offsets ?? null
-    })
+    // `select().single()` so the caller gets the row id back: palette_saves
+    // references palettes(id), so a save cannot be recorded server-side
+    // without it.
+    const { data: inserted, error } = await supabase
+      .from('palettes')
+      .insert({
+        slug: slug,
+        display_name: displayName,
+        colors: hexes,
+        shape: shape,
+        angle: angle ?? null,
+        offsets: offsets ?? null,
+        author_id: authorId,
+      })
+      .select('id')
+      .single()
 
     if (!error) {
       // Success! It was totally unique.
       isSaved = true
-      return { success: true, slug, displayName }
+      return { success: true, id: inserted?.id as string | undefined, slug, displayName }
     } 
     
     // 3. If there is a conflict (slug is already taken)

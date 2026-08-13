@@ -1,6 +1,18 @@
 import type { Gradient } from '../store/types'
 import type { GradientType } from './gradient'
 
+/**
+ * What every read of `palettes` asks for. One constant rather than the same
+ * string in the feed, search and the deep-link loader: those three had already
+ * been `select('*')` in three places, and a byline added to one of them is a
+ * byline missing from the other two.
+ *
+ * `author:profiles(username)` is a LEFT join — PostgREST returns null for a row
+ * with no matching profile rather than dropping it — so legacy and unsigned
+ * rows keep rendering, just without a name.
+ */
+export const PALETTE_SELECT = '*, author:profiles(username)'
+
 /** A row of the shared `palettes` table, as the anon client reads it. */
 export interface PaletteRow {
   id: string
@@ -12,6 +24,13 @@ export interface PaletteRow {
   created_at: string
   /** Cached like count. Absent until migration 0002 has been applied. */
   likes?: number | null
+  /** Who published this. Null on legacy rows, and on rows whose author has
+   * since deleted their account (`on delete set null`, migration 0003). */
+  author_id?: string | null
+  /** The embedded `profiles` row, when the select asked for it. PostgREST
+   * returns an object for a to-one embed and null when there is no match, so
+   * this is absent on a select that did not embed and null on one that did. */
+  author?: { username: string } | null
 }
 
 /** `#rgb` or `#rrggbb`. Anything else is not a colour this app can render, and
@@ -82,6 +101,11 @@ function unsafeToGradient(row: PaletteRow): Gradient {
     repeatEnabled: false,
     createdAt: new Date(row.created_at).getTime(),
     likeCount: row.likes ?? 0,
+    // Both halves have to be present: author_id without a profile means the
+    // handle was never claimed, and a byline needs something to say.
+    ...(row.author_id && row.author?.username
+      ? { author: { id: row.author_id, username: row.author.username } }
+      : {}),
   }
 }
 

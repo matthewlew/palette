@@ -39,6 +39,11 @@ function applyOrders(rows: Row[], orders: [string, boolean][]): Row[] {
 
 vi.mock('../lib/supabase', () => ({
   supabase: {
+    auth: {
+      getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+      signInAnonymously: () => Promise.resolve({ data: { session: null, user: null }, error: null }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+    },
     from: () => {
       const orders: [string, boolean][] = []
       const chain: Record<string, unknown> = {}

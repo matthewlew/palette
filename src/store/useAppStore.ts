@@ -212,6 +212,16 @@ interface AppState {
   lastDeletedBatch: { gradient: Gradient; index: number }[] | null
   /** Redo counterpart to lastDeletedBatch — see lastUndone. */
   lastUndoneBatch: { gradient: Gradient; index: number }[] | null
+  /**
+   * Replaces the whole shelf, for the server reconciliation in
+   * lib/savedSync.ts. Not an editing action — nothing in the UI calls it, and
+   * it deliberately records no undo, because the result of a sync is not a
+   * change the user made and "undo" of it would mean nothing.
+   *
+   * The store stays free of any network import so it remains testable without
+   * mocking Supabase; hooks/useSavedSync.ts owns the talking.
+   */
+  replaceSaved: (saved: Gradient[]) => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -356,6 +366,7 @@ export const useAppStore = create<AppState>()(
           ],
         })
       },
+      replaceSaved: (saved) => set({ saved }),
       isGradientSaved: (gradient) => {
         const signature = gradientSignature(gradient)
         return get().saved.some((g) => gradientSignature(g) === signature)
