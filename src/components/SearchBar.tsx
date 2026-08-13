@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Gradient } from '../store/types'
-import { toGradient, PALETTE_SELECT } from '../lib/paletteRow'
+import { toGradient, PALETTE_SELECT, attachAuthors } from '../lib/paletteRow'
 import { COLOR_NOUNS, type HueFamily } from '../lib/namingWords'
 import { parseQuery } from '../lib/shapeSearch'
 import { Icon } from '../icons'
@@ -119,7 +119,7 @@ export function SearchBar({ onResults, saved = [], onActiveChange, onCancel }: S
           // would have ended up showing every palette at zero likes.
           // Rows that cannot be drawn map to null and are dropped; rendering
           // one throws and takes the whole page down.
-          const gradients: Gradient[] = data
+          const gradients: Gradient[] = (await attachAuthors(data))
             .map(toGradient)
             .filter((g): g is Gradient => g !== null)
           onResults({ mine, community: gradients })

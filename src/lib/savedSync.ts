@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import { publishGradient } from './publishPalette'
-import { PALETTE_SELECT, toGradient, paletteDna, type PaletteRow } from './paletteRow'
+import { PALETTE_SELECT, toGradient, paletteDna, attachAuthors, type PaletteRow } from './paletteRow'
 import type { Gradient } from '../store/types'
 
 /**
@@ -41,9 +41,15 @@ export async function fetchServerSaves(): Promise<Gradient[]> {
   if (error) throw error
 
   const rows = (data ?? []) as unknown as SaveRow[]
+  // One byline query for the whole shelf, rather than one per save.
+  const attached = new Map(
+    (await attachAuthors(rows.map((r) => r.palettes).filter((p): p is PaletteRow => !!p))).map(
+      (p) => [p.id, p],
+    ),
+  )
   return rows.flatMap((row) => {
     if (!row.palettes) return []
-    const gradient = toGradient(row.palettes)
+    const gradient = toGradient(attached.get(row.palettes.id) ?? row.palettes)
     if (!gradient) return []
     // The save's own timestamp, not the palette's: the shelf is ordered by
     // when you saved a thing, which is not when it was published.

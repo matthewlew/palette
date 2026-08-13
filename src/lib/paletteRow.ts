@@ -1,3 +1,4 @@
+import { supabase } from './supabase'
 import type { Gradient } from '../store/types'
 import type { GradientType } from './gradient'
 
@@ -7,11 +8,19 @@ import type { GradientType } from './gradient'
  * been `select('*')` in three places, and a byline added to one of them is a
  * byline missing from the other two.
  *
- * `author:profiles(username)` is a LEFT join — PostgREST returns null for a row
- * with no matching profile rather than dropping it — so legacy and unsigned
- * rows keep rendering, just without a name.
+ * Bylines are NOT embedded here. This briefly read
+ * `'*, author:profiles(username)'`, which PostgREST rejects outright with
+ * PGRST200: an embed needs a foreign key between the two tables, and
+ * `palettes.author_id` references `auth.users(id)`, not `profiles(id)`. That
+ * is not a typo to fix — pointing the column at `profiles` instead would make
+ * publishing fail for anyone who has not chosen a username yet, since they
+ * have no profile row to reference. Worse, the failure was total rather than
+ * partial: a rejected embed fails the whole query, so every read path lost
+ * every row, not just its byline.
+ *
+ * So the join happens client-side, in attachAuthors below.
  */
-export const PALETTE_SELECT = '*, author:profiles(username)'
+export const PALETTE_SELECT = '*'
 
 /** A row of the shared `palettes` table, as the anon client reads it. */
 export interface PaletteRow {
@@ -31,6 +40,37 @@ export interface PaletteRow {
    * returns an object for a to-one embed and null when there is no match, so
    * this is absent on a select that did not embed and null on one that did. */
   author?: { username: string } | null
+}
+
+/**
+ * Fills in `author` on rows that have an `author_id`, with one extra query.
+ *
+ * The join PostgREST cannot do (see PALETTE_SELECT). One request for all the
+ * distinct authors on the page, not one per row.
+ *
+ * Failing softly is deliberate and is the whole lesson of the outage this
+ * replaced: a missing byline is a cosmetic loss, so it must never be able to
+ * cost the caller its rows. On any error the palettes come back unattributed
+ * rather than not at all.
+ */
+export async function attachAuthors(rows: PaletteRow[]): Promise<PaletteRow[]> {
+  const ids = [...new Set(rows.map((r) => r.author_id).filter((id): id is string => !!id))]
+  if (ids.length === 0) return rows
+
+  const { data, error } = await supabase.from('profiles').select('id, username').in('id', ids)
+  if (error) {
+    console.error('Could not load bylines:', error)
+    return rows
+  }
+
+  const usernameById = new Map((data ?? []).map((p) => [p.id as string, p.username as string]))
+  return rows.map((row) => {
+    const username = row.author_id ? usernameById.get(row.author_id) : undefined
+    // An author with no profile row has not chosen a username yet. Absent
+    // renders as no byline, which is the same as a legacy row — correct, since
+    // in both cases there is no name to show.
+    return username ? { ...row, author: { username } } : row
+  })
 }
 
 /** `#rgb` or `#rrggbb`. Anything else is not a colour this app can render, and

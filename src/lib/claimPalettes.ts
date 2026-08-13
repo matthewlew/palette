@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { PALETTE_SELECT, paletteDna, toGradient, type PaletteRow } from './paletteRow'
+import { PALETTE_SELECT, paletteDna, toGradient, attachAuthors, type PaletteRow } from './paletteRow'
 import type { Gradient } from '../store/types'
 
 /**
@@ -44,7 +44,10 @@ export async function findClaimable(local: Gradient[]): Promise<ClaimCandidate[]
   const seen = new Set<string>()
   const candidates: ClaimCandidate[] = []
 
-  for (const row of (data ?? []) as PaletteRow[]) {
+  // Unsigned by definition, so there are no bylines to attach — but the
+  // shape stays consistent with every other read path.
+  const rows = await attachAuthors((data ?? []) as PaletteRow[])
+  for (const row of rows) {
     const gradient = toGradient(row)
     if (!gradient) continue
     const dna = paletteDna(gradient)

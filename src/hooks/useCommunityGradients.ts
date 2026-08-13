@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Gradient } from '../store/types'
-import { toGradient, paletteDna as dna, PALETTE_SELECT, type PaletteRow } from '../lib/paletteRow'
+import { toGradient, paletteDna as dna, PALETTE_SELECT, attachAuthors, type PaletteRow } from '../lib/paletteRow'
 
 /** Rows per request, and the size of the first page.
  *
@@ -86,7 +86,9 @@ export function useCommunityGradients(order: CommunityOrder = 'recent') {
       // belong to a feed that is no longer on screen.
       if (generation !== generationRef.current) return
 
-      const rows: PaletteRow[] = data ?? []
+      // Bylines come from a second query rather than a PostgREST embed —
+      // there is no foreign key to embed across. See lib/paletteRow.ts.
+      const rows: PaletteRow[] = await attachAuthors(data ?? [])
       fetchedRowsRef.current = from + rows.length
       setHasMore(rows.length === COMMUNITY_PAGE_SIZE)
 
