@@ -54,6 +54,7 @@ export function Drawer({ saved, onSelect, hidden = false }: DrawerProps) {
                         repeat: gradient.repeatEnabled,
                         hard: gradient.hardStops,
                         smooth: gradient.smoothEnabled,
+                        prism: gradient.prismEnabled,
                         fanAnchor: gradient.fanAnchor, angle: gradient.angle,
                       }),
               }}

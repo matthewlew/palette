@@ -39,6 +39,7 @@ export function makeGradient(
     reversed: false,
     hardStops: false,
     repeatEnabled: false,
+    prismEnabled: false,
     fanAnchor: 'bottom',
     // undefined is CENTRE for radial and Turrell; 0 for the rest.
     angle: defaultAngleForType(type),
@@ -66,6 +67,7 @@ export const feedSession: {
   lockedRepeatEnabled: boolean | undefined;
   lockedReversed: boolean | undefined;
   lockedCrop: GradientCrop | undefined;
+  lockedPrismEnabled: boolean | undefined;
 } = {
   history: [],
   index: 0,
@@ -75,6 +77,7 @@ export const feedSession: {
   lockedRepeatEnabled: undefined,
   lockedReversed: undefined,
   lockedCrop: undefined,
+  lockedPrismEnabled: undefined,
 }
 
 export function resetFeedSession() {
@@ -86,6 +89,7 @@ export function resetFeedSession() {
   feedSession.lockedRepeatEnabled = undefined
   feedSession.lockedReversed = undefined
   feedSession.lockedCrop = undefined
+  feedSession.lockedPrismEnabled = undefined
 }
 
 /** Riff: seed the Create rolodex with a gradient picked in the Gallery.
@@ -107,6 +111,7 @@ export function startFeedWithType(gradient: Gradient) {
   feedSession.lockedRepeatEnabled = gradient.repeatEnabled
   feedSession.lockedReversed = gradient.reversed
   feedSession.lockedCrop = gradient.crop
+  feedSession.lockedPrismEnabled = gradient.prismEnabled
 }
 
 export function riffIntoFeed(gradient: Gradient) {
@@ -118,6 +123,7 @@ export function riffIntoFeed(gradient: Gradient) {
   feedSession.lockedRepeatEnabled = gradient.repeatEnabled
   feedSession.lockedReversed = gradient.reversed
   feedSession.lockedCrop = gradient.crop
+  feedSession.lockedPrismEnabled = gradient.prismEnabled
 }
 
 interface FeedProps {
@@ -217,7 +223,8 @@ export function Feed({ chromeVisible = true }: FeedProps) {
         angle: angleToUse,
         hardStops: feedSession.lockedHardStops ?? false,
         repeatEnabled: feedSession.lockedRepeatEnabled ?? false,
-        reversed: feedSession.lockedReversed ?? false
+        reversed: feedSession.lockedReversed ?? false,
+        prismEnabled: feedSession.lockedPrismEnabled ?? false
       }
       feedSession.history = [initial]
       feedSession.index = 0
@@ -239,6 +246,7 @@ export function Feed({ chromeVisible = true }: FeedProps) {
         feedSession.lockedRepeatEnabled = current.repeatEnabled
         feedSession.lockedReversed = current.reversed
         feedSession.lockedCrop = current.crop
+        feedSession.lockedPrismEnabled = current.prismEnabled
       }
       setDisplayed(feedSession.history[feedSession.index])
       setTickerIndex(feedSession.index)
@@ -269,6 +277,7 @@ export function Feed({ chromeVisible = true }: FeedProps) {
     feedSession.lockedRepeatEnabled = current.repeatEnabled
     feedSession.lockedReversed = current.reversed
     feedSession.lockedCrop = current.crop
+    feedSession.lockedPrismEnabled = current.prismEnabled
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current])
 
@@ -297,7 +306,8 @@ export function Feed({ chromeVisible = true }: FeedProps) {
         hardStops: feedSession.lockedHardStops ?? false,
         repeatEnabled: feedSession.lockedRepeatEnabled ?? false,
         reversed: feedSession.lockedReversed ?? false,
-        crop: feedSession.lockedCrop
+        crop: feedSession.lockedCrop,
+        prismEnabled: feedSession.lockedPrismEnabled ?? false
       }
       history.push(fresh)
     }

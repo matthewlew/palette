@@ -11,6 +11,13 @@
  *   OKLCH arc, which bows the mid-tones away from that line (more chromatic
  *   mid-tones, and a hue that swings around the wheel between distant hues).
  *
+ * The Prism effect does NOT reach for `space: 'oklch'`. Prism densifies the
+ * ramp into ordinary CSS stops that already sit on the OKLCH arc, so a layer
+ * renderer walking `'css'` between those dense stops lands on the same colours
+ * the rectangle crop paints. Flipping `space` too would apply the arc a second
+ * time, between stops that are already on it, and put the oval back out of
+ * agreement with every other shape.
+ *
  * The defaults are the fidelity setting — an oval crop must read as the same
  * colour as a rectangle one. The other end of each knob is the "sampled flat
  * layers" character; it stays reachable per-instance rather than being

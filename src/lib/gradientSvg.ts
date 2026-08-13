@@ -1,6 +1,6 @@
 import type { Gradient } from '../store/types'
 import type { GradientStop, GradientType } from './gradient'
-import { applyReversed, positionedStops, repeatedStops, hardenStops, smoothStops } from './gradient'
+import { applyReversed, positionedStops, repeatedStops, hardenStops, smoothStops, prismStops } from './gradient'
 
 const RADIAL_TYPES: ReadonlySet<GradientType> = new Set(['radial'])
 
@@ -17,8 +17,12 @@ function safeHex(hex: string): string {
 function effectiveStops(gradient: Gradient): GradientStop[] {
   const reversed = applyReversed(gradient.stops, gradient.reversed ?? false)
   const hexes = reversed.map((s) => s.hex)
-  const smooth = (s: GradientStop[]): GradientStop[] =>
-    gradient.smoothEnabled && !gradient.hardStops ? smoothStops(s) : s
+  const smooth = (s: GradientStop[]): GradientStop[] => {
+    if (gradient.hardStops) return s
+    if (gradient.smoothEnabled) return smoothStops(s)
+    if (gradient.prismEnabled) return prismStops(s)
+    return s
+  }
 
   switch (gradient.type) {
     case 'mirror': {

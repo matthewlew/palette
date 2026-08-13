@@ -11,6 +11,7 @@ interface OvalRadialLayersProps {
   repeatEnabled?: boolean
   hardStops?: boolean
   smoothEnabled?: boolean
+  prismEnabled?: boolean
   /** Shorthand for `sampling.layerCount` — surfaces the one knob small tiles
    * already tune. */
   layerCount?: number
@@ -36,6 +37,7 @@ export function OvalRadialLayers({
   repeatEnabled,
   hardStops,
   smoothEnabled,
+  prismEnabled,
   layerCount,
   sampling,
 }: OvalRadialLayersProps) {
@@ -53,6 +55,7 @@ export function OvalRadialLayers({
     repeat: repeatEnabled,
     hard: hardStops,
     smooth: smoothEnabled,
+    prism: prismEnabled,
   })
   // A single extent (not a per-axis reach): the isolines of a radial inside a
   // curved crop must stay similar to the crop's own curve — see

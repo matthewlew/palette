@@ -23,6 +23,7 @@ export function tileBackground(gradient: Gradient): string | undefined {
         repeat: gradient.repeatEnabled,
         hard: gradient.hardStops,
         smooth: gradient.smoothEnabled,
+        prism: gradient.prismEnabled,
         fanAnchor: gradient.fanAnchor,
         angle: gradient.angle,
       },

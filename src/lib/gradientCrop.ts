@@ -1,5 +1,5 @@
 import type { GradientStop, GradientType, FanAnchor, GradientFilters } from './gradient'
-import { resolveFanConfig, getRadialConfig, buildGradientCss, applyReversed, fanSequence, smoothStops } from './gradient'
+import { resolveFanConfig, getRadialConfig, buildGradientCss, applyReversed, fanSequence, densifierFor } from './gradient'
 
 /** The three crop shapes a gradient can render into. `undefined`/`'rectangle'`
  * on a saved Gradient means today's full-bleed behaviour — this stays optional
@@ -270,14 +270,16 @@ export function buildCroppedGradientCss(
   if (!crop || crop === 'rectangle') return buildGradientCss(type, stops, reversed, filters)
 
   const angle = filters.angle ?? 0
-  const smooth = !!filters.smooth && !filters.hard
+  // The same Smooth/Prism/Hard resolution buildGradientCss applies, so a
+  // cropped geometry that builds its own CSS here densifies identically.
+  const densify = densifierFor(filters, type)
 
   if (type === 'radial') {
     if (crop === 'oval') return null
     const orderedStops = applyReversed(stops, reversed)
     const origin = getRadialConfig(filters.angle)
     const { rx, ry } = radialCropAxes(crop, origin.px, origin.py)
-    const finalStops = smooth ? smoothStops(orderedStops) : orderedStops
+    const finalStops = densify(orderedStops)
     return `radial-gradient(${(rx * 100).toFixed(2)}% ${(ry * 100).toFixed(2)}% at ${origin.px * 100}% ${origin.py * 100}%, ${stopsToCss(finalStops)})`
   }
 
@@ -293,7 +295,7 @@ export function buildCroppedGradientCss(
     const orderedStops = applyReversed(stops, reversed)
     const { from, span } = refitFanForCrop(crop, filters.fanAnchor, filters.angle)
     const sequence = fanSequence(orderedStops, span)
-    const finalStops = smooth ? smoothStops(sequence) : sequence
+    const finalStops = densify(sequence)
     const { px, py } = resolveFanConfig(filters.fanAnchor, filters.angle)
     return `conic-gradient(from ${from}deg at ${px * 100}% ${py * 100}%, ${stopsToCss(finalStops)})`
   }
