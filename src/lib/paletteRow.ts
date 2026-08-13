@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { parseRenderSettings } from './renderSettings'
 import type { Gradient } from '../store/types'
 import type { GradientType } from './gradient'
 
@@ -31,6 +32,10 @@ export interface PaletteRow {
   shape: string
   angle: number | null
   created_at: string
+  /** Crop and effect toggles, as stored. Absent until migration 0009 has been
+   * applied, and null on every row published before it. Validated on the way
+   * out — see parseRenderSettings. */
+  render?: unknown
   /** Cached like count. Absent until migration 0002 has been applied. */
   likes?: number | null
   /** Who published this. Null on legacy rows, and on rows whose author has
@@ -129,6 +134,11 @@ function unsafeToGradient(row: PaletteRow): Gradient {
     id: `stop-${i}`,
   }))
 
+  // Crop and effects as published. Everything absent from the blob keeps the
+  // default below, so a row from before the column existed reads exactly as it
+  // did: full-bleed rectangle, bottom-anchored fan, every effect off.
+  const render = parseRenderSettings(row.render)
+
   return {
     id: row.id,
     name: row.display_name,
@@ -139,6 +149,7 @@ function unsafeToGradient(row: PaletteRow): Gradient {
     reversed: false,
     hardStops: false,
     repeatEnabled: false,
+    ...render,
     createdAt: new Date(row.created_at).getTime(),
     likeCount: row.likes ?? 0,
     // Both halves have to be present: author_id without a profile means the

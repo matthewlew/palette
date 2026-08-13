@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import { buildCroppedGradientCss, cropClipPath, cropSurfaceSize } from '../lib/gradientCrop'
 import { useAppStore } from '../store/useAppStore'
 import { namePalette } from '../lib/naming'
+import { renderSettingsOf } from '../lib/renderSettings'
 import { titleColorAt } from '../lib/titleColor'
 import { describeGradient } from '../lib/gradientSummary'
 import { TurrellSquare } from './TurrellSquare'
@@ -55,7 +56,14 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, onBack, ch
       const hexes = gradient.stops.map(s => s.hex)
       const offsets = gradient.stops.map(s => s.position)
       try {
-        const result = await publishPalette(hexes, gradient.type, gradient.angle, gradient.name, offsets)
+        const result = await publishPalette(
+          hexes,
+          gradient.type,
+          gradient.angle,
+          gradient.name,
+          offsets,
+          renderSettingsOf(gradient),
+        )
         if (result?.displayName) {
           renameCurrentGradient(result.displayName)
         }
