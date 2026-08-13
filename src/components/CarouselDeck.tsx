@@ -3,6 +3,7 @@ import type { Gradient } from '../store/types'
 import { tileBackground } from '../lib/tileBackground'
 import { namePalette } from '../lib/naming'
 import { TurrellSquare } from './TurrellSquare'
+import { OvalRadialLayers } from './OvalRadialLayers'
 import styles from './CarouselDeck.module.css'
 
 interface CarouselDeckProps {
@@ -118,6 +119,11 @@ export function CarouselDeck({ gradients, onOpen }: CarouselDeckProps) {
                 blurPx={5}
                 angle={gradient.angle}
               />
+            )}
+            {/* tileBackground can't express this one (see its own note), so
+                without the layered renderer the card paints nothing at all. */}
+            {gradient.type === 'radial' && gradient.crop === 'oval' && (
+              <OvalRadialLayers stops={gradient.stops} angle={gradient.angle} layerCount={10} />
             )}
             <span className={styles.index}>{i + 1}</span>
             <span className={styles.cardName}>
