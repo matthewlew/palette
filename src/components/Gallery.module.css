@@ -553,6 +553,13 @@
   animation: tile-enter 200ms ease both;
 }
 
+/* Clears .viewerActionsBar, which sits at --tabbar-top + 12px and is one
+   --control-tap tall. Anchored to the same token the bar itself uses, so the
+   two cannot drift apart on a taller phone or a shorter tab bar. */
+.undoToastRaised {
+  bottom: calc(var(--tabbar-top) + 12px + var(--control-tap) + 12px);
+}
+
 .undoText {
   color: rgba(255, 255, 255, 0.85);
   font-size: 13px;

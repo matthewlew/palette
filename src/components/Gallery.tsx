@@ -1800,7 +1800,14 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
       )}
 
       {undoVisible && (lastDeleted || lastDeletedBatch) && (
-        <div data-testid="undo-toast" className={styles.undoToast} role="status">
+        <div
+          data-testid="undo-toast"
+          // Raised over the viewer, where a row of actions (heart, Save,
+          // Edit, Delete) already occupies the strip above the tab bar and
+          // the toast landed straight on top of it.
+          className={[styles.undoToast, open && styles.undoToastRaised].filter(Boolean).join(' ')}
+          role="status"
+        >
           <span className={styles.undoText}>
             {lastDeletedBatch
               ? `Deleted ${lastDeletedBatch.length} palettes`
