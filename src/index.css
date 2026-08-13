@@ -95,6 +95,16 @@
    * tab bar both used. Declared once here instead of repeated per component. */
   --glass-blur: 14px;
 
+  /* The corners a circle/oval crop clips away from. Every crop call site sets
+   * `background-color: var(--crop-backdrop, Canvas)` with no definition of
+   * this in scope, so it was silently resolving to the CSS system color
+   * `Canvas` — white or light grey on most platforms — against an app that is
+   * dark everywhere else. Defining it as the same --c-950 the rest of the UI
+   * paints its background with (see the file header) makes the clipped
+   * corners disappear into the surrounding chrome instead of announcing the
+   * rectangle underneath. */
+  --crop-backdrop: var(--c-950);
+
   /* LDS body type, not an invented one.
    *
    * This was `font: 18px/145%` with `letter-spacing: 0.18px` — a leftover from
