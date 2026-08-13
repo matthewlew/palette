@@ -228,6 +228,18 @@
     margin-right: calc(-1 * var(--edit-panel-w));
   }
 
+  /* Right-anchored chrome on the canvas is against the PANEL, not the screen,
+     so the notch inset baked into --edge-r does not belong to it. On a phone
+     in landscape that inset is 59px, which pushed Save most of a thumb's width
+     away from the edge it is supposed to sit on — and, before the tab bar was
+     un-centred, straight into the bar.
+
+     Nothing physical can occlude this edge: the panel is over it. A plain
+     16px, matching what --edge-r resolves to when there is no inset at all. */
+  .preview :global([data-testid='like-button']) {
+    right: 16px;
+  }
+
   .sheetContent {
     /* Drops the mobile bottom-sheet cap: here the sheet is a full-height side
        panel and 62dvh would leave a third of it empty. */

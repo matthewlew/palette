@@ -989,6 +989,75 @@
   }
 }
 
+/* PHONE IN LANDSCAPE — the bar's genuinely broken case, and the reason this
+ * block exists at all.
+ *
+ * A phone on its side is ~932px wide, so it takes the DESKTOP header: full
+ * search field, every browse control on the bar, nothing in the overflow. The
+ * field is centred by absolute positioning, which assumes the run between the
+ * tabs and the actions is wider than the field. In landscape it is 12px wide.
+ * So a 298px field was laid over both of its neighbours — the placeholder
+ * printed through "Community" and the layout toggles sat under Select.
+ *
+ * Nothing was overflowing, which is why it never showed up as one: the flex
+ * row fits. The field is out of the flow and lands on top of it.
+ *
+ * The fix is the compaction the phone already has — search collapses to its
+ * icon, the browse controls fold into ⋯ — without the part of it that costs
+ * height. No wrap, no reordering: the row stays one row, because in landscape
+ * the scarce axis is the one a second row would eat.
+ *
+ * AFTER both the `min-width: 768px` and `max-width: 767px` blocks on purpose:
+ * the selectors here are identical to theirs, so this wins on source order
+ * alone. Move it up and it silently stops working. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .header,
+  .headerSelecting {
+    flex-wrap: nowrap;
+  }
+
+  /* Back into the flow at its collapsed width, undoing the desktop centring.
+     `static` is what releases it; the rest re-states the icon-sized box,
+     because the phone rule that defines it is behind a width query this
+     viewport does not match. */
+  .headerActions :global([data-testid='search-container']) {
+    position: static;
+    transform: none;
+    flex: 0 0 auto;
+    width: var(--control-h);
+    min-width: 0;
+    max-width: none;
+  }
+
+  /* Focused, it takes the bar — same behaviour as the portrait phone, and the
+     only way a search field is usable at this width. */
+  .headerActions :global([data-testid='search-container']):focus-within {
+    position: absolute;
+    left: calc(var(--space-4) + var(--safe-l));
+    right: calc(var(--space-4) + var(--safe-r));
+    width: auto;
+    z-index: 6;
+  }
+
+  .header:has(:global([data-testid='search-container']):focus-within) .wordmark,
+  .header:has(:global([data-testid='search-container']):focus-within) .titleArea,
+  .header:has(:global([data-testid='search-container']):focus-within) .headerActions > *:not([data-testid='search-container']) {
+    visibility: hidden;
+  }
+
+  /* Layout, sort, shape and Select move into ⋯ — all of them "how am I looking
+     at this", none of them worth a row of a 430px viewport. */
+  .headerActions > .toggleGroup,
+  .headerActions > .soloGroup,
+  .filterBar {
+    display: none;
+  }
+
+  .moreWrap {
+    display: inline-flex;
+  }
+}
+
 .moreBtn,
 .moreBtnOpen {
   display: inline-flex;

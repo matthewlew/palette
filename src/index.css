@@ -78,6 +78,9 @@
   --tabbar-gap: 18px;
   --tabbar-top: calc(var(--tabbar-gap) + var(--tabbar-h) + var(--safe-b));
 
+  /* A phone in landscape overrides both of these — see the media block just
+   * below the end of this rule. */
+
   /* Width of the editor's desktop side panel. Declared here rather than in
    * EditMode.module.css because two components have to agree on it: the panel
    * sets its flex-basis from it, and floating chrome anchored to the right of
@@ -116,6 +119,26 @@
      18px base. LDS sizes are absolute px on a fixed scale, deliberately: the
      scale is the same on every viewport and components that need to shrink say
      so themselves. */
+}
+
+/* PHONE IN LANDSCAPE. The bar itself gets a shorter row in TabBar.module.css
+ * (12px of padding + 36 + 2 rather than 12 + 44 + 2 = 58), and its footprint
+ * has to shrink here by the same 8px or every control that clears it via
+ * --tabbar-top goes on clearing a bar that is no longer there. Measured in the
+ * browser at 932x430, not derived twice. The gap comes down with it: 18px
+ * of air reads as generous against 844px of height and as waste against 430.
+ *
+ * Keyed on height, not width — a phone on its side is past every width
+ * breakpoint the app has, which is the whole reason this case was broken.
+ * An iPad in landscape is 744px+ tall and keeps the full-size bar.
+ *
+ * The same condition appears in TabBar.module.css and Gallery.module.css.
+ * Change one and change all three. */
+@media (orientation: landscape) and (max-height: 500px) {
+  :root {
+    --tabbar-h: 50px;
+    --tabbar-gap: 12px;
+  }
 }
 
 /* Shared surface for floating chrome buttons (title, share, grain, back,
