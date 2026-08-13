@@ -1,6 +1,6 @@
 
 
-import { blendOklchHex, blendOklabHex } from './oklch'
+import { blendOklchHex, blendOklabHex, hexToSrgb } from './oklch'
 
 export type GradientType = 'linear' | 'radial' | 'angular' | 'square' | 'mirror' | 'repeat' | 'fan'
 
@@ -539,6 +539,56 @@ export function sampleStops(stops: GradientStop[], t: number): string {
     }
   }
   return sorted[sorted.length - 1].hex
+}
+
+/**
+ * Like `sampleStops`, but interpolating the way a CSS gradient does: a plain
+ * per-channel lerp in gamma-encoded sRGB. `sampleStops` blends in polar OKLCH,
+ * which travels a different path between the same two endpoints — so a stack
+ * of flat layers sampled with it reads as a visibly different gradient from
+ * the CSS one the rectangle crop paints for the identical stops. Layer-based
+ * renderers (OvalRadialLayers) use this so the two crops agree.
+ */
+export function sampleStopsCss(stops: GradientStop[], t: number): string {
+  const sorted = [...stops].sort((a, b) => a.position - b.position)
+  const p = Math.min(100, Math.max(0, t * 100))
+  if (p <= sorted[0].position) return sorted[0].hex
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const a = sorted[i]
+    const b = sorted[i + 1]
+    if (p <= b.position) {
+      const range = b.position - a.position
+      if (range === 0) return b.hex
+      return lerpHexSrgb(a.hex, b.hex, (p - a.position) / range)
+    }
+  }
+  return sorted[sorted.length - 1].hex
+}
+
+function lerpHexSrgb(hexA: string, hexB: string, t: number): string {
+  const a = hexToSrgb(hexA)
+  const b = hexToSrgb(hexB)
+  const mix = (x: number, y: number) => Math.round(Math.min(255, Math.max(0, x + (y - x) * t)))
+  return `#${[mix(a.r, b.r), mix(a.g, b.g), mix(a.b, b.b)]
+    .map((v) => v.toString(16).padStart(2, '0'))
+    .join('')}`
+}
+
+/**
+ * The exact stop list `buildGradientCss` would hand to CSS for a continuous
+ * (non-square) type, after reversal and the repeat/hard/smooth filters. Layer
+ * renderers need it so they quantize the SAME ramp the CSS path paints.
+ */
+export function resolvedCssStops(
+  stops: GradientStop[],
+  reversed: boolean,
+  filters: GradientFilters = {},
+): GradientStop[] {
+  let ordered = applyReversed(stops, reversed)
+  if (filters.repeat) ordered = repeatedStops(ordered)
+  if (filters.hard) ordered = hardenStops(ordered)
+  if (filters.smooth && !filters.hard) ordered = smoothStops(ordered)
+  return ordered
 }
 
 /** Approximates the color the rendered gradient shows at normalized page

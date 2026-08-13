@@ -140,7 +140,7 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, onBack, ch
           />
         )}
         {gradient.type === 'radial' && gradient.crop === 'oval' && (
-          <OvalRadialLayers stops={gradient.stops} angle={gradient.angle} />
+          <OvalRadialLayers stops={gradient.stops} angle={gradient.angle} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} hardStops={gradient.hardStops} smoothEnabled={gradient.smoothEnabled} />
         )}
         <NoiseOverlay visible={noiseEnabled} />
       </div>
