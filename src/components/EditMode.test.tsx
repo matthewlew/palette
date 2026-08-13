@@ -936,4 +936,23 @@ describe('EditMode crop', () => {
     expect(surface.contains(screen.getByTestId('like-button'))).toBe(false)
     expect(surface.contains(screen.getByTestId('palette-title-button'))).toBe(false)
   })
+
+  // The three crop buttons draw their shape instead of naming it, so the label
+  // no longer exists as text anywhere on screen — aria-label is the ONLY name
+  // a screen reader has for them. Deleting it would be invisible in a
+  // screenshot and total to anyone not looking at one.
+  it('names each crop toggle even though it renders no text', () => {
+    useAppStore.getState().setCurrentGradient(gradient)
+    render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    for (const [id, label] of [
+      ['rectangle', 'Rectangle'],
+      ['circle', 'Circle'],
+      ['oval', 'Oval'],
+    ] as const) {
+      const button = screen.getByTestId(`crop-${id}`)
+      expect(button.textContent).toBe('')
+      expect(button).toHaveAccessibleName(label)
+    }
+    expect(screen.getByTestId('crop-rectangle')).toHaveAttribute('aria-pressed', 'true')
+  })
 })
