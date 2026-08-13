@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   superellipseRadiusAt,
-  circleAxisRadius,
+  cropRadialExtent,
+  radialCropAxes,
   linearCompressionCircle,
   linearCompressionOval,
   compressStopsForCrop,
@@ -44,14 +45,48 @@ describe('superellipseRadiusAt', () => {
   })
 })
 
-describe('circleAxisRadius', () => {
-  it('is 0.5 at the centre', () => {
-    expect(circleAxisRadius(0.5)).toBeCloseTo(0.5)
+describe('cropRadialExtent', () => {
+  it('is 0.5 for a centred origin on every crop', () => {
+    expect(cropRadialExtent('rectangle', 0.5, 0.5)).toBeCloseTo(0.5)
+    expect(cropRadialExtent('circle', 0.5, 0.5)).toBeCloseTo(0.5)
+    expect(cropRadialExtent('oval', 0.5, 0.5)).toBeCloseTo(0.5, 3)
   })
-  it('reaches the far edge from an off-centre origin', () => {
-    expect(circleAxisRadius(1)).toBeCloseTo(1)
-    expect(circleAxisRadius(0)).toBeCloseTo(1)
-    expect(circleAxisRadius(0.75)).toBeCloseTo(0.75)
+
+  it('reaches the far side of a circle from a top-centre origin', () => {
+    expect(cropRadialExtent('circle', 0.5, 0)).toBeCloseTo(1)
+  })
+
+  it('keeps circle isolines circular (rx === ry) from any origin', () => {
+    for (const [px, py] of [[0.5, 0.5], [0.5, 0], [0, 0.5], [1, 1], [0.15, 0.85], [0.75, 0.25]]) {
+      const { rx, ry } = radialCropAxes('circle', px, py)
+      expect(rx).toBe(ry)
+      // Tangent to the far side: origin-to-centre distance plus the radius.
+      expect(rx).toBeCloseTo(Math.hypot(px - 0.5, py - 0.5) + 0.5, 10)
+    }
+  })
+
+  it('covers every boundary point of an oval from an off-centre origin', () => {
+    const px = 0.5
+    const py = 0
+    const extent = cropRadialExtent('oval', px, py)
+    expect(extent).toBeGreaterThan(0.5)
+    const { rx, ry } = radialCropAxes('oval', px, py)
+    expect(rx).toBe(ry)
+    // Every boundary point must sit inside the outermost isoline: the isoline
+    // is the same superellipse scaled to `extent` about the origin.
+    for (let i = 0; i < 720; i++) {
+      const theta = (i / 720) * 2 * Math.PI
+      const r = superellipseRadiusAt(theta, SUPERELLIPSE_N)
+      const dx = 0.5 + 0.5 * r * Math.cos(theta) - px
+      const dy = 0.5 + 0.5 * r * Math.sin(theta) - py
+      const norm =
+        0.5 *
+        Math.pow(
+          Math.pow(Math.abs(dx / 0.5), SUPERELLIPSE_N) + Math.pow(Math.abs(dy / 0.5), SUPERELLIPSE_N),
+          1 / SUPERELLIPSE_N,
+        )
+      expect(norm).toBeLessThanOrEqual(extent + 1e-3)
+    }
   })
 })
 
