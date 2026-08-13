@@ -6,10 +6,18 @@ import { TurrellSquare } from './TurrellSquare'
 import { useIsDesktop } from '../hooks/useIsDesktop'
 import styles from './GeometryTabs.module.css'
 
-const CROPS: { id: GradientCrop; label: string }[] = [
-  { id: 'rectangle', label: 'Rectangle' },
-  { id: 'circle', label: 'Circle' },
-  { id: 'oval', label: 'Oval' },
+/* Drawn rather than labelled. The choice IS a shape, so a picture of it is a
+   more direct read than its name, and three glyphs fit a row that three words
+   made the sheet pay a full grid for. The label survives as the accessible
+   name — the only place the word is still load-bearing. */
+const CROPS: { id: GradientCrop; label: string; icon: JSX.Element }[] = [
+  {
+    id: 'rectangle',
+    label: 'Rectangle',
+    icon: <rect x="3" y="6" width="18" height="12" rx="2" />,
+  },
+  { id: 'circle', label: 'Circle', icon: <circle cx="12" cy="12" r="8" /> },
+  { id: 'oval', label: 'Oval', icon: <ellipse cx="12" cy="12" rx="9.5" ry="6.5" /> },
 ]
 
 interface GeometryTabsProps {
@@ -231,8 +239,8 @@ export function GeometryTabs({
       })}
         </div>
         {onSelectCrop && (
-          <div className={styles.filters} data-testid="crop-selector" role="group" aria-label="Crop shape">
-            {CROPS.map(({ id, label }) => {
+          <div className={styles.crops} data-testid="crop-selector" role="group" aria-label="Crop shape">
+            {CROPS.map(({ id, label, icon }) => {
               const active = (gradient.crop ?? 'rectangle') === id
               return (
                 <button
@@ -240,10 +248,23 @@ export function GeometryTabs({
                   type="button"
                   data-testid={`crop-${id}`}
                   aria-pressed={active}
-                  className={chipClass(active)}
+                  aria-label={label}
+                  title={label}
+                  className={['lds-chip', styles.crop, active && 'lds-chip--selected']
+                    .filter(Boolean)
+                    .join(' ')}
                   onClick={() => onSelectCrop(id)}
                 >
-                  {label}
+                  <svg
+                    className={styles.cropIcon}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    aria-hidden="true"
+                  >
+                    {icon}
+                  </svg>
                 </button>
               )
             })}

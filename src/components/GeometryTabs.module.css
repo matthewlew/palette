@@ -203,6 +203,57 @@
   }
 }
 
+/* The crop row sits directly under the shape grid inside the same panel, and
+   two adjacent block children have no gap of their own — the pills were
+   touching the swatches they modify. A margin here rather than a gap on the
+   panel, because the panel's other child is the heading, which carries its
+   own bottom margin and would be double-spaced by one. */
+.crops {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* Icon-only, so the chip is sized by its tap target rather than by a label:
+   square at --target-min, which is what everything else in the sheet is tall.
+   Not a grid cell like .filter — three glyphs stretched across thirds of the
+   sheet would be mostly empty pill. */
+.crop {
+  flex: 0 0 auto;
+  width: var(--target-min);
+  height: var(--target-min);
+  padding: 0;
+  justify-content: center;
+}
+
+.cropIcon {
+  width: 20px;
+  height: 20px;
+}
+
+/* Mouse-driven desktop only. A pointer resolves finer than a fingertip, so the
+   44px floor palette holds everywhere else buys nothing here and costs the
+   side panel real height — this is the compact size LDS ships a chip at.
+
+   `pointer: fine` as well as the width, deliberately: an iPad in landscape is
+   past 768px and is still being touched, and it keeps the full target. Same
+   pairing GradientPage uses for its hover affordances. */
+@media (pointer: fine) and (min-width: 768px) {
+  .crop {
+    width: 34px;
+    height: 30px;
+  }
+
+  .cropIcon {
+    width: 17px;
+    height: 17px;
+  }
+
+  .filter {
+    min-height: 30px;
+  }
+}
+
 /* Keyboard-shortcut badge on a chip whose action also has a hotkey. Same
    recipe as ShortcutHints' .key so the two read as one convention. */
 .shortcutKey {
