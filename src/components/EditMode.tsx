@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import { nextRotationAngle, nextFanRotation, SELECTABLE_GEOMETRY, angleForTypeChange, type GradientType } from '../lib/gradient'
 import { buildCroppedGradientCss, cropClipPath, cropSurfaceSize, type GradientCrop } from '../lib/gradientCrop'
-import { OvalRadialLayers } from './OvalRadialLayers'
 import {
   toEditableStops,
   equalizeEditableStops,
@@ -1139,7 +1138,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
           className={styles.previewSurface}
           style={{
             backgroundImage:
-              gradient.type === 'square' || (gradient.type === 'radial' && gradient.crop === 'oval')
+              gradient.type === 'square'
                 ? undefined
                 : (buildCroppedGradientCss(gradient.type, animatedStops, gradient.reversed ?? false, {
                     repeat: gradient.repeatEnabled,
@@ -1163,9 +1162,6 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
               angle={gradient.angle}
               crop={gradient.crop}
             />
-          )}
-          {gradient.type === 'radial' && gradient.crop === 'oval' && (
-            <OvalRadialLayers stops={animatedStops} angle={gradient.angle} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} hardStops={gradient.hardStops} smoothEnabled={gradient.smoothEnabled} prismEnabled={gradient.prismEnabled} />
           )}
           <NoiseOverlay visible={noiseEnabled} />
         </div>

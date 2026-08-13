@@ -1,6 +1,5 @@
 import { useRef } from 'react'
 import { buildCroppedGradientCss, cropClipPath, cropSurfaceSize } from '../lib/gradientCrop'
-import { OvalRadialLayers } from './OvalRadialLayers'
 import { useAppStore } from '../store/useAppStore'
 import { namePalette } from '../lib/naming'
 import { titleColorAt } from '../lib/titleColor'
@@ -99,7 +98,9 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, onBack, ch
   }
 
   const cropped = !!gradient.crop && gradient.crop !== 'rectangle'
-  const paintsOwnSurface = gradient.type === 'square' || (gradient.type === 'radial' && gradient.crop === 'oval')
+  // Turrell is the only geometry that paints itself with layered DOM rather
+  // than a CSS background.
+  const paintsOwnSurface = gradient.type === 'square'
 
   return (
     <div
@@ -139,9 +140,6 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, onBack, ch
             angle={gradient.angle}
             crop={gradient.crop}
           />
-        )}
-        {gradient.type === 'radial' && gradient.crop === 'oval' && (
-          <OvalRadialLayers stops={gradient.stops} angle={gradient.angle} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} hardStops={gradient.hardStops} smoothEnabled={gradient.smoothEnabled} prismEnabled={gradient.prismEnabled} />
         )}
         <NoiseOverlay visible={noiseEnabled} />
       </div>

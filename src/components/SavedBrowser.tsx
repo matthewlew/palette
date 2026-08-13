@@ -7,7 +7,6 @@ import { useCopyFeedback } from '../hooks/useCopyFeedback'
 import { useAppStore } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
 import { TurrellSquare } from './TurrellSquare'
-import { OvalRadialLayers } from './OvalRadialLayers'
 import { renderVignetteToCanvas } from '../lib/vignette'
 import JSZip from 'jszip'
 import styles from './SavedBrowser.module.css'
@@ -80,7 +79,7 @@ function SavedCard({ gradient, onSelect }: { gradient: Gradient; onSelect: (g: G
         style={{
           aspectRatio: gradient.crop === 'circle' ? '1 / 1' : thumbAspect(gradient.id),
           backgroundImage:
-            gradient.type === 'square' || (gradient.type === 'radial' && gradient.crop === 'oval')
+            gradient.type === 'square'
               ? undefined
               : (buildCroppedGradientCss(gradient.type, gradient.stops, gradient.reversed ?? false, {
                   repeat: gradient.repeatEnabled,
@@ -96,9 +95,6 @@ function SavedCard({ gradient, onSelect }: { gradient: Gradient; onSelect: (g: G
         onClick={() => onSelect(gradient)}
       >
         {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={6} angle={gradient.angle} crop={gradient.crop} />}
-        {gradient.type === 'radial' && gradient.crop === 'oval' && (
-          <OvalRadialLayers stops={gradient.stops} angle={gradient.angle} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} hardStops={gradient.hardStops} smoothEnabled={gradient.smoothEnabled} prismEnabled={gradient.prismEnabled} layerCount={20} />
-        )}
       </button>
       {editing ? (
         <input

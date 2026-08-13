@@ -616,10 +616,11 @@ export function sampleStops(stops: GradientStop[], t: number): string {
 /**
  * Like `sampleStops`, but interpolating the way a CSS gradient does: a plain
  * per-channel lerp in gamma-encoded sRGB. `sampleStops` blends in polar OKLCH,
- * which travels a different path between the same two endpoints — so a stack
- * of flat layers sampled with it reads as a visibly different gradient from
- * the CSS one the rectangle crop paints for the identical stops. Layer-based
- * renderers (OvalRadialLayers) use this so the two crops agree.
+ * which travels a different path between the same two endpoints.
+ *
+ * No production caller left — the layered oval renderer that needed it went
+ * away with the squircle. It stays as the test oracle for "what colour would
+ * CSS have painted here", which is exactly the question Prism's tests ask.
  */
 export function sampleStopsCss(stops: GradientStop[], t: number): string {
   const sorted = [...stops].sort((a, b) => a.position - b.position)

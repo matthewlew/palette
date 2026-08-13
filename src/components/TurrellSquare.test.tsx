@@ -137,11 +137,11 @@ describe('TurrellSquare crop', () => {
     expect(layers[0].style.width).toBe('200%')
   })
 
-  it('clips oval-crop layers to the superellipse and keeps them proportional', () => {
+  it('clips oval-crop layers to the ellipse and keeps them proportional', () => {
     render(<TurrellSquare stops={stops} crop="oval" />)
     for (const layer of screen.getAllByTestId('turrell-layer')) {
       expect(layer.style.width).toBe(layer.style.height)
-      expect(layer.style.clipPath.startsWith('polygon(')).toBe(true)
+      expect(layer.style.clipPath).toBe('ellipse(50% 50%)')
     }
   })
 
