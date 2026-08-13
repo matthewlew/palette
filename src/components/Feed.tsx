@@ -3,6 +3,7 @@ import { useAppStore } from '../store/useAppStore'
 import { generateGradientStops, type ColorLocks, type PositionLocks } from '../lib/palette'
 import { GradientPage } from './GradientPage'
 import { SELECTABLE_GEOMETRY, type GradientType, nextRotationAngle, defaultAngleForType, angleForTypeChange } from '../lib/gradient'
+import type { GradientCrop } from '../lib/gradientCrop'
 import type { Gradient } from '../store/types'
 import type { ColorSet } from '../lib/colorSets'
 import { withViewTransition } from '../lib/viewTransition'
@@ -38,6 +39,7 @@ export function makeGradient(
     reversed: false,
     hardStops: false,
     repeatEnabled: false,
+    prismEnabled: false,
     fanAnchor: 'bottom',
     // undefined is CENTRE for radial and Turrell; 0 for the rest.
     angle: defaultAngleForType(type),
@@ -59,11 +61,14 @@ export const SHAPE_STEP_PX = 80
 export const feedSession: { 
   history: Gradient[]; 
   index: number; 
-  lockedType: GradientType | null; 
+  lockedType: GradientType | null;
   lockedAngle: number | undefined;
   lockedHardStops: boolean | undefined;
   lockedRepeatEnabled: boolean | undefined;
+  lockedSmoothEnabled: boolean | undefined;
   lockedReversed: boolean | undefined;
+  lockedCrop: GradientCrop | undefined;
+  lockedPrismEnabled: boolean | undefined;
 } = {
   history: [],
   index: 0,
@@ -71,7 +76,10 @@ export const feedSession: {
   lockedAngle: undefined,
   lockedHardStops: undefined,
   lockedRepeatEnabled: undefined,
+  lockedSmoothEnabled: undefined,
   lockedReversed: undefined,
+  lockedCrop: undefined,
+  lockedPrismEnabled: undefined,
 }
 
 export function resetFeedSession() {
@@ -81,7 +89,47 @@ export function resetFeedSession() {
   feedSession.lockedAngle = undefined
   feedSession.lockedHardStops = undefined
   feedSession.lockedRepeatEnabled = undefined
+  feedSession.lockedSmoothEnabled = undefined
   feedSession.lockedReversed = undefined
+  feedSession.lockedCrop = undefined
+  feedSession.lockedPrismEnabled = undefined
+}
+
+/**
+ * Remember the look a gradient is wearing, so the next one the rolodex
+ * generates wears it too. "Look" is everything except the colours: geometry,
+ * angle, crop, and the effect chips.
+ *
+ * Capture and apply go through these two helpers rather than being written out
+ * field-by-field at each call site. There were five such sites across Feed and
+ * EditMode and no two listed the same fields — `smoothEnabled` was in none of
+ * them, so Smooth switched itself off on the very next scroll, and EditMode's
+ * own scroll handler carried type/angle/crop only, dropping Repeat, Hard,
+ * Prism and reversed too. Adding the next effect should mean editing one list.
+ */
+export function captureFeedLook(gradient: Gradient) {
+  feedSession.lockedType = gradient.type
+  feedSession.lockedAngle = gradient.angle
+  feedSession.lockedHardStops = gradient.hardStops
+  feedSession.lockedRepeatEnabled = gradient.repeatEnabled
+  feedSession.lockedSmoothEnabled = gradient.smoothEnabled
+  feedSession.lockedPrismEnabled = gradient.prismEnabled
+  feedSession.lockedReversed = gradient.reversed
+  feedSession.lockedCrop = gradient.crop
+}
+
+/** Dress a freshly generated gradient in the remembered look. */
+export function applyFeedLook(gradient: Gradient, type: GradientType): Gradient {
+  return {
+    ...gradient,
+    angle: feedSession.lockedAngle ?? defaultAngleForType(type),
+    hardStops: feedSession.lockedHardStops ?? false,
+    repeatEnabled: feedSession.lockedRepeatEnabled ?? false,
+    smoothEnabled: feedSession.lockedSmoothEnabled ?? false,
+    prismEnabled: feedSession.lockedPrismEnabled ?? false,
+    reversed: feedSession.lockedReversed ?? false,
+    crop: feedSession.lockedCrop,
+  }
 }
 
 /** Riff: seed the Create rolodex with a gradient picked in the Gallery.
@@ -97,21 +145,13 @@ export function resetFeedSession() {
 export function startFeedWithType(gradient: Gradient) {
   feedSession.history = [gradient]
   feedSession.index = 0
-  feedSession.lockedType = gradient.type
-  feedSession.lockedAngle = gradient.angle
-  feedSession.lockedHardStops = gradient.hardStops
-  feedSession.lockedRepeatEnabled = gradient.repeatEnabled
-  feedSession.lockedReversed = gradient.reversed
+  captureFeedLook(gradient)
 }
 
 export function riffIntoFeed(gradient: Gradient) {
   feedSession.history = [...feedSession.history, gradient]
   feedSession.index = feedSession.history.length - 1
-  feedSession.lockedType = gradient.type
-  feedSession.lockedAngle = gradient.angle
-  feedSession.lockedHardStops = gradient.hardStops
-  feedSession.lockedRepeatEnabled = gradient.repeatEnabled
-  feedSession.lockedReversed = gradient.reversed
+  captureFeedLook(gradient)
 }
 
 interface FeedProps {
@@ -205,14 +245,10 @@ export function Feed({ chromeVisible = true }: FeedProps) {
         typeToUse = pickRandomType()
         feedSession.lockedType = typeToUse
       }
-      let angleToUse = feedSession.lockedAngle ?? defaultAngleForType(typeToUse)
-      const initial = current ?? {
-        ...makeGradient(typeToUse, activeColorSet, lockedColors, lockedPositions),
-        angle: angleToUse,
-        hardStops: feedSession.lockedHardStops ?? false,
-        repeatEnabled: feedSession.lockedRepeatEnabled ?? false,
-        reversed: feedSession.lockedReversed ?? false
-      }
+      const initial = current ?? applyFeedLook(
+        makeGradient(typeToUse, activeColorSet, lockedColors, lockedPositions),
+        typeToUse
+      )
       feedSession.history = [initial]
       feedSession.index = 0
       setDisplayed(initial)
@@ -227,11 +263,7 @@ export function Feed({ chromeVisible = true }: FeedProps) {
       // it isn't the exact object already in the history slot.
       if (current && feedSession.history[feedSession.index] !== current) {
         feedSession.history[feedSession.index] = current
-        feedSession.lockedType = current.type
-        feedSession.lockedAngle = current.angle
-        feedSession.lockedHardStops = current.hardStops
-        feedSession.lockedRepeatEnabled = current.repeatEnabled
-        feedSession.lockedReversed = current.reversed
+        captureFeedLook(current)
       }
       setDisplayed(feedSession.history[feedSession.index])
       setTickerIndex(feedSession.index)
@@ -256,11 +288,7 @@ export function Feed({ chromeVisible = true }: FeedProps) {
       history[index] = current
       setDisplayed(current)
     }
-    feedSession.lockedType = current.type
-    feedSession.lockedAngle = current.angle
-    feedSession.lockedHardStops = current.hardStops
-    feedSession.lockedRepeatEnabled = current.repeatEnabled
-    feedSession.lockedReversed = current.reversed
+    captureFeedLook(current)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current])
 
@@ -281,15 +309,12 @@ export function Feed({ chromeVisible = true }: FeedProps) {
       // session. Each tick is a completely new gradient, not a nudge from the
       // previous one.
       const typeToUse = feedSession.lockedType!
-      const fresh: Gradient = {
-        // The colour/position pins, if the user set any in the editor:
-        // scrubbing the rolodex then varies whatever isn't pinned.
-        ...makeGradient(typeToUse, activeColorSet, lockedColorsRef.current, lockedPositionsRef.current),
-        angle: feedSession.lockedAngle ?? defaultAngleForType(typeToUse),
-        hardStops: feedSession.lockedHardStops ?? false,
-        repeatEnabled: feedSession.lockedRepeatEnabled ?? false,
-        reversed: feedSession.lockedReversed ?? false
-      }
+      // The colour/position pins, if the user set any in the editor: scrubbing
+      // the rolodex then varies whatever isn't pinned.
+      const fresh: Gradient = applyFeedLook(
+        makeGradient(typeToUse, activeColorSet, lockedColorsRef.current, lockedPositionsRef.current),
+        typeToUse
+      )
       history.push(fresh)
     }
 
@@ -638,10 +663,10 @@ export function Feed({ chromeVisible = true }: FeedProps) {
         onBack={() => withViewTransition(() => setMode('gallery'))}
       />
       <ScrollTicker index={tickerIndex} />
-      {scrollHint.visible && <Hint text="Scroll to explore palettes ↓" visible={scrollHint.visible} />}
-      {!scrollHint.visible && likeHint.visible && <Hint text="Tap Save to keep it" visible={likeHint.visible} />}
+      {scrollHint.visible && <Hint text="Scroll to explore palettes ↓" visible={scrollHint.visible} placement="feed" />}
+      {!scrollHint.visible && likeHint.visible && <Hint text="Tap Save to keep it" visible={likeHint.visible} placement="feed" />}
       {!scrollHint.visible && !likeHint.visible && galleryHint.visible && hasSaved && (
-        <Hint text="Saved to your Gallery" visible />
+        <Hint text="Saved to your Gallery" visible placement="feed" />
       )}
       <ShortcutHints items={FEED_SHORTCUTS} visible={chromeVisible} placement="bottom" />
     </div>

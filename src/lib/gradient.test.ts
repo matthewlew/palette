@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { buildGradientCss, gradientColorAt, nextRotationAngle, SELECTABLE_GEOMETRY, smoothStops, SMOOTH_SAMPLES_PER_SEGMENT, turrellExtent, type GradientStop } from './gradient'
+import { buildGradientCss, gradientColorAt, nextRotationAngle, prismStops, PRISM_SAMPLES_PER_SEGMENT, resolvedCssStops, sampleStopsCss, SELECTABLE_GEOMETRY, smoothStops, SMOOTH_SAMPLES_PER_SEGMENT, turrellExtent, type GradientStop } from './gradient'
+import { hexToOklch } from './oklch'
 
 const stops: GradientStop[] = [
   { hex: '#ff0000', position: 0 },
@@ -392,5 +393,107 @@ describe('every geometry responds to a dragged stop', () => {
     // canvas and the control read as damped next to linear or radial.
     expect(turrellExtent(0, 3)).toBeCloseTo(0.1, 5)
     expect(turrellExtent(100, 3)).toBeCloseTo(1, 5)
+  })
+})
+
+describe('prismStops', () => {
+  const orangeBlue = [
+    { hex: '#ff8800', position: 0 },
+    { hex: '#0044ff', position: 100 },
+  ]
+
+  it('keeps the original endpoints exactly', () => {
+    const out = prismStops(orangeBlue)
+    expect(out[0]).toEqual({ hex: '#ff8800', position: 0 })
+    expect(out[out.length - 1]).toEqual({ hex: '#0044ff', position: 100 })
+  })
+
+  it('inserts PRISM_SAMPLES_PER_SEGMENT interior stops per segment', () => {
+    expect(prismStops(orangeBlue)).toHaveLength(1 + (PRISM_SAMPLES_PER_SEGMENT + 1))
+  })
+
+  it('returns lists shorter than 2 unchanged', () => {
+    expect(prismStops([{ hex: '#ffffff', position: 0 }])).toHaveLength(1)
+  })
+
+  it('walks hue the polar way — round the wheel, not straight between the two', () => {
+    // 56 deg to 264 deg: the SHORT way round the wheel runs backwards through
+    // 0, so every interior hue lands OUTSIDE the numeric span between the two
+    // endpoints. A non-polar interpolation cannot produce a single one.
+    const hues = prismStops(orangeBlue).slice(1, -1).map((s) => hexToOklch(s.hex).h)
+    expect(hues.length).toBeGreaterThan(0)
+    for (const h of hues) {
+      expect(h < 56 || h > 264).toBe(true)
+    }
+  })
+
+  it('diverges far from the straight sRGB line CSS would walk', () => {
+    const mid = prismStops(orangeBlue)[9].hex
+    const straight = sampleStopsCss(orangeBlue, prismStops(orangeBlue)[9].position / 100)
+    const channels = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
+    const delta = Math.max(...channels(mid).map((v, i) => Math.abs(v - channels(straight)[i])))
+    expect(delta).toBeGreaterThan(60)
+  })
+
+  it('holds chroma up across the middle instead of dipping to the sRGB midpoint', () => {
+    const mid = prismStops(orangeBlue)[Math.round((PRISM_SAMPLES_PER_SEGMENT + 1) / 2)]
+    const a = hexToOklch('#ff8800')
+    const b = hexToOklch('#0044ff')
+    expect(hexToOklch(mid.hex).c).toBeGreaterThan(Math.min(a.c, b.c) * 0.6)
+  })
+})
+
+describe('prism filter', () => {
+  const ramp = [
+    { hex: '#ff8800', position: 0 },
+    { hex: '#0044ff', position: 100 },
+  ]
+
+  it('leaves output byte-identical to today when disabled', () => {
+    for (const type of SELECTABLE_GEOMETRY) {
+      expect(buildGradientCss(type, ramp, false, { prism: false })).toBe(buildGradientCss(type, ramp))
+      expect(buildGradientCss(type, ramp, false, {})).toBe(buildGradientCss(type, ramp))
+    }
+  })
+
+  it('changes the emitted CSS for every continuous geometry', () => {
+    for (const type of SELECTABLE_GEOMETRY) {
+      if (type === 'square') continue
+      expect(buildGradientCss(type, ramp, false, { prism: true })).not.toBe(buildGradientCss(type, ramp))
+    }
+  })
+
+  it('is ignored for Turrell squares, which have no blend to densify', () => {
+    expect(buildGradientCss('square', ramp, false, { prism: true })).toBe(buildGradientCss('square', ramp))
+  })
+
+  it('yields to hard stops, exactly as smooth does', () => {
+    const hard = buildGradientCss('linear', ramp, false, { hard: true })
+    expect(buildGradientCss('linear', ramp, false, { hard: true, prism: true })).toBe(hard)
+    expect(buildGradientCss('linear', ramp, false, { hard: true, smooth: true })).toBe(hard)
+  })
+
+  it('yields to smooth when both somehow arrive set', () => {
+    expect(buildGradientCss('linear', ramp, false, { smooth: true, prism: true })).toBe(
+      buildGradientCss('linear', ramp, false, { smooth: true }),
+    )
+  })
+
+  it('composes with reversed and repeat', () => {
+    for (const extra of [{ }, { repeat: true }]) {
+      for (const reversed of [false, true]) {
+        const plain = buildGradientCss('linear', ramp, reversed, extra)
+        const prism = buildGradientCss('linear', ramp, reversed, { ...extra, prism: true })
+        expect(prism).not.toBe(plain)
+        expect(prism.startsWith('linear-gradient(')).toBe(true)
+      }
+    }
+  })
+
+  it('gives the layer renderers the same arc-travelled ramp the CSS path gets', () => {
+    const dense = resolvedCssStops(ramp, false, { prism: true })
+    expect(dense).toHaveLength(1 + (PRISM_SAMPLES_PER_SEGMENT + 1))
+    const probe = prismStops(ramp)[9]
+    expect(sampleStopsCss(dense, probe.position / 100)).toBe(probe.hex)
   })
 })

@@ -17,9 +17,10 @@ export function describeGradient(gradient: Gradient): string {
   const n = gradient.stops.length
   parts.push(`${n} color${n === 1 ? '' : 's'}`)
   if (gradient.repeatEnabled) parts.push('×2')
-  // Mutually exclusive at the store level (toggling one clears the other),
-  // so only ever one of these two shows up.
+  // Mutually exclusive at the store level (toggling one clears the others),
+  // so only ever one of these three shows up.
   if (gradient.hardStops) parts.push('Hard')
   else if (gradient.smoothEnabled) parts.push('Smooth')
+  else if (gradient.prismEnabled) parts.push('Prism')
   return parts.join(' · ')
 }

@@ -1,6 +1,6 @@
 
 
-import { blendOklchHex, blendOklabHex } from './oklch'
+import { blendOklchHex, blendOklabHex, hexToSrgb } from './oklch'
 
 export type GradientType = 'linear' | 'radial' | 'angular' | 'square' | 'mirror' | 'repeat' | 'fan'
 
@@ -210,15 +210,17 @@ export const TURRELL_EXTENT_FLOOR = 0.1
  * drifted from the others at least once. */
 /** Turrell's default blur/softness, as a percentage of its container's
  * shorter edge (CSS `cqmin`) — resolution-independent by construction, unlike
- * a flat pixel radius. Was a hardcoded ~24px, which worked out to roughly
- * 4-6% of a typical canvas: high enough that the banded, concentric-square
- * character was barely legible from an oval-refit radial gradient at the
- * same blur. This lower value keeps the bands legible while still softening
- * the edges. Shared by the live TurrellSquare component (via CSS `cqmin`)
+ * a flat pixel radius. Was a hardcoded ~24px, i.e. roughly 4-6% of a typical
+ * canvas; unifying on cqmin briefly took it to 1.75%, which overshot in the
+ * other direction — at full-screen size the layers read as flat plateaus with
+ * crisp steps between them, conspicuously harder than the continuous blend
+ * every other geometry paints. 4% restores that softness while keeping the
+ * nest legible: past ~6% the innermost layer washes out entirely.
+ * Shared by the live TurrellSquare component (via CSS `cqmin`)
  * and canvasExport's Turrell path, so on-screen and exported renders match —
  * they used to diverge (a flat 24px on screen vs `24 * width/400` on
  * export), agreeing only at width=400. */
-export const TURRELL_SOFTNESS_PERCENT = 1.75
+export const TURRELL_SOFTNESS_PERCENT = 4
 
 export function turrellExtent(position: number, stopCount: number): number {
   if (stopCount <= 1) return 1
@@ -314,7 +316,7 @@ export function resolveFanConfig(anchor?: FanAnchor, angle?: number) {
   return getFanConfig(undefined) // bottom, the historical default
 }
 
-function buildAngularGradient(stops: GradientStop[], hard = false, angle = 0, smooth = false): string {
+function buildAngularGradient(stops: GradientStop[], hard = false, angle = 0, densify: Densifier = identityStops): string {
   if (hard) {
     // Solid wedges, each color filling up to the next stop's offset with a crisp
     // edge at the boundary (a double stop). The last wedge runs to the seam and
@@ -327,14 +329,12 @@ function buildAngularGradient(stops: GradientStop[], hard = false, angle = 0, sm
     )
     return `conic-gradient(from ${angle}deg, ${segments.join(', ')})`
   }
-  const sequence = angularSequence(stops)
-  return `conic-gradient(from ${angle}deg, ${stopsToCss(smooth ? smoothStops(sequence) : sequence)})`
+  return `conic-gradient(from ${angle}deg, ${stopsToCss(densify(angularSequence(stops)))})`
 }
 
-function buildFanGradient(stops: GradientStop[], anchor: FanAnchor | undefined, angle: number | undefined, smooth = false): string {
+function buildFanGradient(stops: GradientStop[], anchor: FanAnchor | undefined, angle: number | undefined, densify: Densifier = identityStops): string {
   const { at, from, span } = resolveFanConfig(anchor, angle)
-  const sequence = fanSequence(stops, span)
-  return `conic-gradient(from ${from}deg at ${at}, ${stopsToCss(smooth ? smoothStops(sequence) : sequence)})`
+  return `conic-gradient(from ${from}deg at ${at}, ${stopsToCss(densify(fanSequence(stops, span)))})`
 }
 
 export function applyReversed(stops: GradientStop[], reversed: boolean): GradientStop[] {
@@ -384,16 +384,12 @@ export function mirrorSequence(stops: GradientStop[]): GradientStop[] {
   return [...forward, ...reverse]
 }
 
-function buildMirrorGradient(stops: GradientStop[], angle = 0, smooth = false): string {
-  const mirrored = mirrorSequence(stops)
-  const finalStops = smooth ? smoothStops(mirrored) : mirrored
-  return `linear-gradient(${180 + angle}deg, ${stopsToCss(finalStops)})`
+function buildMirrorGradient(stops: GradientStop[], angle = 0, densify: Densifier = identityStops): string {
+  return `linear-gradient(${180 + angle}deg, ${stopsToCss(densify(mirrorSequence(stops)))})`
 }
 
-function buildRepeatGradient(stops: GradientStop[], angle = 0, smooth = false): string {
-  const seq = repeatedStops(stops)
-  const finalStops = smooth ? smoothStops(seq) : seq
-  return `linear-gradient(${180 + angle}deg, ${stopsToCss(finalStops)})`
+function buildRepeatGradient(stops: GradientStop[], angle = 0, densify: Densifier = identityStops): string {
+  return `linear-gradient(${180 + angle}deg, ${stopsToCss(densify(repeatedStops(stops)))})`
 }
 
 /** Cycles the stop sequence twice across the gradient — a "2x repeat"
@@ -432,27 +428,40 @@ function easeInOut(t: number): number {
   return t * t * (3 - 2 * t)
 }
 
+function linearEase(t: number): number {
+  return t
+}
+
 /** Interior samples inserted between each adjacent stop pair when smoothing. */
 export const SMOOTH_SAMPLES_PER_SEGMENT = 16
 
-/** Densifies a stop list for seamless transitions. The user's stops stay
- * exactly where they are; between each adjacent pair we insert
- * SMOOTH_SAMPLES_PER_SEGMENT interior stops whose COLOR follows an ease-in-out
- * (smoothstep) curve, blended in Oklab. The eased distribution drives the rate
- * of color change to zero at every original stop — dissolving the Mach-band
- * seam — while Oklab blending avoids the phantom in-between hues that polar
- * OKLCH interpolation produces. */
-export function smoothStops(stops: GradientStop[]): GradientStop[] {
+/** Interior samples inserted between each adjacent stop pair by Prism. Matches
+ * SMOOTH_SAMPLES_PER_SEGMENT: both are dense enough that the emitted stop list
+ * reads as continuous rather than stepped. */
+export const PRISM_SAMPLES_PER_SEGMENT = 16
+
+/**
+ * Shared machinery behind Smooth and Prism: the user's stops stay exactly where
+ * they are, and between each adjacent pair we insert `samples` interior stops.
+ * `blend` chooses the colour path between the pair, `ease` reshapes where along
+ * that path each evenly-spaced interior position lands.
+ */
+function densifyStops(
+  stops: GradientStop[],
+  samples: number,
+  blend: (a: string, b: string, t: number) => string,
+  ease: (t: number) => number,
+): GradientStop[] {
   if (stops.length < 2) return stops
   const sorted = [...stops].sort((a, b) => a.position - b.position)
   const result: GradientStop[] = [{ ...sorted[0] }]
   for (let i = 0; i < sorted.length - 1; i++) {
     const a = sorted[i]
     const b = sorted[i + 1]
-    for (let k = 1; k <= SMOOTH_SAMPLES_PER_SEGMENT; k++) {
-      const raw = k / (SMOOTH_SAMPLES_PER_SEGMENT + 1)
+    for (let k = 1; k <= samples; k++) {
+      const raw = k / (samples + 1)
       result.push({
-        hex: blendOklabHex(a.hex, b.hex, easeInOut(raw)),
+        hex: blend(a.hex, b.hex, ease(raw)),
         position: Math.round((a.position + (b.position - a.position) * raw) * 10) / 10,
       })
     }
@@ -460,6 +469,35 @@ export function smoothStops(stops: GradientStop[]): GradientStop[] {
   }
   return result
 }
+
+/** Densifies a stop list for seamless transitions. Interior stops' COLOR
+ * follows an ease-in-out (smoothstep) curve, blended in Oklab. The eased
+ * distribution drives the rate of color change to zero at every original stop —
+ * dissolving the Mach-band seam — while Oklab blending avoids the phantom
+ * in-between hues that polar OKLCH interpolation produces. */
+export function smoothStops(stops: GradientStop[]): GradientStop[] {
+  return densifyStops(stops, SMOOTH_SAMPLES_PER_SEGMENT, blendOklabHex, easeInOut)
+}
+
+/**
+ * Densifies a stop list so the ramp travels the polar OKLCH arc instead of the
+ * straight line in gamma-encoded sRGB a CSS gradient walks. Hue takes the
+ * shorter way round the wheel between each pair, so two distant hues blend
+ * THROUGH the hues that sit between them — orange to blue passes through green
+ * — and mid-tones keep their chroma instead of desaturating toward the sRGB
+ * midpoint. The emitted list is an ordinary CSS stop list, which is why this
+ * works for every geometry and every crop with no separate rendering path.
+ *
+ * Unlike Smooth this does not ease: the point is the colour path, and easing
+ * would additionally reshape the rate of travel along it.
+ */
+export function prismStops(stops: GradientStop[]): GradientStop[] {
+  return densifyStops(stops, PRISM_SAMPLES_PER_SEGMENT, blendOklchHex, linearEase)
+}
+
+type Densifier = (stops: GradientStop[]) => GradientStop[]
+
+const identityStops: Densifier = (stops) => stops
 
 export interface GradientFilters {
   /** Cycles the stop sequence twice across the gradient, like the old
@@ -474,6 +512,53 @@ export interface GradientFilters {
   /** Densifies the blend with Oklab-eased interior stops so transitions are
    * seamless. Mutually exclusive with `hard`; ignored for `square`. */
   smooth?: boolean
+  /** Densifies the blend with polar-OKLCH interior stops so the ramp travels
+   * the hue arc. Mutually exclusive with `hard` and `smooth`; ignored for
+   * `square`. */
+  prism?: boolean
+}
+
+/** The single densification a filter set asks for, as a function to run over
+ * the resolved stop list. `hard` wins over both (it is the opposite
+ * instruction), then `smooth`; the UI keeps all three exclusive, so the order
+ * only decides what a hand-crafted payload gets. Square is solid blocks with
+ * no blend to densify. */
+/**
+ * Repeat and Hard, the two filters that rebuild the stop LIST rather than the
+ * blend between stops. Runs on already-reversed stops and before any
+ * densification.
+ *
+ * Exported because buildCroppedGradientCss re-derives geometry for `radial`
+ * and `fan` instead of delegating here, and carried no copy of this at all —
+ * so under a circle crop those two silently ignored both Repeat ×2 and Hard.
+ * (`densifierFor` looks like it covers Hard, but its hard branch is the
+ * identity: hardening happens here, on the list.) One function, both callers.
+ */
+export function applyStopFilters(
+  type: GradientType,
+  stops: GradientStop[],
+  filters: GradientFilters
+): GradientStop[] {
+  // Turrell squares are already solid, non-interpolated blocks, and mirror/
+  // legacy-repeat build their own position sequence from raw hex order — the
+  // repeat/hard filters only make sense for types that render a genuine
+  // continuous blend from the stops as given.
+  if (type === 'square' || type === 'mirror' || type === 'repeat') return stops
+  let out = stops
+  // Repeat first: it rebuilds an even position sequence from hex order, so
+  // hardening must run on the already-repeated stops for bands to stay even.
+  if (filters.repeat) out = repeatedStops(out)
+  // Angular hardens internally (its wedges are index-based, not position-
+  // based, so a position-doubling harden here would be discarded).
+  if (filters.hard && type !== 'angular') out = hardenStops(out)
+  return out
+}
+
+export function densifierFor(filters: GradientFilters, type?: GradientType): (s: GradientStop[]) => GradientStop[] {
+  if (type === 'square' || filters.hard) return (s) => s
+  if (filters.smooth) return smoothStops
+  if (filters.prism) return prismStops
+  return (s) => s
 }
 
 export function buildGradientCss(
@@ -483,43 +568,30 @@ export function buildGradientCss(
   filters: GradientFilters = {}
 ): string {
   assertStops(stops)
-  let orderedStops = applyReversed(stops, reversed)
+  const orderedStops = applyStopFilters(type, applyReversed(stops, reversed), filters)
 
-  // Turrell squares are already solid, non-interpolated blocks, and mirror/
-  // legacy-repeat build their own position sequence from raw hex order —
-  // the repeat/hard filters only make sense for types that render a genuine
-  // continuous blend from `orderedStops` as given.
-  if (type !== 'square' && type !== 'mirror' && type !== 'repeat') {
-    // Repeat first: it rebuilds an even position sequence from hex order, so
-    // hardening must run on the already-repeated stops for bands to stay even.
-    if (filters.repeat) orderedStops = repeatedStops(orderedStops)
-    // Angular hardens internally (its wedges are index-based, not position-
-    // based, so a position-doubling harden here would be discarded).
-    if (filters.hard && type !== 'angular') orderedStops = hardenStops(orderedStops)
-  }
-
-  // Smoothing densifies the final blend with Oklab-eased interior stops. It is
-  // meaningless for solid squares and is mutually exclusive with hard bands
-  // (hard wins), matching how the UI keeps the two toggles exclusive.
-  const smooth = !!filters.smooth && !filters.hard && type !== 'square'
+  // Smooth and Prism both densify the final blend, differing in the colour path
+  // they walk; hard bands are the opposite instruction and win over both. None
+  // of them mean anything for solid squares. See densifierFor.
+  const densify = densifierFor(filters, type)
   const angle = filters.angle ?? 0
   switch (type) {
     case 'linear':
-      return `linear-gradient(${180 + angle}deg, ${stopsToCss(smooth ? smoothStops(orderedStops) : orderedStops)})`
+      return `linear-gradient(${180 + angle}deg, ${stopsToCss(densify(orderedStops))})`
     case 'radial': {
       const { css } = getRadialConfig(filters.angle)
-      return `radial-gradient(circle at ${css}, ${stopsToCss(smooth ? smoothStops(orderedStops) : orderedStops)})`
+      return `radial-gradient(circle at ${css}, ${stopsToCss(densify(orderedStops))})`
     }
     case 'angular':
-      return buildAngularGradient(orderedStops, filters.hard, angle, smooth)
+      return buildAngularGradient(orderedStops, filters.hard, angle, densify)
     case 'square':
       return buildSquareGradient(orderedStops)
     case 'mirror':
-      return buildMirrorGradient(orderedStops, angle, smooth)
+      return buildMirrorGradient(orderedStops, angle, densify)
     case 'repeat':
-      return buildRepeatGradient(orderedStops, angle, smooth)
+      return buildRepeatGradient(orderedStops, angle, densify)
     case 'fan':
-      return buildFanGradient(orderedStops, filters?.fanAnchor, filters?.angle, smooth)
+      return buildFanGradient(orderedStops, filters?.fanAnchor, filters?.angle, densify)
   }
 }
 
@@ -539,6 +611,56 @@ export function sampleStops(stops: GradientStop[], t: number): string {
     }
   }
   return sorted[sorted.length - 1].hex
+}
+
+/**
+ * Like `sampleStops`, but interpolating the way a CSS gradient does: a plain
+ * per-channel lerp in gamma-encoded sRGB. `sampleStops` blends in polar OKLCH,
+ * which travels a different path between the same two endpoints.
+ *
+ * No production caller left — the layered oval renderer that needed it went
+ * away with the squircle. It stays as the test oracle for "what colour would
+ * CSS have painted here", which is exactly the question Prism's tests ask.
+ */
+export function sampleStopsCss(stops: GradientStop[], t: number): string {
+  const sorted = [...stops].sort((a, b) => a.position - b.position)
+  const p = Math.min(100, Math.max(0, t * 100))
+  if (p <= sorted[0].position) return sorted[0].hex
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const a = sorted[i]
+    const b = sorted[i + 1]
+    if (p <= b.position) {
+      const range = b.position - a.position
+      if (range === 0) return b.hex
+      return lerpHexSrgb(a.hex, b.hex, (p - a.position) / range)
+    }
+  }
+  return sorted[sorted.length - 1].hex
+}
+
+function lerpHexSrgb(hexA: string, hexB: string, t: number): string {
+  const a = hexToSrgb(hexA)
+  const b = hexToSrgb(hexB)
+  const mix = (x: number, y: number) => Math.round(Math.min(255, Math.max(0, x + (y - x) * t)))
+  return `#${[mix(a.r, b.r), mix(a.g, b.g), mix(a.b, b.b)]
+    .map((v) => v.toString(16).padStart(2, '0'))
+    .join('')}`
+}
+
+/**
+ * The exact stop list `buildGradientCss` would hand to CSS for a continuous
+ * (non-square) type, after reversal and the repeat/hard/smooth filters. Layer
+ * renderers need it so they quantize the SAME ramp the CSS path paints.
+ */
+export function resolvedCssStops(
+  stops: GradientStop[],
+  reversed: boolean,
+  filters: GradientFilters = {},
+): GradientStop[] {
+  let ordered = applyReversed(stops, reversed)
+  if (filters.repeat) ordered = repeatedStops(ordered)
+  if (filters.hard) ordered = hardenStops(ordered)
+  return densifierFor(filters)(ordered)
 }
 
 /** Approximates the color the rendered gradient shows at normalized page

@@ -7,12 +7,13 @@ import {
   resolveFanConfig,
   getRadialConfig,
   smoothStops,
+  prismStops,
   turrellExtent,
   angularSequence,
   mirrorSequence,
   TURRELL_SOFTNESS_PERCENT,
 } from './gradient'
-import { compressStopsForCrop, superellipsePoints, SUPERELLIPSE_N } from './gradientCrop'
+import { compressStopsForCrop } from './gradientCrop'
 
 function getLinearGradientCoords(angle: number = 0, width: number, height: number) {
   const step = (Math.round((180 + angle) / 45) * 45) % 360
@@ -56,6 +57,7 @@ export function renderGradientToCanvas(
     repeatEnabled = false,
     hardStops = false,
     smoothEnabled = false,
+    prismEnabled = false,
     angle,
     fanAnchor,
   } = gradient
@@ -73,6 +75,7 @@ export function renderGradientToCanvas(
     if (repeatEnabled) stops = repeatedStops(stops)
     if (hardStops) stops = hardenStops(stops)
     if (smoothEnabled && !hardStops) stops = smoothStops(stops)
+    else if (prismEnabled && !hardStops) stops = prismStops(stops)
   }
 
   // Clear background
@@ -264,13 +267,16 @@ export function renderGradientToCanvas(
  * corners (alpha, not a paper/opaque backdrop) — the crop's re-fit geometry
  * plus a boundary clip, matching what the live editor shows.
  *
- * The linear/mirror stop compression and the circle clip are exact re-fits.
- * The radial+oval "hard case" (see gradientCrop.ts's buildCroppedGradientCss)
- * and the fan pivot/span refit are not re-derived here — this renders the
- * gradient's plain geometry and clips it to the boundary, which is correct
- * for every shape except an oval radial, where it is the same simplification
- * OvalRadialLayers exists to avoid on screen. Exporting that exact case as a
- * PNG (rather than live DOM layers) is a known gap.
+ * The linear/mirror stop compression and the boundary clip are exact re-fits.
+ * The radial extent and the fan pivot/span refit are not re-derived here —
+ * this renders the gradient's plain geometry and clips it — so a cropped
+ * radial or fan exports slightly differently from how it looks on screen.
+ * Known gap, and it applies to both crop shapes equally.
+ *
+ * On this square canvas the oval's inscribed ellipse IS a circle, so the two
+ * crops export the same outline. That is the honest consequence of the export
+ * being square: the oval takes its proportions from its box, and this box has
+ * none to take. A non-square export would need its own decision.
  */
 export function renderCroppedGradientToCanvas(canvas: HTMLCanvasElement, gradient: Gradient, size: number) {
   canvas.width = size
@@ -294,18 +300,7 @@ export function renderCroppedGradientToCanvas(canvas: HTMLCanvasElement, gradien
   ctx.clearRect(0, 0, size, size)
   ctx.save()
   ctx.beginPath()
-  if (crop === 'circle') {
-    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2)
-  } else {
-    const points = superellipsePoints(SUPERELLIPSE_N, 128)
-    points.forEach(([x, y], i) => {
-      const px = size / 2 + (x * size) / 2
-      const py = size / 2 + (y * size) / 2
-      if (i === 0) ctx.moveTo(px, py)
-      else ctx.lineTo(px, py)
-    })
-    ctx.closePath()
-  }
+  ctx.ellipse(size / 2, size / 2, size / 2, size / 2, 0, 0, Math.PI * 2)
   ctx.clip()
   ctx.drawImage(off, 0, 0)
   ctx.restore()

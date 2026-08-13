@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup, act } from '@testing-library/react'
 import { EditMode } from './EditMode'
 import { useAppStore } from '../store/useAppStore'
+import { feedSession } from './Feed'
 import type { Gradient } from '../store/types'
 
 const gradient: Gradient = {
@@ -150,6 +151,28 @@ describe('EditMode', () => {
     fireEvent.click(screen.getByTestId('filter-hard'))
     expect(useAppStore.getState().current!.hardStops).toBe(true)
     expect(useAppStore.getState().current!.stops.map((s) => s.position)).toEqual([0, 50, 100])
+  })
+
+  it('keeps Prism, Smooth and Hard mutually exclusive, and locks Prism into the feed session', () => {
+    const { rerender } = render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('filter-prism'))
+    expect(useAppStore.getState().current!.prismEnabled).toBe(true)
+    expect(feedSession.lockedPrismEnabled).toBe(true)
+
+    rerender(<EditMode gradient={useAppStore.getState().current!} onExit={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('filter-smooth'))
+    expect(useAppStore.getState().current!.smoothEnabled).toBe(true)
+    expect(useAppStore.getState().current!.prismEnabled).toBe(false)
+
+    rerender(<EditMode gradient={useAppStore.getState().current!} onExit={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('filter-prism'))
+    expect(useAppStore.getState().current!.prismEnabled).toBe(true)
+    expect(useAppStore.getState().current!.smoothEnabled).toBe(false)
+
+    rerender(<EditMode gradient={useAppStore.getState().current!} onExit={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('filter-hard'))
+    expect(useAppStore.getState().current!.hardStops).toBe(true)
+    expect(useAppStore.getState().current!.prismEnabled).toBe(false)
   })
 
   it('tapping the already-active tab inverts stop colors (toggle reversed)', () => {
@@ -896,3 +919,21 @@ describe('EditMode canvas handles', () => {
 })
 
 
+
+describe('EditMode crop', () => {
+  it('clips the gradient surface, never the preview the chrome lives on', () => {
+    const cropped: Gradient = { ...gradient, crop: 'circle' }
+    useAppStore.getState().setCurrentGradient(cropped)
+    render(<EditMode gradient={cropped} onExit={vi.fn()} />)
+    const surface = screen.getByTestId('edit-mode-surface')
+    expect(surface.style.clipPath).toBe('circle(50%)')
+    expect(surface.style.aspectRatio).toBe('1 / 1')
+    // The Save pill, the title and the back button all sit outside the clipped
+    // surface — a clip on the preview would cut them off.
+    const preview = screen.getByTestId('edit-mode-preview')
+    expect(preview.style.clipPath).toBe('')
+    expect(preview.contains(screen.getByTestId('like-button'))).toBe(true)
+    expect(surface.contains(screen.getByTestId('like-button'))).toBe(false)
+    expect(surface.contains(screen.getByTestId('palette-title-button'))).toBe(false)
+  })
+})

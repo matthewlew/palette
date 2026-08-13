@@ -119,6 +119,7 @@ function FlightTile({ flight, onDone }: { flight: SaveFlight; onDone: () => void
                 repeat: gradient.repeatEnabled,
                 hard: gradient.hardStops,
                 smooth: gradient.smoothEnabled,
+                prism: gradient.prismEnabled,
                 fanAnchor: gradient.fanAnchor,
                 angle: gradient.angle,
               }),

@@ -439,3 +439,27 @@ describe('Gallery bulk export', () => {
     expect(screen.getByTestId('export-all-posts')).toBeInTheDocument()
   })
 })
+
+describe('Gallery crop', () => {
+  it('clips the tile and viewer gradient surfaces, not the chrome over them', async () => {
+    useAppStore.setState({
+      saved: [{ ...savedGradients[0], crop: 'circle' }],
+      mode: 'gallery',
+    })
+    render(<Gallery onRiff={vi.fn()} />)
+    const surface = screen.getByTestId('tile-surface')
+    expect(surface.style.clipPath).toBe('circle(50%)')
+    const tilePreview = surface.parentElement!
+    expect(tilePreview.style.clipPath).toBe('')
+    // Tile chrome is a sibling of the clipped surface.
+    const edit = screen.getByRole('button', { name: 'Edit' })
+    expect(surface.contains(edit)).toBe(false)
+
+    fireEvent.click(screen.getByRole('button', { name: /Saved Palette One,/ }))
+    const viewer = screen.getByTestId('gallery-viewer')
+    expect(viewer.style.clipPath).toBe('')
+    const viewerSurface = screen.getByTestId('viewer-surface')
+    expect(viewerSurface.style.clipPath).toBe('circle(50%)')
+    expect(viewerSurface.contains(screen.getByRole('button', { name: 'Close' }))).toBe(false)
+  })
+})

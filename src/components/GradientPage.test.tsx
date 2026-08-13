@@ -15,9 +15,50 @@ const gradient: Gradient = {
 describe('GradientPage', () => {
   it('renders the gradient as a background style', () => {
     render(<GradientPage gradient={gradient} liked={false} onToggleLike={vi.fn()} onEdit={vi.fn()} />)
-    const page = screen.getByTestId('gradient-page')
-    expect(page.style.backgroundImage).toContain('linear-gradient')
-    expect(page.style.backgroundImage).toContain('rgb(255, 0, 0)')
+    const surface = screen.getByTestId('gradient-surface')
+    expect(surface.style.backgroundImage).toContain('linear-gradient')
+    expect(surface.style.backgroundImage).toContain('rgb(255, 0, 0)')
+  })
+
+  it('lays a circle crop out in a square box that fits the viewport', () => {
+    render(
+      <GradientPage gradient={{ ...gradient, crop: 'circle' }} liked={false} onToggleLike={vi.fn()} onEdit={vi.fn()} />
+    )
+    const surface = screen.getByTestId('gradient-surface')
+    expect(surface.style.clipPath).toBe('circle(50%)')
+    expect(surface.style.aspectRatio).toBe('1 / 1')
+    expect(surface.style.height).toBe('auto')
+  })
+
+  it('paints a radial under an oval crop as one CSS gradient, no layered fallback', () => {
+    // The layered renderer existed because a CSS radial can only emit
+    // elliptical isolines and the boundary was a squircle. An ellipse boundary
+    // wants exactly those isolines, so the surface paints itself.
+    render(
+      <GradientPage
+        gradient={{ ...gradient, type: 'radial', crop: 'oval' }}
+        liked={false}
+        onToggleLike={vi.fn()}
+        onEdit={vi.fn()}
+      />
+    )
+    const surface = screen.getByTestId('gradient-surface')
+    expect(surface.style.backgroundImage).toMatch(/^radial-gradient\(/)
+    expect(surface.style.clipPath).toBe('ellipse(50% 50%)')
+  })
+
+  it('hands the crop down to the Turrell renderer so its layers follow the boundary', () => {
+    render(
+      <GradientPage
+        gradient={{ ...gradient, type: 'square', crop: 'circle' }}
+        liked={false}
+        onToggleLike={vi.fn()}
+        onEdit={vi.fn()}
+      />
+    )
+    const layers = screen.getAllByTestId('turrell-layer')
+    expect(layers.length).toBeGreaterThan(0)
+    for (const layer of layers) expect(layer.style.clipPath).toBe('circle(50%)')
   })
 
   it('calls onEdit immediately on a single tap, with no debounce wait', () => {

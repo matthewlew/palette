@@ -69,7 +69,12 @@
    * with no inset at all, and 18 + 44 + a 34px home indicator puts the bar's
    * top edge at exactly 96 — so on any phone with an indicator the toast and
    * the bar were touching. */
-  --tabbar-h: 46px; /* measured: 4px padding + a 38px row, at every breakpoint */
+  /* Re-measured: 6px padding + a 44px row (--target-min) + 1px borders = 58,
+   * at every breakpoint from 360 to 1280. It read 46px, describing a 4px/38px
+   * bar that stopped existing when the tabs were raised to the tap target — so
+   * every control anchored to --tabbar-top sat 12px lower than it meant to and
+   * overlapped the bar it was clearing. */
+  --tabbar-h: 58px;
   --tabbar-gap: 18px;
   --tabbar-top: calc(var(--tabbar-gap) + var(--tabbar-h) + var(--safe-b));
 

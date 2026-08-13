@@ -1,7 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { TurrellSquare } from './TurrellSquare'
-import type { GradientStop } from '../lib/gradient'
+import { TURRELL_SOFTNESS_PERCENT, type GradientStop } from '../lib/gradient'
+
+// The outermost layer oversizes by four times the default blur so the blur
+// can't bleed a background halo in at the edges. Derived, not written out:
+// hardcoding it meant every softness change failed here as an arithmetic
+// mismatch rather than telling anyone whether the bleed rule still held.
+const OUTERMOST_SIZE = `calc(${100 + TURRELL_SOFTNESS_PERCENT * 4}%)`
 
 const stops: GradientStop[] = [
   { hex: '#ff0000', position: 0 },
@@ -43,12 +49,11 @@ describe('TurrellSquare', () => {
     render(<TurrellSquare stops={fourStops} />)
     const layers = screen.getAllByTestId('turrell-layer')
     // Outermost layer oversizes past the container so its blur can't bleed
-    // a background halo at the edges; the rest shrink monotonically.
-    // Outermost layer's default blur/bleed is now a percentage of the
-    // container's own size (TURRELL_SOFTNESS_PERCENT * 4), not a flat px
-    // bleed, so the on-screen render stays resolution-independent.
-    expect(layers[0].style.width).toBe('calc(107%)')
-    expect(layers[0].style.height).toBe('calc(107%)')
+    // a background halo at the edges; the rest shrink monotonically. The
+    // bleed is a percentage of the container's own size, not a flat px, so
+    // the on-screen render stays resolution-independent.
+    expect(layers[0].style.width).toBe(OUTERMOST_SIZE)
+    expect(layers[0].style.height).toBe(OUTERMOST_SIZE)
     const sizes = layers.slice(1).map((l) => {
       const width = parseFloat(l.style.width)
       const height = parseFloat(l.style.height)
@@ -67,8 +72,8 @@ describe('TurrellSquare', () => {
   it('handles a single stop without dividing by zero, rendering it beyond full size', () => {
     render(<TurrellSquare stops={[{ hex: '#ff0000', position: 0 }]} />)
     const layer = screen.getByTestId('turrell-layer')
-    expect(layer.style.width).toBe('calc(107%)')
-    expect(layer.style.height).toBe('calc(107%)')
+    expect(layer.style.width).toBe(OUTERMOST_SIZE)
+    expect(layer.style.height).toBe(OUTERMOST_SIZE)
   })
 
   it('sizes layers from each stop\'s actual position, not just its index', () => {
@@ -114,5 +119,39 @@ describe('TurrellSquare', () => {
     render(<TurrellSquare stops={stops} blurPx={4} />)
     const layers = screen.getAllByTestId('turrell-layer')
     expect(layers[0].style.filter).toBe('blur(4px)')
+  })
+})
+
+describe('TurrellSquare crop', () => {
+  it('keeps circle-crop layers square and clipped to the crop curve from an off-centre origin', () => {
+    // angle 0 = top-centre origin. The rectangle per-axis reach would give
+    // 50% width and 100% height here — an ellipse once the circle clip lands.
+    render(<TurrellSquare stops={stops} crop="circle" angle={0} />)
+    const layers = screen.getAllByTestId('turrell-layer')
+    expect(layers).toHaveLength(3)
+    for (const layer of layers) {
+      expect(layer.style.width).toBe(layer.style.height)
+      expect(layer.style.clipPath).toBe('circle(50%)')
+    }
+    // Outermost reaches the far side of the circle: 2 * (hypot(0, 0.5) + 0.5).
+    expect(layers[0].style.width).toBe('200%')
+  })
+
+  it('clips oval-crop layers to the ellipse and keeps them proportional', () => {
+    render(<TurrellSquare stops={stops} crop="oval" />)
+    for (const layer of screen.getAllByTestId('turrell-layer')) {
+      expect(layer.style.width).toBe(layer.style.height)
+      expect(layer.style.clipPath).toBe('ellipse(50% 50%)')
+    }
+  })
+
+  it('leaves rectangle layers square-shaped and unclipped', () => {
+    render(<TurrellSquare stops={stops} angle={0} />)
+    const layers = screen.getAllByTestId('turrell-layer')
+    // The rectangle keeps its per-axis reach: top origin means full height,
+    // half width.
+    expect(layers[1].style.width).toBe('55%')
+    expect(layers[1].style.height).toBe('110%')
+    expect(layers[1].style.clipPath).toBe('')
   })
 })

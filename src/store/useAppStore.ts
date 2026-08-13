@@ -24,6 +24,10 @@ export function gradientSignature(gradient: Gradient): string {
     gradient.reversed ? 'rev' : '',
     gradient.repeatEnabled ? 'rep' : '',
     gradient.hardStops ? 'hard' : '',
+    // Without this, turning Prism on and hitting Save is a silent no-op: the
+    // signature matches the un-prismed original already in `saved`, so the
+    // save is treated as a duplicate.
+    gradient.prismEnabled ? 'prism' : '',
     gradient.angle ? `ang${gradient.angle}` : '',
     gradient.fanAnchor ? `fan${gradient.fanAnchor}` : ''
   ].filter(Boolean).join('-')
