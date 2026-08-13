@@ -5,7 +5,42 @@ Supabase CLI logged into your project). The app only ever uses the anon key.
 
 Project ref: `nkmfbeihddctwmtfbvkr`
 
-## Run order to ship the new features
+## First: check what is actually applied
+
+Migrations are applied **by hand**. Nothing reconciles `migrations/` against the
+live database and nothing complains when they diverge — a missing table
+degrades to an empty feed, a missing function to an RPC that fails at the one
+moment a user reaches for it. That is not hypothetical: 0005 sat unapplied
+until someone pressed Claim and got `Could not find the function
+public.claim_palettes`, months after the file was merged.
+
+So before assuming anything about the database, run
+`scripts/check-migrations.sql` in the SQL editor. It prints one row per
+expected object, `ok` or `MISSING`. Re-run any file whose row says MISSING.
+
+**0003 through 0008 are all idempotent** (`if not exists`, `create or replace`,
+`drop policy if exists`), so running one that was already applied is a no-op
+and running the whole set is safe.
+
+## The accounts migrations (0003–0008)
+
+Run in order. Each needs the one before it.
+
+| File | What it adds | If it is missing |
+| --- | --- | --- |
+| `0003_add_accounts.sql` | `profiles`, `reserved_usernames`, `palette_saves`, `palettes.author_id` | Sign-in cannot store anything |
+| `0004_claim_username_rpc.sql` | `claim_username(text)` | The username picker fails |
+| `0005_claim_palettes.sql` | `claim_palettes(text[])` | "Are these yours?" appears, then fails on Claim |
+| `0006_likes_on_auth_uid.sql` | `palette_likes.user_id`, its indexes and policies | Likes still write under the forgeable client id |
+| `0007_merge_anonymous.sql` | `merge_anonymous_account(uuid)` | Anonymous work is stranded after sign-out → sign-in |
+| `0008_palettes_readable_by_authenticated.sql` | Widens the `palettes` policies to `authenticated` | Community feed reads empty and publishing fails, both silently |
+
+0008 is worth understanding rather than just running: enabling anonymous auth
+reclassified every request in the app from `anon` to `authenticated`, so
+policies naming only `anon` stopped matching. The file's own comment has the
+detail.
+
+## Run order to ship the older features
 
 ### 1. Add the `offsets` column  ← do this FIRST
 
@@ -82,5 +117,11 @@ After step 1, rebuild and copy `dist/` into `matthewlew.github.io/palette/`
 ## Files
 - `migrations/0001_add_offsets.sql` — adds `offsets jsonb`
 - `migrations/0002_add_palette_likes.sql` — adds `palette_likes` + `palettes.likes`
+- `migrations/0003_add_accounts.sql` … `0008_palettes_readable_by_authenticated.sql` — accounts, attribution, claiming (see the table above)
 - `functions/preview/index.ts` — OG HTML + PNG rendering (resvg-wasm)
 - `scripts/name-untitled.mjs` — backfill names for empty rows
+- `scripts/check-migrations.sql` — reports which migrations this database actually has
+
+Adding a migration? Add it to the table above and to
+`scripts/check-migrations.sql` in the same commit. A file nobody knows to run
+is the failure mode this section exists to prevent.
