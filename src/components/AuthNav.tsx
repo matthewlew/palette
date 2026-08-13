@@ -46,7 +46,6 @@ export function AuthNav() {
   // shelf has something to match against. Deliberately after the username
   // picker: claiming without a handle would produce owned rows that still
   // render unsigned, which the RPC rejects anyway.
-  const saved = useAppStore((s) => s.saved)
   const [claimCandidates, setClaimCandidates] = useState<ClaimCandidate[] | null>(null)
   const claimOfferedRef = useRef<string | null>(null)
 
