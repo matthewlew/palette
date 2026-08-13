@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup, act } from '@testing-library/react'
 import { EditMode } from './EditMode'
 import { useAppStore } from '../store/useAppStore'
+import { feedSession } from './Feed'
 import type { Gradient } from '../store/types'
 
 const gradient: Gradient = {
@@ -150,6 +151,28 @@ describe('EditMode', () => {
     fireEvent.click(screen.getByTestId('filter-hard'))
     expect(useAppStore.getState().current!.hardStops).toBe(true)
     expect(useAppStore.getState().current!.stops.map((s) => s.position)).toEqual([0, 50, 100])
+  })
+
+  it('keeps Prism, Smooth and Hard mutually exclusive, and locks Prism into the feed session', () => {
+    const { rerender } = render(<EditMode gradient={gradient} onExit={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('filter-prism'))
+    expect(useAppStore.getState().current!.prismEnabled).toBe(true)
+    expect(feedSession.lockedPrismEnabled).toBe(true)
+
+    rerender(<EditMode gradient={useAppStore.getState().current!} onExit={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('filter-smooth'))
+    expect(useAppStore.getState().current!.smoothEnabled).toBe(true)
+    expect(useAppStore.getState().current!.prismEnabled).toBe(false)
+
+    rerender(<EditMode gradient={useAppStore.getState().current!} onExit={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('filter-prism'))
+    expect(useAppStore.getState().current!.prismEnabled).toBe(true)
+    expect(useAppStore.getState().current!.smoothEnabled).toBe(false)
+
+    rerender(<EditMode gradient={useAppStore.getState().current!} onExit={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('filter-hard'))
+    expect(useAppStore.getState().current!.hardStops).toBe(true)
+    expect(useAppStore.getState().current!.prismEnabled).toBe(false)
   })
 
   it('tapping the already-active tab inverts stop colors (toggle reversed)', () => {

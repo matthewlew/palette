@@ -206,6 +206,32 @@ describe('smoothEnabled persistence', () => {
   })
 })
 
+describe('prismEnabled persistence', () => {
+  const base = {
+    type: 'linear' as const,
+    stops: [
+      { hex: '#ff8800', position: 0 },
+      { hex: '#0044ff', position: 100 },
+    ],
+    name: 'n',
+  }
+
+  it('round-trips prismEnabled through the share payload', () => {
+    const round = importGradient(toSharePayloadGradient({ id: 'x', ...base, prismEnabled: true }))
+    expect(round.prismEnabled).toBe(true)
+  })
+
+  it('leaves prismEnabled absent when it was never set', () => {
+    const round = importGradient(toSharePayloadGradient({ id: 'x', ...base }))
+    expect('prismEnabled' in round).toBe(false)
+  })
+
+  it('validates prismEnabled as an optional boolean', () => {
+    expect(isSharePayloadGradient({ ...base, prismEnabled: true })).toBe(true)
+    expect(isSharePayloadGradient({ ...base, prismEnabled: 'yes' })).toBe(false)
+  })
+})
+
 describe('riso persistence (Drum ink coverage metadata, PRD §5.1/§5.3)', () => {
   const risoGradient = {
     ...gradientA,
