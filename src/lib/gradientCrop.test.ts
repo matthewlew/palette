@@ -7,6 +7,7 @@ import {
   compressStopsForCrop,
   fanRefit,
   cropClipPath,
+  cropSurfaceSize,
   SUPERELLIPSE_N,
 } from './gradientCrop'
 import { FAN_ANCHOR_CONFIG } from './gradient'
@@ -111,5 +112,21 @@ describe('cropClipPath', () => {
     const path = cropClipPath('oval', 1, 1)
     expect(path).toMatch(/^polygon\(/)
     expect(SUPERELLIPSE_N).toBe(2.5)
+  })
+})
+
+describe('cropSurfaceSize', () => {
+  it('gives a circle a square box capped by the shorter axis', () => {
+    expect(cropSurfaceSize('circle', '100dvh')).toEqual({
+      width: 'min(100%, 100dvh)',
+      height: 'auto',
+      aspectRatio: '1 / 1',
+    })
+  })
+
+  it('lets oval and rectangle take the whole available box', () => {
+    expect(cropSurfaceSize('oval', '100dvh')).toEqual({ width: '100%', height: '100%' })
+    expect(cropSurfaceSize('rectangle', '100dvh')).toEqual({ width: '100%', height: '100%' })
+    expect(cropSurfaceSize(undefined, '100dvh')).toEqual({ width: '100%', height: '100%' })
   })
 })
