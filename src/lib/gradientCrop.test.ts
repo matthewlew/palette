@@ -10,6 +10,7 @@ import {
   cropClipPath,
   cropSurfaceSize,
   SUPERELLIPSE_N,
+  buildCroppedGradientCss,
 } from './gradientCrop'
 import { FAN_ANCHOR_CONFIG } from './gradient'
 
@@ -163,5 +164,43 @@ describe('cropSurfaceSize', () => {
     expect(cropSurfaceSize('oval', '100dvh')).toEqual({ width: '100%', height: '100%' })
     expect(cropSurfaceSize('rectangle', '100dvh')).toEqual({ width: '100%', height: '100%' })
     expect(cropSurfaceSize(undefined, '100dvh')).toEqual({ width: '100%', height: '100%' })
+  })
+})
+
+describe('buildCroppedGradientCss applies the list filters', () => {
+  const stops = [
+    { hex: '#ff0000', position: 0 },
+    { hex: '#00ff00', position: 50 },
+    { hex: '#0000ff', position: 100 },
+  ]
+  const count = (css: string) => (css.match(/#[0-9a-f]{6}/gi) ?? []).length
+
+  // Repeat and Hard rebuild the stop list, and this builder re-derives geometry
+  // for radial and fan rather than delegating to buildGradientCss — so it used
+  // to drop both of them on the floor for exactly those two types.
+  for (const type of ['radial', 'fan'] as const) {
+    it(`honours Repeat x2 for ${type} under a circle crop`, () => {
+      const plain = buildCroppedGradientCss(type, stops, false, {}, 'circle')!
+      const repeated = buildCroppedGradientCss(type, stops, false, { repeat: true }, 'circle')!
+      expect(count(repeated)).toBeGreaterThan(count(plain))
+    })
+
+    it(`honours Hard for ${type} under a circle crop`, () => {
+      const plain = buildCroppedGradientCss(type, stops, false, {}, 'circle')!
+      const hard = buildCroppedGradientCss(type, stops, false, { hard: true }, 'circle')!
+      expect(hard).not.toBe(plain)
+    })
+  }
+
+  it('repeats a cropped linear without discarding the crop compression', () => {
+    // Repeat rebuilds positions from hex order, so running it after the refit
+    // would overwrite the compressed positions and silently un-crop the ramp.
+    // 45 degrees: the circle compression factor is sqrt(2) there, where at 0 it
+    // is exactly 1 and a dropped refit would be indistinguishable.
+    const filters = { repeat: true, angle: 45 }
+    const rect = buildCroppedGradientCss('linear', stops, false, filters, 'rectangle')!
+    const circle = buildCroppedGradientCss('linear', stops, false, filters, 'circle')!
+    expect(count(circle)).toBe(count(rect))
+    expect(circle).not.toBe(rect)
   })
 })

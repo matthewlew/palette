@@ -23,6 +23,14 @@
   white-space: nowrap;
 }
 
+/* Above the create feed's own stack, which the default placement sat on top of:
+   Edit and Save share a line at --tabbar-top + 16, Play is a second 44px row
+   12px above that. The toast is close to screen-wide, so it clears the whole
+   stack (16 + 44 + 12 + 44 + 12) instead of tucking in beside Play. */
+.hint.feed {
+  bottom: calc(var(--tabbar-top) + 128px);
+}
+
 /* Above the gallery viewer's action pills, which sit at bottom 74px + inset
    and stand 44px tall. Clearing their top edge, not guessing at it. */
 .hint.raised {

@@ -1,7 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { TurrellSquare } from './TurrellSquare'
-import type { GradientStop } from '../lib/gradient'
+import { TURRELL_SOFTNESS_PERCENT, type GradientStop } from '../lib/gradient'
+
+// The outermost layer oversizes by four times the default blur so the blur
+// can't bleed a background halo in at the edges. Derived, not written out:
+// hardcoding it meant every softness change failed here as an arithmetic
+// mismatch rather than telling anyone whether the bleed rule still held.
+const OUTERMOST_SIZE = `calc(${100 + TURRELL_SOFTNESS_PERCENT * 4}%)`
 
 const stops: GradientStop[] = [
   { hex: '#ff0000', position: 0 },
@@ -43,12 +49,11 @@ describe('TurrellSquare', () => {
     render(<TurrellSquare stops={fourStops} />)
     const layers = screen.getAllByTestId('turrell-layer')
     // Outermost layer oversizes past the container so its blur can't bleed
-    // a background halo at the edges; the rest shrink monotonically.
-    // Outermost layer's default blur/bleed is now a percentage of the
-    // container's own size (TURRELL_SOFTNESS_PERCENT * 4), not a flat px
-    // bleed, so the on-screen render stays resolution-independent.
-    expect(layers[0].style.width).toBe('calc(107%)')
-    expect(layers[0].style.height).toBe('calc(107%)')
+    // a background halo at the edges; the rest shrink monotonically. The
+    // bleed is a percentage of the container's own size, not a flat px, so
+    // the on-screen render stays resolution-independent.
+    expect(layers[0].style.width).toBe(OUTERMOST_SIZE)
+    expect(layers[0].style.height).toBe(OUTERMOST_SIZE)
     const sizes = layers.slice(1).map((l) => {
       const width = parseFloat(l.style.width)
       const height = parseFloat(l.style.height)
@@ -67,8 +72,8 @@ describe('TurrellSquare', () => {
   it('handles a single stop without dividing by zero, rendering it beyond full size', () => {
     render(<TurrellSquare stops={[{ hex: '#ff0000', position: 0 }]} />)
     const layer = screen.getByTestId('turrell-layer')
-    expect(layer.style.width).toBe('calc(107%)')
-    expect(layer.style.height).toBe('calc(107%)')
+    expect(layer.style.width).toBe(OUTERMOST_SIZE)
+    expect(layer.style.height).toBe(OUTERMOST_SIZE)
   })
 
   it('sizes layers from each stop\'s actual position, not just its index', () => {

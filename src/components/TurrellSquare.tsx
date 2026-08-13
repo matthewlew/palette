@@ -116,7 +116,11 @@ export function TurrellSquare({ stops: initialStops, reversed = false, blurPx, r
             ? `calc(${layer.heightPercent}% + ${bleedPercent}%)`
             : `calc(${layer.heightPercent}% + ${bleedPx}px)`
           : `${layer.heightPercent}%`
-        const filter = blurPx != null ? `blur(${blurPx}px)` : undefined
+        // Both paths read the softness from the shared constant. The uncropped
+        // one used to fall through to a `1.75cqmin` literal in the CSS module
+        // while the cropped one interpolated the constant, so raising it moved
+        // only half the renders.
+        const filter = blurPx != null ? `blur(${blurPx}px)` : `blur(${TURRELL_SOFTNESS_PERCENT}cqmin)`
         // No crop: same single-element layer as before (clip-path runs after
         // filter, so a plain layer with only its own default/inline blur is
         // unaffected either way). Cropped: split blur (wrapper, unclipped) from
@@ -146,7 +150,7 @@ export function TurrellSquare({ stops: initialStops, reversed = false, blurPx, r
             style={{
               position: 'absolute',
               inset: 0,
-              filter: filter ?? `blur(${TURRELL_SOFTNESS_PERCENT}cqmin)`,
+              filter,
             }}
           >
             <div

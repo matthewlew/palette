@@ -17,9 +17,9 @@
      so the GPU re-rasterizes it on content change instead of reusing a stale
      texture whose edges bleed random colors until a resize forces a repaint. */
   transform: translate(-50%, -50%) translateZ(0);
-  /* Default only — an explicit blurPx prop overrides this via inline style,
-     which always wins over a class rule. */
-  filter: blur(1.75cqmin);
+  /* No `filter` here. The blur is always set inline from
+     TURRELL_SOFTNESS_PERCENT so the cropped and uncropped paths cannot drift;
+     a literal here would be a second, silent source for the same number. */
 }
 
 /* Cropped variant: no filter here — blur lives on the unclipped wrapper

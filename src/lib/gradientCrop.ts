@@ -1,5 +1,5 @@
 import type { GradientStop, GradientType, FanAnchor, GradientFilters } from './gradient'
-import { resolveFanConfig, getRadialConfig, buildGradientCss, applyReversed, fanSequence, densifierFor } from './gradient'
+import { resolveFanConfig, getRadialConfig, buildGradientCss, applyReversed, applyStopFilters, fanSequence, densifierFor } from './gradient'
 
 /** The three crop shapes a gradient can render into. `undefined`/`'rectangle'`
  * on a saved Gradient means today's full-bleed behaviour — this stays optional
@@ -276,7 +276,7 @@ export function buildCroppedGradientCss(
 
   if (type === 'radial') {
     if (crop === 'oval') return null
-    const orderedStops = applyReversed(stops, reversed)
+    const orderedStops = applyStopFilters(type, applyReversed(stops, reversed), filters)
     const origin = getRadialConfig(filters.angle)
     const { rx, ry } = radialCropAxes(crop, origin.px, origin.py)
     const finalStops = densify(orderedStops)
@@ -284,15 +284,21 @@ export function buildCroppedGradientCss(
   }
 
   if (type === 'linear' || type === 'mirror') {
-    const orderedStops = applyReversed(stops, reversed)
-    const refit = refitStopsForCrop({ type, stops: orderedStops, crop, angle })
-    // The refit stops are already reversed/ordered — buildGradientCss would
-    // re-apply `reversed`, so hand it a passthrough (already-final) order.
-    return buildGradientCss(type, refit, false, { ...filters })
+    // Repeat runs BEFORE the refit. It rebuilds an even position sequence from
+    // hex order, so letting buildGradientCss apply it downstream would
+    // overwrite the very positions the refit just computed and throw the crop
+    // compression away. Hard is left to buildGradientCss: it derives band edges
+    // from the positions it is given, so it wants the refit ones — and it still
+    // has to reach densifierFor there to suppress Smooth/Prism.
+    const repeated = applyStopFilters(type, applyReversed(stops, reversed), { repeat: filters.repeat })
+    const refit = refitStopsForCrop({ type, stops: repeated, crop, angle })
+    // The refit stops are already reversed and repeated — hand buildGradientCss
+    // a passthrough order and clear `repeat` so it applies neither again.
+    return buildGradientCss(type, refit, false, { ...filters, repeat: false })
   }
 
   if (type === 'fan') {
-    const orderedStops = applyReversed(stops, reversed)
+    const orderedStops = applyStopFilters(type, applyReversed(stops, reversed), filters)
     const { from, span } = refitFanForCrop(crop, filters.fanAnchor, filters.angle)
     const sequence = fanSequence(orderedStops, span)
     const finalStops = densify(sequence)

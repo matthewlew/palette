@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { useAppStore } from '../store/useAppStore'
-import { nextRotationAngle, nextFanRotation, SELECTABLE_GEOMETRY, angleForTypeChange, defaultAngleForType, type GradientType } from '../lib/gradient'
+import { nextRotationAngle, nextFanRotation, SELECTABLE_GEOMETRY, angleForTypeChange, type GradientType } from '../lib/gradient'
 import { buildCroppedGradientCss, cropClipPath, cropSurfaceSize, type GradientCrop } from '../lib/gradientCrop'
 import { OvalRadialLayers } from './OvalRadialLayers'
 import {
@@ -34,7 +34,7 @@ import { LikeButton } from './LikeButton'
 import { FlowEditor } from './FlowEditor'
 import { TurrellSquare } from './TurrellSquare'
 import { ScrollTicker } from './ScrollTicker'
-import { feedSession, makeGradient, SHAPE_STEP_PX } from './Feed'
+import { applyFeedLook, captureFeedLook, feedSession, makeGradient, SHAPE_STEP_PX } from './Feed'
 import { decayVelocity, shouldStartMomentum } from '../lib/momentum'
 import { tickHaptic, primeHaptics } from '../lib/haptics'
 import type { Gradient } from '../store/types'
@@ -251,12 +251,16 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
     setActiveOrder('original')
     setPositionsCustomized(!isEvenlyDistributed(stops))
     setTickerIndex(feedSession.index)
-    feedSession.lockedType = gradient.type
-    feedSession.lockedAngle = gradient.angle
-    feedSession.lockedCrop = gradient.crop
     setActiveStopId(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gradient.id, gradient.type])
+
+  // Every commit, not just an id/type change. Pressing an effect chip keeps
+  // both, so a capture keyed on those would still hand the next scroll the
+  // look from before the press.
+  useEffect(() => {
+    captureFeedLook(gradient)
+  }, [gradient])
 
 
   useEffect(() => {
@@ -295,13 +299,12 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
 
     if (newIndex >= history.length) {
       const typeToUse = feedSession.lockedType ?? gradient.type
-      const fresh = {
-        // Via the ref: this runs inside listeners bound once at mount, so a
-        // lock set moments ago must not be read from a stale closure.
-        ...makeGradient(typeToUse, activeColorSet, lockedColorsRef.current, lockedPositionsRef.current),
-        angle: feedSession.lockedAngle ?? defaultAngleForType(typeToUse),
-        crop: feedSession.lockedCrop
-      }
+      // Via the ref: this runs inside listeners bound once at mount, so a lock
+      // set moments ago must not be read from a stale closure.
+      const fresh = applyFeedLook(
+        makeGradient(typeToUse, activeColorSet, lockedColorsRef.current, lockedPositionsRef.current),
+        typeToUse
+      )
       history.push(fresh)
     }
 
