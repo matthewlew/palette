@@ -123,7 +123,7 @@ export function CarouselDeck({ gradients, onOpen }: CarouselDeckProps) {
             {/* tileBackground can't express this one (see its own note), so
                 without the layered renderer the card paints nothing at all. */}
             {gradient.type === 'radial' && gradient.crop === 'oval' && (
-              <OvalRadialLayers stops={gradient.stops} angle={gradient.angle} layerCount={10} />
+              <OvalRadialLayers stops={gradient.stops} angle={gradient.angle} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} hardStops={gradient.hardStops} smoothEnabled={gradient.smoothEnabled} prismEnabled={gradient.prismEnabled} layerCount={16} />
             )}
             <span className={styles.index}>{i + 1}</span>
             <span className={styles.cardName}>

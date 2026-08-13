@@ -21,6 +21,10 @@ export interface Gradient {
   /** Densify the blend with Oklab-eased interior stops for seamless
    * transitions. Mutually exclusive with hardStops. */
   smoothEnabled?: boolean
+  /** Travel the polar OKLCH hue arc between stops instead of CSS's straight
+   * line in sRGB, densified into an ordinary CSS stop list. Mutually
+   * exclusive with hardStops and smoothEnabled. */
+  prismEnabled?: boolean
   fanAnchor?: FanAnchor
   /** Rotation angle in degrees (0-360) */
   angle?: number

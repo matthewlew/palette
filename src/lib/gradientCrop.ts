@@ -1,5 +1,5 @@
 import type { GradientStop, GradientType, FanAnchor, GradientFilters } from './gradient'
-import { resolveFanConfig, getRadialConfig, buildGradientCss, applyReversed, fanSequence, smoothStops } from './gradient'
+import { resolveFanConfig, getRadialConfig, buildGradientCss, applyReversed, fanSequence, densifierFor } from './gradient'
 
 /** The three crop shapes a gradient can render into. `undefined`/`'rectangle'`
  * on a saved Gradient means today's full-bleed behaviour — this stays optional
@@ -30,11 +30,39 @@ export function superellipseRadiusAt(theta: number, n: number): number {
   return 1 / Math.pow(sum, 1 / n)
 }
 
-/** Radial re-fit for a CIRCLE crop: the radius reaches the far edge from
- * wherever the origin sits, per axis. `originCoord` is the radial origin's
- * normalized 0-1 position on one axis (px or py from getRadialConfig). */
-export function circleAxisRadius(originCoord: number): number {
-  return Math.abs(originCoord - 0.5) + 0.5
+/**
+ * Radial extent for a crop, in normalized half-box units (0.5 = the crop's
+ * own half-axis, i.e. a centred origin reaching the boundary exactly).
+ *
+ * The rectangle rule — reach the far edge independently on x and y — does not
+ * transfer to a curved boundary: applied per axis to a circle with a top-centre
+ * origin it yields rx=0.5, ry=1.0, a 2:1 ellipse instead of a circle. On a
+ * curved crop the isolines must stay SIMILAR to the boundary curve, so there is
+ * a single extent: the largest boundary-curve scale, measured about the origin,
+ * that still swallows the whole crop. That is the distance (in the curve's own
+ * metric) from the origin to the farthest point of the boundary, so the
+ * outermost isoline is tangent to the far side of the crop from any origin.
+ *
+ * For a circle that has the closed form `hypot(origin - centre) + radius`; for
+ * the oval it is a max over sampled boundary points, which reduces to the same
+ * closed form at n=2.
+ */
+export function cropRadialExtent(crop: GradientCrop, px: number, py: number, steps = 180): number {
+  if (crop === 'rectangle') return 0.5
+  if (crop === 'circle') return Math.hypot(px - 0.5, py - 0.5) + 0.5
+  const n = SUPERELLIPSE_N
+  let max = 0
+  for (let i = 0; i < steps; i++) {
+    const theta = (i / steps) * 2 * Math.PI
+    const r = superellipseRadiusAt(theta, n)
+    // Boundary point in normalized 0-1 box coordinates, then its offset from
+    // the origin measured in the superellipse's own norm.
+    const dx = 0.5 + 0.5 * r * Math.cos(theta) - px
+    const dy = 0.5 + 0.5 * r * Math.sin(theta) - py
+    const norm = 0.5 * Math.pow(Math.pow(Math.abs(dx / 0.5), n) + Math.pow(Math.abs(dy / 0.5), n), 1 / n)
+    if (norm > max) max = norm
+  }
+  return max
 }
 
 /** Linear/mirror stop-compression factor `k` for the circle crop at a given
@@ -112,12 +140,12 @@ export function fanRefit(crop: GradientCrop, px: number, py: number, w = 1, h = 
   return { from: ((bearing - 90) % 360 + 360) % 360, span: 0.5 }
 }
 
-/** Radial re-fit for a circle crop: per-axis reach from the origin to the
- * far edge, expressed as {rx, ry} fractions of the bounding box (0.5 =
- * classic centred circle). */
+/** Radial re-fit for a crop, as {rx, ry} fractions of the bounding box (0.5 =
+ * classic centred circle). rx always equals ry on a curved crop — see
+ * cropRadialExtent. */
 export function radialCropAxes(crop: GradientCrop, px: number, py: number): { rx: number; ry: number } {
-  if (crop === 'rectangle') return { rx: 0.5, ry: 0.5 }
-  return { rx: circleAxisRadius(px), ry: circleAxisRadius(py) }
+  const r = cropRadialExtent(crop, px, py)
+  return { rx: r, ry: r }
 }
 
 /** Points around the unit superellipse |x|^n + |y|^n = 1 (centred at 0,0,
@@ -242,14 +270,16 @@ export function buildCroppedGradientCss(
   if (!crop || crop === 'rectangle') return buildGradientCss(type, stops, reversed, filters)
 
   const angle = filters.angle ?? 0
-  const smooth = !!filters.smooth && !filters.hard
+  // The same Smooth/Prism/Hard resolution buildGradientCss applies, so a
+  // cropped geometry that builds its own CSS here densifies identically.
+  const densify = densifierFor(filters, type)
 
   if (type === 'radial') {
     if (crop === 'oval') return null
     const orderedStops = applyReversed(stops, reversed)
     const origin = getRadialConfig(filters.angle)
     const { rx, ry } = radialCropAxes(crop, origin.px, origin.py)
-    const finalStops = smooth ? smoothStops(orderedStops) : orderedStops
+    const finalStops = densify(orderedStops)
     return `radial-gradient(${(rx * 100).toFixed(2)}% ${(ry * 100).toFixed(2)}% at ${origin.px * 100}% ${origin.py * 100}%, ${stopsToCss(finalStops)})`
   }
 
@@ -265,7 +295,7 @@ export function buildCroppedGradientCss(
     const orderedStops = applyReversed(stops, reversed)
     const { from, span } = refitFanForCrop(crop, filters.fanAnchor, filters.angle)
     const sequence = fanSequence(orderedStops, span)
-    const finalStops = smooth ? smoothStops(sequence) : sequence
+    const finalStops = densify(sequence)
     const { px, py } = resolveFanConfig(filters.fanAnchor, filters.angle)
     return `conic-gradient(from ${from}deg at ${px * 100}% ${py * 100}%, ${stopsToCss(finalStops)})`
   }

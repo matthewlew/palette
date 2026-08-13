@@ -116,3 +116,37 @@ describe('TurrellSquare', () => {
     expect(layers[0].style.filter).toBe('blur(4px)')
   })
 })
+
+describe('TurrellSquare crop', () => {
+  it('keeps circle-crop layers square and clipped to the crop curve from an off-centre origin', () => {
+    // angle 0 = top-centre origin. The rectangle per-axis reach would give
+    // 50% width and 100% height here — an ellipse once the circle clip lands.
+    render(<TurrellSquare stops={stops} crop="circle" angle={0} />)
+    const layers = screen.getAllByTestId('turrell-layer')
+    expect(layers).toHaveLength(3)
+    for (const layer of layers) {
+      expect(layer.style.width).toBe(layer.style.height)
+      expect(layer.style.clipPath).toBe('circle(50%)')
+    }
+    // Outermost reaches the far side of the circle: 2 * (hypot(0, 0.5) + 0.5).
+    expect(layers[0].style.width).toBe('200%')
+  })
+
+  it('clips oval-crop layers to the superellipse and keeps them proportional', () => {
+    render(<TurrellSquare stops={stops} crop="oval" />)
+    for (const layer of screen.getAllByTestId('turrell-layer')) {
+      expect(layer.style.width).toBe(layer.style.height)
+      expect(layer.style.clipPath.startsWith('polygon(')).toBe(true)
+    }
+  })
+
+  it('leaves rectangle layers square-shaped and unclipped', () => {
+    render(<TurrellSquare stops={stops} angle={0} />)
+    const layers = screen.getAllByTestId('turrell-layer')
+    // The rectangle keeps its per-axis reach: top origin means full height,
+    // half width.
+    expect(layers[1].style.width).toBe('55%')
+    expect(layers[1].style.height).toBe('110%')
+    expect(layers[1].style.clipPath).toBe('')
+  })
+})

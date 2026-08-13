@@ -20,6 +20,7 @@ interface GeometryTabsProps {
   onToggleRepeat?: () => void
   onToggleHardStops?: () => void
   onToggleSmooth?: () => void
+  onTogglePrism?: () => void
   /** Re-tapping the active Fan tab rotates its anchor edge. */
   onRotateFan?: () => void
   onRotate?: () => void
@@ -75,6 +76,7 @@ export function GeometryTabs({
   onToggleRepeat,
   onToggleHardStops,
   onToggleSmooth,
+  onTogglePrism,
   onRotateFan,
   onRotate,
   noiseEnabled = false,
@@ -129,6 +131,9 @@ export function GeometryTabs({
   // Smooth densifies a continuous blend — meaningful everywhere except the
   // solid Turrell squares.
   const smoothDisabled = gradient.type === 'square'
+  // Prism is a colour path along a continuous blend, so it is meaningless for
+  // the same solid Turrell squares Smooth skips.
+  const prismDisabled = gradient.type === 'square'
 
   // The Effect chips are LDS chips: `.lds-chip` carries the whole visual
   // recipe (pill, hairline, hover/pressed steps, caption type) and
@@ -206,6 +211,7 @@ export function GeometryTabs({
                   fanAnchor: gradient.fanAnchor,
                   angle: previewAngle,
                   smooth: gradient.smoothEnabled,
+                  prism: gradient.prismEnabled,
                 }) : undefined
               }}
             >
@@ -273,6 +279,16 @@ export function GeometryTabs({
         onClick={onToggleSmooth}
       >
         Smooth
+      </button>
+      <button
+        type="button"
+        data-testid="filter-prism"
+        aria-pressed={gradient.prismEnabled}
+        disabled={prismDisabled}
+        className={chipClass(gradient.prismEnabled)}
+        onClick={onTogglePrism}
+      >
+        Prism
       </button>
       <button
         type="button"

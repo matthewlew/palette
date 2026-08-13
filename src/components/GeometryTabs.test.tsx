@@ -81,6 +81,28 @@ const dummyGradient = (type: any) => ({ id: 'g1', type, stops: dummyStops, rever
     expect(onToggleSmooth).toHaveBeenCalledTimes(1)
   })
 
+  it('renders a Prism chip and calls onTogglePrism when clicked', () => {
+    const onTogglePrism = vi.fn()
+    render(
+      <GeometryTabs gradient={dummyGradient('linear')} stops={dummyStops}
+        onSelectType={vi.fn()}
+        onToggleReversed={vi.fn()}
+        onTogglePrism={onTogglePrism}
+      />
+    )
+    fireEvent.click(screen.getByTestId('filter-prism'))
+    expect(onTogglePrism).toHaveBeenCalledTimes(1)
+  })
+
+  it('disables Prism for Turrell squares, which have no blend to densify', () => {
+    render(
+      <GeometryTabs gradient={dummyGradient('square')} stops={dummyStops}
+        onSelectType={vi.fn()} onToggleReversed={vi.fn()} onTogglePrism={vi.fn()}
+      />
+    )
+    expect(screen.getByTestId('filter-prism')).toBeDisabled()
+  })
+
   it('labels the square-type tab as "Turrell"', () => {
     render(<GeometryTabs gradient={dummyGradient('square')} stops={dummyStops} onSelectType={vi.fn()} onToggleReversed={vi.fn()} />)
     expect(screen.getByText('Turrell')).toBeInTheDocument()
@@ -137,7 +159,7 @@ describe('GeometryTabs Shape/Effect sections', () => {
     for (const label of ['Linear', 'Radial', 'Angular', 'Turrell', 'Mirror', 'Fan']) {
       expect(shape).toContainElement(screen.getByText(label))
     }
-    for (const id of ['filter-repeat', 'filter-smooth', 'filter-hard', 'filter-grain', 'filter-rotate', 'sort-button']) {
+    for (const id of ['filter-repeat', 'filter-smooth', 'filter-prism', 'filter-hard', 'filter-grain', 'filter-rotate', 'sort-button']) {
       expect(effect).toContainElement(screen.getByTestId(id))
     }
   })

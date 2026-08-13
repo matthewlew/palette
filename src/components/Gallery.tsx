@@ -18,7 +18,7 @@ import { namePalette } from '../lib/naming'
 import { titleColorAt, paletteInkOn } from '../lib/titleColor'
 import { TurrellSquare } from './TurrellSquare'
 import { OvalRadialLayers } from './OvalRadialLayers'
-import { cropClipPath } from '../lib/gradientCrop'
+import { cropClipPath, cropSurfaceSize } from '../lib/gradientCrop'
 import { BoardShare } from './BoardShare'
 import { PaletteTitle } from './PaletteTitle'
 import { NoiseOverlay } from './NoiseOverlay'
@@ -267,8 +267,6 @@ function Tile({
       <div
         className={styles.tilePreview}
         style={{
-          backgroundImage: tileBackground(gradient),
-          clipPath: cropClipPath(gradient.crop),
           backgroundColor: gradient.crop && gradient.crop !== 'rectangle' ? 'var(--crop-backdrop, Canvas)' : undefined,
           // Circle crops are always 1:1 — sizing the tile itself to a square
           // (rather than clipping a circle inside a taller/wider rect) is
@@ -293,11 +291,19 @@ function Tile({
           viewTransitionName: isHero && !viewerOpen ? 'palette-card' : 'none',
         }}
       >
-        {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={6} angle={gradient.angle} crop={gradient.crop} />}
-        {gradient.type === 'radial' && gradient.crop === 'oval' && (
-          <OvalRadialLayers stops={gradient.stops} angle={gradient.angle} layerCount={12} />
-        )}
-        <NoiseOverlay visible={noiseEnabled} />
+        {/* The crop clips this inner surface only — on .tilePreview it would
+            also cut the tile's chrome (Edit/Delete, heart, badges). */}
+        <div
+          className={styles.tileSurface}
+          data-testid="tile-surface"
+          style={{ backgroundImage: tileBackground(gradient), clipPath: cropClipPath(gradient.crop) }}
+        >
+          {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={6} angle={gradient.angle} crop={gradient.crop} />}
+          {gradient.type === 'radial' && gradient.crop === 'oval' && (
+            <OvalRadialLayers stops={gradient.stops} angle={gradient.angle} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} hardStops={gradient.hardStops} smoothEnabled={gradient.smoothEnabled} prismEnabled={gradient.prismEnabled} layerCount={20} />
+          )}
+          <NoiseOverlay visible={noiseEnabled} />
+        </div>
         {/* PRD §5.3's proposed mitigation for silent round-trip data loss: a
             Drum gradient looks identical to a plain one once rendered (hex is
             always the ground truth for display), so without this there is no
@@ -533,8 +539,6 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes 
       aria-label={live.name ?? 'Gradient'}
       className={styles.viewer}
       style={{
-        backgroundImage: tileBackground(live),
-        clipPath: cropClipPath(live.crop),
         backgroundColor: live.crop && live.crop !== 'rectangle' ? 'var(--crop-backdrop, Canvas)' : undefined,
       }}
       onClick={() => {
@@ -564,15 +568,28 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes 
         if (steps !== 0) step(steps)
       }}
     >
-      {/* Turrell paints as an absolute backdrop layer — in normal flow its
+      {/* The gradient paints on its own surface so a circle/oval crop clips
+          only the picture, never the ✕, the ticker or the share menu over it.
+          Turrell paints as an absolute layer inside it — in normal flow its
           100% height would fill the flex column and push the panel below
           the fold, unlike the other shapes' background-image. */}
-      {gradient.type === 'square' && (
-        <div className={styles.viewerSquare}>
+      <div
+        data-testid="viewer-surface"
+        className={styles.viewerSurface}
+        style={{
+          backgroundImage: tileBackground(live),
+          clipPath: cropClipPath(live.crop),
+          ...cropSurfaceSize(live.crop, '100dvh'),
+        }}
+      >
+        {gradient.type === 'square' && (
           <TurrellSquare stops={live.stops} reversed={live.reversed} angle={live.angle} crop={live.crop} />
-        </div>
-      )}
-      <NoiseOverlay visible={noiseEnabled} />
+        )}
+        {live.type === 'radial' && live.crop === 'oval' && (
+          <OvalRadialLayers stops={live.stops} angle={live.angle} reversed={live.reversed} repeatEnabled={live.repeatEnabled} hardStops={live.hardStops} smoothEnabled={live.smoothEnabled} prismEnabled={live.prismEnabled} />
+        )}
+        <NoiseOverlay visible={noiseEnabled} />
+      </div>
       <button
         type="button"
         className={`${styles.viewerClose} ${MEDIA_ICON}`}

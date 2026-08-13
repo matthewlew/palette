@@ -7,6 +7,7 @@ import {
   resolveFanConfig,
   getRadialConfig,
   smoothStops,
+  prismStops,
   turrellExtent,
   angularSequence,
   mirrorSequence,
@@ -56,6 +57,7 @@ export function renderGradientToCanvas(
     repeatEnabled = false,
     hardStops = false,
     smoothEnabled = false,
+    prismEnabled = false,
     angle,
     fanAnchor,
   } = gradient
@@ -73,6 +75,7 @@ export function renderGradientToCanvas(
     if (repeatEnabled) stops = repeatedStops(stops)
     if (hardStops) stops = hardenStops(stops)
     if (smoothEnabled && !hardStops) stops = smoothStops(stops)
+    else if (prismEnabled && !hardStops) stops = prismStops(stops)
   }
 
   // Clear background

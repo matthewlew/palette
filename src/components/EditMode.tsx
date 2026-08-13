@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import { nextRotationAngle, nextFanRotation, SELECTABLE_GEOMETRY, angleForTypeChange, defaultAngleForType, type GradientType } from '../lib/gradient'
-import { buildCroppedGradientCss, cropClipPath, type GradientCrop } from '../lib/gradientCrop'
+import { buildCroppedGradientCss, cropClipPath, cropSurfaceSize, type GradientCrop } from '../lib/gradientCrop'
 import { OvalRadialLayers } from './OvalRadialLayers'
 import {
   toEditableStops,
@@ -719,7 +719,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
   // positions the user has already dragged into place — only handle removal/
   // addition/sorting re-equalizes, since those change stop count or order.
   function commitPreservingPositions(
-    overrides: Partial<Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops' | 'smoothEnabled' | 'fanAnchor' | 'angle' | 'crop'>>
+    overrides: Partial<Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops' | 'smoothEnabled' | 'prismEnabled' | 'fanAnchor' | 'angle' | 'crop'>>
   ) {
     setCurrentGradient({
       ...gradient,
@@ -784,11 +784,17 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
   }
 
   function handleToggleHardStops() {
-    commitPreservingPositions({ hardStops: !gradient.hardStops, smoothEnabled: false })
+    commitPreservingPositions({ hardStops: !gradient.hardStops, smoothEnabled: false, prismEnabled: false })
   }
 
   function handleToggleSmooth() {
-    commitPreservingPositions({ smoothEnabled: !gradient.smoothEnabled, hardStops: false })
+    commitPreservingPositions({ smoothEnabled: !gradient.smoothEnabled, hardStops: false, prismEnabled: false })
+  }
+
+  function handleTogglePrism() {
+    const prismEnabled = !gradient.prismEnabled
+    feedSession.lockedPrismEnabled = prismEnabled
+    commitPreservingPositions({ prismEnabled, hardStops: false, smoothEnabled: false })
   }
 
   function handleRotateAngle() {
@@ -1010,6 +1016,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
         onToggleRepeat={handleToggleRepeat}
         onToggleHardStops={handleToggleHardStops}
         onToggleSmooth={handleToggleSmooth}
+        onTogglePrism={handleTogglePrism}
         onRotateFan={handleRotateFan}
         onRotate={handleRotateAngle}
         noiseEnabled={noiseEnabled}
@@ -1107,59 +1114,62 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
         ref={previewRef}
         className={styles.preview}
         style={{
-          backgroundImage:
-            gradient.type === 'square' || (gradient.type === 'radial' && gradient.crop === 'oval')
-              ? undefined
-              : (buildCroppedGradientCss(gradient.type, animatedStops, gradient.reversed ?? false, {
-                  repeat: gradient.repeatEnabled,
-                  hard: gradient.hardStops,
-                  fanAnchor: gradient.fanAnchor,
-                  angle: gradient.angle,
-                  smooth: gradient.smoothEnabled,
-                }, gradient.crop) ?? undefined),
-          clipPath: cropClipPath(gradient.crop),
           // Circle/oval: light/dark-mode aware backdrop behind the shape
           // instead of the gradient's own last colour bleeding to the edges.
           backgroundColor: gradient.crop && gradient.crop !== 'rectangle' ? 'var(--crop-backdrop, Canvas)' : undefined,
           // Shrink to the space actually left above the sheet instead of
           // sitting at full height underneath it — see sheetPopupRef above.
           height: isDesktop ? undefined : `calc(100dvh - ${sheetHidden ? 0 : sheetHeight}px)`,
-          // Circle crop's clip-path assumes a square box (cropClipPath's
-          // default aspect) — on a portrait phone that box is normally taller
-          // than it is wide, so pin the width to whichever of the two screen
-          // axes is smaller instead of letting it stay full viewport width.
-          // Without this the "circle" clip radius (computed off the box's
-          // diagonal, per the CSS spec for circle(<percentage>)) exceeds both
-          // half-dimensions and the shape overflows the viewport uncropped.
-          width: !isDesktop && gradient.crop === 'circle'
-            ? `min(100%, calc(100dvh - ${sheetHidden ? 0 : sheetHeight}px))`
-            : undefined,
-          margin: !isDesktop && gradient.crop === 'circle' ? '0 auto' : undefined,
         }}
         onPointerDown={handlePreviewPointerDown}
         onPointerUp={handlePreviewPointerUp}
         onPointerMove={handlePreviewPointerMove}
         onPointerLeave={handlePreviewPointerLeave}
       >
+        {/* The gradient paints on its OWN surface inside the preview, and the
+            crop clips only that: on the preview itself the clip would also cut
+            the chrome laid over it — the Save pill, the title, the handles.
+            The circle's square box comes from the preview's container query
+            (see .preview / .previewSurface), which is what `100cqh` reads. */}
+        <div
+          data-testid="edit-mode-surface"
+          className={styles.previewSurface}
+          style={{
+            backgroundImage:
+              gradient.type === 'square' || (gradient.type === 'radial' && gradient.crop === 'oval')
+                ? undefined
+                : (buildCroppedGradientCss(gradient.type, animatedStops, gradient.reversed ?? false, {
+                    repeat: gradient.repeatEnabled,
+                    hard: gradient.hardStops,
+                    fanAnchor: gradient.fanAnchor,
+                    angle: gradient.angle,
+                    smooth: gradient.smoothEnabled,
+                    prism: gradient.prismEnabled,
+                  }, gradient.crop) ?? undefined),
+            clipPath: cropClipPath(gradient.crop),
+            ...cropSurfaceSize(gradient.crop, '100cqh'),
+          }}
+        >
+          {/* Turrell reads "Hard" as crisp: no blur between the nested squares. */}
+          {gradient.type === 'square' && (
+            <TurrellSquare
+              stops={animatedStops}
+              reversed={gradient.reversed}
+              repeatEnabled={gradient.repeatEnabled}
+              blurPx={gradient.hardStops ? 0 : undefined}
+              angle={gradient.angle}
+              crop={gradient.crop}
+            />
+          )}
+          {gradient.type === 'radial' && gradient.crop === 'oval' && (
+            <OvalRadialLayers stops={animatedStops} angle={gradient.angle} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} hardStops={gradient.hardStops} smoothEnabled={gradient.smoothEnabled} prismEnabled={gradient.prismEnabled} />
+          )}
+          <NoiseOverlay visible={noiseEnabled} />
+        </div>
         {/* The tick scroller stays put while scrolling — it's the one bit of
             chrome that should remain when everything else ducks away — but it
             still hides during a handle drag so it doesn't sit under the dots. */}
         {!fromGallery && <ScrollTicker index={tickerIndex} hidden={handleDragging} />}
-        {/* Turrell reads "Hard" as crisp: no blur between the nested squares. */}
-        {gradient.type === 'square' && (
-          <TurrellSquare
-            stops={animatedStops}
-            reversed={gradient.reversed}
-            repeatEnabled={gradient.repeatEnabled}
-            blurPx={gradient.hardStops ? 0 : undefined}
-            angle={gradient.angle}
-            crop={gradient.crop}
-          />
-        )}
-        {gradient.type === 'radial' && gradient.crop === 'oval' && (
-          <OvalRadialLayers stops={animatedStops} angle={gradient.angle} />
-        )}
-        <NoiseOverlay visible={noiseEnabled} />
         <PaletteTitle
           name={gradient.name ?? namePalette(gradient.stops.map((s) => s.hex))}
           onRename={renameCurrentGradient}
