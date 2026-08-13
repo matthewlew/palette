@@ -521,7 +521,7 @@ export interface GradientFilters {
  * instruction), then `smooth`; the UI keeps all three exclusive, so the order
  * only decides what a hand-crafted payload gets. Square is solid blocks with
  * no blend to densify. */
-function densifierFor(filters: GradientFilters, type?: GradientType): (s: GradientStop[]) => GradientStop[] {
+export function densifierFor(filters: GradientFilters, type?: GradientType): (s: GradientStop[]) => GradientStop[] {
   if (type === 'square' || filters.hard) return (s) => s
   if (filters.smooth) return smoothStops
   if (filters.prism) return prismStops
