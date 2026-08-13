@@ -18,6 +18,7 @@ import { useHint } from '../hooks/useHint'
 import { useScrolling } from '../hooks/useScrolling'
 import { useSheetFollow } from '../hooks/useSheetFollow'
 import { useIsDesktop } from '../hooks/useIsDesktop'
+import { useElementAspect } from '../hooks/useElementAspect'
 import { Hint } from './Hint'
 import { ColorList } from './ColorList'
 import { gradientCssSnippet } from '../lib/cssSnippet'
@@ -123,6 +124,9 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
   const blockContainerRef = useRef<HTMLDivElement>(null) as RefObject<HTMLDivElement>
   const previewPointerStartRef = useRef<{ x: number; y: number } | null>(null)
   const previewRef = useRef<HTMLDivElement>(null)
+  const surfaceRef = useRef<HTMLDivElement>(null)
+  // Only an oval-cropped angular gradient reads this; see buildCroppedGradientCss.
+  const surfaceAspect = useElementAspect(surfaceRef)
   const onExitRef = useRef(onExit)
   onExitRef.current = onExit
   // ONE HEIGHT. The sheet had two — a peek showing the Shape/Effect switch and
@@ -1147,6 +1151,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
             The circle's square box comes from the preview's container query
             (see .preview / .previewSurface), which is what `100cqh` reads. */}
         <div
+          ref={surfaceRef}
           data-testid="edit-mode-surface"
           className={styles.previewSurface}
           style={{
@@ -1160,7 +1165,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
                     angle: gradient.angle,
                     smooth: gradient.smoothEnabled,
                     prism: gradient.prismEnabled,
-                  }, gradient.crop) ?? undefined),
+                  }, gradient.crop, surfaceAspect) ?? undefined),
             clipPath: cropClipPath(gradient.crop),
             ...cropSurfaceSize(gradient.crop, '100cqh'),
           }}

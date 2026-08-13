@@ -638,7 +638,12 @@ export function sampleStopsCss(stops: GradientStop[], t: number): string {
   return sorted[sorted.length - 1].hex
 }
 
-function lerpHexSrgb(hexA: string, hexB: string, t: number): string {
+/** Straight-line sRGB mix — the same path CSS itself walks between two stops
+ * by default. Exported because the oval conic re-fit subdivides a stop list
+ * with it: inserting a stop at the colour CSS would already have painted there
+ * changes nothing about the ramp, which is what makes the extra stops free to
+ * move. */
+export function lerpHexSrgb(hexA: string, hexB: string, t: number): string {
   const a = hexToSrgb(hexA)
   const b = hexToSrgb(hexB)
   const mix = (x: number, y: number) => Math.round(Math.min(255, Math.max(0, x + (y - x) * t)))
