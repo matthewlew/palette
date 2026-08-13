@@ -16,6 +16,7 @@ export function gradientCssSnippet(gradient: Gradient, stops: GradientStop[]): s
     repeat: gradient.repeatEnabled,
     hard: gradient.hardStops,
     smooth: gradient.smoothEnabled,
+    prism: gradient.prismEnabled,
     fanAnchor: gradient.fanAnchor,
     angle: gradient.angle,
   }

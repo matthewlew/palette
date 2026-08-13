@@ -719,7 +719,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
   // positions the user has already dragged into place — only handle removal/
   // addition/sorting re-equalizes, since those change stop count or order.
   function commitPreservingPositions(
-    overrides: Partial<Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops' | 'smoothEnabled' | 'fanAnchor' | 'angle' | 'crop'>>
+    overrides: Partial<Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops' | 'smoothEnabled' | 'prismEnabled' | 'fanAnchor' | 'angle' | 'crop'>>
   ) {
     setCurrentGradient({
       ...gradient,
@@ -784,11 +784,17 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
   }
 
   function handleToggleHardStops() {
-    commitPreservingPositions({ hardStops: !gradient.hardStops, smoothEnabled: false })
+    commitPreservingPositions({ hardStops: !gradient.hardStops, smoothEnabled: false, prismEnabled: false })
   }
 
   function handleToggleSmooth() {
-    commitPreservingPositions({ smoothEnabled: !gradient.smoothEnabled, hardStops: false })
+    commitPreservingPositions({ smoothEnabled: !gradient.smoothEnabled, hardStops: false, prismEnabled: false })
+  }
+
+  function handleTogglePrism() {
+    const prismEnabled = !gradient.prismEnabled
+    feedSession.lockedPrismEnabled = prismEnabled
+    commitPreservingPositions({ prismEnabled, hardStops: false, smoothEnabled: false })
   }
 
   function handleRotateAngle() {
@@ -1010,6 +1016,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
         onToggleRepeat={handleToggleRepeat}
         onToggleHardStops={handleToggleHardStops}
         onToggleSmooth={handleToggleSmooth}
+        onTogglePrism={handleTogglePrism}
         onRotateFan={handleRotateFan}
         onRotate={handleRotateAngle}
         noiseEnabled={noiseEnabled}
@@ -1137,6 +1144,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
                     fanAnchor: gradient.fanAnchor,
                     angle: gradient.angle,
                     smooth: gradient.smoothEnabled,
+                    prism: gradient.prismEnabled,
                   }, gradient.crop) ?? undefined),
             clipPath: cropClipPath(gradient.crop),
             ...cropSurfaceSize(gradient.crop, '100cqh'),
@@ -1154,7 +1162,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
             />
           )}
           {gradient.type === 'radial' && gradient.crop === 'oval' && (
-            <OvalRadialLayers stops={animatedStops} angle={gradient.angle} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} hardStops={gradient.hardStops} smoothEnabled={gradient.smoothEnabled} />
+            <OvalRadialLayers stops={animatedStops} angle={gradient.angle} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} hardStops={gradient.hardStops} smoothEnabled={gradient.smoothEnabled} prismEnabled={gradient.prismEnabled} />
           )}
           <NoiseOverlay visible={noiseEnabled} />
         </div>

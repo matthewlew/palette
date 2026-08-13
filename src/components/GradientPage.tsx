@@ -123,6 +123,7 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, onBack, ch
                 repeat: gradient.repeatEnabled,
                 hard: gradient.hardStops,
                 smooth: gradient.smoothEnabled,
+                prism: gradient.prismEnabled,
                 fanAnchor: gradient.fanAnchor, angle: gradient.angle,
               }, gradient.crop) ?? undefined),
           clipPath: cropClipPath(gradient.crop),
@@ -140,7 +141,7 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, onBack, ch
           />
         )}
         {gradient.type === 'radial' && gradient.crop === 'oval' && (
-          <OvalRadialLayers stops={gradient.stops} angle={gradient.angle} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} hardStops={gradient.hardStops} smoothEnabled={gradient.smoothEnabled} />
+          <OvalRadialLayers stops={gradient.stops} angle={gradient.angle} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} hardStops={gradient.hardStops} smoothEnabled={gradient.smoothEnabled} prismEnabled={gradient.prismEnabled} />
         )}
         <NoiseOverlay visible={noiseEnabled} />
       </div>

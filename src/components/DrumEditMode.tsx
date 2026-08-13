@@ -408,7 +408,7 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
    * current editableStops instead of a plain hex list. */
   function commitGeometry(
     overrides: Partial<
-      Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops' | 'smoothEnabled' | 'fanAnchor' | 'angle'>
+      Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops' | 'smoothEnabled' | 'prismEnabled' | 'fanAnchor' | 'angle'>
     >
   ) {
     const { stops, coverage } = toGradientCoverageStops(editableStops, inkHexes)
@@ -430,11 +430,15 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
   }
 
   function handleToggleHardStops() {
-    commitGeometry({ hardStops: !gradient.hardStops, smoothEnabled: false })
+    commitGeometry({ hardStops: !gradient.hardStops, smoothEnabled: false, prismEnabled: false })
   }
 
   function handleToggleSmooth() {
-    commitGeometry({ smoothEnabled: !gradient.smoothEnabled, hardStops: false })
+    commitGeometry({ smoothEnabled: !gradient.smoothEnabled, hardStops: false, prismEnabled: false })
+  }
+
+  function handleTogglePrism() {
+    commitGeometry({ prismEnabled: !gradient.prismEnabled, hardStops: false, smoothEnabled: false })
   }
 
   function handleRotateAngle() {
@@ -649,6 +653,7 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
           onToggleRepeat={handleToggleRepeat}
           onToggleHardStops={handleToggleHardStops}
           onToggleSmooth={handleToggleSmooth}
+          onTogglePrism={handleTogglePrism}
           onRotateFan={handleRotateFan}
           onRotate={handleRotateAngle}
           noiseEnabled={noiseEnabled}
@@ -869,6 +874,7 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
                   fanAnchor: gradient.fanAnchor,
                   angle: gradient.angle,
                   smooth: gradient.smoothEnabled,
+                  prism: gradient.prismEnabled,
                 }),
         }}
         onPointerDown={handlePreviewPointerDown}

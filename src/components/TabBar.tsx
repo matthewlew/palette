@@ -43,6 +43,7 @@ function thumbStyle(gradient: Gradient): React.CSSProperties | undefined {
           repeat: gradient.repeatEnabled,
           hard: gradient.hardStops,
           smooth: gradient.smoothEnabled,
+          prism: gradient.prismEnabled,
           fanAnchor: gradient.fanAnchor,
           angle: gradient.angle,
         }),

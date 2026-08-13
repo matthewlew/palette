@@ -86,6 +86,7 @@ function SavedCard({ gradient, onSelect }: { gradient: Gradient; onSelect: (g: G
                   repeat: gradient.repeatEnabled,
                   hard: gradient.hardStops,
                   smooth: gradient.smoothEnabled,
+                  prism: gradient.prismEnabled,
                   fanAnchor: gradient.fanAnchor,
                   angle: gradient.angle,
                 }, gradient.crop) ?? undefined),
@@ -96,7 +97,7 @@ function SavedCard({ gradient, onSelect }: { gradient: Gradient; onSelect: (g: G
       >
         {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={6} angle={gradient.angle} crop={gradient.crop} />}
         {gradient.type === 'radial' && gradient.crop === 'oval' && (
-          <OvalRadialLayers stops={gradient.stops} angle={gradient.angle} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} hardStops={gradient.hardStops} smoothEnabled={gradient.smoothEnabled} layerCount={20} />
+          <OvalRadialLayers stops={gradient.stops} angle={gradient.angle} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} hardStops={gradient.hardStops} smoothEnabled={gradient.smoothEnabled} prismEnabled={gradient.prismEnabled} layerCount={20} />
         )}
       </button>
       {editing ? (
