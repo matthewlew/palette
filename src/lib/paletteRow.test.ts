@@ -53,6 +53,26 @@ describe('isRenderableRow', () => {
   })
 })
 
+describe('toGradient render settings', () => {
+  it('restores the crop and effects the row was published with', () => {
+    const g = toGradient(row({ render: { crop: 'circle', hardStops: true } }))!
+    expect(g.crop).toBe('circle')
+    expect(g.hardStops).toBe(true)
+  })
+
+  it('reads a row from before the column existed as full-bleed, effects off', () => {
+    const g = toGradient(row())!
+    expect(g.crop).toBeUndefined()
+    expect(g.hardStops).toBe(false)
+    expect(g.repeatEnabled).toBe(false)
+    expect(g.fanAnchor).toBe('bottom')
+  })
+
+  it('ignores a stored crop nothing can draw rather than passing it through', () => {
+    expect(toGradient(row({ render: { crop: 'hexagon' } }))!.crop).toBeUndefined()
+  })
+})
+
 describe('toGradient', () => {
   it('maps a good row, carrying the like count', () => {
     const g = toGradient(row())!

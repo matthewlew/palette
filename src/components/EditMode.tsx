@@ -16,6 +16,7 @@ import {
 import { sortByOklch, type SortKey } from '../lib/sortColors'
 import { useHint } from '../hooks/useHint'
 import { useScrolling } from '../hooks/useScrolling'
+import { useSheetFollow } from '../hooks/useSheetFollow'
 import { useIsDesktop } from '../hooks/useIsDesktop'
 import { Hint } from './Hint'
 import { ColorList } from './ColorList'
@@ -173,6 +174,12 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
   const lastHandleDragEndRef = useRef(0)
   const pendingGradientRef = useRef<Gradient | null>(null)
   const isDesktop = useIsDesktop()
+  // A swipe translates the sheet rather than resizing it, so the measurement
+  // above cannot see the drag at all — see useSheetFollow.
+  const sheetFollow = useSheetFollow(sheetPopupEl, !isDesktop)
+  // What the sheet is actually covering right now: the live value mid-drag,
+  // the measured height otherwise, and nothing at all when it is closed.
+  const sheetCoverage = sheetFollow.visible ?? (sheetHidden ? 0 : sheetHeight)
   // Duck the floating chrome (FABs, back) while a canvas handle is being
   // dragged, or while the sheet is closed, so both share the same "gradient
   // alone, nothing floating" state. MOBILE ONLY — the side panel never
@@ -1114,14 +1121,20 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
       <div
         data-testid="edit-mode-preview"
         ref={previewRef}
-        className={styles.preview}
+        // The height transition is what makes the sheet's open/close read as
+        // one motion — and exactly what must not run while a finger is on the
+        // sheet, where every frame is already the finished position and
+        // easing towards it just lags the drag.
+        className={[styles.preview, sheetFollow.following && styles.previewFollowing]
+          .filter(Boolean)
+          .join(' ')}
         style={{
           // Circle/oval: light/dark-mode aware backdrop behind the shape
           // instead of the gradient's own last colour bleeding to the edges.
           backgroundColor: gradient.crop && gradient.crop !== 'rectangle' ? 'var(--crop-backdrop, Canvas)' : undefined,
           // Shrink to the space actually left above the sheet instead of
           // sitting at full height underneath it — see sheetPopupRef above.
-          height: isDesktop ? undefined : `calc(100dvh - ${sheetHidden ? 0 : sheetHeight}px)`,
+          height: isDesktop ? undefined : `calc(100dvh - ${sheetCoverage}px)`,
         }}
         onPointerDown={handlePreviewPointerDown}
         onPointerUp={handlePreviewPointerUp}

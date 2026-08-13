@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { encodeToFragment, toExportJson, toSharePayloadGradient } from '../lib/gradientCodec'
 import { publishPalette, publishGradient } from '../lib/publishPalette'
 import { previewShareUrl } from '../lib/shareLink'
+import { renderSettingsOf } from '../lib/renderSettings'
 import { toCuratedEntryJson } from '../lib/curated'
 import { useCopyFeedback } from '../hooks/useCopyFeedback'
 import type { Gradient } from '../store/types'
@@ -125,7 +126,14 @@ export function BoardShare({
     try {
       const hexes = current.stops.map((s) => s.hex)
       const offsets = current.stops.map((s) => s.position)
-      const result = await publishPalette(hexes, current.type, current.angle, current.name, offsets)
+      const result = await publishPalette(
+        hexes,
+        current.type,
+        current.angle,
+        current.name,
+        offsets,
+        renderSettingsOf(current),
+      )
       if (result?.slug) link = previewShareUrl(result.slug)
     } catch (err) {
       console.error('Publish for share link failed; using fragment link', err)

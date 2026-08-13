@@ -61,6 +61,16 @@
   }
 }
 
+/* While a finger is on the sheet, every height we set is already the finished
+   position — the drag IS the animation. Easing towards each frame's value just
+   makes the gradient trail the sheet, which is the lag this class removes.
+   Stays off through the release too, because that settle is the drawer's own
+   animation being mirrored frame by frame — a second easing on top of it would
+   be the same lag again, arriving late to a position already reached. */
+.previewFollowing {
+  transition: none;
+}
+
 /* The gradient picture itself, separate from .preview so a circle/oval crop
    clips the picture without also clipping the chrome sitting over it (Save,
    title, back, share, handles). Centred, because a circle crop is narrower

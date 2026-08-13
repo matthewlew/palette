@@ -105,3 +105,56 @@ describe('publishPalette — duplicate resolution', () => {
     expect(inserts).toHaveLength(1)
   })
 })
+
+describe('publishPalette — render settings', () => {
+  it('persists the crop and effects, not just the colours', async () => {
+    // The gap this closes: a circle-cropped gradient used to come back a
+    // full-bleed rectangle, on the community feed and on the publisher's own
+    // shelf once saves round-tripped through the server.
+    await publishPalette(HEXES, 'linear', undefined, 'Ash Vellum', undefined, {
+      crop: 'circle',
+      hardStops: true,
+    })
+    expect(inserts[0].render).toEqual({ crop: 'circle', hardStops: true })
+  })
+
+  it('writes null for a gradient with nothing non-default about it', async () => {
+    await publishPalette(HEXES, 'linear', undefined, 'Ash Vellum')
+    expect(inserts[0].render).toBeNull()
+  })
+
+  it('does not reuse a row whose crop differs, however identical the colours', async () => {
+    sessionUserId = 'user-a'
+    existingRow = {
+      id: 'row-1',
+      slug: 'ash-vellum',
+      colors: HEXES,
+      shape: 'linear',
+      author_id: 'user-a',
+      render: null,
+    }
+    const result = await publishPalette(HEXES, 'linear', undefined, 'Ash Vellum', undefined, {
+      crop: 'circle',
+    })
+    expect(inserts).toHaveLength(1)
+    expect(result?.id).toBe('new-row-id')
+  })
+
+  it('still reuses a row whose settings match, whatever order jsonb returns them in', async () => {
+    sessionUserId = 'user-a'
+    existingRow = {
+      id: 'row-1',
+      slug: 'ash-vellum',
+      colors: HEXES,
+      shape: 'linear',
+      author_id: 'user-a',
+      render: { hardStops: true, crop: 'circle' },
+    }
+    const result = await publishPalette(HEXES, 'linear', undefined, 'Ash Vellum', undefined, {
+      crop: 'circle',
+      hardStops: true,
+    })
+    expect(inserts).toHaveLength(0)
+    expect(result?.id).toBe('row-1')
+  })
+})

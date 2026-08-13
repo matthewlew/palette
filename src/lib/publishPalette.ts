@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import { namePalette } from './naming'
 import { isProfane } from './profanity'
+import { renderSettingsOf, sameRenderSettings, type RenderSettings } from './renderSettings'
 import type { Gradient } from '../store/types'
 
 /** Publish a Gradient to the shared DB so it becomes searchable in the gallery.
@@ -21,6 +22,7 @@ export function publishGradient(gradient: Gradient) {
     gradient.angle,
     gradient.name,
     gradient.stops.map((s) => s.position),
+    renderSettingsOf(gradient),
   )
 }
 
@@ -36,6 +38,10 @@ export async function publishPalette(
   /** Stop offset positions (0-100), aligned to `hexes`. Persisted so uneven
    * stop spacing reproduces exactly on load; omit for evenly-spaced stops. */
   offsets?: number[],
+  /** Crop and effect toggles (see lib/renderSettings.ts). Null/omitted means
+   * all defaults, which is how every row published before the column existed
+   * already reads. */
+  render?: RenderSettings | null,
 ) {
   // 1. Use the provided name or generate one using the engine
   let baseName = providedName?.trim() || namePalette(hexes)
@@ -66,13 +72,16 @@ export async function publishPalette(
   try {
     const { data: existing } = await supabase
       .from('palettes')
-      .select('id,slug,colors,shape,author_id')
+      .select('id,slug,colors,shape,author_id,render')
       .eq('slug', slug)
       .maybeSingle()
     if (
       existing &&
       existing.shape === shape &&
       JSON.stringify(existing.colors) === JSON.stringify(hexes) &&
+      // Same colours cropped to a circle is a different gradient to look at,
+      // so reusing the rectangle's row would publish the wrong picture.
+      sameRenderSettings(existing.render, render) &&
       // Reuse only when it is the same person's row (a re-share should not
       // spawn a second copy) or when nobody owns it. A DIFFERENT author
       // publishing the same colours gets their own row and their own byline
@@ -103,6 +112,7 @@ export async function publishPalette(
         shape: shape,
         angle: angle ?? null,
         offsets: offsets ?? null,
+        render: render ?? null,
         author_id: authorId,
       })
       .select('id')
