@@ -10,6 +10,8 @@ import {
   cropClipPath,
   cropSurfaceSize,
   buildCroppedGradientCss,
+  squishBearing,
+  squishConicStops,
 } from './gradientCrop'
 import { FAN_ANCHOR_CONFIG } from './gradient'
 
@@ -168,5 +170,131 @@ describe('buildCroppedGradientCss applies the list filters', () => {
     const circle = buildCroppedGradientCss('linear', stops, false, filters, 'circle')!
     expect(count(circle)).toBe(count(rect))
     expect(circle).not.toBe(rect)
+  })
+})
+
+describe('squishBearing', () => {
+  it('is the identity on a square box, at every bearing', () => {
+    for (const b of [0, 30, 45, 90, 137, 180, 270, 359]) {
+      expect(squishBearing(b, 1, 1)).toBe(b)
+    }
+  })
+
+  it('leaves the two axes fixed — they are the squish axes', () => {
+    // A ray straight up or straight along the box cannot move: scaling x and y
+    // independently maps each axis onto itself. If these drift, the gradient
+    // has been rotated rather than squished.
+    for (const b of [0, 90, 180, 270]) {
+      expect(squishBearing(b, 2, 1)).toBeCloseTo(b, 6)
+    }
+  })
+
+  it('pulls rays toward the long axis of the box', () => {
+    // Bearings are clockwise from up, so 45 is the up-right diagonal. Widen
+    // the box and that diagonal lies down toward the horizontal: past 45.
+    expect(squishBearing(45, 2, 1)).toBeCloseTo(63.435, 3)
+    // Exactly the diagonal of the box, which is what the squish maps 45 to.
+    expect(squishBearing(45, 2, 1)).toBeCloseTo((Math.atan2(2, 1) * 180) / Math.PI, 6)
+    // A tall box does the mirror of it.
+    expect(squishBearing(45, 1, 2)).toBeCloseTo(26.565, 3)
+  })
+
+  it('is its own inverse under swapped axes', () => {
+    for (const b of [17, 45, 88, 200, 310]) {
+      expect(squishBearing(squishBearing(b, 3, 1), 1, 3)).toBeCloseTo(b, 6)
+    }
+  })
+
+  it('stays continuous across the half-turn, where atan2 would jump', () => {
+    // The principal value flips sign at 180. Un-branched, the stop just past
+    // it would come back ~360 lower and sort ahead of the whole list.
+    expect(squishBearing(179, 2, 1)).toBeGreaterThan(90)
+    expect(squishBearing(181, 2, 1)).toBeGreaterThan(squishBearing(179, 2, 1))
+    expect(squishBearing(359, 2, 1)).toBeCloseTo(360 - squishBearing(1, 2, 1), 6)
+  })
+
+  it('is strictly increasing all the way round', () => {
+    let previous = -Infinity
+    for (let b = 0; b <= 360; b += 3) {
+      const moved = squishBearing(b, 1, 2.5)
+      expect(moved).toBeGreaterThan(previous)
+      previous = moved
+    }
+  })
+})
+
+describe('squishConicStops', () => {
+  const stops = [
+    { hex: '#ff0000', position: 0 },
+    { hex: '#00ff00', position: 50 },
+    { hex: '#ffffff', position: 100 },
+  ]
+
+  it('returns the list untouched on a square box', () => {
+    expect(squishConicStops(stops, 0, 1, 1)).toBe(stops)
+  })
+
+  it('keeps offsets ascending', () => {
+    const out = squishConicStops(stops, 0, 1, 3)
+    for (let i = 1; i < out.length; i++) {
+      expect(out[i].position).toBeGreaterThanOrEqual(out[i - 1].position)
+    }
+  })
+
+  it('pins the ends, so the ramp still spans exactly one turn', () => {
+    const out = squishConicStops(stops, 0, 2, 1)
+    expect(out[0].position).toBeCloseTo(0, 6)
+    expect(out[out.length - 1].position).toBeCloseTo(100, 6)
+  })
+
+  it('moves the half-turn stop only when `from` takes it off an axis', () => {
+    // At from=0 the 50% stop is pointing straight down — an axis, so fixed.
+    expect(squishConicStops(stops, 0, 2, 1)[25].position).toBeCloseTo(50, 1)
+    // Rotate the gradient 45 degrees inside the same oval and it is on the
+    // diagonal, which is where the squish bites. This is the case that would
+    // silently render as if the oval had rotated too.
+    expect(squishConicStops(stops, 45, 2, 1)[25].position).not.toBeCloseTo(50, 1)
+  })
+
+  it('subdivides, so the interior of a wedge follows the curve too', () => {
+    // Endpoints alone would be squished correctly with a straight chord
+    // between them — right at the edges, wrong in the middle.
+    expect(squishConicStops(stops, 0, 2, 1).length).toBeGreaterThan(stops.length)
+  })
+})
+
+describe('angular under an oval crop', () => {
+  const stops = [
+    { hex: '#ff0000', position: 0 },
+    { hex: '#00ff00', position: 50 },
+    { hex: '#0000ff', position: 100 },
+  ]
+
+  it('squishes with the oval once the box is not square', () => {
+    const square = buildCroppedGradientCss('angular', stops, false, {}, 'oval', 1)
+    const wide = buildCroppedGradientCss('angular', stops, false, {}, 'oval', 2)
+    expect(wide).not.toBe(square)
+    expect(wide.startsWith('conic-gradient(')).toBe(true)
+  })
+
+  it('leaves the circle crop alone — every ray there is the same length', () => {
+    expect(buildCroppedGradientCss('angular', stops, false, {}, 'circle', 2)).toBe(
+      buildCroppedGradientCss('angular', stops, false, {}, 'circle', 1),
+    )
+  })
+
+  it('defaults to the unsquished output, so callers with no box are unchanged', () => {
+    expect(buildCroppedGradientCss('angular', stops, false, {}, 'oval')).toBe(
+      buildCroppedGradientCss('angular', stops, false, {}, 'oval', 1),
+    )
+  })
+
+  it('keeps the gradient a rotation apart from itself, not a reshaping', () => {
+    // Rotating inside a FIXED oval is a different picture at every angle. If
+    // `from` were dropped from the squish these two would differ only by the
+    // `from` term, i.e. the oval would appear to rotate with the gradient.
+    const a = buildCroppedGradientCss('angular', stops, false, { angle: 0 }, 'oval', 2)
+    const b = buildCroppedGradientCss('angular', stops, false, { angle: 30 }, 'oval', 2)
+    expect(a.replace('from 0deg', 'from 30deg')).not.toBe(b)
   })
 })

@@ -1,5 +1,5 @@
 import type { GradientStop, GradientType, FanAnchor, GradientFilters } from './gradient'
-import { resolveFanConfig, getRadialConfig, buildGradientCss, applyReversed, applyStopFilters, fanSequence, densifierFor } from './gradient'
+import { resolveFanConfig, getRadialConfig, buildGradientCss, applyReversed, applyStopFilters, fanSequence, densifierFor, angularSequence, lerpHexSrgb } from './gradient'
 
 /** The three crop shapes a gradient can render into. `undefined`/`'rectangle'`
  * on a saved Gradient means today's full-bleed behaviour — this stays optional
@@ -111,6 +111,89 @@ export function fanRefit(px: number, py: number, w = 1, h = 1): { from: number; 
   return { from: ((bearing - 90) % 360 + 360) % 360, span: 0.5 }
 }
 
+/**
+ * Screen bearing a conic ray lands on once the circle is squished into the
+ * oval — the whole of the angular re-fit, in one line of trigonometry.
+ *
+ * The oval crop is the unit circle scaled by (w, h). A CSS conic-gradient does
+ * NOT come along for that ride: its wedges are true screen angles whatever
+ * shape is clipped out of them, so on a tall box an angular gradient kept
+ * perfectly even wedges inside a boundary that was anything but — the shape
+ * said "squished" and the colour said "not squished".
+ *
+ * Squishing maps the direction (sin θ, cos θ) to (w sin θ, h cos θ), so a ray
+ * that WAS at θ arrives at atan2(w sin θ, h cos θ). Placing each stop there is
+ * exactly the picture you would get by drawing the gradient in a circle and
+ * scaling the result.
+ *
+ * Bearings are clockwise from up, matching CSS conic and every other compass
+ * in this file. Only the RATIO of w to h matters — atan2 is scale-invariant —
+ * so callers can pass raw pixel sizes without normalizing.
+ */
+export function squishBearing(bearingDeg: number, w: number, h: number): number {
+  if (w === h || w <= 0 || h <= 0) return bearingDeg
+  const rad = (bearingDeg * Math.PI) / 180
+  const mapped = (Math.atan2(w * Math.sin(rad), h * Math.cos(rad)) * 180) / Math.PI
+  // atan2's principal value would jump by 360 partway round the circle and
+  // reorder the stop list. The map never moves a ray by as much as 90°, so
+  // snapping to the nearest turn of the INPUT recovers the continuous branch —
+  // and keeps offsets monotonic past 360 for a list that wraps.
+  return mapped + 360 * Math.round((bearingDeg - mapped) / 360)
+}
+
+/** Samples inserted between adjacent stops before the oval conic re-fit.
+ *
+ * The re-fit moves stops; CSS still blends STRAIGHT between wherever they end
+ * up. So a two-stop wedge would get its endpoints squished correctly and its
+ * interior left linear — right at the edges, wrong in between. Subdividing
+ * first gives the curve enough anchors to be followed rather than chorded.
+ *
+ * 24 puts a 120° wedge's sub-intervals under 5°, where the residual is a
+ * fraction of a degree. The inserted stops are sRGB mixes at their own
+ * position, i.e. the colour CSS was already painting there, so this costs
+ * nothing but CSS text. */
+export const OVAL_CONIC_SAMPLES_PER_SEGMENT = 24
+
+/**
+ * Re-fits a conic stop list (offsets in 0–100 of a full turn) so the gradient
+ * is squished with the oval instead of ignoring it.
+ *
+ * `fromDeg` is the conic's own `from` angle, and it has to be here: the squish
+ * happens in SCREEN space along the box's axes, so where a stop sits on screen
+ * — not where it sits in the stop list — is what gets mapped. Rotating the
+ * gradient inside a fixed oval is a genuinely different picture, and dropping
+ * `from` would have quietly rendered it as if the oval rotated too.
+ */
+export function squishConicStops(
+  stops: GradientStop[],
+  fromDeg: number,
+  w: number,
+  h: number,
+): GradientStop[] {
+  if (w === h || w <= 0 || h <= 0 || stops.length < 2) return stops
+  const sorted = [...stops].sort((a, b) => a.position - b.position)
+  const dense: GradientStop[] = []
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const a = sorted[i]
+    const b = sorted[i + 1]
+    dense.push(a)
+    for (let k = 1; k <= OVAL_CONIC_SAMPLES_PER_SEGMENT; k++) {
+      const t = k / (OVAL_CONIC_SAMPLES_PER_SEGMENT + 1)
+      dense.push({
+        hex: lerpHexSrgb(a.hex, b.hex, t),
+        position: a.position + (b.position - a.position) * t,
+      })
+    }
+  }
+  dense.push(sorted[sorted.length - 1])
+
+  return dense.map((s) => {
+    const bearing = fromDeg + s.position * 3.6
+    const moved = squishBearing(bearing, w, h)
+    return { hex: s.hex, position: Math.round(((moved - fromDeg) / 3.6) * 10) / 10 }
+  })
+}
+
 /** Radial re-fit for a crop, as {rx, ry} fractions of the bounding box (0.5 =
  * classic centred circle). rx always equals ry on a curved crop — see
  * cropRadialExtent. */
@@ -211,6 +294,12 @@ export function buildCroppedGradientCss(
   reversed: boolean,
   filters: GradientFilters,
   crop: GradientCrop | undefined,
+  /** The render box's width/height, for the one case that needs it: an
+   * angular gradient inside an oval, which has to know how far the oval is
+   * squished before it can be squished the same way. Defaults to 1 — a square
+   * box, where the oval IS a circle and nothing here does anything — so every
+   * caller that has no box to measure keeps exactly its old output. */
+  aspect = 1,
 ): string {
   if (!crop || crop === 'rectangle') return buildGradientCss(type, stops, reversed, filters)
 
@@ -253,7 +342,25 @@ export function buildCroppedGradientCss(
     return `conic-gradient(from ${from}deg at ${px * 100}% ${py * 100}%, ${stopsToCss(finalStops)})`
   }
 
-  // angular and square are angle-parameterized/self-contained and unaffected
-  // by the boundary curve — they only need the external clip-path.
+  // An angular gradient is indifferent to a CIRCLE — every ray is the same
+  // length, so clipping one out of the square changes nothing about where the
+  // wedges fall. An oval is the case that isn't free: the boundary is squished
+  // and the wedges are not, so they have to be squished to match.
+  if (type === 'angular' && crop === 'oval' && aspect !== 1) {
+    const orderedStops = applyStopFilters(type, applyReversed(stops, reversed), filters)
+    const from = filters.angle ?? 0
+    // Hard is deliberately excluded upstream (applyStopFilters skips it for
+    // angular; buildGradientCss cuts angular's wedges itself), so a hard
+    // angular gradient still takes the uncropped path below. Squishing solid
+    // wedges needs the segment ENDS moved, not a densified ramp — a different
+    // job, and one nobody has asked for.
+    if (filters.hard) return buildGradientCss(type, stops, reversed, filters)
+    const densify = densifierFor(filters, type)
+    const sequence = densify(angularSequence(orderedStops))
+    return `conic-gradient(from ${from}deg, ${stopsToCss(squishConicStops(sequence, from, aspect, 1))})`
+  }
+
+  // square is self-contained (Turrell has its own crop-aware renderer) and a
+  // circle-cropped angular needs nothing but the external clip-path.
   return buildGradientCss(type, stops, reversed, filters)
 }

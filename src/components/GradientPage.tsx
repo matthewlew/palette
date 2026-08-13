@@ -13,6 +13,7 @@ import { LockedColors } from './LockedColors'
 import { MEDIA_CHIP, MEDIA_ICON } from '../lib/mediaChrome'
 import { publishPalette } from '../lib/publishPalette'
 import { useStopDrift } from '../lib/useStopDrift'
+import { useElementAspect } from '../hooks/useElementAspect'
 import { canDrift } from '../lib/stopDrift'
 import { NoiseOverlay } from './NoiseOverlay'
 import type { Gradient } from '../store/types'
@@ -46,6 +47,8 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, onBack, ch
   // Writes background-image straight to the element each frame, so the drift
   // never re-renders the tree (and never re-samples the title's ink).
   const driftRef = useStopDrift(gradient, motionEnabled)
+  // Only an oval-cropped angular gradient reads this; see buildCroppedGradientCss.
+  const surfaceAspect = useElementAspect(driftRef)
   const driftable = canDrift(gradient.stops, gradient.type)
   const renameCurrentGradient = useAppStore((s) => s.renameCurrentGradient)
 
@@ -134,7 +137,7 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, onBack, ch
                 smooth: gradient.smoothEnabled,
                 prism: gradient.prismEnabled,
                 fanAnchor: gradient.fanAnchor, angle: gradient.angle,
-              }, gradient.crop) ?? undefined),
+              }, gradient.crop, surfaceAspect) ?? undefined),
           clipPath: cropClipPath(gradient.crop),
           ...cropSurfaceSize(gradient.crop, '100dvh'),
         }}
