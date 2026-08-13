@@ -1,6 +1,6 @@
 import type { GradientStop } from '../lib/gradient'
 import { repeatedStops, getRadialConfig, turrellExtent, TURRELL_SOFTNESS_PERCENT } from '../lib/gradient'
-import { cropClipPath, type GradientCrop } from '../lib/gradientCrop'
+import { cropClipPath, cropRadialExtent, type GradientCrop } from '../lib/gradientCrop'
 import styles from './TurrellSquare.module.css'
 
 interface TurrellSquareProps {
@@ -35,8 +35,15 @@ export function TurrellSquare({ stops: initialStops, reversed = false, blurPx, r
   // origin grows toward 1.0 so the outermost square still spans the whole
   // canvas — the way an off-center radial gradient still reaches the farthest
   // corner instead of leaving a flat band of the last color.
-  const reachX = Math.max(origin.px, 1 - origin.px)
-  const reachY = Math.max(origin.py, 1 - origin.py)
+  const cropped = !!crop && crop !== 'rectangle'
+  // Inside a circle/oval crop the nest is not a nest of squares: a square
+  // clipped by the crop curve is a blocky band with straight cut edges, not a
+  // concentric ring. The layers take the crop's OWN shape instead (concentric
+  // circles / superellipses), which needs a single extent for both axes — the
+  // per-axis reach would make them ellipses. See cropRadialExtent.
+  const cropReach = cropped ? cropRadialExtent(crop, origin.px, origin.py) : 0
+  const reachX = cropped ? cropReach : Math.max(origin.px, 1 - origin.px)
+  const reachY = cropped ? cropReach : Math.max(origin.py, 1 - origin.py)
 
   // To match radial gradients, position 0 is the center (innermost) and position 100
   // is the edge (outermost). reversed swaps which color fills which stop.
@@ -68,7 +75,7 @@ export function TurrellSquare({ stops: initialStops, reversed = false, blurPx, r
   // Cropped (circle/oval): the outer fill is clipped too, so the ambient
   // --crop-backdrop behind the preview shows through the corners instead of
   // this rectangle's own color painting over it.
-  const clip = crop && crop !== 'rectangle' ? cropClipPath(crop) : undefined
+  const clip = cropped ? cropClipPath(crop) : undefined
 
   return (
     // The container is painted in the outermost layer's color to prevent stale
@@ -85,7 +92,12 @@ export function TurrellSquare({ stops: initialStops, reversed = false, blurPx, r
       }}
     >
       {sortedLayers.map((layer, index) => {
-        const isOutermost = index === 0
+        // The outermost layer is grown by its own blur radius so the blur
+        // can't leave an unpainted rim at the canvas edge. Cropped, the
+        // container itself is painted and clipped to the same curve, so there
+        // is no rim to cover — and the bleed would push the outermost ring off
+        // its shared centre (the % grows against two different bases).
+        const isOutermost = index === 0 && !clip
         // When blurPx is explicit, the caller has tuned it in px for its own
         // container size and the bleed matches in px. Left undefined, the
         // layer falls back to the CSS module's proportional default blur, so
