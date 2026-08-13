@@ -153,6 +153,30 @@ export function cropClipPath(crop: GradientCrop | undefined, w = 1, h = 1): stri
   return `polygon(${css})`
 }
 
+/**
+ * Box sizing for a crop's render surface, given the height available to it.
+ *
+ * A circle MUST be laid out in a square box: `cropClipPath` emits
+ * `circle(50%)`, and per the CSS spec a percentage circle radius resolves
+ * against the box's diagonal (sqrt(w²+h²)/√2), which on a portrait box is
+ * larger than half the width — so the "circle" spills past the left and right
+ * edges and is cut off by the viewport instead of being cropped. Sizing the
+ * box to min(available width, available height) keeps the whole circle on
+ * screen at 1:1. `availableHeight` must be a length CSS can resolve on its
+ * own (e.g. `100dvh`), not a percentage of the parent.
+ *
+ * Oval and rectangle take the full available box.
+ */
+export function cropSurfaceSize(
+  crop: GradientCrop | undefined,
+  availableHeight: string,
+): { width: string; height: string; aspectRatio?: string } {
+  if (crop === 'circle') {
+    return { width: `min(100%, ${availableHeight})`, height: 'auto', aspectRatio: '1 / 1' }
+  }
+  return { width: '100%', height: '100%' }
+}
+
 interface RefitCssArgs {
   type: GradientType
   stops: GradientStop[]

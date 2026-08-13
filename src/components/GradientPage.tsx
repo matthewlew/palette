@@ -1,5 +1,6 @@
 import { useRef } from 'react'
-import { buildGradientCss } from '../lib/gradient'
+import { buildCroppedGradientCss, cropClipPath, cropSurfaceSize } from '../lib/gradientCrop'
+import { OvalRadialLayers } from './OvalRadialLayers'
 import { useAppStore } from '../store/useAppStore'
 import { namePalette } from '../lib/naming'
 import { titleColorAt } from '../lib/titleColor'
@@ -97,26 +98,52 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, onBack, ch
     onEdit()
   }
 
+  const cropped = !!gradient.crop && gradient.crop !== 'rectangle'
+  const paintsOwnSurface = gradient.type === 'square' || (gradient.type === 'radial' && gradient.crop === 'oval')
+
   return (
     <div
-      ref={driftRef}
       data-testid="gradient-page"
       className={styles.page}
       style={{
-        backgroundImage:
-          gradient.type === 'square'
-            ? undefined
-            : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
-                repeat: gradient.repeatEnabled,
-                hard: gradient.hardStops,
-                smooth: gradient.smoothEnabled,
-                fanAnchor: gradient.fanAnchor, angle: gradient.angle,
-              }),
+        backgroundColor: cropped ? 'var(--crop-backdrop, Canvas)' : undefined,
         touchAction: 'manipulation',
       }}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
     >
+      <div
+        ref={driftRef}
+        data-testid="gradient-surface"
+        className={styles.surface}
+        style={{
+          backgroundImage: paintsOwnSurface
+            ? undefined
+            : (buildCroppedGradientCss(gradient.type, gradient.stops, gradient.reversed ?? false, {
+                repeat: gradient.repeatEnabled,
+                hard: gradient.hardStops,
+                smooth: gradient.smoothEnabled,
+                fanAnchor: gradient.fanAnchor, angle: gradient.angle,
+              }, gradient.crop) ?? undefined),
+          clipPath: cropClipPath(gradient.crop),
+          ...cropSurfaceSize(gradient.crop, '100dvh'),
+        }}
+      >
+        {gradient.type === 'square' && (
+          <TurrellSquare
+            stops={gradient.stops}
+            reversed={gradient.reversed}
+            repeatEnabled={gradient.repeatEnabled}
+            blurPx={gradient.hardStops ? 0 : undefined}
+            angle={gradient.angle}
+            crop={gradient.crop}
+          />
+        )}
+        {gradient.type === 'radial' && gradient.crop === 'oval' && (
+          <OvalRadialLayers stops={gradient.stops} angle={gradient.angle} />
+        )}
+        <NoiseOverlay visible={noiseEnabled} />
+      </div>
       {/* A ✕, not a chevron. The gallery's full-screen viewer already closes
           with a ✕ in this exact spot, and these are the same kind of surface —
           a palette filling the screen, with the gallery behind it. A back
@@ -133,16 +160,6 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, onBack, ch
           <Icon name="close" size="md" />
         </button>
       )}
-      {gradient.type === 'square' && (
-        <TurrellSquare
-          stops={gradient.stops}
-          reversed={gradient.reversed}
-          repeatEnabled={gradient.repeatEnabled}
-          blurPx={gradient.hardStops ? 0 : undefined}
-          angle={gradient.angle}
-        />
-      )}
-      <NoiseOverlay visible={noiseEnabled} />
       <LockedColors
         locked={lockedColors}
         lockedPositions={lockedPositions}

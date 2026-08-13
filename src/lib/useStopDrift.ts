@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { buildGradientCss } from './gradient'
+import { buildCroppedGradientCss } from './gradientCrop'
 import { driftStops, isDriftableType } from './stopDrift'
 import type { Gradient } from '../store/types'
 
@@ -63,7 +63,7 @@ export function useStopDrift(gradient: Gradient, enabled: boolean) {
       lastRef.current = now
       if (previous !== null) elapsedRef.current += Math.min(now - previous, 100)
       const stops = driftStops(gradient.stops, elapsedRef.current)
-      el.style.backgroundImage = buildGradientCss(gradient.type, stops, gradient.reversed, {
+      const css = buildCroppedGradientCss(gradient.type, stops, gradient.reversed ?? false, {
         repeat: gradient.repeatEnabled,
         hard: gradient.hardStops,
         // Smooth densifies the ramp with Oklab-eased interior stops. Without it
@@ -71,7 +71,8 @@ export function useStopDrift(gradient: Gradient, enabled: boolean) {
         smooth: true,
         fanAnchor: gradient.fanAnchor,
         angle: gradient.angle,
-      })
+      }, gradient.crop)
+      if (css) el.style.backgroundImage = css
       frame = requestAnimationFrame(draw)
     }
     frame = requestAnimationFrame(draw)

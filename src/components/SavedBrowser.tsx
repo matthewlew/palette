@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { buildGradientCss } from '../lib/gradient'
+import { buildCroppedGradientCss, cropClipPath } from '../lib/gradientCrop'
 import { gradientMetric } from '../lib/sortColors'
 import { encodeToFragment, toSharePayloadGradient } from '../lib/gradientCodec'
 import { namePalette } from '../lib/naming'
@@ -7,6 +7,7 @@ import { useCopyFeedback } from '../hooks/useCopyFeedback'
 import { useAppStore } from '../store/useAppStore'
 import type { Gradient } from '../store/types'
 import { TurrellSquare } from './TurrellSquare'
+import { OvalRadialLayers } from './OvalRadialLayers'
 import { renderVignetteToCanvas } from '../lib/vignette'
 import JSZip from 'jszip'
 import styles from './SavedBrowser.module.css'
@@ -77,21 +78,26 @@ function SavedCard({ gradient, onSelect }: { gradient: Gradient; onSelect: (g: G
         className={styles.cardThumb}
         aria-label={`Open ${gradient.name ?? 'saved gradient'}`}
         style={{
-          aspectRatio: thumbAspect(gradient.id),
+          aspectRatio: gradient.crop === 'circle' ? '1 / 1' : thumbAspect(gradient.id),
           backgroundImage:
-            gradient.type === 'square'
+            gradient.type === 'square' || (gradient.type === 'radial' && gradient.crop === 'oval')
               ? undefined
-              : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
+              : (buildCroppedGradientCss(gradient.type, gradient.stops, gradient.reversed ?? false, {
                   repeat: gradient.repeatEnabled,
                   hard: gradient.hardStops,
                   smooth: gradient.smoothEnabled,
                   fanAnchor: gradient.fanAnchor,
                   angle: gradient.angle,
-                }),
+                }, gradient.crop) ?? undefined),
+          clipPath: cropClipPath(gradient.crop),
+          backgroundColor: gradient.crop && gradient.crop !== 'rectangle' ? 'var(--crop-backdrop, Canvas)' : undefined,
         }}
         onClick={() => onSelect(gradient)}
       >
-        {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={6} angle={gradient.angle} />}
+        {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={6} angle={gradient.angle} crop={gradient.crop} />}
+        {gradient.type === 'radial' && gradient.crop === 'oval' && (
+          <OvalRadialLayers stops={gradient.stops} angle={gradient.angle} layerCount={12} />
+        )}
       </button>
       {editing ? (
         <input

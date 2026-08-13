@@ -7,6 +7,17 @@
   view-transition-name: palette-card;
 }
 
+/* The gradient itself, separate from .page so a circle/oval crop clips the
+   picture without also clipping the chrome sitting over it. Centred, because a
+   circle crop is narrower than the page. */
+.surface {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  overflow: hidden;
+}
+
 /* In the feed, the saved-palettes stack occupies the bottom-right corner, so
    the save pill (and play above it) shift up to sit clear of it. Edit mode has
    no stack and keeps the buttons' default positions.
