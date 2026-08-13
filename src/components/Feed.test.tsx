@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
-import { Feed, resetFeedSession } from './Feed'
+import { applyFeedLook, captureFeedLook, Feed, resetFeedSession } from './Feed'
+import type { Gradient } from '../store/types'
 import { useAppStore } from '../store/useAppStore'
 import * as paletteLib from '../lib/palette'
 import * as haptics from '../lib/haptics'
@@ -552,3 +553,50 @@ describe('Feed', () => {
   })
 })
 
+
+describe('feed look carry-forward', () => {
+  beforeEach(() => resetFeedSession())
+
+  // The bug this guards: the carried fields were written out by hand at five
+  // call sites and no two agreed. Enumerating them from the gradient itself
+  // means a new effect that isn't carried fails here instead of silently
+  // switching itself off on the user's next scroll.
+  const LOOK_FIELDS = [
+    'type', 'angle', 'crop', 'reversed',
+    'hardStops', 'repeatEnabled', 'smoothEnabled', 'prismEnabled',
+  ] as const
+
+  const dressed: Gradient = {
+    id: 'dressed',
+    type: 'radial',
+    stops: [
+      { hex: '#ff0000', position: 0 },
+      { hex: '#0000ff', position: 100 },
+    ],
+    angle: 90,
+    crop: 'circle',
+    reversed: true,
+    hardStops: false,
+    repeatEnabled: true,
+    smoothEnabled: true,
+    prismEnabled: false,
+  }
+
+  it('carries every look field onto the next generated gradient', () => {
+    captureFeedLook(dressed)
+    const next = applyFeedLook(
+      { id: 'next', type: 'radial', stops: dressed.stops },
+      dressed.type
+    )
+    for (const field of LOOK_FIELDS) {
+      if (field === 'type') continue // set by the caller, not by the look
+      expect(next[field], field).toEqual(dressed[field])
+    }
+  })
+
+  it('leaves the colours alone', () => {
+    captureFeedLook(dressed)
+    const fresh = { id: 'fresh', type: 'radial' as const, stops: [{ hex: '#00ff00', position: 0 }] }
+    expect(applyFeedLook(fresh, 'radial').stops).toEqual(fresh.stops)
+  })
+})

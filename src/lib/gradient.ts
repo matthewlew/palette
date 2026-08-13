@@ -210,15 +210,17 @@ export const TURRELL_EXTENT_FLOOR = 0.1
  * drifted from the others at least once. */
 /** Turrell's default blur/softness, as a percentage of its container's
  * shorter edge (CSS `cqmin`) — resolution-independent by construction, unlike
- * a flat pixel radius. Was a hardcoded ~24px, which worked out to roughly
- * 4-6% of a typical canvas: high enough that the banded, concentric-square
- * character was barely legible from an oval-refit radial gradient at the
- * same blur. This lower value keeps the bands legible while still softening
- * the edges. Shared by the live TurrellSquare component (via CSS `cqmin`)
+ * a flat pixel radius. Was a hardcoded ~24px, i.e. roughly 4-6% of a typical
+ * canvas; unifying on cqmin briefly took it to 1.75%, which overshot in the
+ * other direction — at full-screen size the layers read as flat plateaus with
+ * crisp steps between them, conspicuously harder than the continuous blend
+ * every other geometry paints. 4% restores that softness while keeping the
+ * nest legible: past ~6% the innermost layer washes out entirely.
+ * Shared by the live TurrellSquare component (via CSS `cqmin`)
  * and canvasExport's Turrell path, so on-screen and exported renders match —
  * they used to diverge (a flat 24px on screen vs `24 * width/400` on
  * export), agreeing only at width=400. */
-export const TURRELL_SOFTNESS_PERCENT = 1.75
+export const TURRELL_SOFTNESS_PERCENT = 4
 
 export function turrellExtent(position: number, stopCount: number): number {
   if (stopCount <= 1) return 1
@@ -521,6 +523,37 @@ export interface GradientFilters {
  * instruction), then `smooth`; the UI keeps all three exclusive, so the order
  * only decides what a hand-crafted payload gets. Square is solid blocks with
  * no blend to densify. */
+/**
+ * Repeat and Hard, the two filters that rebuild the stop LIST rather than the
+ * blend between stops. Runs on already-reversed stops and before any
+ * densification.
+ *
+ * Exported because buildCroppedGradientCss re-derives geometry for `radial`
+ * and `fan` instead of delegating here, and carried no copy of this at all —
+ * so under a circle crop those two silently ignored both Repeat ×2 and Hard.
+ * (`densifierFor` looks like it covers Hard, but its hard branch is the
+ * identity: hardening happens here, on the list.) One function, both callers.
+ */
+export function applyStopFilters(
+  type: GradientType,
+  stops: GradientStop[],
+  filters: GradientFilters
+): GradientStop[] {
+  // Turrell squares are already solid, non-interpolated blocks, and mirror/
+  // legacy-repeat build their own position sequence from raw hex order — the
+  // repeat/hard filters only make sense for types that render a genuine
+  // continuous blend from the stops as given.
+  if (type === 'square' || type === 'mirror' || type === 'repeat') return stops
+  let out = stops
+  // Repeat first: it rebuilds an even position sequence from hex order, so
+  // hardening must run on the already-repeated stops for bands to stay even.
+  if (filters.repeat) out = repeatedStops(out)
+  // Angular hardens internally (its wedges are index-based, not position-
+  // based, so a position-doubling harden here would be discarded).
+  if (filters.hard && type !== 'angular') out = hardenStops(out)
+  return out
+}
+
 export function densifierFor(filters: GradientFilters, type?: GradientType): (s: GradientStop[]) => GradientStop[] {
   if (type === 'square' || filters.hard) return (s) => s
   if (filters.smooth) return smoothStops
@@ -535,20 +568,7 @@ export function buildGradientCss(
   filters: GradientFilters = {}
 ): string {
   assertStops(stops)
-  let orderedStops = applyReversed(stops, reversed)
-
-  // Turrell squares are already solid, non-interpolated blocks, and mirror/
-  // legacy-repeat build their own position sequence from raw hex order —
-  // the repeat/hard filters only make sense for types that render a genuine
-  // continuous blend from `orderedStops` as given.
-  if (type !== 'square' && type !== 'mirror' && type !== 'repeat') {
-    // Repeat first: it rebuilds an even position sequence from hex order, so
-    // hardening must run on the already-repeated stops for bands to stay even.
-    if (filters.repeat) orderedStops = repeatedStops(orderedStops)
-    // Angular hardens internally (its wedges are index-based, not position-
-    // based, so a position-doubling harden here would be discarded).
-    if (filters.hard && type !== 'angular') orderedStops = hardenStops(orderedStops)
-  }
+  const orderedStops = applyStopFilters(type, applyReversed(stops, reversed), filters)
 
   // Smooth and Prism both densify the final blend, differing in the colour path
   // they walk; hard bands are the opposite instruction and win over both. None
@@ -596,10 +616,11 @@ export function sampleStops(stops: GradientStop[], t: number): string {
 /**
  * Like `sampleStops`, but interpolating the way a CSS gradient does: a plain
  * per-channel lerp in gamma-encoded sRGB. `sampleStops` blends in polar OKLCH,
- * which travels a different path between the same two endpoints — so a stack
- * of flat layers sampled with it reads as a visibly different gradient from
- * the CSS one the rectangle crop paints for the identical stops. Layer-based
- * renderers (OvalRadialLayers) use this so the two crops agree.
+ * which travels a different path between the same two endpoints.
+ *
+ * No production caller left — the layered oval renderer that needed it went
+ * away with the squircle. It stays as the test oracle for "what colour would
+ * CSS have painted here", which is exactly the question Prism's tests ask.
  */
 export function sampleStopsCss(stops: GradientStop[], t: number): string {
   const sorted = [...stops].sort((a, b) => a.position - b.position)

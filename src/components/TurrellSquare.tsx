@@ -15,8 +15,8 @@ interface TurrellSquareProps {
    * crop design), but each square layer needs its own clip to the crop's
    * boundary curve — an ambient clip-path on a distant ancestor would still
    * cut the shape correctly, but it also hard-crops each layer's blur right
-   * at the boundary. Splitting blur (wrapper) from clip (layer), the same way
-   * OvalRadialLayers does, keeps the blur soft past the crop edge. */
+   * at the boundary. Splitting blur (wrapper) from clip (layer) keeps the
+   * blur soft past the crop edge. */
   crop?: GradientCrop
 }
 
@@ -38,9 +38,9 @@ export function TurrellSquare({ stops: initialStops, reversed = false, blurPx, r
   const cropped = !!crop && crop !== 'rectangle'
   // Inside a circle/oval crop the nest is not a nest of squares: a square
   // clipped by the crop curve is a blocky band with straight cut edges, not a
-  // concentric ring. The layers take the crop's OWN shape instead (concentric
-  // circles / superellipses), which needs a single extent for both axes — the
-  // per-axis reach would make them ellipses. See cropRadialExtent.
+  // concentric ring. The layers take the crop's OWN shape instead — concentric
+  // circles, or the ellipses the box's aspect makes of them — which needs a
+  // single extent for both axes. See cropRadialExtent.
   const cropReach = cropped ? cropRadialExtent(crop, origin.px, origin.py) : 0
   const reachX = cropped ? cropReach : Math.max(origin.px, 1 - origin.px)
   const reachY = cropped ? cropReach : Math.max(origin.py, 1 - origin.py)
@@ -116,7 +116,11 @@ export function TurrellSquare({ stops: initialStops, reversed = false, blurPx, r
             ? `calc(${layer.heightPercent}% + ${bleedPercent}%)`
             : `calc(${layer.heightPercent}% + ${bleedPx}px)`
           : `${layer.heightPercent}%`
-        const filter = blurPx != null ? `blur(${blurPx}px)` : undefined
+        // Both paths read the softness from the shared constant. The uncropped
+        // one used to fall through to a `1.75cqmin` literal in the CSS module
+        // while the cropped one interpolated the constant, so raising it moved
+        // only half the renders.
+        const filter = blurPx != null ? `blur(${blurPx}px)` : `blur(${TURRELL_SOFTNESS_PERCENT}cqmin)`
         // No crop: same single-element layer as before (clip-path runs after
         // filter, so a plain layer with only its own default/inline blur is
         // unaffected either way). Cropped: split blur (wrapper, unclipped) from
@@ -146,7 +150,7 @@ export function TurrellSquare({ stops: initialStops, reversed = false, blurPx, r
             style={{
               position: 'absolute',
               inset: 0,
-              filter: filter ?? `blur(${TURRELL_SOFTNESS_PERCENT}cqmin)`,
+              filter,
             }}
           >
             <div

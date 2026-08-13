@@ -24,20 +24,25 @@
  *
  * Both must move by the SAME amount or they collide: the base stack is
  * save 16 / play 72, a 56px rhythm for 44px-tall chips, and lifting only one
- * of them is what previously left two buttons overlapping by 32px. */
+ * of them is what previously left two buttons overlapping by 32px.
+ *
+ * Anchored to the tab bar's own footprint rather than the flat 84px this used
+ * to carry. The tab bar is centred and grows with the saved count, so past
+ * about a hundred saves its right edge runs under the Save pill's column —
+ * and 84px left only 8px of air between them, which reads as touching. The
+ * bar's real footprint plus a 16px gap holds that clearance however wide the
+ * bar gets. --tabbar-top already carries --safe-b, so it is not added twice. */
 .page :global([data-testid='like-button']) {
-  bottom: calc(84px + var(--safe-b));
+  bottom: calc(var(--tabbar-top) + 16px);
 }
 
-/* Play has to be lifted by the same 56px rhythm as Like above it (base stack
-   is save 16 / play 72; the feed lifts save to 84 for the saved-palettes
-   stack, so play follows to 140). */
+/* Play keeps the same 56px rhythm above Like (44px chips, 12px apart). */
 .page :global([data-testid='play-button']) {
-  bottom: calc(140px + var(--safe-b));
+  bottom: calc(var(--tabbar-top) + 72px);
 }
 
 /* Bottom-LEFT, mirroring the grain/play/save cluster on the bottom right. It
-   takes the SAME 84px the like button gets above (not LikeButton's own 16px
+   takes the SAME line the like button gets above (not LikeButton's own 16px
    base rule, which the feed overrides), so the two corners sit on one line and
    both clear the bottom tab bar. At 16px it was only 12px clear of the tab
    bar's left edge and sat a row below Save, which read as misaligned.
@@ -53,7 +58,7 @@
 .editButton {
   position: absolute;
   left: var(--edge-l);
-  bottom: calc(84px + var(--safe-b));
+  bottom: calc(var(--tabbar-top) + 16px);
   /* A ROW, and everything else left to .ghost-chip.
    *
    * This was a column with its own border-radius (16px) and width (44px),

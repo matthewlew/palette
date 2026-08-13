@@ -30,7 +30,10 @@ describe('GradientPage', () => {
     expect(surface.style.height).toBe('auto')
   })
 
-  it('renders the layered oval renderer for a radial under an oval crop', () => {
+  it('paints a radial under an oval crop as one CSS gradient, no layered fallback', () => {
+    // The layered renderer existed because a CSS radial can only emit
+    // elliptical isolines and the boundary was a squircle. An ellipse boundary
+    // wants exactly those isolines, so the surface paints itself.
     render(
       <GradientPage
         gradient={{ ...gradient, type: 'radial', crop: 'oval' }}
@@ -39,8 +42,9 @@ describe('GradientPage', () => {
         onEdit={vi.fn()}
       />
     )
-    expect(screen.getByTestId('oval-radial-layers')).toBeTruthy()
-    expect(screen.getByTestId('gradient-surface').style.backgroundImage).toBe('')
+    const surface = screen.getByTestId('gradient-surface')
+    expect(surface.style.backgroundImage).toMatch(/^radial-gradient\(/)
+    expect(surface.style.clipPath).toBe('ellipse(50% 50%)')
   })
 
   it('hands the crop down to the Turrell renderer so its layers follow the boundary', () => {

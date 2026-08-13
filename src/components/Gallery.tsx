@@ -17,7 +17,6 @@ import { TileBoundary } from './TileBoundary'
 import { namePalette } from '../lib/naming'
 import { titleColorAt, paletteInkOn } from '../lib/titleColor'
 import { TurrellSquare } from './TurrellSquare'
-import { OvalRadialLayers } from './OvalRadialLayers'
 import { cropClipPath, cropSurfaceSize } from '../lib/gradientCrop'
 import { BoardShare } from './BoardShare'
 import { PaletteTitle } from './PaletteTitle'
@@ -300,9 +299,6 @@ function Tile({
           style={{ backgroundImage: tileBackground(gradient), clipPath: cropClipPath(gradient.crop) }}
         >
           {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={6} angle={gradient.angle} crop={gradient.crop} />}
-          {gradient.type === 'radial' && gradient.crop === 'oval' && (
-            <OvalRadialLayers stops={gradient.stops} angle={gradient.angle} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} hardStops={gradient.hardStops} smoothEnabled={gradient.smoothEnabled} prismEnabled={gradient.prismEnabled} layerCount={20} />
-          )}
           <NoiseOverlay visible={noiseEnabled} />
         </div>
         {/* PRD §5.3's proposed mitigation for silent round-trip data loss: a
@@ -592,9 +588,6 @@ function Viewer({ gradient, items, onNavigate, onClose, onRiff, onImport, likes 
       >
         {gradient.type === 'square' && (
           <TurrellSquare stops={live.stops} reversed={live.reversed} angle={live.angle} crop={live.crop} />
-        )}
-        {live.type === 'radial' && live.crop === 'oval' && (
-          <OvalRadialLayers stops={live.stops} angle={live.angle} reversed={live.reversed} repeatEnabled={live.repeatEnabled} hardStops={live.hardStops} smoothEnabled={live.smoothEnabled} prismEnabled={live.prismEnabled} />
         )}
         <NoiseOverlay visible={noiseEnabled} />
       </div>
