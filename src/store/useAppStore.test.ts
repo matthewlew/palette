@@ -191,6 +191,79 @@ describe('useAppStore', () => {
     useAppStore.getState().undoDelete()
     expect(useAppStore.getState().saved).toHaveLength(1)
   })
+
+  // pendingUnsaves is the fix for the reappearing-delete bug: a delete of a
+  // gradient that IS synced to an account (has a paletteId) has to record
+  // that the server side still needs to catch up, and survive a reload doing
+  // it — see the long comment on addPendingUnsave for the failure this closes.
+  describe('pendingUnsaves', () => {
+    it('records the paletteId when deleting a synced gradient', () => {
+      useAppStore.getState().saveGradient(sampleGradient)
+      const [saved] = useAppStore.getState().saved
+      useAppStore.setState({
+        saved: [{ ...saved, paletteId: 'p1' }],
+      })
+
+      useAppStore.getState().removeSavedGradientById(saved.id)
+
+      expect(useAppStore.getState().pendingUnsaves).toEqual(['p1'])
+    })
+
+    it('records nothing for a gradient that was never synced', () => {
+      useAppStore.getState().saveGradient(sampleGradient)
+      const [saved] = useAppStore.getState().saved
+
+      useAppStore.getState().removeSavedGradientById(saved.id)
+
+      expect(useAppStore.getState().pendingUnsaves).toEqual([])
+    })
+
+    it('records every synced id in a bulk delete', () => {
+      useAppStore.getState().saveGradient(sampleGradient)
+      useAppStore.getState().saveGradient({
+        ...sampleGradient,
+        stops: [{ hex: '#00ff00', position: 0 }, { hex: '#0000ff', position: 100 }],
+      })
+      const [first, second] = useAppStore.getState().saved
+      useAppStore.setState({
+        saved: [{ ...first, paletteId: 'p1' }, { ...second, paletteId: 'p2' }],
+      })
+
+      useAppStore.getState().removeSavedGradientsByIds([first.id, second.id])
+
+      expect(useAppStore.getState().pendingUnsaves.sort()).toEqual(['p1', 'p2'])
+    })
+
+    it('undoDelete cancels the pending removal, or the next sync would delete what was just restored', () => {
+      useAppStore.getState().saveGradient(sampleGradient)
+      const [saved] = useAppStore.getState().saved
+      useAppStore.setState({ saved: [{ ...saved, paletteId: 'p1' }] })
+
+      useAppStore.getState().removeSavedGradientById(saved.id)
+      expect(useAppStore.getState().pendingUnsaves).toEqual(['p1'])
+
+      useAppStore.getState().undoDelete()
+      expect(useAppStore.getState().pendingUnsaves).toEqual([])
+    })
+
+    it('redoDelete re-arms the pending removal it just cancelled', () => {
+      useAppStore.getState().saveGradient(sampleGradient)
+      const [saved] = useAppStore.getState().saved
+      useAppStore.setState({ saved: [{ ...saved, paletteId: 'p1' }] })
+
+      useAppStore.getState().removeSavedGradientById(saved.id)
+      useAppStore.getState().undoDelete()
+      useAppStore.getState().redoDelete()
+
+      expect(useAppStore.getState().pendingUnsaves).toEqual(['p1'])
+    })
+
+    it('clearPendingUnsave removes only the id it names', () => {
+      useAppStore.setState({ pendingUnsaves: ['p1', 'p2'] })
+      useAppStore.getState().clearPendingUnsave('p1')
+      expect(useAppStore.getState().pendingUnsaves).toEqual(['p2'])
+    })
+  })
 })
 
 describe('useAppStore activeColorSet', () => {

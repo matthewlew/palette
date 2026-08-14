@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import { paletteDna } from '../lib/paletteRow'
-import { pushSave, removeSave, syncSaves } from '../lib/savedSync'
+import { pushSave, removeSave, syncSaves, flushPendingUnsaves } from '../lib/savedSync'
 
 /**
  * Keeps the shelf and the account's saves in step — accounts plan §8 step 5.
@@ -25,6 +25,7 @@ import { pushSave, removeSave, syncSaves } from '../lib/savedSync'
 export function useSavedSync(userId: string | null) {
   const saved = useAppStore((s) => s.saved)
   const replaceSaved = useAppStore((s) => s.replaceSaved)
+  const clearPendingUnsave = useAppStore((s) => s.clearPendingUnsave)
 
   /** DNA → palette row id, for everything the server is known to hold. */
   const serverStateRef = useRef<Map<string, string> | null>(null)
@@ -48,7 +49,22 @@ export function useSavedSync(userId: string | null) {
     reconcilingRef.current = true
     ;(async () => {
       try {
-        const merged = await syncSaves(userId, useAppStore.getState().saved)
+        // A delete that committed locally but never reached the server (tab
+        // closed or reloaded mid-request — see addPendingUnsave) gets a second
+        // try here, before the union below can mistake the still-present
+        // server row for something to pull back down.
+        const pendingIds = useAppStore.getState().pendingUnsaves
+        const stillPending = new Set(pendingIds)
+        if (pendingIds.length > 0) {
+          const cleared = await flushPendingUnsaves(userId, pendingIds)
+          if (cancelled) return
+          for (const id of cleared) {
+            stillPending.delete(id)
+            clearPendingUnsave(id)
+          }
+        }
+
+        const merged = await syncSaves(userId, useAppStore.getState().saved, stillPending)
         if (cancelled) return
         serverStateRef.current = new Map(
           merged.filter((g) => g.paletteId).map((g) => [paletteDna(g), g.paletteId as string]),
@@ -99,8 +115,15 @@ export function useSavedSync(userId: string | null) {
           await removeSave(userId, paletteId)
           if (cancelled) return
           serverState.delete(dna)
+          // Same-session common case: the delete that triggered this effect
+          // just reached the server, so there is nothing left for a later
+          // reload's flushPendingUnsaves to redo.
+          clearPendingUnsave(paletteId)
         } catch (err) {
           console.error('Could not remove that from your account:', err)
+          // Left pending on purpose — pendingUnsaves is what makes this retry
+          // on the next reconcile instead of the interrupted delete quietly
+          // reappearing.
         }
       }
     })()

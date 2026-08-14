@@ -93,6 +93,31 @@ export async function removeSave(userId: string, paletteId: string): Promise<voi
 }
 
 /**
+ * Removes whatever `pendingUnsaves` still names, so a delete interrupted by a
+ * reload (before the write-through effect's `removeSave` call landed) gets a
+ * second try instead of silently staying undone forever.
+ *
+ * Returns the palette ids that are now confirmed gone server-side, so the
+ * store can stop tracking them — see clearPendingUnsave. Ids that fail (still
+ * offline, say) stay pending and are tried again on the next reconcile;
+ * `syncSaves` is told about them separately so they are excluded from the
+ * union even while the flush keeps failing. An interrupted delete that can't
+ * reach the server yet is not consent to have it undone by a sync.
+ */
+export async function flushPendingUnsaves(userId: string, paletteIds: string[]): Promise<string[]> {
+  const cleared: string[] = []
+  for (const paletteId of paletteIds) {
+    try {
+      await removeSave(userId, paletteId)
+      cleared.push(paletteId)
+    } catch (err) {
+      console.error('Could not flush a pending delete:', err)
+    }
+  }
+  return cleared
+}
+
+/**
  * Reconciles the local shelf with the account's, and returns what the shelf
  * should now be.
  *
@@ -105,8 +130,17 @@ export async function removeSave(userId: string, paletteId: string): Promise<voi
  * Matching is by DNA (shape + ordered hexes) rather than by id, because a
  * gradient saved locally has a client-minted uuid that has never been near the
  * database. Two saves of the same colours are the same shelf entry.
+ *
+ * `pendingUnsaveIds` are excluded from the pull-down even though the server
+ * still (or again) has them: they are mid-delete, per flushPendingUnsaves
+ * just above, and a union that does not know about them would put back the
+ * exact thing that function is trying to remove.
  */
-export async function syncSaves(userId: string, local: Gradient[]): Promise<Gradient[]> {
+export async function syncSaves(
+  userId: string,
+  local: Gradient[],
+  pendingUnsaveIds: ReadonlySet<string> = new Set(),
+): Promise<Gradient[]> {
   const server = await fetchServerSaves()
   const serverByDna = new Map(server.map((g) => [paletteDna(g), g]))
 
@@ -131,7 +165,9 @@ export async function syncSaves(userId: string, local: Gradient[]): Promise<Grad
   }
 
   const localDna = new Set(local.map(paletteDna))
-  const pulled = server.filter((g) => !localDna.has(paletteDna(g)))
+  const pulled = server.filter(
+    (g) => !localDna.has(paletteDna(g)) && !(g.paletteId && pendingUnsaveIds.has(g.paletteId)),
+  )
 
   return [...pushed, ...pulled]
 }
