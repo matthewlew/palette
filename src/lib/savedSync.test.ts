@@ -12,6 +12,7 @@ const upserts: Record<string, unknown>[] = []
 const deletes: Record<string, unknown>[] = []
 let publishedCount = 0
 let publishFails = false
+let deleteFailsFor: Set<string> = new Set()
 
 vi.mock('./supabase', () => ({
   supabase: {
@@ -31,9 +32,19 @@ vi.mock('./supabase', () => ({
       chain.delete = () => {
         const del: Record<string, unknown> = {}
         const captured: Record<string, unknown> = { table }
+        // `.eq()` is chainable and Supabase only actually sends the request
+        // once it's awaited, but this mock has no separate "send" step — the
+        // second `.eq()` (palette_id, always called last by removeSave) is
+        // what stands in for that, including the error path.
         del.eq = (col: string, val: unknown) => {
           captured[col] = val
-          if (col === 'palette_id') deletes.push(captured)
+          if (col === 'palette_id') {
+            if (deleteFailsFor.has(val as string)) {
+              return Promise.resolve({ error: new Error('offline') })
+            }
+            deletes.push(captured)
+            return Promise.resolve({ error: null })
+          }
           return del
         }
         return del
@@ -51,7 +62,7 @@ vi.mock('./publishPalette', () => ({
   },
 }))
 
-const { syncSaves, fetchServerSaves, removeSave } = await import('./savedSync')
+const { syncSaves, fetchServerSaves, removeSave, flushPendingUnsaves } = await import('./savedSync')
 
 function gradient(hexes: string[], patch: Partial<Gradient> = {}): Gradient {
   return {
@@ -86,6 +97,7 @@ beforeEach(() => {
   deletes.length = 0
   publishedCount = 0
   publishFails = false
+  deleteFailsFor = new Set()
 })
 
 describe('fetchServerSaves', () => {
@@ -147,6 +159,54 @@ describe('syncSaves', () => {
 
     expect(merged).toHaveLength(1)
     expect(merged[0].paletteId).toBeUndefined()
+  })
+
+  // The reappearing-delete bug: a delete removed the gradient locally, but
+  // the request that was supposed to remove the server's palette_saves row
+  // never landed before this reconcile ran (tab closed, reload, offline).
+  // Without pendingUnsaveIds, "local doesn't have it, server does" reads as
+  // indistinguishable from a save made on another browser, and the union
+  // pulls the deleted gradient straight back.
+  it('does not resurrect a gradient whose delete is still pending', async () => {
+    serverRows = [serverRow('p1', ['#00ff00', '#000000'])]
+
+    const merged = await syncSaves('user-a', [], new Set(['p1']))
+
+    expect(merged).toHaveLength(0)
+  })
+
+  it('still pulls down a genuinely different save while one delete is pending', async () => {
+    serverRows = [serverRow('p1', ['#00ff00', '#000000']), serverRow('p2', ['#ff00ff', '#ffff00'])]
+
+    const merged = await syncSaves('user-a', [], new Set(['p1']))
+
+    expect(merged.map((g) => g.paletteId)).toEqual(['p2'])
+  })
+})
+
+describe('flushPendingUnsaves', () => {
+  it('removes each pending id and reports which ones succeeded', async () => {
+    const cleared = await flushPendingUnsaves('user-a', ['p1', 'p2'])
+
+    expect(cleared).toEqual(['p1', 'p2'])
+    expect(deletes).toEqual([
+      { table: 'palette_saves', user_id: 'user-a', palette_id: 'p1' },
+      { table: 'palette_saves', user_id: 'user-a', palette_id: 'p2' },
+    ])
+  })
+
+  it('returns nothing for an empty list without touching the network', async () => {
+    const cleared = await flushPendingUnsaves('user-a', [])
+    expect(cleared).toEqual([])
+    expect(deletes).toEqual([])
+  })
+
+  it('leaves a failed id out of the cleared list, so the caller keeps tracking it', async () => {
+    deleteFailsFor = new Set(['p2'])
+
+    const cleared = await flushPendingUnsaves('user-a', ['p1', 'p2', 'p3'])
+
+    expect(cleared).toEqual(['p1', 'p3'])
   })
 })
 

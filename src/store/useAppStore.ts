@@ -47,6 +47,43 @@ export function pickedCarouselGradients(saved: Gradient[], picks: string[]): Gra
   return picks.map((id) => byId.get(id)).filter((g): g is Gradient => !!g)
 }
 
+/**
+ * Records a deletion's intent to remove a server `palette_saves` row, so it
+ * survives a reload that happens before useSavedSync's write-through gets to
+ * it.
+ *
+ * The bug this exists to close: deleting from Yours only ever removed the
+ * gradient from local state. A separate, unawaited effect noticed the diff
+ * afterward and called removeSave — and if the tab closed or reloaded before
+ * that request landed, the server's palette_saves row was still there. The
+ * NEXT load unions local and server saves back together (so a gradient saved
+ * while signed out is not lost), and a still-present server row reads as
+ * exactly that case: something to pull back down. The delete you just made
+ * would silently reverse itself.
+ *
+ * pendingUnsaves is the fix: it is persisted (see the store's partialize), so
+ * a delete's intent outlives the tab that made it. useSavedSync consults it
+ * before unioning, flushes anything still pending, and excludes pending
+ * palette ids from what gets pulled down even if the flush itself is what
+ * fails — offline is not consent to un-delete something.
+ *
+ * A gradient with no paletteId was never synced to an account (saved while
+ * signed out, or signed in as nobody) — there is no server row to chase.
+ */
+export function addPendingUnsave(pending: string[], gradient: Gradient): string[] {
+  if (!gradient.paletteId || pending.includes(gradient.paletteId)) return pending
+  return [...pending, gradient.paletteId]
+}
+
+/** The undo-side counterpart: bringing a deletion back cancels its pending
+ * server removal, or a same-session undo would restore the gradient on
+ * screen while the next sync went ahead and deleted it out from under you. */
+export function removePendingUnsaves(pending: string[], restored: Gradient[]): string[] {
+  const ids = new Set(restored.map((g) => g.paletteId).filter((id): id is string => !!id))
+  if (ids.size === 0) return pending
+  return pending.filter((id) => !ids.has(id))
+}
+
 interface AppState {
   mode: ViewMode
   current: Gradient | null
@@ -119,6 +156,12 @@ interface AppState {
   findSavedGradientId: (gradient: Gradient) => string | null
   removeSavedGradient: (gradient: Gradient) => void
   removeSavedGradientById: (id: string) => void
+  /** Server `palette_saves` row ids (not local gradient ids) a delete has
+   * committed to removing but useSavedSync has not yet confirmed removed.
+   * Persisted deliberately — see the long comment at the declaration site in
+   * the store body for why an in-memory version is what let deletes reappear. */
+  pendingUnsaves: string[]
+  clearPendingUnsave: (paletteId: string) => void
   /** The most recent explicit deletion, held so it can be undone. Not
    * persisted — undo is a same-session affordance. */
   lastDeleted: { gradient: Gradient; index: number } | null
@@ -386,15 +429,17 @@ export const useAppStore = create<AppState>()(
         const saved = get().saved
         const index = saved.findIndex((g) => g.id === id)
         if (index === -1) return
+        const deleted = saved[index]
         set({
           saved: saved.filter((g) => g.id !== id),
-          lastDeleted: { gradient: saved[index], index },
+          lastDeleted: { gradient: deleted, index },
           // A fresh deletion starts a new undo chain, and supersedes any
           // armed batch — one undo stack, whichever kind of delete armed it.
           lastUndone: null,
           lastUndoneBatch: null,
           lastDeletedBatch: null,
           carouselPicks: get().carouselPicks.filter((p) => p !== id),
+          pendingUnsaves: addPendingUnsave(get().pendingUnsaves, deleted),
         })
       },
       lastDeletedBatch: null,
@@ -414,9 +459,17 @@ export const useAppStore = create<AppState>()(
           lastUndone: null,
           lastUndoneBatch: null,
           carouselPicks: get().carouselPicks.filter((p) => !target.has(p)),
+          pendingUnsaves: entries.reduce(
+            (ids, entry) => addPendingUnsave(ids, entry.gradient),
+            get().pendingUnsaves,
+          ),
         })
       },
       lastDeleted: null,
+      pendingUnsaves: [],
+      clearPendingUnsave: (paletteId) => {
+        set({ pendingUnsaves: get().pendingUnsaves.filter((id) => id !== paletteId) })
+      },
       undoDelete: () => {
         const batch = get().lastDeletedBatch
         if (batch) {
@@ -427,7 +480,15 @@ export const useAppStore = create<AppState>()(
             const at = Math.min(entry.index, restored.length)
             restored = [...restored.slice(0, at), entry.gradient, ...restored.slice(at)]
           }
-          set({ saved: restored, lastDeletedBatch: null, lastUndoneBatch: batch })
+          set({
+            saved: restored,
+            lastDeletedBatch: null,
+            lastUndoneBatch: batch,
+            // Bringing it back cancels the delete that was pending — without
+            // this the next sync would flush a server removal the user just
+            // reversed on screen, and the "undo" would not actually undo.
+            pendingUnsaves: removePendingUnsaves(get().pendingUnsaves, batch.map((e) => e.gradient)),
+          })
           return
         }
         const deleted = get().lastDeleted
@@ -439,6 +500,7 @@ export const useAppStore = create<AppState>()(
           saved: [...saved.slice(0, at), deleted.gradient, ...saved.slice(at)],
           lastDeleted: null,
           lastUndone: deleted,
+          pendingUnsaves: removePendingUnsaves(get().pendingUnsaves, [deleted.gradient]),
         })
       },
       lastUndone: null,
@@ -595,6 +657,10 @@ export const useAppStore = create<AppState>()(
         galleryLayout: state.galleryLayout,
         likedPaletteIds: state.likedPaletteIds,
         carouselPicks: state.carouselPicks,
+        // Deliberately persisted, unlike lastDeleted/lastDeletedBatch — see
+        // addPendingUnsave. A same-session undo stack losing its memory on
+        // reload is expected; a delete losing track of itself is the bug.
+        pendingUnsaves: state.pendingUnsaves,
       }),
       // v1 drops the removed flutedEnabled flag from boards persisted before
       // that filter was deleted, so stale keys don't live in localStorage
