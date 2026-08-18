@@ -117,6 +117,7 @@ function FlightTile({ flight, onDone }: { flight: SaveFlight; onDone: () => void
             ? undefined
             : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
                 repeat: gradient.repeatEnabled,
+                repeatCount: gradient.repeatCount,
                 hard: gradient.hardStops,
                 smooth: gradient.smoothEnabled,
                 fanAnchor: gradient.fanAnchor,
@@ -129,7 +130,7 @@ function FlightTile({ flight, onDone }: { flight: SaveFlight; onDone: () => void
           <TurrellSquare
             stops={gradient.stops}
             reversed={gradient.reversed}
-            repeatEnabled={gradient.repeatEnabled}
+            repeatEnabled={gradient.repeatEnabled} repeatCount={gradient.repeatCount}
             blurPx={3}
             angle={gradient.angle}
           />

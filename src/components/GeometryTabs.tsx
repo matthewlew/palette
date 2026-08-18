@@ -202,6 +202,7 @@ export function GeometryTabs({
               style={{
                 backgroundImage: tab.type !== 'square' ? buildGradientCss(tab.type, stops, gradient.reversed, {
                   repeat: gradient.repeatEnabled,
+                  repeatCount: gradient.repeatCount,
                   hard: gradient.hardStops,
                   fanAnchor: gradient.fanAnchor,
                   angle: previewAngle,
@@ -213,7 +214,7 @@ export function GeometryTabs({
                 <TurrellSquare
                   stops={stops}
                   reversed={gradient.reversed}
-                  repeatEnabled={gradient.repeatEnabled} blurPx={gradient.hardStops ? 0 : turrellPreviewBlur}
+                  repeatEnabled={gradient.repeatEnabled} repeatCount={gradient.repeatCount} blurPx={gradient.hardStops ? 0 : turrellPreviewBlur}
                   angle={previewAngle}
                 />
               )}
@@ -262,7 +263,7 @@ export function GeometryTabs({
         className={chipClass(gradient.repeatEnabled)}
         onClick={onToggleRepeat}
       >
-        Repeat ×2
+        Repeat ×{gradient.repeatEnabled ? gradient.repeatCount ?? 2 : 2}
       </button>
       <button
         type="button"

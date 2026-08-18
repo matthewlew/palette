@@ -108,6 +108,7 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, onBack, ch
             ? undefined
             : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
                 repeat: gradient.repeatEnabled,
+                repeatCount: gradient.repeatCount,
                 hard: gradient.hardStops,
                 smooth: gradient.smoothEnabled,
                 fanAnchor: gradient.fanAnchor, angle: gradient.angle,
@@ -137,7 +138,7 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, onBack, ch
         <TurrellSquare
           stops={gradient.stops}
           reversed={gradient.reversed}
-          repeatEnabled={gradient.repeatEnabled}
+          repeatEnabled={gradient.repeatEnabled} repeatCount={gradient.repeatCount}
           blurPx={gradient.hardStops ? 0 : undefined}
           angle={gradient.angle}
         />

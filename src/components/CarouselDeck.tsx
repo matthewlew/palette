@@ -114,7 +114,7 @@ export function CarouselDeck({ gradients, onOpen }: CarouselDeckProps) {
               <TurrellSquare
                 stops={gradient.stops}
                 reversed={gradient.reversed}
-                repeatEnabled={gradient.repeatEnabled}
+                repeatEnabled={gradient.repeatEnabled} repeatCount={gradient.repeatCount}
                 blurPx={5}
                 angle={gradient.angle}
               />

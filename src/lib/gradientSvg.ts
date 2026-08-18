@@ -33,7 +33,7 @@ function effectiveStops(gradient: Gradient): GradientStop[] {
       return reversed
     default: {
       let stops = reversed
-      if (gradient.repeatEnabled) stops = repeatedStops(stops)
+      if (gradient.repeatEnabled) stops = repeatedStops(stops, gradient.repeatCount ?? 2)
       if (gradient.hardStops) stops = hardenStops(stops)
       return smooth(stops)
     }

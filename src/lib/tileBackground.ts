@@ -21,6 +21,7 @@ export function tileBackground(gradient: Gradient): string | undefined {
       gradient.reversed ?? false,
       {
         repeat: gradient.repeatEnabled,
+        repeatCount: gradient.repeatCount,
         hard: gradient.hardStops,
         smooth: gradient.smoothEnabled,
         fanAnchor: gradient.fanAnchor,

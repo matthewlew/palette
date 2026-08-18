@@ -6,6 +6,7 @@ import {
   angleForTypeChange,
   nextRotationAngle,
   nextFanRotation,
+  nextRepeatState,
   SELECTABLE_GEOMETRY,
   type GradientType,
 } from '../lib/gradient'
@@ -408,7 +409,7 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
    * current editableStops instead of a plain hex list. */
   function commitGeometry(
     overrides: Partial<
-      Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops' | 'smoothEnabled' | 'fanAnchor' | 'angle'>
+      Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'repeatCount' | 'hardStops' | 'smoothEnabled' | 'fanAnchor' | 'angle'>
     >
   ) {
     const { stops, coverage } = toGradientCoverageStops(editableStops, inkHexes)
@@ -426,7 +427,7 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
   }
 
   function handleToggleRepeat() {
-    commitGeometry({ repeatEnabled: !gradient.repeatEnabled })
+    commitGeometry(nextRepeatState(gradient.repeatEnabled, gradient.repeatCount))
   }
 
   function handleToggleHardStops() {
@@ -865,6 +866,7 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
               ? undefined
               : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
                   repeat: gradient.repeatEnabled,
+                  repeatCount: gradient.repeatCount,
                   hard: gradient.hardStops,
                   fanAnchor: gradient.fanAnchor,
                   angle: gradient.angle,
@@ -886,7 +888,7 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
           <TurrellSquare
             stops={gradient.stops}
             reversed={gradient.reversed}
-            repeatEnabled={gradient.repeatEnabled}
+            repeatEnabled={gradient.repeatEnabled} repeatCount={gradient.repeatCount}
             blurPx={gradient.hardStops ? 0 : undefined}
             angle={gradient.angle}
           />
@@ -912,6 +914,7 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
           spoke="up"
           fanAnchor={gradient.fanAnchor}
           repeat={gradient.repeatEnabled}
+          repeatCount={gradient.repeatCount}
           angle={gradient.angle}
           cursor={canvasCursor}
           size={canvasSize}

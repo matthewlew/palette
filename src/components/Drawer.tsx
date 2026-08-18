@@ -52,6 +52,7 @@ export function Drawer({ saved, onSelect, hidden = false }: DrawerProps) {
                     ? undefined
                     : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
                         repeat: gradient.repeatEnabled,
+                        repeatCount: gradient.repeatCount,
                         hard: gradient.hardStops,
                         smooth: gradient.smoothEnabled,
                         fanAnchor: gradient.fanAnchor, angle: gradient.angle,
@@ -59,7 +60,7 @@ export function Drawer({ saved, onSelect, hidden = false }: DrawerProps) {
               }}
             >
               {gradient.type === 'square' && (
-                <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={4} angle={gradient.angle} />
+                <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} repeatCount={gradient.repeatCount} blurPx={4} angle={gradient.angle} />
               )}
             </span>
           ))}

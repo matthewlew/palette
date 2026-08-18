@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { useAppStore } from '../store/useAppStore'
-import { nextRotationAngle, nextFanRotation, SELECTABLE_GEOMETRY, angleForTypeChange, defaultAngleForType, type GradientType } from '../lib/gradient'
+import { nextRotationAngle, nextFanRotation, nextRepeatState, SELECTABLE_GEOMETRY, angleForTypeChange, defaultAngleForType, type GradientType } from '../lib/gradient'
 import { buildCroppedGradientCss, cropClipPath, type GradientCrop } from '../lib/gradientCrop'
 import { OvalRadialLayers } from './OvalRadialLayers'
 import {
@@ -719,7 +719,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
   // positions the user has already dragged into place — only handle removal/
   // addition/sorting re-equalizes, since those change stop count or order.
   function commitPreservingPositions(
-    overrides: Partial<Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops' | 'smoothEnabled' | 'fanAnchor' | 'angle' | 'crop'>>
+    overrides: Partial<Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'repeatCount' | 'hardStops' | 'smoothEnabled' | 'fanAnchor' | 'angle' | 'crop'>>
   ) {
     setCurrentGradient({
       ...gradient,
@@ -780,7 +780,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
   }
 
   function handleToggleRepeat() {
-    commitPreservingPositions({ repeatEnabled: !gradient.repeatEnabled })
+    commitPreservingPositions(nextRepeatState(gradient.repeatEnabled, gradient.repeatCount))
   }
 
   function handleToggleHardStops() {
@@ -1112,6 +1112,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
               ? undefined
               : (buildCroppedGradientCss(gradient.type, animatedStops, gradient.reversed ?? false, {
                   repeat: gradient.repeatEnabled,
+                  repeatCount: gradient.repeatCount,
                   hard: gradient.hardStops,
                   fanAnchor: gradient.fanAnchor,
                   angle: gradient.angle,
@@ -1150,7 +1151,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
           <TurrellSquare
             stops={animatedStops}
             reversed={gradient.reversed}
-            repeatEnabled={gradient.repeatEnabled}
+            repeatEnabled={gradient.repeatEnabled} repeatCount={gradient.repeatCount}
             blurPx={gradient.hardStops ? 0 : undefined}
             angle={gradient.angle}
             crop={gradient.crop}
@@ -1181,6 +1182,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
           spoke="up"
           fanAnchor={gradient.fanAnchor}
           repeat={gradient.repeatEnabled}
+          repeatCount={gradient.repeatCount}
           angle={gradient.angle}
           cursor={canvasCursor}
           size={canvasSize}

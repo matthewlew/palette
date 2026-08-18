@@ -107,6 +107,7 @@ function nudgeToLegible(hex: string, backdrop: string, min: number): string | nu
 export function titleColorAt(gradient: Gradient, x: number, y: number): string {
   const backdrop = gradientColorAt(gradient.type, gradient.stops, x, y, gradient.reversed, {
     repeat: gradient.repeatEnabled,
+    repeatCount: gradient.repeatCount,
     hard: gradient.hardStops,
     fanAnchor: gradient.fanAnchor,
   })

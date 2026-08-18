@@ -18,6 +18,7 @@ export interface SharePayloadGradient {
   stops: GradientStop[]
   reversed?: boolean
   repeatEnabled?: boolean
+  repeatCount?: 2 | 3
   hardStops?: boolean
   smoothEnabled?: boolean
   fanAnchor?: FanAnchor
@@ -42,6 +43,7 @@ export function toSharePayloadGradient(gradient: Gradient): SharePayloadGradient
   }
   if (gradient.reversed !== undefined) out.reversed = gradient.reversed
   if (gradient.repeatEnabled !== undefined) out.repeatEnabled = gradient.repeatEnabled
+  if (gradient.repeatCount !== undefined) out.repeatCount = gradient.repeatCount
   if (gradient.hardStops !== undefined) out.hardStops = gradient.hardStops
   if (gradient.smoothEnabled !== undefined) out.smoothEnabled = gradient.smoothEnabled
   if (gradient.fanAnchor !== undefined) out.fanAnchor = gradient.fanAnchor
@@ -64,6 +66,7 @@ export function importGradient(g: SharePayloadGradient): Gradient {
   }
   if (g.reversed !== undefined) out.reversed = g.reversed
   if (g.repeatEnabled !== undefined) out.repeatEnabled = g.repeatEnabled
+  if (g.repeatCount !== undefined) out.repeatCount = g.repeatCount
   if (g.hardStops !== undefined) out.hardStops = g.hardStops
   if (g.smoothEnabled !== undefined) out.smoothEnabled = g.smoothEnabled
   if (g.fanAnchor !== undefined) out.fanAnchor = g.fanAnchor
@@ -95,6 +98,7 @@ export function isSharePayloadGradient(value: unknown): value is SharePayloadGra
     v.name.length <= 80 &&
     (v.reversed === undefined || typeof v.reversed === 'boolean') &&
     (v.repeatEnabled === undefined || typeof v.repeatEnabled === 'boolean') &&
+    (v.repeatCount === undefined || v.repeatCount === 2 || v.repeatCount === 3) &&
     (v.hardStops === undefined || typeof v.hardStops === 'boolean') &&
     (v.smoothEnabled === undefined || typeof v.smoothEnabled === 'boolean') &&
     (v.fanAnchor === undefined || FAN_ANCHORS.includes(v.fanAnchor as FanAnchor)) &&

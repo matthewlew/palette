@@ -15,10 +15,12 @@ export interface StopAnchorOpts {
    * Cosmetic: those gradients are symmetric, so this only moves the dots. */
   spoke?: SpokeDir
   fanAnchor?: FanAnchor
-  /** Repeat ×2 packs two cycles of the palette into the same area, so each
-   * color's block is half-size. Map handles into the first cycle so they land
+  /** Repeat ×N packs N cycles of the palette into the same area, so each
+   * color's block is 1/N-size. Map handles into the first cycle so they land
    * on the (smaller) blocks instead of spanning the whole area. */
   repeat?: boolean
+  /** Cycle count when `repeat` is set. Defaults to 2. */
+  repeatCount?: 2 | 3
   /** Rotation angle in degrees. */
   angle?: number
 }
@@ -44,9 +46,9 @@ export function stopAnchor(
   index: number,
   opts: StopAnchorOpts = {},
 ): AnchorPoint {
-  // Repeat packs the palette into the first half of the axis (a second cycle
-  // fills the rest), so a repeated handle rides the first cycle at half offset.
-  const cycle = opts.repeat ? 0.5 : 1
+  // Repeat packs the palette into the first 1/N of the axis (the other N-1
+  // cycles fill the rest), so a repeated handle rides the first cycle.
+  const cycle = opts.repeat ? 1 / (opts.repeatCount ?? 2) : 1
   const p = (positions[index] / 100) * cycle
 
   switch (type) {

@@ -396,19 +396,36 @@ function buildRepeatGradient(stops: GradientStop[], angle = 0, smooth = false): 
   return `linear-gradient(${180 + angle}deg, ${stopsToCss(finalStops)})`
 }
 
-/** Cycles the stop sequence twice across the gradient — a "2x repeat"
- * filter. We insert a synthetic gap at the seam proportional to the average 
- * stop distance so it blends smoothly instead of cutting hard. */
-export function repeatedStops(stops: GradientStop[]): GradientStop[] {
+/** Cycles the stop sequence `count` times across the gradient — the "×N
+ * repeat" filter (2 or 3). We insert a synthetic gap at each seam
+ * proportional to the average stop distance so it blends smoothly instead
+ * of cutting hard. */
+export function repeatedStops(stops: GradientStop[], count: 2 | 3 = 2): GradientStop[] {
   if (stops.length < 2) return stops
   const averageGap = 100 / (stops.length - 1)
-  const scale = 100 / (100 + averageGap + 100)
-  
-  const first = stops.map((s) => ({ hex: s.hex, position: s.position * scale }))
-  const offset = (100 + averageGap) * scale
-  const second = stops.map((s) => ({ hex: s.hex, position: offset + s.position * scale }))
-  
-  return [...first, ...second]
+  // Each of the `count` cycles occupies one span, and each of the count - 1
+  // seams between them adds one more average-gap of breathing room.
+  const scale = 100 / (100 * count + averageGap * (count - 1))
+
+  const cycles: GradientStop[][] = []
+  for (let i = 0; i < count; i++) {
+    const offset = i * (100 + averageGap) * scale
+    cycles.push(stops.map((s) => ({ hex: s.hex, position: offset + s.position * scale })))
+  }
+
+  return cycles.flat()
+}
+
+/** The repeat filter's next state on click, cycling 1x (off) -> 2x -> 3x ->
+ * back to 1x. Kept alongside repeatedStops so the UI's transition and the
+ * render's stop count never drift apart. */
+export function nextRepeatState(
+  repeatEnabled: boolean | undefined,
+  repeatCount: 2 | 3 | undefined
+): { repeatEnabled: boolean; repeatCount: 2 | 3 | undefined } {
+  if (!repeatEnabled) return { repeatEnabled: true, repeatCount: 2 }
+  if ((repeatCount ?? 2) === 2) return { repeatEnabled: true, repeatCount: 3 }
+  return { repeatEnabled: false, repeatCount: undefined }
 }
 
 /** Converts smooth blend points into hard color bands: each stop fills out
@@ -462,9 +479,11 @@ export function smoothStops(stops: GradientStop[]): GradientStop[] {
 }
 
 export interface GradientFilters {
-  /** Cycles the stop sequence twice across the gradient, like the old
-   * dedicated "repeat" type but layered on top of any geometry. */
+  /** Cycles the stop sequence across the gradient, like the old dedicated
+   * "repeat" type but layered on top of any geometry. */
   repeat?: boolean
+  /** How many times to cycle when `repeat` is set. Defaults to 2. */
+  repeatCount?: 2 | 3
   /** Renders solid color bands with hard cuts instead of smooth blends. */
   hard?: boolean
   /** Which edge a fan gradient rises from (ignored by other types). */
@@ -492,7 +511,7 @@ export function buildGradientCss(
   if (type !== 'square' && type !== 'mirror' && type !== 'repeat') {
     // Repeat first: it rebuilds an even position sequence from hex order, so
     // hardening must run on the already-repeated stops for bands to stay even.
-    if (filters.repeat) orderedStops = repeatedStops(orderedStops)
+    if (filters.repeat) orderedStops = repeatedStops(orderedStops, filters.repeatCount ?? 2)
     // Angular hardens internally (its wedges are index-based, not position-
     // based, so a position-doubling harden here would be discarded).
     if (filters.hard && type !== 'angular') orderedStops = hardenStops(orderedStops)
@@ -556,7 +575,7 @@ export function gradientColorAt(
   assertStops(stops)
   let orderedStops = applyReversed(stops, reversed)
   if (type !== 'square' && type !== 'mirror' && type !== 'repeat') {
-    if (filters.repeat) orderedStops = repeatedStops(orderedStops)
+    if (filters.repeat) orderedStops = repeatedStops(orderedStops, filters.repeatCount ?? 2)
     if (filters.hard) orderedStops = hardenStops(orderedStops)
   }
 

@@ -293,7 +293,7 @@ function Tile({
           viewTransitionName: isHero && !viewerOpen ? 'palette-card' : 'none',
         }}
       >
-        {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={6} angle={gradient.angle} crop={gradient.crop} />}
+        {gradient.type === 'square' && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} repeatCount={gradient.repeatCount} blurPx={6} angle={gradient.angle} crop={gradient.crop} />}
         {gradient.type === 'radial' && gradient.crop === 'oval' && (
           <OvalRadialLayers stops={gradient.stops} angle={gradient.angle} layerCount={12} />
         )}

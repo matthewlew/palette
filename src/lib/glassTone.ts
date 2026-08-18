@@ -14,6 +14,7 @@ const BRIGHT_BACKDROP_L = 0.72
 export function glassToneAt(gradient: Gradient, x: number, y: number): GlassTone {
   const hex = gradientColorAt(gradient.type, gradient.stops, x, y, gradient.reversed, {
     repeat: gradient.repeatEnabled,
+    repeatCount: gradient.repeatCount,
     hard: gradient.hardStops,
     fanAnchor: gradient.fanAnchor,
   })

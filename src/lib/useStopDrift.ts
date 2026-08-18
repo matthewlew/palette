@@ -65,6 +65,7 @@ export function useStopDrift(gradient: Gradient, enabled: boolean) {
       const stops = driftStops(gradient.stops, elapsedRef.current)
       el.style.backgroundImage = buildGradientCss(gradient.type, stops, gradient.reversed, {
         repeat: gradient.repeatEnabled,
+        repeatCount: gradient.repeatCount,
         hard: gradient.hardStops,
         // Smooth densifies the ramp with Oklab-eased interior stops. Without it
         // the drifting stops visibly band as they slide past each other.

@@ -14,6 +14,7 @@ import type { Gradient } from '../store/types'
 export function gradientCssSnippet(gradient: Gradient, stops: GradientStop[]): string {
   const filters = {
     repeat: gradient.repeatEnabled,
+    repeatCount: gradient.repeatCount,
     hard: gradient.hardStops,
     smooth: gradient.smoothEnabled,
     fanAnchor: gradient.fanAnchor,

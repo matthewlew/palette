@@ -17,6 +17,10 @@ export interface Gradient {
   // GradientFilters) — cycle the stop sequence twice, or render hard color
   // bands instead of a smooth blend.
   repeatEnabled?: boolean
+  /** How many times the stop sequence cycles when repeatEnabled is on.
+   * Absent (with repeatEnabled true) means 2 — the original "×2" filter,
+   * kept as the default for saves made before ×3 existed. */
+  repeatCount?: 2 | 3
   hardStops?: boolean
   /** Densify the blend with Oklab-eased interior stops for seamless
    * transitions. Mutually exclusive with hardStops. */

@@ -69,6 +69,7 @@ export function ExportModal({ gradient, onClose }: ExportModalProps) {
     ? undefined
     : buildGradientCss(gradient.type, gradient.stops, gradient.reversed, {
         repeat: gradient.repeatEnabled,
+        repeatCount: gradient.repeatCount,
         hard: gradient.hardStops,
         smooth: gradient.smoothEnabled,
         fanAnchor: gradient.fanAnchor, angle: gradient.angle,
@@ -99,7 +100,7 @@ export function ExportModal({ gradient, onClose }: ExportModalProps) {
     <div
       style={{ position: 'absolute', inset: 0, backgroundImage: backgroundStyle }}
     >
-      {isSquare && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} blurPx={8} angle={gradient.angle} />}
+      {isSquare && <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} repeatCount={gradient.repeatCount} blurPx={8} angle={gradient.angle} />}
       <div 
         style={{
           position: 'absolute',

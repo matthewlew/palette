@@ -8,6 +8,9 @@ interface TurrellSquareProps {
   reversed?: boolean
   blurPx?: number
   repeatEnabled?: boolean
+  /** How many times the stop sequence cycles when repeatEnabled is on.
+   * Defaults to 2, matching the original "×2" filter. */
+  repeatCount?: 2 | 3
   /** Origin of the nested squares, mirroring the radial rotate cycle: undefined
    * = centered; a degree (0/45/…/315) anchors the nest at that edge/corner. */
   angle?: number
@@ -20,8 +23,8 @@ interface TurrellSquareProps {
   crop?: GradientCrop
 }
 
-export function TurrellSquare({ stops: initialStops, reversed = false, blurPx, repeatEnabled = false, angle, crop }: TurrellSquareProps) {
-  const stops = repeatEnabled ? repeatedStops(initialStops) : initialStops
+export function TurrellSquare({ stops: initialStops, reversed = false, blurPx, repeatEnabled = false, repeatCount = 2, angle, crop }: TurrellSquareProps) {
+  const stops = repeatEnabled ? repeatedStops(initialStops, repeatCount) : initialStops
 
   // Where the nested squares converge. Center (undefined) keeps the classic
   // Turrell; an angle shifts the shared center to that edge/corner so the

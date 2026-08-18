@@ -16,7 +16,7 @@ export function describeGradient(gradient: Gradient): string {
   const parts = [SHAPE_LABELS[gradient.type] ?? gradient.type]
   const n = gradient.stops.length
   parts.push(`${n} color${n === 1 ? '' : 's'}`)
-  if (gradient.repeatEnabled) parts.push('×2')
+  if (gradient.repeatEnabled) parts.push(`×${gradient.repeatCount ?? 2}`)
   // Mutually exclusive at the store level (toggling one clears the other),
   // so only ever one of these two shows up.
   if (gradient.hardStops) parts.push('Hard')
