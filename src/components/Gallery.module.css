@@ -524,10 +524,14 @@
 }
 
 /* Undo toast for deletions: sits above the tab switcher, same dark pill
-   language. High z-index so it also shows over the full-screen viewer. */
+   language. High z-index so it also shows over the full-screen viewer.
+   Anchored to --tabbar-top (the bar's actual measured footprint) plus a
+   16px clearance, rather than a hand-picked 76px — which on a phone with
+   a taller safe-area inset left only ~12px of gap, so the pill read as
+   touching the bar instead of floating above it. */
 .undoToast {
   position: fixed;
-  bottom: calc(76px + var(--safe-b));
+  bottom: calc(var(--tabbar-top) + 16px);
   left: 50%;
   transform: translateX(-50%);
   z-index: 45;
