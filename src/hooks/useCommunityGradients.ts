@@ -135,7 +135,7 @@ export function useCommunityGradients(order: CommunityOrder = 'recent') {
     fetchPage()
   }, [fetchPage])
 
-  const deleteGradient = async (id: string) => {
+  const deleteGradient = useCallback(async (id: string) => {
     try {
       const { error } = await supabase.from('palettes').delete().eq('id', id)
       if (error) throw error
@@ -144,7 +144,7 @@ export function useCommunityGradients(order: CommunityOrder = 'recent') {
       console.error('Failed to delete gradient:', err)
       alert('Failed to delete gradient.')
     }
-  }
+  }, [])
 
   return { gradients, loading, loadingMore, hasMore, loadMore: fetchPage, deleteGradient }
 }
