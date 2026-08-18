@@ -291,11 +291,17 @@ export function GeometryTabs({
       >
         Repeat ×2
       </button>
+      {/* Smooth/Prism/Hard are one 3-way choice of how color travels between
+          stops, not three independent effects — each click clears the other
+          two (see EditMode's toggle handlers). The title on each spells out
+          the path so that's discoverable without a click, since the bare
+          one-word labels don't say it. */}
       <button
         type="button"
         data-testid="filter-smooth"
         aria-pressed={gradient.smoothEnabled}
         disabled={smoothDisabled}
+        title="Smooth: eases the ramp between stops so the blend has no visible steps"
         className={chipClass(gradient.smoothEnabled)}
         onClick={onToggleSmooth}
       >
@@ -306,6 +312,7 @@ export function GeometryTabs({
         data-testid="filter-prism"
         aria-pressed={gradient.prismEnabled}
         disabled={prismDisabled}
+        title="Prism: travels the hue wheel between stops instead of blending straight across"
         className={chipClass(gradient.prismEnabled)}
         onClick={onTogglePrism}
       >
@@ -316,6 +323,7 @@ export function GeometryTabs({
         data-testid="filter-hard"
         aria-pressed={gradient.hardStops}
         disabled={hardDisabled}
+        title="Hard: solid color bands with a crisp cut at each stop, no blend"
         className={chipClass(gradient.hardStops)}
         onClick={onToggleHardStops}
       >
