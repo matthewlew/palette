@@ -61,44 +61,75 @@ describe('canvasExport rendering', () => {
     expect(mockAddColorStop).toHaveBeenCalledTimes(2)
   })
 
-  /** Render a fan and report the conic centre + start angle the canvas got. */
+  /** Render a fan and report the wedge-fan centre + start angle the canvas
+   * got. Fans (and angular gradients) are now painted as many thin wedges —
+   * see fillConicWedges — rather than via ctx.createConicGradient, whose
+   * Canvas2D rasterizers band visibly in low-chroma regions. The first
+   * wedge's moveTo/arc calls carry the same centre + start-angle geometry
+   * createConicGradient used to be asserted with. */
   function renderFan(overrides: Partial<Gradient>) {
-    const mockAddColorStop = vi.fn()
+    const moveTo = vi.fn()
+    const arc = vi.fn()
     const mockContext = {
       fillRect: vi.fn(),
-      createConicGradient: vi.fn().mockReturnValue({ addColorStop: mockAddColorStop }),
+      beginPath: vi.fn(),
+      closePath: vi.fn(),
+      fill: vi.fn(),
+      moveTo,
+      arc,
       fillStyle: '',
     }
     const canvas = { width: 0, height: 0, getContext: vi.fn().mockReturnValue(mockContext) } as unknown as HTMLCanvasElement
     renderGradientToCanvas(canvas, { ...gradient, type: 'fan', ...overrides }, 1000, 1000)
-    return { conic: mockContext.createConicGradient, stops: mockAddColorStop }
+    const [cx, cy] = moveTo.mock.calls[0]
+    const [, , , startAngle] = arc.mock.calls[0]
+    return { centre: [cx, cy], startAngle, wedgeCount: arc.mock.calls.length }
   }
 
   it('leaves an un-rotated fan at the bottom', () => {
     // Fan has no centre position (its wrap point would be exposed); an
     // un-rotated fan stays where it always was.
-    const { conic, stops } = renderFan({})
-    expect(conic).toHaveBeenCalledWith(Math.PI, 500, 1000)
-    expect(stops).toHaveBeenCalledTimes(3) // 2 stops + the tail
+    const { centre, startAngle, wedgeCount } = renderFan({})
+    expect(centre).toEqual([500, 1000])
+    expect(startAngle).toBeCloseTo(Math.PI)
+    expect(wedgeCount).toBeGreaterThan(360) // many wedges, not a handful of facets
   })
 
   it('puts top at 0 and bottom at 180, matching getRadialConfig', () => {
-    expect(renderFan({ angle: 0 }).conic).toHaveBeenCalledWith(0, 500, 0)
-    expect(renderFan({ angle: 180 }).conic).toHaveBeenCalledWith(Math.PI, 500, 1000)
+    const top = renderFan({ angle: 0 })
+    expect(top.centre).toEqual([500, 0])
+    expect(top.startAngle).toBeCloseTo(0)
+
+    const bottom = renderFan({ angle: 180 })
+    expect(bottom.centre).toEqual([500, 1000])
+    expect(bottom.startAngle).toBeCloseTo(Math.PI)
   })
 
   it('renders a legacy anchored fan exactly as it always did', () => {
     // Fans saved before the compass was re-based carry fanAnchor and no angle.
     // bottom-center (500, 1000), CSS from 270deg -> canvas start pi.
-    expect(renderFan({ fanAnchor: 'bottom' }).conic).toHaveBeenCalledWith(Math.PI, 500, 1000)
+    const bottom = renderFan({ fanAnchor: 'bottom' })
+    expect(bottom.centre).toEqual([500, 1000])
+    expect(bottom.startAngle).toBeCloseTo(Math.PI)
+
     // ...and each legacy anchor equals its new angle.
-    expect(renderFan({ fanAnchor: 'top' }).conic).toHaveBeenCalledWith(0, 500, 0)
-    expect(renderFan({ fanAnchor: 'left' }).conic).toHaveBeenCalledWith(-Math.PI / 2, 0, 500)
-    expect(renderFan({ fanAnchor: 'right' }).conic).toHaveBeenCalledWith(Math.PI / 2, 1000, 500)
+    const top = renderFan({ fanAnchor: 'top' })
+    expect(top.centre).toEqual([500, 0])
+    expect(top.startAngle).toBeCloseTo(0)
+
+    const left = renderFan({ fanAnchor: 'left' })
+    expect(left.centre).toEqual([0, 500])
+    expect(left.startAngle).toBeCloseTo(-Math.PI / 2)
+
+    const right = renderFan({ fanAnchor: 'right' })
+    expect(right.centre).toEqual([1000, 500])
+    expect(right.startAngle).toBeCloseTo(Math.PI / 2)
   })
 
   it('lets an explicit angle override the legacy anchor', () => {
-    expect(renderFan({ fanAnchor: 'bottom', angle: 0 }).conic).toHaveBeenCalledWith(0, 500, 0)
+    const { centre, startAngle } = renderFan({ fanAnchor: 'bottom', angle: 0 })
+    expect(centre).toEqual([500, 0])
+    expect(startAngle).toBeCloseTo(0)
   })
 
   it('adds more color stops for a smoothed linear gradient', () => {

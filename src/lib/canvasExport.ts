@@ -14,6 +14,41 @@ import {
 } from './gradient'
 import { compressStopsForCrop, superellipsePoints, SUPERELLIPSE_N } from './gradientCrop'
 
+/** Fills a conic sweep as many thin wedges rather than via
+ * ctx.createConicGradient. Native conic gradients are spec-smooth, but
+ * Canvas2D implementations rasterize them as a coarse triangle fan — visible
+ * as hard facets exactly where this matters most, in low-chroma/near-black
+ * regions where the eye is most sensitive to a step. Sampling per-wedge with
+ * the same OKLCH blend the rest of the app uses (sampleStops) reproduces the
+ * true continuous ramp instead.
+ *
+ * Wedge count scales with the sweep's outer radius so each wedge subtends
+ * under a pixel of arc at the widest point — finer than that buys nothing
+ * visible and just costs fill calls — with a floor so small exports still
+ * get a smooth result. */
+function fillConicWedges(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  radius: number,
+  startAngle: number,
+  sample: (t: number) => string
+) {
+  const numWedges = Math.min(4000, Math.max(720, Math.ceil((2 * Math.PI * radius) / 1.5)))
+  for (let i = 0; i < numWedges; i++) {
+    const angleStart = (i / numWedges) * 2 * Math.PI + startAngle
+    const angleEnd = ((i + 1) / numWedges) * 2 * Math.PI + startAngle
+    const color = sample(i / numWedges)
+
+    ctx.beginPath()
+    ctx.moveTo(cx, cy)
+    ctx.arc(cx, cy, radius, angleStart, angleEnd)
+    ctx.closePath()
+    ctx.fillStyle = color
+    ctx.fill()
+  }
+}
+
 function getLinearGradientCoords(angle: number = 0, width: number, height: number) {
   const step = (Math.round((180 + angle) / 45) * 45) % 360
   switch (step) {
@@ -54,6 +89,7 @@ export function renderGradientToCanvas(
     type,
     reversed = false,
     repeatEnabled = false,
+    repeatCount = 2,
     hardStops = false,
     smoothEnabled = false,
     angle,
@@ -70,7 +106,7 @@ export function renderGradientToCanvas(
 
   // 2. Apply repeat & hard filters (doesn't apply to square, mirror, repeat)
   if (type !== 'square' && type !== 'mirror' && type !== 'repeat') {
-    if (repeatEnabled) stops = repeatedStops(stops)
+    if (repeatEnabled) stops = repeatedStops(stops, repeatCount)
     if (hardStops) stops = hardenStops(stops)
     if (smoothEnabled && !hardStops) stops = smoothStops(stops)
   }
@@ -109,28 +145,7 @@ export function renderGradientToCanvas(
       const withSeam = angularSequence(stops)
       const startAngle = (((angle ?? 0) - 90) * Math.PI) / 180
 
-      if (ctx.createConicGradient) {
-        const grad = ctx.createConicGradient(startAngle, cx, cy)
-        withSeam.forEach((s) => grad.addColorStop(s.position / 100, s.hex))
-        ctx.fillStyle = grad
-        ctx.fillRect(0, 0, width, height)
-      } else {
-        // Fallback: draw fine angular wedges
-        const numWedges = 360
-        for (let i = 0; i < numWedges; i++) {
-          const angleStart = (i / numWedges) * 2 * Math.PI + startAngle
-          const angleEnd = ((i + 1) / numWedges) * 2 * Math.PI + startAngle
-          const t = i / numWedges
-          const color = sampleStops(withSeam, t)
-
-          ctx.beginPath()
-          ctx.moveTo(cx, cy)
-          ctx.arc(cx, cy, Math.hypot(cx, cy), angleStart, angleEnd)
-          ctx.closePath()
-          ctx.fillStyle = color
-          ctx.fill()
-        }
-      }
+      fillConicWedges(ctx, cx, cy, Math.hypot(cx, cy), startAngle, (t) => sampleStops(withSeam, t))
       break
     }
     case 'fan': {
@@ -142,25 +157,7 @@ export function renderGradientToCanvas(
       const radius = Math.hypot(width, height)
       const startAngle = ((config.from - 90) * Math.PI) / 180
 
-      if (ctx.createConicGradient) {
-        const grad = ctx.createConicGradient(startAngle, cx, cy)
-        withTail.forEach((s) => grad.addColorStop(s.position / 100, s.hex))
-        ctx.fillStyle = grad
-        ctx.fillRect(0, 0, width, height)
-      } else {
-        const numWedges = 360
-        for (let i = 0; i < numWedges; i++) {
-          const angleStart = (i / numWedges) * 2 * Math.PI + startAngle
-          const angleEnd = ((i + 1) / numWedges) * 2 * Math.PI + startAngle
-          const color = sampleStops(withTail, i / numWedges)
-          ctx.beginPath()
-          ctx.moveTo(cx, cy)
-          ctx.arc(cx, cy, radius, angleStart, angleEnd)
-          ctx.closePath()
-          ctx.fillStyle = color
-          ctx.fill()
-        }
-      }
+      fillConicWedges(ctx, cx, cy, radius, startAngle, (t) => sampleStops(withTail, t))
       break
     }
     case 'square': {
@@ -179,7 +176,7 @@ export function renderGradientToCanvas(
        * Built from gradient.stops rather than the pre-processed `stops` above,
        * because the component applies repeat BEFORE reversing hexes and the
        * shared pipeline reverses first. */
-      const base = repeatEnabled ? repeatedStops([...gradient.stops]) : [...gradient.stops]
+      const base = repeatEnabled ? repeatedStops([...gradient.stops], repeatCount) : [...gradient.stops]
       const hexes = reversed ? base.map((s) => s.hex).reverse() : base.map((s) => s.hex)
 
       const origin = getRadialConfig(angle)
