@@ -268,7 +268,7 @@
   position: relative;
   border-radius: var(--radius-xl);
   overflow: hidden;
-  background-color: #26262c;
+  background-color: var(--c-950);
   isolation: isolate;
   -webkit-mask-image: -webkit-radial-gradient(white, black);
   mask-image: radial-gradient(white, black);
