@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, type JSX } from 'react'
 import { buildGradientCss, angleForTypeChange, SHAPE_LABELS, type GradientType, type GradientStop } from '../lib/gradient'
 import type { GradientCrop } from '../lib/gradientCrop'
 import type { Gradient } from '../store/types'

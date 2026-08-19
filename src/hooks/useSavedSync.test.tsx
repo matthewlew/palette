@@ -16,7 +16,7 @@ let deleteFailsFor: Set<string> = new Set()
 
 vi.mock('../lib/supabase', () => ({
   supabase: {
-    from: (table: string) => {
+    from: (_table: string) => {
       const chain: Record<string, unknown> = {}
       chain.select = () => chain
       chain.order = () => Promise.resolve({ data: serverRows, error: null })
