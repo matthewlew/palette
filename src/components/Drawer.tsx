@@ -55,6 +55,8 @@ export function Drawer({ saved, onSelect, hidden = false }: DrawerProps) {
                         hard: gradient.hardStops,
                         smooth: gradient.smoothEnabled,
                         prism: gradient.prismEnabled,
+                        rainbow: gradient.rainbowEnabled,
+                        ring: gradient.ringEnabled,
                         fanAnchor: gradient.fanAnchor, angle: gradient.angle,
                       }),
               }}

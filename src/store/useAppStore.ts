@@ -28,6 +28,8 @@ export function gradientSignature(gradient: Gradient): string {
     // signature matches the un-prismed original already in `saved`, so the
     // save is treated as a duplicate.
     gradient.prismEnabled ? 'prism' : '',
+    gradient.rainbowEnabled ? 'rainbow' : '',
+    gradient.ringEnabled ? 'ring' : '',
     gradient.angle ? `ang${gradient.angle}` : '',
     gradient.fanAnchor ? `fan${gradient.fanAnchor}` : ''
   ].filter(Boolean).join('-')

@@ -408,7 +408,7 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
    * current editableStops instead of a plain hex list. */
   function commitGeometry(
     overrides: Partial<
-      Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops' | 'smoothEnabled' | 'prismEnabled' | 'fanAnchor' | 'angle'>
+      Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops' | 'smoothEnabled' | 'prismEnabled' | 'rainbowEnabled' | 'ringEnabled' | 'fanAnchor' | 'angle'>
     >
   ) {
     const { stops, coverage } = toGradientCoverageStops(editableStops, inkHexes)
@@ -429,16 +429,20 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
     commitGeometry({ repeatEnabled: !gradient.repeatEnabled })
   }
 
+  // This editor has no chips for Rainbow/Ring (no UI here can turn them on),
+  // but a gradient can still arrive with one set from EditMode — so every
+  // blend-mode toggle here clears them too, to keep the "at most one blend
+  // mode" invariant EditMode enforces rather than silently leaving two set.
   function handleToggleHardStops() {
-    commitGeometry({ hardStops: !gradient.hardStops, smoothEnabled: false, prismEnabled: false })
+    commitGeometry({ hardStops: !gradient.hardStops, smoothEnabled: false, prismEnabled: false, rainbowEnabled: false, ringEnabled: false })
   }
 
   function handleToggleSmooth() {
-    commitGeometry({ smoothEnabled: !gradient.smoothEnabled, hardStops: false, prismEnabled: false })
+    commitGeometry({ smoothEnabled: !gradient.smoothEnabled, hardStops: false, prismEnabled: false, rainbowEnabled: false, ringEnabled: false })
   }
 
   function handleTogglePrism() {
-    commitGeometry({ prismEnabled: !gradient.prismEnabled, hardStops: false, smoothEnabled: false })
+    commitGeometry({ prismEnabled: !gradient.prismEnabled, hardStops: false, smoothEnabled: false, rainbowEnabled: false, ringEnabled: false })
   }
 
   function handleRotateAngle() {
@@ -875,6 +879,8 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
                   angle: gradient.angle,
                   smooth: gradient.smoothEnabled,
                   prism: gradient.prismEnabled,
+                  rainbow: gradient.rainbowEnabled,
+                  ring: gradient.ringEnabled,
                 }),
         }}
         onPointerDown={handlePreviewPointerDown}

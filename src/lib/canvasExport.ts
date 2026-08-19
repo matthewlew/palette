@@ -8,6 +8,8 @@ import {
   getRadialConfig,
   smoothStops,
   prismStops,
+  rainbowStops,
+  ringStops,
   turrellExtent,
   angularSequence,
   mirrorSequence,
@@ -58,6 +60,8 @@ export function renderGradientToCanvas(
     hardStops = false,
     smoothEnabled = false,
     prismEnabled = false,
+    rainbowEnabled = false,
+    ringEnabled = false,
     angle,
     fanAnchor,
   } = gradient
@@ -76,6 +80,8 @@ export function renderGradientToCanvas(
     if (hardStops) stops = hardenStops(stops)
     if (smoothEnabled && !hardStops) stops = smoothStops(stops)
     else if (prismEnabled && !hardStops) stops = prismStops(stops)
+    else if (rainbowEnabled && !hardStops) stops = rainbowStops(stops)
+    else if (ringEnabled && !hardStops) stops = ringStops(stops)
   }
 
   // Clear background

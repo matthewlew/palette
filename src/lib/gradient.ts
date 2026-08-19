@@ -1,6 +1,6 @@
 
 
-import { blendOklchHex, blendOklabHex, hexToSrgb } from './oklch'
+import { blendOklchHex, blendOklabHex, blendOklchLongHueHex, blendRingHex, hexToOklch, hexToSrgb } from './oklch'
 
 export type GradientType = 'linear' | 'radial' | 'angular' | 'square' | 'mirror' | 'repeat' | 'fan'
 
@@ -285,7 +285,13 @@ export function angularPositions(stops: GradientStop[]): number[] {
  * wrapping back to the first colour. */
 export function angularSequence(stops: GradientStop[]): GradientStop[] {
   const positions = angularPositions(stops)
-  const spread = stops.map((s, i) => ({ hex: s.hex, position: Math.round(positions[i]) }))
+  // Rounded to 2 decimals (0.01% of a circle = 0.036deg — far finer than the
+  // eye resolves) rather than to the nearest whole percent (1% = 3.6deg). The
+  // whole-percent rounding used to mean drift's per-frame CSS was
+  // byte-identical across dozens of consecutive frames between two integer
+  // crossings, then jumped a full 3.6deg at once — the "ticking clock" feel
+  // other drifting types, whose stopsToCss path was never rounded, don't have.
+  const spread = stops.map((s, i) => ({ hex: s.hex, position: Math.round(positions[i] * 100) / 100 }))
   return [...spread, { hex: stops[0].hex, position: 100 }]
 }
 
@@ -495,6 +501,73 @@ export function prismStops(stops: GradientStop[]): GradientStop[] {
   return densifyStops(stops, PRISM_SAMPLES_PER_SEGMENT, blendOklchHex, linearEase)
 }
 
+/** Interior samples for the Rainbow/Ring modes. Same density as Smooth/Prism
+ * so all four blend modes read as equally continuous. */
+export const RAINBOW_SAMPLES_PER_SEGMENT = 16
+export const RING_SAMPLES_PER_SEGMENT = 16
+
+/** Prism's mirror opposite: the hue takes the LONG way round the wheel
+ * instead of the short way, so even two hues that are close together produce
+ * a near-full spectrum sweep. See blendOklchLongHueHex. */
+export function rainbowStops(stops: GradientStop[]): GradientStop[] {
+  return densifyStops(stops, RAINBOW_SAMPLES_PER_SEGMENT, blendOklchLongHueHex, linearEase)
+}
+
+/**
+ * Like densifyStops, but recolors EVERY point — including the original stop
+ * positions, not just the interior samples — through the same blend
+ * function, instead of preserving each boundary's literal original hex.
+ *
+ * Ring pins lightness to a single reference computed once for the whole
+ * gradient (see ringStops below), which is what makes the blend function
+ * itself continuous across a segment boundary: segment i's blend(a,b,1) and
+ * segment i+1's blend(b,c,0) both read the SAME pinned reference and the
+ * SAME stop b, so they agree exactly. But that agreement only shows up if
+ * both sides of the boundary are actually recolored through the function —
+ * keeping stop b's original, un-pinned hex there (as densifyStops does)
+ * would still leave a seam, since b's true lightness rarely matches the
+ * pinned reference. Recoloring the boundary is what closes that gap.
+ */
+function densifyStopsGlobal(
+  stops: GradientStop[],
+  samples: number,
+  blend: (a: string, b: string, t: number) => string,
+): GradientStop[] {
+  if (stops.length < 2) return stops
+  const sorted = [...stops].sort((a, b) => a.position - b.position)
+  const result: GradientStop[] = []
+  const steps = samples + 1
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const a = sorted[i]
+    const b = sorted[i + 1]
+    // Segment 0 includes its own t=0 point; every later segment's t=0 is the
+    // previous segment's t=1 (the same stop, recolored the same way), so
+    // skipping it here avoids emitting that point twice.
+    const startK = i === 0 ? 0 : 1
+    for (let k = startK; k <= steps; k++) {
+      const t = k / steps
+      result.push({
+        hex: blend(a.hex, b.hex, t),
+        position: Math.round((a.position + (b.position - a.position) * t) * 10) / 10,
+      })
+    }
+  }
+  return result
+}
+
+/** Hue (and chroma) sweep the ramp while lightness is pinned to a single
+ * reference — the average lightness across ALL stops, not just each
+ * adjacent pair — so the ramp reads as evenly bright throughout. Averaging
+ * per-pair instead was the first cut of this, but it re-averages to a
+ * different constant at every original stop and shows as a visible
+ * brightness seam there — see blendRingHex's doc comment. */
+export function ringStops(stops: GradientStop[]): GradientStop[] {
+  if (stops.length < 2) return stops
+  const sorted = [...stops].sort((a, b) => a.position - b.position)
+  const lightnessRef = sorted.reduce((sum, s) => sum + hexToOklch(s.hex).l, 0) / sorted.length
+  return densifyStopsGlobal(stops, RING_SAMPLES_PER_SEGMENT, (a, b, t) => blendRingHex(a, b, t, lightnessRef))
+}
+
 type Densifier = (stops: GradientStop[]) => GradientStop[]
 
 const identityStops: Densifier = (stops) => stops
@@ -516,6 +589,12 @@ export interface GradientFilters {
    * the hue arc. Mutually exclusive with `hard` and `smooth`; ignored for
    * `square`. */
   prism?: boolean
+  /** Prism's mirror opposite: hue travels the long way round the wheel.
+   * Mutually exclusive with the other blend modes; ignored for `square`. */
+  rainbow?: boolean
+  /** Hue sweeps at a constant (averaged) lightness. Mutually exclusive with
+   * the other blend modes; ignored for `square`. */
+  ring?: boolean
 }
 
 /** The single densification a filter set asks for, as a function to run over
@@ -558,6 +637,8 @@ export function densifierFor(filters: GradientFilters, type?: GradientType): (s:
   if (type === 'square' || filters.hard) return (s) => s
   if (filters.smooth) return smoothStops
   if (filters.prism) return prismStops
+  if (filters.rainbow) return rainbowStops
+  if (filters.ring) return ringStops
   return (s) => s
 }
 

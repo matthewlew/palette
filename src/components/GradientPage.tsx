@@ -136,6 +136,8 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, onBack, ch
                 hard: gradient.hardStops,
                 smooth: gradient.smoothEnabled,
                 prism: gradient.prismEnabled,
+                rainbow: gradient.rainbowEnabled,
+                ring: gradient.ringEnabled,
                 fanAnchor: gradient.fanAnchor, angle: gradient.angle,
               }, gradient.crop, surfaceAspect) ?? undefined),
           clipPath: cropClipPath(gradient.crop),

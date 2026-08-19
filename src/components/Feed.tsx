@@ -40,6 +40,8 @@ export function makeGradient(
     hardStops: false,
     repeatEnabled: false,
     prismEnabled: false,
+    rainbowEnabled: false,
+    ringEnabled: false,
     fanAnchor: 'bottom',
     // undefined is CENTRE for radial and Turrell; 0 for the rest.
     angle: defaultAngleForType(type),
@@ -69,6 +71,8 @@ export const feedSession: {
   lockedReversed: boolean | undefined;
   lockedCrop: GradientCrop | undefined;
   lockedPrismEnabled: boolean | undefined;
+  lockedRainbowEnabled: boolean | undefined;
+  lockedRingEnabled: boolean | undefined;
 } = {
   history: [],
   index: 0,
@@ -80,6 +84,8 @@ export const feedSession: {
   lockedReversed: undefined,
   lockedCrop: undefined,
   lockedPrismEnabled: undefined,
+  lockedRainbowEnabled: undefined,
+  lockedRingEnabled: undefined,
 }
 
 export function resetFeedSession() {
@@ -93,6 +99,8 @@ export function resetFeedSession() {
   feedSession.lockedReversed = undefined
   feedSession.lockedCrop = undefined
   feedSession.lockedPrismEnabled = undefined
+  feedSession.lockedRainbowEnabled = undefined
+  feedSession.lockedRingEnabled = undefined
 }
 
 /**
@@ -114,6 +122,8 @@ export function captureFeedLook(gradient: Gradient) {
   feedSession.lockedRepeatEnabled = gradient.repeatEnabled
   feedSession.lockedSmoothEnabled = gradient.smoothEnabled
   feedSession.lockedPrismEnabled = gradient.prismEnabled
+  feedSession.lockedRainbowEnabled = gradient.rainbowEnabled
+  feedSession.lockedRingEnabled = gradient.ringEnabled
   feedSession.lockedReversed = gradient.reversed
   feedSession.lockedCrop = gradient.crop
 }
@@ -127,6 +137,8 @@ export function applyFeedLook(gradient: Gradient, type: GradientType): Gradient 
     repeatEnabled: feedSession.lockedRepeatEnabled ?? false,
     smoothEnabled: feedSession.lockedSmoothEnabled ?? false,
     prismEnabled: feedSession.lockedPrismEnabled ?? false,
+    rainbowEnabled: feedSession.lockedRainbowEnabled ?? false,
+    ringEnabled: feedSession.lockedRingEnabled ?? false,
     reversed: feedSession.lockedReversed ?? false,
     crop: feedSession.lockedCrop,
   }
