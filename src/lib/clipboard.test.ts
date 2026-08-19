@@ -114,4 +114,25 @@ describe('readGradientsFromClipboard', () => {
   it('returns null when there is no clipboardData', () => {
     expect(readGradientsFromClipboard({} as ClipboardEvent)).toBeNull()
   })
+
+  it('safely escapes ]]> in the payload to prevent XSS breakout, and successfully round-trips it', () => {
+    const maliciousGradient: Gradient = {
+      ...gradient,
+      name: 'Sunset ]]> <script>alert("xss")</script>',
+    }
+    const { event: writeEv, store } = fakeEvent()
+    writeGradientToClipboard(writeEv, maliciousGradient)
+    const svg = store.get('text/plain')!
+
+    // The literal terminator must not appear in the metadata block
+    expect(svg).not.toContain(']]> <script>')
+    // It should be escaped as unicode in the JSON string
+    expect(svg).toContain('\\u005D\\u005D\\u003E <script>alert(\\"xss\\")</script>')
+
+    // Reading it back should correctly unescape the unicode and restore the original name
+    const { event: readEv } = fakeEvent({ 'text/plain': svg })
+    const result = readGradientsFromClipboard(readEv)
+    expect(result).not.toBeNull()
+    expect(result![0].name).toBe('Sunset ]]> <script>alert("xss")</script>')
+  })
 })
