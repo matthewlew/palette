@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { buildGradientCss, gradientColorAt, nextRotationAngle, prismStops, PRISM_SAMPLES_PER_SEGMENT, resolvedCssStops, sampleStopsCss, SELECTABLE_GEOMETRY, smoothStops, SMOOTH_SAMPLES_PER_SEGMENT, turrellExtent, type GradientStop } from './gradient'
+import { buildGradientCss, gradientColorAt, nextRotationAngle, prismStops, PRISM_SAMPLES_PER_SEGMENT, resolvedCssStops, sampleStopsCss, SELECTABLE_GEOMETRY, smoothStops, SMOOTH_SAMPLES_PER_SEGMENT, ringStops, turrellExtent, type GradientStop } from './gradient'
 import { hexToOklch } from './oklch'
+
+/** Circular hue distance — the short way round the wheel either direction. */
+function hueDelta(h1: number, h2: number): number {
+  const d = Math.abs(h1 - h2)
+  return Math.min(d, 360 - d)
+}
 
 const stops: GradientStop[] = [
   { hex: '#ff0000', position: 0 },
@@ -24,7 +30,7 @@ describe('buildGradientCss', () => {
     // 3 stops spread evenly by index (i/n) -> 0%,33%,67%, then the first color
     // repeated at 100% wraps the seam smoothly — every wedge is 360/3=120deg wide
     // instead of a hard 360deg->0deg cut.
-    expect(css).toBe('conic-gradient(from 0deg, #ff0000 0%, #00ff00 33%, #0000ff 67%, #ff0000 100%)')
+    expect(css).toBe('conic-gradient(from 0deg, #ff0000 0%, #00ff00 33.33%, #0000ff 66.67%, #ff0000 100%)')
   })
 
   it('renders angular hard as solid wedges (crisp double-stop boundaries)', () => {
@@ -369,7 +375,7 @@ describe('every geometry responds to a dragged stop', () => {
 
   it('angular still renders the evenly spaced ramp exactly as it always did', () => {
     expect(buildGradientCss('angular', at(0, 50, 100), false, {})).toBe(
-      'conic-gradient(from 0deg, #ff0000 0%, #00ff00 33%, #0000ff 67%, #ff0000 100%)',
+      'conic-gradient(from 0deg, #ff0000 0%, #00ff00 33.33%, #0000ff 66.67%, #ff0000 100%)',
     )
   })
 
@@ -442,6 +448,40 @@ describe('prismStops', () => {
     expect(hexToOklch(mid.hex).c).toBeGreaterThan(Math.min(a.c, b.c) * 0.6)
   })
 })
+
+describe('ringStops', () => {
+  // Three original stops close together, so any seam at a boundary would be
+  // dense enough to read as the "panel" artifact the per-pair-average version
+  // produced.
+  const tight: GradientStop[] = [
+    { hex: '#123456', position: 0 },
+    { hex: '#8a2b6f', position: 40 },
+    { hex: '#0000ff', position: 100 },
+  ]
+
+  it('holds lightness constant across the whole ramp, not just within one segment', () => {
+    // Not exact: a pinned lightness paired with a high chroma can fall outside
+    // sRGB's gamut, and oklchToSrgb's clamp perturbs the round-tripped L
+    // slightly. The tolerance here is still far tighter than the ~0.1+ jump
+    // the old per-pair-average version produced right at a stop boundary.
+    const ls = ringStops(tight).map((s) => hexToOklch(s.hex).l)
+    expect(Math.max(...ls) - Math.min(...ls)).toBeLessThan(0.05)
+  })
+
+  it('has no bigger hue jump at an original stop boundary than anywhere else in the ramp', () => {
+    // Regression: pinning lightness to each PAIR's own average (rather than
+    // one reference for the whole gradient) re-anchored at every original
+    // stop, producing a jump right at the boundary that dwarfed the smooth
+    // per-sample steps either side of it.
+    const hues = ringStops(tight).map((s) => hexToOklch(s.hex).h)
+    const deltas: number[] = []
+    for (let i = 1; i < hues.length; i++) deltas.push(hueDelta(hues[i - 1], hues[i]))
+    const maxDelta = Math.max(...deltas)
+    const avgDelta = deltas.reduce((a, b) => a + b, 0) / deltas.length
+    expect(maxDelta).toBeLessThan(avgDelta * 3)
+  })
+})
+
 
 describe('prism filter', () => {
   const ramp = [

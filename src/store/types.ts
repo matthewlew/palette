@@ -25,6 +25,11 @@ export interface Gradient {
    * line in sRGB, densified into an ordinary CSS stop list. Mutually
    * exclusive with hardStops and smoothEnabled. */
   prismEnabled?: boolean
+  /** Prototype blend modes, parallel to prismEnabled — see lib/gradient.ts
+   * GradientFilters for what each computes. Same mutual exclusivity as
+   * hardStops/smoothEnabled/prismEnabled: at most one of the four is true. */
+  rainbowEnabled?: boolean
+  ringEnabled?: boolean
   fanAnchor?: FanAnchor
   /** Rotation angle in degrees (0-360) */
   angle?: number

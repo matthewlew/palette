@@ -100,6 +100,8 @@ export function useStopDrift(gradient: Gradient, enabled: boolean) {
         // silently render as Smooth for the whole duration of playback.
         smooth: g.smoothEnabled,
         prism: g.prismEnabled,
+        rainbow: g.rainbowEnabled,
+        ring: g.ringEnabled,
         fanAnchor: g.fanAnchor,
         angle: g.angle,
       }, g.crop)

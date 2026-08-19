@@ -72,6 +72,8 @@ export function ExportModal({ gradient, onClose }: ExportModalProps) {
         hard: gradient.hardStops,
         smooth: gradient.smoothEnabled,
         prism: gradient.prismEnabled,
+        rainbow: gradient.rainbowEnabled,
+        ring: gradient.ringEnabled,
         fanAnchor: gradient.fanAnchor, angle: gradient.angle,
       })
 

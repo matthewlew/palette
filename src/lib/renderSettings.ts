@@ -25,6 +25,8 @@ export interface RenderSettings {
   repeatEnabled?: boolean
   smoothEnabled?: boolean
   prismEnabled?: boolean
+  rainbowEnabled?: boolean
+  ringEnabled?: boolean
   fanAnchor?: FanAnchor
 }
 
@@ -46,6 +48,8 @@ export function renderSettingsOf(gradient: Gradient): RenderSettings | null {
   if (gradient.repeatEnabled) settings.repeatEnabled = true
   if (gradient.smoothEnabled) settings.smoothEnabled = true
   if (gradient.prismEnabled) settings.prismEnabled = true
+  if (gradient.rainbowEnabled) settings.rainbowEnabled = true
+  if (gradient.ringEnabled) settings.ringEnabled = true
   // Only when it differs from the historical default, which resolveFanConfig
   // already applies to a fan that names no anchor.
   if (gradient.fanAnchor && gradient.fanAnchor !== 'bottom') settings.fanAnchor = gradient.fanAnchor
@@ -71,7 +75,7 @@ export function parseRenderSettings(value: unknown): RenderSettings {
   if (typeof raw.fanAnchor === 'string' && FAN_ANCHORS.includes(raw.fanAnchor as FanAnchor)) {
     settings.fanAnchor = raw.fanAnchor as FanAnchor
   }
-  for (const flag of ['reversed', 'hardStops', 'repeatEnabled', 'smoothEnabled', 'prismEnabled'] as const) {
+  for (const flag of ['reversed', 'hardStops', 'repeatEnabled', 'smoothEnabled', 'prismEnabled', 'rainbowEnabled', 'ringEnabled'] as const) {
     if (raw[flag] === true) settings[flag] = true
   }
 

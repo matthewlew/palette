@@ -732,7 +732,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
   // positions the user has already dragged into place — only handle removal/
   // addition/sorting re-equalizes, since those change stop count or order.
   function commitPreservingPositions(
-    overrides: Partial<Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops' | 'smoothEnabled' | 'prismEnabled' | 'fanAnchor' | 'angle' | 'crop'>>
+    overrides: Partial<Pick<Gradient, 'type' | 'reversed' | 'repeatEnabled' | 'hardStops' | 'smoothEnabled' | 'prismEnabled' | 'rainbowEnabled' | 'ringEnabled' | 'fanAnchor' | 'angle' | 'crop'>>
   ) {
     setCurrentGradient({
       ...gradient,
@@ -796,18 +796,46 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
     commitPreservingPositions({ repeatEnabled: !gradient.repeatEnabled })
   }
 
+  // The four blend modes (Hard/Smooth/Prism/Rainbow/Ring) are one
+  // mutually-exclusive choice, not independent effects — every toggle here
+  // clears the other three so at most one is ever true.
+  const CLEAR_BLEND_MODES = {
+    hardStops: false,
+    smoothEnabled: false,
+    prismEnabled: false,
+    rainbowEnabled: false,
+    ringEnabled: false,
+  } as const
+
   function handleToggleHardStops() {
-    commitPreservingPositions({ hardStops: !gradient.hardStops, smoothEnabled: false, prismEnabled: false })
+    commitPreservingPositions({ ...CLEAR_BLEND_MODES, hardStops: !gradient.hardStops })
   }
 
   function handleToggleSmooth() {
-    commitPreservingPositions({ smoothEnabled: !gradient.smoothEnabled, hardStops: false, prismEnabled: false })
+    commitPreservingPositions({ ...CLEAR_BLEND_MODES, smoothEnabled: !gradient.smoothEnabled })
   }
 
   function handleTogglePrism() {
     const prismEnabled = !gradient.prismEnabled
     feedSession.lockedPrismEnabled = prismEnabled
-    commitPreservingPositions({ prismEnabled, hardStops: false, smoothEnabled: false })
+    commitPreservingPositions({ ...CLEAR_BLEND_MODES, prismEnabled })
+  }
+
+  // See GradientFilters in lib/gradient.ts for what each computes. Stamped
+  // synchronously into feedSession like handleTogglePrism above — the
+  // captureFeedLook effect only runs after this commit re-renders with the
+  // new gradient, so a scroll fired in the same tick would otherwise still
+  // see the pre-toggle look.
+  function handleToggleRainbow() {
+    const rainbowEnabled = !gradient.rainbowEnabled
+    feedSession.lockedRainbowEnabled = rainbowEnabled
+    commitPreservingPositions({ ...CLEAR_BLEND_MODES, rainbowEnabled })
+  }
+
+  function handleToggleRing() {
+    const ringEnabled = !gradient.ringEnabled
+    feedSession.lockedRingEnabled = ringEnabled
+    commitPreservingPositions({ ...CLEAR_BLEND_MODES, ringEnabled })
   }
 
   function handleRotateAngle() {
@@ -1030,6 +1058,8 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
         onToggleHardStops={handleToggleHardStops}
         onToggleSmooth={handleToggleSmooth}
         onTogglePrism={handleTogglePrism}
+        onToggleRainbow={handleToggleRainbow}
+        onToggleRing={handleToggleRing}
         onRotateFan={handleRotateFan}
         onRotate={handleRotateAngle}
         noiseEnabled={noiseEnabled}
@@ -1165,6 +1195,8 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
                     angle: gradient.angle,
                     smooth: gradient.smoothEnabled,
                     prism: gradient.prismEnabled,
+                    rainbow: gradient.rainbowEnabled,
+                    ring: gradient.ringEnabled,
                   }, gradient.crop, surfaceAspect) ?? undefined),
             clipPath: cropClipPath(gradient.crop),
             ...cropSurfaceSize(gradient.crop, '100cqh'),

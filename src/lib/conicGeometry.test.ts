@@ -25,14 +25,17 @@ describe('angularSequence', () => {
     expect(angularSequence(uneven).map((s) => s.position)).not.toEqual(
       angularSequence(stops).map((s) => s.position),
     )
-    expect(angularSequence(uneven).map((s) => s.position)).toEqual([0, 2, 65, 100])
+    // Rounded to 2 decimals rather than the nearest whole percent, so drift
+    // animation moves in 0.036deg steps instead of 3.6deg ones — see the
+    // comment on angularSequence.
+    expect(angularSequence(uneven).map((s) => s.position)).toEqual([0, 2, 64.67, 100])
   })
 
   it('still gives N equal wedges plus a seam for an evenly spaced ramp', () => {
-    // The (n-1)/n scaling is chosen so this default is bit-identical to the old
+    // The (n-1)/n scaling is chosen so this default matches the old
     // index-based spread — the seam gets its own 360/n wedge for free.
     const seq = angularSequence(stops)
-    expect(seq.map((s) => s.position)).toEqual([0, 33, 67, 100])
+    expect(seq.map((s) => s.position)).toEqual([0, 33.33, 66.67, 100])
     expect(seq[seq.length - 1].hex).toBe(stops[0].hex)
   })
 })

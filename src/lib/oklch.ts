@@ -166,3 +166,51 @@ export function blendOklchHex(hexA: string, hexB: string, t = 0.5): string {
     h: lerpHue(a.h, b.h, t),
   })
 }
+
+/** The complement of lerpHue: travels the LONG way round the wheel instead of
+ * the short way. Two hues 40deg apart the short way are 320deg apart the long
+ * way, so this is what turns a small hue gap into a near-full rainbow sweep
+ * rather than a subtle arc. */
+function lerpHueLong(a: number, b: number, t: number): number {
+  let diff = b - a
+  if (diff > 180) diff -= 360
+  if (diff < -180) diff += 360
+  const longDiff = diff > 0 ? diff - 360 : diff + 360
+  return (a + longDiff * t + 360) % 360
+}
+
+/** Same as blendOklchHex, but the hue takes the long way round — see
+ * lerpHueLong. Two colors that are visually close in hue still produce a
+ * nearly-full spectrum sweep between them. */
+export function blendOklchLongHueHex(hexA: string, hexB: string, t = 0.5): string {
+  const a = hexToOklch(hexA)
+  const b = hexToOklch(hexB)
+  return oklchToHex({
+    l: lerp(a.l, b.l, t),
+    c: lerp(a.c, b.c, t),
+    h: lerpHueLong(a.h, b.h, t),
+  })
+}
+
+/** Sweeps hue at a constant lightness instead of ramping lightness alongside
+ * it — the classic "one ring of the color wheel" trick: every color along the
+ * blend reads as equally bright, since only hue (and chroma) are moving.
+ *
+ * `lightnessRef` pins WHICH lightness that constant is. Left unset, it
+ * defaults to this pair's own average — fine in isolation, but a multi-stop
+ * gradient calling this once per adjacent pair would then re-average to a
+ * new constant at every stop, producing a visible brightness seam at each
+ * original stop (segment i settles near its own average, segment i+1 starts
+ * from a DIFFERENT average). Callers densifying a whole stop list should
+ * compute one lightness reference across the whole gradient up front and
+ * pass the same value into every call — see ringStops in gradient.ts — so
+ * the pinned lightness never changes mid-ramp and the seam disappears. */
+export function blendRingHex(hexA: string, hexB: string, t = 0.5, lightnessRef?: number): string {
+  const a = hexToOklch(hexA)
+  const b = hexToOklch(hexB)
+  return oklchToHex({
+    l: lightnessRef ?? (a.l + b.l) / 2,
+    c: lerp(a.c, b.c, t),
+    h: lerpHue(a.h, b.h, t),
+  })
+}

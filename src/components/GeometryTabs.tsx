@@ -29,6 +29,10 @@ interface GeometryTabsProps {
   onToggleHardStops?: () => void
   onToggleSmooth?: () => void
   onTogglePrism?: () => void
+  /** Prototype blend modes alongside Smooth/Prism — see GradientFilters in
+   * lib/gradient.ts for what each computes. */
+  onToggleRainbow?: () => void
+  onToggleRing?: () => void
   /** Re-tapping the active Fan tab rotates its anchor edge. */
   onRotateFan?: () => void
   onRotate?: () => void
@@ -85,6 +89,8 @@ export function GeometryTabs({
   onToggleHardStops,
   onToggleSmooth,
   onTogglePrism,
+  onToggleRainbow,
+  onToggleRing,
   onRotateFan,
   onRotate,
   noiseEnabled = false,
@@ -142,6 +148,10 @@ export function GeometryTabs({
   // Prism is a colour path along a continuous blend, so it is meaningless for
   // the same solid Turrell squares Smooth skips.
   const prismDisabled = gradient.type === 'square'
+  // Rainbow/Ring are the same kind of continuous-blend densification as
+  // Smooth/Prism, so they're disabled for the same reason.
+  const rainbowDisabled = gradient.type === 'square'
+  const ringDisabled = gradient.type === 'square'
 
   // The Effect chips are LDS chips: `.lds-chip` carries the whole visual
   // recipe (pill, hairline, hover/pressed steps, caption type) and
@@ -220,6 +230,8 @@ export function GeometryTabs({
                   angle: previewAngle,
                   smooth: gradient.smoothEnabled,
                   prism: gradient.prismEnabled,
+                  rainbow: gradient.rainbowEnabled,
+                  ring: gradient.ringEnabled,
                 }) : undefined
               }}
             >
@@ -328,6 +340,30 @@ export function GeometryTabs({
         onClick={onToggleHardStops}
       >
         Hard
+      </button>
+      {/* Prototype blend modes, same mutually-exclusive family as
+          Smooth/Prism/Hard above — see GradientFilters in lib/gradient.ts. */}
+      <button
+        type="button"
+        data-testid="filter-rainbow"
+        aria-pressed={gradient.rainbowEnabled}
+        disabled={rainbowDisabled}
+        title="Rainbow: hue travels the long way round the wheel, so the blend sweeps through more of the spectrum"
+        className={chipClass(gradient.rainbowEnabled)}
+        onClick={onToggleRainbow}
+      >
+        Rainbow
+      </button>
+      <button
+        type="button"
+        data-testid="filter-ring"
+        aria-pressed={gradient.ringEnabled}
+        disabled={ringDisabled}
+        title="Ring: hue sweeps at a constant brightness, so every color along the blend reads equally light"
+        className={chipClass(gradient.ringEnabled)}
+        onClick={onToggleRing}
+      >
+        Ring
       </button>
       <button
         type="button"

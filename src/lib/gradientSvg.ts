@@ -1,6 +1,6 @@
 import type { Gradient } from '../store/types'
 import type { GradientStop, GradientType } from './gradient'
-import { applyReversed, positionedStops, repeatedStops, hardenStops, smoothStops, prismStops } from './gradient'
+import { applyReversed, positionedStops, repeatedStops, hardenStops, smoothStops, prismStops, rainbowStops, ringStops } from './gradient'
 
 const RADIAL_TYPES: ReadonlySet<GradientType> = new Set(['radial'])
 
@@ -21,6 +21,8 @@ function effectiveStops(gradient: Gradient): GradientStop[] {
     if (gradient.hardStops) return s
     if (gradient.smoothEnabled) return smoothStops(s)
     if (gradient.prismEnabled) return prismStops(s)
+    if (gradient.rainbowEnabled) return rainbowStops(s)
+    if (gradient.ringEnabled) return ringStops(s)
     return s
   }
 

@@ -18,9 +18,11 @@ export function describeGradient(gradient: Gradient): string {
   parts.push(`${n} color${n === 1 ? '' : 's'}`)
   if (gradient.repeatEnabled) parts.push('×2')
   // Mutually exclusive at the store level (toggling one clears the others),
-  // so only ever one of these three shows up.
+  // so only ever one of these five shows up.
   if (gradient.hardStops) parts.push('Hard')
   else if (gradient.smoothEnabled) parts.push('Smooth')
   else if (gradient.prismEnabled) parts.push('Prism')
+  else if (gradient.rainbowEnabled) parts.push('Rainbow')
+  else if (gradient.ringEnabled) parts.push('Ring')
   return parts.join(' · ')
 }

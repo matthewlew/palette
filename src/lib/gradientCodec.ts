@@ -21,6 +21,8 @@ export interface SharePayloadGradient {
   hardStops?: boolean
   smoothEnabled?: boolean
   prismEnabled?: boolean
+  rainbowEnabled?: boolean
+  ringEnabled?: boolean
   fanAnchor?: FanAnchor
   name: string
   riso?: RisoData
@@ -46,6 +48,8 @@ export function toSharePayloadGradient(gradient: Gradient): SharePayloadGradient
   if (gradient.hardStops !== undefined) out.hardStops = gradient.hardStops
   if (gradient.smoothEnabled !== undefined) out.smoothEnabled = gradient.smoothEnabled
   if (gradient.prismEnabled !== undefined) out.prismEnabled = gradient.prismEnabled
+  if (gradient.rainbowEnabled !== undefined) out.rainbowEnabled = gradient.rainbowEnabled
+  if (gradient.ringEnabled !== undefined) out.ringEnabled = gradient.ringEnabled
   if (gradient.fanAnchor !== undefined) out.fanAnchor = gradient.fanAnchor
   if (gradient.riso !== undefined) out.riso = gradient.riso
   return out
@@ -69,6 +73,8 @@ export function importGradient(g: SharePayloadGradient): Gradient {
   if (g.hardStops !== undefined) out.hardStops = g.hardStops
   if (g.smoothEnabled !== undefined) out.smoothEnabled = g.smoothEnabled
   if (g.prismEnabled !== undefined) out.prismEnabled = g.prismEnabled
+  if (g.rainbowEnabled !== undefined) out.rainbowEnabled = g.rainbowEnabled
+  if (g.ringEnabled !== undefined) out.ringEnabled = g.ringEnabled
   if (g.fanAnchor !== undefined) out.fanAnchor = g.fanAnchor
   // Rebuilt for the same reason `stops` is: a hand-crafted payload's `riso`
   // object could otherwise carry extra keys straight into persisted state.
@@ -101,6 +107,8 @@ export function isSharePayloadGradient(value: unknown): value is SharePayloadGra
     (v.hardStops === undefined || typeof v.hardStops === 'boolean') &&
     (v.smoothEnabled === undefined || typeof v.smoothEnabled === 'boolean') &&
     (v.prismEnabled === undefined || typeof v.prismEnabled === 'boolean') &&
+    (v.rainbowEnabled === undefined || typeof v.rainbowEnabled === 'boolean') &&
+    (v.ringEnabled === undefined || typeof v.ringEnabled === 'boolean') &&
     (v.fanAnchor === undefined || FAN_ANCHORS.includes(v.fanAnchor as FanAnchor)) &&
     (v.riso === undefined || isRisoData(v.riso, v.stops.length))
   )

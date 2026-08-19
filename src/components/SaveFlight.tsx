@@ -120,6 +120,8 @@ function FlightTile({ flight, onDone }: { flight: SaveFlight; onDone: () => void
                 hard: gradient.hardStops,
                 smooth: gradient.smoothEnabled,
                 prism: gradient.prismEnabled,
+                rainbow: gradient.rainbowEnabled,
+                ring: gradient.ringEnabled,
                 fanAnchor: gradient.fanAnchor,
                 angle: gradient.angle,
               }),
