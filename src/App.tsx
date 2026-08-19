@@ -22,6 +22,9 @@ import type { Gradient } from './store/types'
 import type { GradientType } from './lib/gradient'
 import { supabase } from './lib/supabase'
 import { PALETTE_SELECT } from './lib/paletteRow'
+import { GradientVote } from './components/GradientVote'
+
+const isVoteMode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('vote') === 'true'
 
 const CREATE_SHORTCUTS: ShortcutHintItem[] = [
   { keys: ['↑', '↓'], label: 'Browse' },
@@ -31,6 +34,8 @@ const CREATE_SHORTCUTS: ShortcutHintItem[] = [
 ]
 
 export function App() {
+  if (isVoteMode) return <GradientVote />
+
   const mode = useAppStore((s) => s.mode)
   const current = useAppStore((s) => s.current)
   const saved = useAppStore((s) => s.saved)
