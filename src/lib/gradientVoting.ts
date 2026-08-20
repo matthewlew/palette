@@ -118,6 +118,15 @@ function applySpacingStrategy(stops: GradientStop[], strategy: string): Gradient
 export interface Candidate {
   source: 'community' | 'generated'
   paletteId?: string
+  /** Display name, when the candidate came from a saved palette — used only
+   * by the public voting UI's session-complete Elo summary. Absent for a
+   * generated candidate (nothing to name). */
+  name?: string
+  /** The palette's Elo rating as of when this pair was built, i.e. BEFORE
+   * this round's vote — the baseline the session-complete summary diffs
+   * against once the vote (and its DB trigger) has landed. Absent for a
+   * generated candidate (no rating to have). */
+  eloRatingBefore?: number
   colors: string[]
   offsets: number[]
   shape: GradientType
@@ -132,6 +141,8 @@ export function fromCommunity(g: Gradient): Candidate {
   return {
     source: 'community',
     paletteId: g.id,
+    name: g.name,
+    eloRatingBefore: g.eloRating,
     colors: g.stops.map((s) => s.hex),
     offsets: g.stops.map((s) => s.position),
     shape: g.type,
@@ -335,4 +346,17 @@ export async function submitVote(
     return false
   }
   return true
+}
+
+/** Current elo_rating for a set of palettes, keyed by id. Used right after
+ * a 'community' vote (the only test type whose insert trigger — see
+ * supabase/migrations/0013_palette_elo.sql — moves elo_rating) to read back
+ * the post-vote rating: the trigger runs inside the same INSERT transaction
+ * submitVote's insert() awaits, so by the time that promise resolves the
+ * new rating is already committed — no race, no polling needed. */
+export async function fetchEloRatings(paletteIds: string[]): Promise<Record<string, number>> {
+  if (paletteIds.length === 0) return {}
+  const { data, error } = await supabase.from('palettes').select('id, elo_rating').in('id', paletteIds)
+  if (error || !data) return {}
+  return Object.fromEntries(data.map((row) => [row.id as string, row.elo_rating as number]))
 }
