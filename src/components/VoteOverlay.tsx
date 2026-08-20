@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useSession } from '../hooks/useSession'
-import { useCommunityGradients } from '../hooks/useCommunityGradients'
+import { useVotingPool } from '../hooks/useVotingPool'
 import { SignInModal } from './SignInModal'
 import { GradientPreview } from './GradientPreview'
 import { Icon } from '../icons'
@@ -48,7 +48,7 @@ interface EloChange {
  */
 export function VoteOverlay({ onClose }: VoteOverlayProps) {
   const { user, isAnonymous, loading: sessionLoading } = useSession()
-  const { gradients } = useCommunityGradients('recent')
+  const { gradients } = useVotingPool()
   const [pair, setPair] = useState<[Candidate, Candidate] | null>(null)
   const [saving, setSaving] = useState(false)
   const [count, setCount] = useState(0)

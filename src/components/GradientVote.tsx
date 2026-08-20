@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { ensureSession } from '../lib/auth'
-import { useCommunityGradients } from '../hooks/useCommunityGradients'
+import { useVotingPool } from '../hooks/useVotingPool'
 import { SELECTABLE_GEOMETRY, type GradientType } from '../lib/gradient'
 import { hexToOklch } from '../lib/oklch'
 import { scorePalette } from '../lib/paletteScore'
@@ -70,7 +70,7 @@ In one short sentence, summarize what made the winner more appealing, in terms a
  * lives in src/lib/gradientVoting.ts, shared with the public-facing
  * VoteOverlay.tsx so both write the same vote-row shape. */
 export function GradientVote() {
-  const { gradients } = useCommunityGradients('recent')
+  const { gradients } = useVotingPool()
   const [pair, setPair] = useState<[Candidate, Candidate] | null>(null)
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)

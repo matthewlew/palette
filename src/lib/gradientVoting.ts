@@ -67,6 +67,24 @@ export function weightedPick<T extends string>(items: readonly T[], counts: Reco
   return items[items.length - 1]
 }
 
+/** Same scarcity idea as weightedPick, but for 'community' pairing: weights
+ * a palette by how close its Elo rating still is to the untouched default
+ * (1200) — `1 / (|rating - 1200| + 1)` — so a palette that's never really
+ * moved is far more likely to be picked than one already deep in wins or
+ * losses. Not a perfect "has this ever been voted on" signal (a palette
+ * could churn back to exactly 1200), but needs no extra query beyond the
+ * rating already on hand, unlike a real per-palette vote count. */
+function weightedPickByEloDistance(items: Gradient[]): Gradient {
+  const weights = items.map((g) => 1 / (Math.abs((g.eloRating ?? 1200) - 1200) + 1))
+  const total = weights.reduce((a, b) => a + b, 0)
+  let r = Math.random() * total
+  for (let i = 0; i < items.length; i++) {
+    r -= weights[i]
+    if (r <= 0) return items[i]
+  }
+  return items[items.length - 1]
+}
+
 /** Sub-variants within 'order'/'spacing'/'symmetry' — each tests one
  * specific, articulable theory about composition rather than pure
  * randomness. See src/lib/gradientComposition.ts. Absent key = no
@@ -240,11 +258,17 @@ export function pickPair(
   if (testType === 'community') {
     const sameShape = pool.filter((g) => g.type === shape)
     if (sameShape.length >= 2) {
-      const i = Math.floor(Math.random() * sameShape.length)
-      let j = Math.floor(Math.random() * (sameShape.length - 1))
-      if (j >= i) j += 1
-      const a = { ...fromCommunity(sameShape[i]), shape }
-      const b = { ...fromCommunity(sameShape[j]), shape }
+      // Weighted toward whichever palette's rating still sits at (or near)
+      // the 1200 default — a proxy for "hasn't really been voted on yet",
+      // same scarcity idea as weightedPick but keyed on Elo distance rather
+      // than a vote count (which would need its own query). Without this,
+      // uniform random pairing lets whichever palettes happen to win early
+      // keep getting re-picked while most of the pool never comes up.
+      const first = weightedPickByEloDistance(sameShape)
+      const rest = sameShape.filter((g) => g.id !== first.id)
+      const second = rest.length > 0 ? weightedPickByEloDistance(rest) : first
+      const a = { ...fromCommunity(first), shape }
+      const b = { ...fromCommunity(second), shape }
       return Math.random() < 0.5 ? [a, b] : [b, a]
     }
     // Not enough saved palettes of this shape yet to form a real pair —

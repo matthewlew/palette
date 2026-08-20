@@ -1,0 +1,108 @@
+.page {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: var(--c-950, #101014);
+  color: #fff;
+  overflow-y: auto;
+  font-family: var(--th-display);
+}
+
+/* Positioning only — MEDIA_ICON (lib/mediaChrome.ts) supplies the button
+   chrome, matching every other full-screen view's exit affordance
+   (VoteOverlay, EditMode's back button, Gallery's viewer close). */
+.closeButton {
+  position: absolute;
+  top: calc(16px + var(--safe-t, 0px));
+  left: var(--edge-l);
+  z-index: 2;
+}
+
+.header {
+  padding: calc(16px + var(--safe-t, 0px)) 16px 16px calc(60px + var(--safe-l, 0px));
+  border-bottom: 1px solid var(--border);
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  margin-top: 4px;
+  font-size: var(--size-2);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.state {
+  padding: 48px 24px;
+  text-align: center;
+  font-size: var(--size-3);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.rank {
+  width: 28px;
+  text-align: right;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--size-2);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.swatch {
+  width: 56px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm, 8px);
+  overflow: hidden;
+  position: relative;
+  box-shadow: var(--shadow-sm, none);
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--size-3);
+  color: rgba(255, 255, 255, 0.9);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.elo {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--size-2);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.trend {
+  width: 56px;
+  text-align: right;
+  font-size: var(--size-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.trendFlat {
+  composes: trend;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.trendUp {
+  composes: trend;
+  color: #7ac97a;
+}
+
+.trendDown {
+  composes: trend;
+  color: #e07a7a;
+}
