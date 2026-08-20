@@ -11,6 +11,15 @@ import { hexToOklch } from './oklch'
  * rate on it is directly citable (see scripts/recalibrate-gradient-score.mjs's
  * per-strategy breakdown).
  *
+ * Deliberately shape-agnostic only: an earlier version also had
+ * light-center/light-edges/saturation-center/saturation-edges (place the
+ * lightest/most-saturated stop at the middle or an end position), but
+ * "edges" isn't a coherent concept for every shape — `angular` wraps in a
+ * circle with no true edge, and `square`/Turrell is solid wedges with no
+ * continuous blend to place a standout within — so voting on those under
+ * those shapes was noise, not signal. Every function below applies the
+ * same way regardless of shape.
+ *
  * All operate on a GradientStop[] and return a new one; positions in the
  * *ordering* functions are held fixed (only which color sits at which
  * position changes) and hex order is held fixed in the *spacing*
@@ -21,69 +30,6 @@ import { hexToOklch } from './oklch'
 function circularHueDistance(a: number, b: number): number {
   const diff = Math.abs(a - b)
   return Math.min(diff, 360 - diff)
-}
-
-/** Sorts the hex-to-position assignment by OKLCH lightness; positions
- * (the original sorted position sequence) stay fixed. */
-export function orderByLightness(stops: GradientStop[], direction: 'asc' | 'desc' = 'asc'): GradientStop[] {
-  if (stops.length < 2) return stops
-  const positions = stops.map((s) => s.position).sort((a, b) => a - b)
-  const byLightness = [...stops].sort((a, b) => hexToOklch(a.hex).l - hexToOklch(b.hex).l)
-  const ordered = direction === 'asc' ? byLightness : byLightness.reverse()
-  return ordered.map((s, i) => ({ ...s, position: positions[i] }))
-}
-
-/** Finds the stop most extreme on `by` (lightest/darkest, or most/least
- * saturated), places it at the CENTER position slot, and fills outward by
- * distance from it — simulates "the standout color calls attention from
- * the middle." Ties broken by original order. No-op below 3 stops (no
- * meaningful center distinct from the edges). */
-export function orderWithStandoutCentered(stops: GradientStop[], by: 'lightness' | 'saturation'): GradientStop[] {
-  return placeStandout(stops, by, 'center')
-}
-
-/** Same extremum as orderWithStandoutCentered, placed at an EDGE slot
- * instead (first or last, whichever standout reads as more natural is not
- * modeled — always the first slot) and filled inward — simulates "the
- * standout frames/subdues the gradient from its edges." No-op below 3
- * stops. */
-export function orderWithStandoutAtEdges(stops: GradientStop[], by: 'lightness' | 'saturation'): GradientStop[] {
-  return placeStandout(stops, by, 'edge')
-}
-
-function metric(hex: string, by: 'lightness' | 'saturation'): number {
-  const c = hexToOklch(hex)
-  return by === 'lightness' ? c.l : c.c
-}
-
-function placeStandout(stops: GradientStop[], by: 'lightness' | 'saturation', where: 'center' | 'edge'): GradientStop[] {
-  if (stops.length < 3) return stops
-  const positions = stops.map((s) => s.position).sort((a, b) => a - b)
-  const sortedByMetric = [...stops].sort((a, b) => metric(b.hex, by) - metric(a.hex, by))
-  const standout = sortedByMetric[0]
-  const rest = sortedByMetric.slice(1)
-
-  const centerIdx = Math.floor((stops.length - 1) / 2)
-  const slotOrder: number[] = []
-  if (where === 'center') {
-    // Fill outward from the center slot: center, center-1, center+1, center-2, ...
-    slotOrder.push(centerIdx)
-    for (let d = 1; slotOrder.length < stops.length; d++) {
-      if (centerIdx - d >= 0) slotOrder.push(centerIdx - d)
-      if (slotOrder.length < stops.length && centerIdx + d < stops.length) slotOrder.push(centerIdx + d)
-    }
-  } else {
-    // Fill inward from the first slot: 0, 1, 2, ...
-    for (let i = 0; i < stops.length; i++) slotOrder.push(i)
-  }
-
-  const arranged: (GradientStop & { hex: string })[] = new Array(stops.length)
-  arranged[slotOrder[0]] = standout
-  rest.forEach((s, i) => {
-    arranged[slotOrder[i + 1]] = s
-  })
-
-  return arranged.map((s, i) => ({ ...s, position: positions[i] }))
 }
 
 /** Greedy nearest-neighbor ordering by circular hue distance: start from

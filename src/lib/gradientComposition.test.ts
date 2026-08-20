@@ -1,8 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import {
-  orderByLightness,
-  orderWithStandoutCentered,
-  orderWithStandoutAtEdges,
   orderByHueWalk,
   spacingBufferNeutral,
   spacingDominantBand,
@@ -19,44 +16,6 @@ const stops: GradientStop[] = [
   { hex: '#404040', position: 75 },
   { hex: '#c0c0c0', position: 100 },
 ]
-
-describe('orderByLightness', () => {
-  it('sorts hex order by lightness ascending, positions unchanged', () => {
-    const result = orderByLightness(stops, 'asc')
-    expect(result.map((s) => s.position)).toEqual(stops.map((s) => s.position))
-    expect(result[0].hex).toBe('#000000')
-    expect(result[result.length - 1].hex).toBe('#ffffff')
-  })
-
-  it('sorts descending as the exact reverse', () => {
-    const asc = orderByLightness(stops, 'asc')
-    const desc = orderByLightness(stops, 'desc')
-    expect(desc.map((s) => s.hex)).toEqual([...asc.map((s) => s.hex)].reverse())
-  })
-})
-
-describe('orderWithStandoutCentered / orderWithStandoutAtEdges', () => {
-  it('places the lightest stop at the center position slot', () => {
-    const result = orderWithStandoutCentered(stops, 'lightness')
-    const positions = stops.map((s) => s.position).sort((a, b) => a - b)
-    const centerPos = positions[Math.floor((positions.length - 1) / 2)]
-    const atCenter = result.find((s) => s.position === centerPos)
-    expect(atCenter?.hex).toBe('#ffffff')
-  })
-
-  it('places the lightest stop at the first position slot', () => {
-    const result = orderWithStandoutAtEdges(stops, 'lightness')
-    const firstPos = Math.min(...stops.map((s) => s.position))
-    const atFirst = result.find((s) => s.position === firstPos)
-    expect(atFirst?.hex).toBe('#ffffff')
-  })
-
-  it('is a no-op below 3 stops', () => {
-    const two = stops.slice(0, 2)
-    expect(orderWithStandoutCentered(two, 'lightness')).toEqual(two)
-    expect(orderWithStandoutAtEdges(two, 'lightness')).toEqual(two)
-  })
-})
 
 describe('orderByHueWalk', () => {
   it('keeps the same set of hexes and positions', () => {

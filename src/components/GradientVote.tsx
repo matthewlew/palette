@@ -8,8 +8,6 @@ import { buildGradientCss, SELECTABLE_GEOMETRY, type GradientStop, type Gradient
 import { hexToOklch } from '../lib/oklch'
 import { scorePalette } from '../lib/paletteScore'
 import {
-  orderWithStandoutCentered,
-  orderWithStandoutAtEdges,
   orderByHueWalk,
   spacingBufferNeutral,
   spacingDominantBand,
@@ -36,14 +34,18 @@ const TEST_TYPES: { id: TestType; label: string; hint: string }[] = [
 /** Sub-variants within 'order'/'spacing'/'symmetry' — each tests one
  * specific, articulable theory about composition rather than pure
  * randomness. See src/lib/gradientComposition.ts. Absent key = no
- * strategy picker for that test type (stops/shape/random). */
+ * strategy picker for that test type (stops/shape/random).
+ *
+ * Deliberately shape-agnostic only: light-center/light-edges/saturation-
+ * center/saturation-edges were dropped after review — "edges" isn't a
+ * coherent concept for `angular` (wraps in a circle, no true edge) or
+ * `square` (solid wedges, no continuous blend to place a standout
+ * within), so voting on them under those shapes was noise, not signal.
+ * hue-walk/buffer-neutral/dominant-band/mirror all apply to every shape
+ * the same way. */
 const STRATEGIES_BY_TYPE: Partial<Record<TestType, { id: string; label: string; hint: string }[]>> = {
   order: [
     { id: 'shuffle', label: 'Shuffle', hint: 'random reassignment (baseline)' },
-    { id: 'light-center', label: 'Light center', hint: 'lightest color at the middle position' },
-    { id: 'light-edges', label: 'Light edges', hint: 'lightest color at the first position' },
-    { id: 'saturation-center', label: 'Saturation center', hint: 'most saturated color at the middle position' },
-    { id: 'saturation-edges', label: 'Saturation edges', hint: 'most saturated color at the first position' },
     { id: 'hue-walk', label: 'Hue walk', hint: 'colors ordered to minimize hue jumps between neighbors' },
   ],
   spacing: [
@@ -64,10 +66,6 @@ function randomStrategyFor(testType: TestType): string | null {
 
 function applyOrderStrategy(stops: GradientStop[], strategy: string): GradientStop[] {
   switch (strategy) {
-    case 'light-center': return orderWithStandoutCentered(stops, 'lightness')
-    case 'light-edges': return orderWithStandoutAtEdges(stops, 'lightness')
-    case 'saturation-center': return orderWithStandoutCentered(stops, 'saturation')
-    case 'saturation-edges': return orderWithStandoutAtEdges(stops, 'saturation')
     case 'hue-walk': return orderByHueWalk(stops)
     default: return reorderColors(stops)
   }
@@ -373,8 +371,8 @@ export function GradientVote() {
 
   const chooseTestType = (type: TestType) => {
     setTestType(type)
-    // Strategies are specific to a test type — a pinned 'light-center'
-    // means nothing once you've switched to Spacing, so it resets here.
+    // Strategies are specific to a test type — a pinned 'hue-walk' means
+    // nothing once you've switched to Spacing, so it resets here.
     setStrategy(null)
     const resolved = randomStrategyFor(type)
     setRoundStrategy(resolved)
@@ -513,8 +511,8 @@ export function GradientVote() {
             ))}
           </div>
           {/* Coverage graph — relative bar per strategy WITHIN the current
-              test type, so a session can see e.g. "light-center: 3,
-              light-edges: 11" at a glance and steer toward whichever
+              test type, so a session can see e.g. "buffer-neutral: 3,
+              dominant-band: 11" at a glance and steer toward whichever
               theory still needs votes. */}
           <div style={{ padding: '6px 12px', display: 'flex', gap: 4, alignItems: 'flex-end', height: 36, background: '#000', borderBottom: '1px solid #222' }}>
             {STRATEGIES_BY_TYPE[testType]!.map((s) => {
