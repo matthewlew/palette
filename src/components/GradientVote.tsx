@@ -202,10 +202,13 @@ export function GradientVote() {
   const [count, setCount] = useState(0)
   const [forcedShape, setForcedShape] = useState<GradientType | null>(null)
   const [testType, setTestType] = useState<TestType>('random')
-  // Per-shape vote counts, for the coverage graph. Seeded from this
-  // session's own past votes on mount, then incremented locally as new
-  // votes land — avoids a re-fetch after every single pick.
+  // Per-shape and per-test-type vote counts, for the coverage graph/labels.
+  // Seeded from this session's own past votes on mount, then incremented
+  // locally as new votes land — avoids a re-fetch after every single pick.
   const [shapeCounts, setShapeCounts] = useState<Record<string, number>>({})
+  const [testTypeCounts, setTestTypeCounts] = useState<Record<TestType, number>>({
+    random: 0, stops: 0, order: 0, shape: 0, spacing: 0,
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -213,14 +216,18 @@ export function GradientVote() {
       const { data: session } = await supabase.auth.getSession()
       const voterId = session.session?.user.id
       if (!voterId) return
-      const { data } = await supabase.from('gradient_votes').select('winner').eq('voter_id', voterId)
+      const { data } = await supabase.from('gradient_votes').select('winner,test_type').eq('voter_id', voterId)
       if (cancelled || !data) return
-      const counts: Record<string, number> = {}
+      const shapeC: Record<string, number> = {}
+      const testC: Record<TestType, number> = { random: 0, stops: 0, order: 0, shape: 0, spacing: 0 }
       for (const row of data) {
         const shape = (row.winner as { shape?: string } | null)?.shape
-        if (shape) counts[shape] = (counts[shape] ?? 0) + 1
+        if (shape) shapeC[shape] = (shapeC[shape] ?? 0) + 1
+        const type = (row.test_type as TestType | null) ?? 'random'
+        testC[type] = (testC[type] ?? 0) + 1
       }
-      setShapeCounts(counts)
+      setShapeCounts(shapeC)
+      setTestTypeCounts(testC)
     })
     return () => {
       cancelled = true
@@ -259,6 +266,7 @@ export function GradientVote() {
       console.error('Failed to save gradient vote: no signed-in session (voterId missing)')
     }
     setShapeCounts((prev) => ({ ...prev, [winner.shape]: (prev[winner.shape] ?? 0) + 1 }))
+    setTestTypeCounts((prev) => ({ ...prev, [testType]: (prev[testType] ?? 0) + 1 }))
     setCount((c) => c + 1)
     setSaving(false)
     nextPair()
@@ -328,9 +336,24 @@ export function GradientVote() {
               cursor: 'pointer',
             }}
           >
-            {t.label}
+            {t.label} · {testTypeCounts[t.id] ?? 0}
           </button>
         ))}
+      </div>
+      {/* Coverage graph — relative bar per test type, same idea as the shape
+          graph below: shows at a glance whether Stop count/Order/Shape/
+          Spacing are getting even coverage, since each needs its own
+          sample size to back a specific claim (e.g. "linear: dark at ends"). */}
+      <div style={{ padding: '6px 12px', display: 'flex', gap: 4, alignItems: 'flex-end', height: 36, background: '#000', borderBottom: '1px solid #222' }}>
+        {TEST_TYPES.map((t) => {
+          const max = Math.max(1, ...TEST_TYPES.map((tt) => testTypeCounts[tt.id] ?? 0))
+          const n = testTypeCounts[t.id] ?? 0
+          return (
+            <div key={t.id} title={`${t.label}: ${n}`} style={{ flex: 1, height: '100%', display: 'flex', alignItems: 'flex-end' }}>
+              <div style={{ width: '100%', height: `${(n / max) * 100}%`, minHeight: n > 0 ? 3 : 0, background: t.id === testType ? '#4a9eff' : '#555', borderRadius: '2px 2px 0 0' }} />
+            </div>
+          )
+        })}
       </div>
       <div style={{ padding: '10px 12px', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', background: '#000', borderBottom: '1px solid #222' }}>
         <button
