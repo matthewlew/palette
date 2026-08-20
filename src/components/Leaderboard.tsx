@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useCommunityGradients } from '../hooks/useCommunityGradients'
 import { tileBackground } from '../lib/tileBackground'
+import { TurrellSquare } from './TurrellSquare'
 import type { Gradient } from '../store/types'
 
 const TOP_N = 100
@@ -67,11 +68,19 @@ function TrendBadge({ current, baseline }: { current: number; baseline: number |
 }
 
 function Row({ rank, gradient, baselineElo }: { rank: number; gradient: Gradient; baselineElo: number | undefined }) {
+  // tileBackground returns undefined for 'square' — that one is layered DOM
+  // (nested squares), not a single CSS gradient, so it renders via
+  // TurrellSquare instead (see tileBackground's own doc comment). Every
+  // other shape is a plain background.
   const bg = tileBackground(gradient)
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', borderBottom: '1px solid #222' }}>
       <span style={{ width: 32, textAlign: 'right', fontVariantNumeric: 'tabular-nums', opacity: 0.7 }}>{rank}</span>
-      <div style={{ width: 64, height: 40, borderRadius: 6, background: bg ?? '#333', flexShrink: 0 }} />
+      <div style={{ width: 64, height: 40, borderRadius: 6, background: bg ?? '#111', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
+        {gradient.type === 'square' && (
+          <TurrellSquare stops={gradient.stops} reversed={gradient.reversed} repeatEnabled={gradient.repeatEnabled} angle={gradient.angle} crop={gradient.crop} />
+        )}
+      </div>
       <span style={{ flex: 1, fontSize: 13, opacity: 0.8 }}>{gradient.name ?? gradient.type}</span>
       <span style={{ fontVariantNumeric: 'tabular-nums' }}>{gradient.eloRating ?? 1200}</span>
       <span style={{ width: 60, textAlign: 'right', fontSize: 13 }}>
