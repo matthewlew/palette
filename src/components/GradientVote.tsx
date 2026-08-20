@@ -7,8 +7,22 @@ import { DEFAULT_COLOR_SET } from '../lib/colorSets'
 import { buildGradientCss, SELECTABLE_GEOMETRY, type GradientStop, type GradientType } from '../lib/gradient'
 import { hexToOklch } from '../lib/oklch'
 import { scorePalette } from '../lib/paletteScore'
-import { CATEGORIES } from '../lib/gradientCategories'
 import type { Gradient } from '../store/types'
+
+/** 'random' is the original mode: two independently chosen candidates,
+ * sharing one shape so geometry isn't a confound. Every other value holds
+ * ONE base candidate fixed and mutates exactly one property of it for the
+ * second candidate, so a win/loss isolates that single variable instead of
+ * "which of these two unrelated gradients is better". */
+type TestType = 'random' | 'stops' | 'order' | 'shape' | 'spacing'
+
+const TEST_TYPES: { id: TestType; label: string; hint: string }[] = [
+  { id: 'random', label: 'Random pair', hint: 'two independent candidates, same shape' },
+  { id: 'stops', label: 'Stop count', hint: 'same colors, one fewer stop' },
+  { id: 'order', label: 'Color order', hint: 'same colors, reordered' },
+  { id: 'shape', label: 'Shape', hint: 'same colors and stops, different geometry' },
+  { id: 'spacing', label: 'Spacing', hint: 'same colors, different stop positions' },
+]
 
 interface Candidate {
   source: 'community' | 'generated'
@@ -17,6 +31,10 @@ interface Candidate {
   offsets: number[]
   shape: GradientType
   stops: GradientStop[]
+  /** Set only for a controlled (non-'random') test — which side of the pair
+   * this is, so the recalibration script can compute "does the mutation
+   * win?" rather than just "which of these two won". */
+  variant?: 'base' | 'mutated'
 }
 
 function fromCommunity(g: Gradient): Candidate {
@@ -41,16 +59,92 @@ function generated(shape: GradientType): Candidate {
   }
 }
 
-/** Both candidates share one shape per round — shape is a confound if left
- * free to vary, since e.g. `square` renders as flat wedges and would
- * win/lose on geometry rather than color choice. A community gradient's own
- * shape is overridden to match, for the same reason. Pass `forcedShape` to
- * pin the round to one shape instead of picking randomly. */
-function pickPair(pool: Gradient[], forcedShape: GradientType | null): [Candidate, Candidate] {
+function baseCandidate(pool: Gradient[], shape: GradientType): Candidate {
+  return pool.length > 0
+    ? { ...fromCommunity(pool[Math.floor(Math.random() * pool.length)]), shape }
+    : generated(shape)
+}
+
+/** Removes one random INTERIOR stop (never the first or last), keeping the
+ * gradient's overall color range fixed — tests whether a simpler gradient
+ * with the same range reads better. No-op below 3 stops. */
+export function dropRandomStop(stops: GradientStop[]): GradientStop[] {
+  if (stops.length <= 2) return stops
+  const idx = 1 + Math.floor(Math.random() * (stops.length - 2))
+  return stops.filter((_, i) => i !== idx)
+}
+
+/** Same colors and positions, hex values shuffled across them. Retries until
+ * the shuffle actually differs (a same-length array can otherwise reshuffle
+ * to itself, especially at 2-3 stops). */
+export function reorderColors(stops: GradientStop[]): GradientStop[] {
+  if (stops.length < 2) return stops
+  const hexes = stops.map((s) => s.hex)
+  let shuffled = hexes
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const copy = [...hexes]
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[copy[i], copy[j]] = [copy[j], copy[i]]
+    }
+    if (copy.some((h, i) => h !== hexes[i])) {
+      shuffled = copy
+      break
+    }
+  }
+  return stops.map((s, i) => ({ ...s, hex: shuffled[i] }))
+}
+
+/** Same colors, same color-to-order assignment, different stop positions.
+ * Endpoints stay pinned at 0/100 (still spans the full gradient); interior
+ * positions are re-rolled and re-sorted. No-op below 3 stops. */
+export function varySpacing(stops: GradientStop[]): GradientStop[] {
+  if (stops.length < 3) return stops
+  const sorted = [...stops].sort((a, b) => a.position - b.position)
+  const interior = Array.from({ length: sorted.length - 2 }, () => Math.random() * 100).sort((a, b) => a - b)
+  const positions = [0, ...interior, 100]
+  return sorted.map((s, i) => ({ ...s, position: Math.round(positions[i]) }))
+}
+
+/** 'random': two independently chosen candidates sharing one shape — shape
+ * is a confound if left free to vary, since e.g. `square` renders as flat
+ * wedges and would win/lose on geometry rather than color choice.
+ *
+ * Any other test type: ONE base candidate, mutated along exactly the
+ * property under test for the second candidate — everything else held
+ * fixed, so a win/loss isolates that one variable. */
+function pickPair(pool: Gradient[], forcedShape: GradientType | null, testType: TestType): [Candidate, Candidate] {
   const shape = forcedShape ?? SELECTABLE_GEOMETRY[Math.floor(Math.random() * SELECTABLE_GEOMETRY.length)]
-  const a = pool.length > 0 ? { ...fromCommunity(pool[Math.floor(Math.random() * pool.length)]), shape } : generated(shape)
-  const b = generated(shape)
-  return Math.random() < 0.5 ? [a, b] : [b, a]
+
+  if (testType === 'random') {
+    const a = baseCandidate(pool, shape)
+    const b = generated(shape)
+    return Math.random() < 0.5 ? [a, b] : [b, a]
+  }
+
+  const base: Candidate = { ...baseCandidate(pool, shape), variant: 'base' }
+
+  let mutatedStops = base.stops
+  let mutatedShape = base.shape
+  if (testType === 'stops') mutatedStops = dropRandomStop(base.stops)
+  else if (testType === 'order') mutatedStops = reorderColors(base.stops)
+  else if (testType === 'spacing') mutatedStops = varySpacing(base.stops)
+  else if (testType === 'shape') {
+    const others = SELECTABLE_GEOMETRY.filter((s) => s !== base.shape)
+    mutatedShape = others[Math.floor(Math.random() * others.length)]
+  }
+
+  const mutated: Candidate = {
+    source: base.source,
+    paletteId: base.paletteId,
+    colors: mutatedStops.map((s) => s.hex),
+    offsets: mutatedStops.map((s) => s.position),
+    shape: mutatedShape,
+    stops: mutatedStops,
+    variant: 'mutated',
+  }
+
+  return Math.random() < 0.5 ? [base, mutated] : [mutated, base]
 }
 
 function scoreOf(c: Candidate): number {
@@ -96,17 +190,18 @@ In one short sentence, summarize what made the winner more appealing, in terms a
 
 /** Admin-only gradient A/B voting tool, mounted behind ?vote=true (App.tsx),
  * mirroring Gallery.tsx's ?admin=true gating. Pairs a random community
- * gradient against a freshly generated one, logs the pick to
+ * gradient against a freshly generated one (or, for a controlled test, a
+ * base candidate against one mutated property of itself), logs the pick to
  * gradient_votes for later recalibration of paletteScore.ts's weights
  * (see scripts/recalibrate-gradient-score.mjs). */
 export function GradientVote() {
   const { gradients } = useCommunityGradients('recent')
   const [pair, setPair] = useState<[Candidate, Candidate] | null>(null)
-  const [category, setCategory] = useState<string | null>(null)
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [count, setCount] = useState(0)
   const [forcedShape, setForcedShape] = useState<GradientType | null>(null)
+  const [testType, setTestType] = useState<TestType>('random')
   // Per-shape vote counts, for the coverage graph. Seeded from this
   // session's own past votes on mount, then incremented locally as new
   // votes land — avoids a re-fetch after every single pick.
@@ -133,10 +228,9 @@ export function GradientVote() {
   }, [])
 
   const nextPair = useCallback(() => {
-    setPair(pickPair(gradients, forcedShape))
-    setCategory(null)
+    setPair(pickPair(gradients, forcedShape, testType))
     setNote('')
-  }, [gradients, forcedShape])
+  }, [gradients, forcedShape, testType])
 
   useEffect(() => {
     if (!pair) nextPair()
@@ -154,10 +248,11 @@ export function GradientVote() {
     if (voterId) {
       const { error } = await supabase.from('gradient_votes').insert({
         voter_id: voterId,
-        winner: { source: winner.source, paletteId: winner.paletteId, colors: winner.colors, offsets: winner.offsets, shape: winner.shape },
-        loser: { source: loser.source, paletteId: loser.paletteId, colors: loser.colors, offsets: loser.offsets, shape: loser.shape },
-        category,
+        winner: { source: winner.source, paletteId: winner.paletteId, colors: winner.colors, offsets: winner.offsets, shape: winner.shape, variant: winner.variant },
+        loser: { source: loser.source, paletteId: loser.paletteId, colors: loser.colors, offsets: loser.offsets, shape: loser.shape, variant: loser.variant },
+        category: null,
         note: finalNote || null,
+        test_type: testType === 'random' ? null : testType,
       })
       if (error) console.error('Failed to save gradient vote:', error)
     } else {
@@ -171,8 +266,13 @@ export function GradientVote() {
 
   const chooseShape = (shape: GradientType | null) => {
     setForcedShape(shape)
-    setPair(pickPair(gradients, shape))
-    setCategory(null)
+    setPair(pickPair(gradients, shape, testType))
+    setNote('')
+  }
+
+  const chooseTestType = (type: TestType) => {
+    setTestType(type)
+    setPair(pickPair(gradients, forcedShape, type))
     setNote('')
   }
 
@@ -206,13 +306,33 @@ export function GradientVote() {
             }}
           >
             <span style={{ position: 'absolute', top: 12, left: 12, fontSize: 12, opacity: 0.7, background: 'rgba(0,0,0,0.4)', padding: '2px 6px', borderRadius: 4 }}>
-              [{i === 0 ? 'A' : 'B'}] {c.source} · {c.shape} · score {scoreOf(c).toFixed(1)}
+              [{i === 0 ? 'A' : 'B'}] {c.variant ?? c.source} · {c.shape} · score {scoreOf(c).toFixed(1)}
             </span>
           </button>
         ))}
       </div>
       <div style={{ padding: '10px 12px', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', background: '#000', borderBottom: '1px solid #222' }}>
         <span style={{ fontSize: 12, opacity: 0.6 }}>{count} voted</span>
+        {TEST_TYPES.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => chooseTestType(t.id)}
+            title={t.hint}
+            style={{
+              fontSize: 12,
+              padding: '4px 8px',
+              borderRadius: 12,
+              border: '1px solid #666',
+              background: testType === t.id ? '#4a9eff' : 'transparent',
+              color: '#fff',
+              cursor: 'pointer',
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <div style={{ padding: '10px 12px', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', background: '#000', borderBottom: '1px solid #222' }}>
         <button
           onClick={() => chooseShape(null)}
           style={{
@@ -225,7 +345,7 @@ export function GradientVote() {
             cursor: 'pointer',
           }}
         >
-          Random
+          Random shape
         </button>
         {SELECTABLE_GEOMETRY.map((shape) => (
           <button
@@ -258,25 +378,6 @@ export function GradientVote() {
         })}
       </div>
       <div style={{ padding: 12, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', background: '#000' }}>
-        <span style={{ fontSize: 12, opacity: 0.5 }}>optional tag:</span>
-        {CATEGORIES.map((cat) => (
-          <button
-            key={cat.id}
-            onClick={() => setCategory(category === cat.id ? null : cat.id)}
-            title={cat.hint}
-            style={{
-              fontSize: 12,
-              padding: '4px 8px',
-              borderRadius: 12,
-              border: '1px solid #444',
-              background: category === cat.id ? '#fff' : 'transparent',
-              color: category === cat.id ? '#000' : '#fff',
-              cursor: 'pointer',
-            }}
-          >
-            {cat.label}
-          </button>
-        ))}
         <input
           value={note}
           onChange={(e) => setNote(e.target.value)}
