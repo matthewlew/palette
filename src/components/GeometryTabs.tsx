@@ -4,6 +4,7 @@ import type { GradientCrop } from '../lib/gradientCrop'
 import type { Gradient } from '../store/types'
 import { TurrellSquare } from './TurrellSquare'
 import { useIsDesktop } from '../hooks/useIsDesktop'
+import { useSlidingPill } from '../hooks/useSlidingPill'
 import styles from './GeometryTabs.module.css'
 
 /* Drawn rather than labelled. The choice IS a shape, so a picture of it is a
@@ -104,6 +105,8 @@ export function GeometryTabs({
   // Only consulted on mobile — the desktop media query shows both panels
   // regardless, so this state is inert there rather than needing a branch.
   const [section, setSection] = useState<SectionId>('shape')
+  // Slides the Shape/Effect selection pill — see TabBar's identical use.
+  const { pillRef: sectionPillRef, registerItem: registerSectionItem } = useSlidingPill(section)
   const isDesktop = useIsDesktop()
   // Turrell's blur is a flat pixel radius (see TurrellSquare), not a
   // percentage of the box it's drawn in — so the same 4px that reads right
@@ -170,11 +173,13 @@ export function GeometryTabs({
           hidden half both visible and reachable without expanding. Desktop
           renders both sections stacked instead (see the media query). */}
       <div className={styles.sectionTabs} role="tablist" aria-label="Editor sections">
+        <span ref={sectionPillRef} className={styles.sectionTabPill} aria-hidden="true" />
         {SECTIONS.map(({ id, label }) => (
           <button
             key={id}
             type="button"
             role="tab"
+            ref={registerSectionItem(id)}
             id={`section-tab-${id}`}
             data-testid={`section-tab-${id}`}
             aria-selected={section === id}

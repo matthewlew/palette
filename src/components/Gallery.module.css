@@ -1006,6 +1006,7 @@
  * track's own footprint changes, so the height and the tap targets are as they
  * were; the fill just reaches the edge it is supposed to reach. */
 .toggleGroup {
+  position: relative;
   display: inline-flex;
   height: var(--control-h);
   box-sizing: border-box;
@@ -1015,6 +1016,33 @@
   padding: 0;
   align-items: stretch;
   overflow: hidden;
+}
+
+/* Slides beneath whichever tab is active instead of each tab drawing its
+   own fill — see useSlidingPill and TabBar's identical .pill. Position/
+   width are written inline by the hook, measured off the active button's
+   own box. */
+.toggleGroupPill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 0;
+  border-radius: var(--pill);
+  background: var(--text);
+  transform: translateX(0);
+  transition:
+    transform 250ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 250ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, width;
+  z-index: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toggleGroupPill {
+    transition: none;
+  }
 }
 
 /* ── MOBILE OVERFLOW ─────────────────────────────────────────────────────
@@ -1292,6 +1320,7 @@
 .toggleBtnTab,
 .toggleBtnActiveTab {
   position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1304,8 +1333,9 @@
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
-  transition: background 150ms ease, color 150ms ease;
+  transition: color 150ms ease;
   font-family: var(--th-display);
+  -webkit-tap-highlight-color: transparent;
 }
 
 .toggleBtnTab:hover {
@@ -1313,12 +1343,13 @@
   background: color-mix(in srgb, currentColor 6%, transparent);
 }
 
-/* Same inverted-pill recipe as GeometryTabs' .filterActive: the ink colour
-   becomes the fill and the darkest surface token becomes the label, so the
-   pair stays a real contrast pair under any theme instead of a fixed
-   white-on-#111 that only happens to work in the dark palette theme. */
+/* Ink only now — the fill lives on .toggleGroupPill, which slides beneath
+   whichever tab is current. Same inverted-pill recipe as GeometryTabs'
+   .filterActive: the ink colour becomes the fill and the darkest surface
+   token becomes the label, so the pair stays a real contrast pair under any
+   theme instead of a fixed white-on-#111 that only happens to work in the
+   dark palette theme. */
 .toggleBtnActiveTab {
-  background: var(--text);
   color: var(--c-950);
 }
 

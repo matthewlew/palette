@@ -1,5 +1,7 @@
 export { Icon } from './Icon'
 export type { IconProps } from './Icon'
+export { IconSwap } from './IconSwap'
+export type { IconSwapProps } from './IconSwap'
 export { ICON_SIZES } from './sizes'
 export type { IconSize } from './sizes'
 export { GLYPHS } from './glyphs'

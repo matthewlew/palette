@@ -15,7 +15,6 @@ import {
 } from '../lib/stopOrdering'
 import { sortByOklch, type SortKey } from '../lib/sortColors'
 import { useHint } from '../hooks/useHint'
-import { useScrolling } from '../hooks/useScrolling'
 import { useSheetFollow } from '../hooks/useSheetFollow'
 import { useIsDesktop } from '../hooks/useIsDesktop'
 import { useElementAspect } from '../hooks/useElementAspect'
@@ -39,7 +38,6 @@ import { applyFeedLook, captureFeedLook, feedSession, makeGradient, SHAPE_STEP_P
 import { decayVelocity, shouldStartMomentum } from '../lib/momentum'
 import { tickHaptic, primeHaptics } from '../lib/haptics'
 import type { Gradient } from '../store/types'
-import { CanvasHandles } from './CanvasHandles'
 import { useAnimatedStops } from '../hooks/useAnimatedStops'
 import { Icon } from '../icons'
 import { Drawer } from '@base-ui/react/drawer'
@@ -125,7 +123,10 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
   const previewPointerStartRef = useRef<{ x: number; y: number } | null>(null)
   const previewRef = useRef<HTMLDivElement>(null)
   const surfaceRef = useRef<HTMLDivElement>(null)
-  // Only an oval-cropped angular gradient reads this; see buildCroppedGradientCss.
+  // Angular and fan read this so their conic wedges squish to match the
+  // surface's real shape instead of rendering true angles on an implicit
+  // square canvas — everywhere buildCroppedGradientCss goes, not just an
+  // oval crop (see buildGradientCss's own `aspect` param and squishBearing).
   const surfaceAspect = useElementAspect(surfaceRef)
   const onExitRef = useRef(onExit)
   onExitRef.current = onExit
@@ -141,18 +142,11 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
   // peek's only real job — seeing more gradient — is what the Create feed and
   // the gallery are already for.
   const [activeStopId, setActiveStopId] = useState<string | null>(null)
-  // Crossfades the preview's colors when a canvas-handle swap reorders them,
-  // so the color blocks visibly trade places instead of hard-jumping.
+  // Crossfades the preview's colors when a reorder (via sort, or the flow
+  // editor) swaps them, so the color blocks visibly trade places instead of
+  // hard-jumping.
   const animatedStops = useAnimatedStops(toGradientStops(editableStops))
-  const [canvasCursor, setCanvasCursor] = useState<{ x: number; y: number } | null>(null)
-  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 })
   const editHint = useHint('edit')
-  // Duck the floating chrome (title, save, share, noise) out while scrubbing
-  // the rolodex, matching the create feed and the bottom tab bar.
-  const scrolling = useScrolling()
-  // Also duck it while a canvas handle is being dragged, so a drag near the
-  // bottom edge never collides with the Save/grain/Order FABs.
-  const [handleDragging, setHandleDragging] = useState(false)
   // Tapping the preview asks the drawer to open/close so the gradient can be
   // seen in full, rather than the bottom third of it staying covered. MOBILE
   // ONLY — see chromeHidden below for why the side panel doesn't get this.
@@ -174,9 +168,6 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
   // reacts to.
   const [sheetPopupEl, setSheetPopupEl] = useState<HTMLDivElement | null>(null)
   const [sheetHeight, setSheetHeight] = useState(0)
-  const isDraggingRef = useRef(false)
-  const lastHandleDragEndRef = useRef(0)
-  const pendingGradientRef = useRef<Gradient | null>(null)
   const isDesktop = useIsDesktop()
   // A swipe translates the sheet rather than resizing it, so the measurement
   // above cannot see the drag at all — see useSheetFollow.
@@ -184,19 +175,12 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
   // What the sheet is actually covering right now: the live value mid-drag,
   // the measured height otherwise, and nothing at all when it is closed.
   const sheetCoverage = sheetFollow.visible ?? (sheetHidden ? 0 : sheetHeight)
-  // Duck the floating chrome (FABs, back) while a canvas handle is being
-  // dragged, or while the sheet is closed, so both share the same "gradient
-  // alone, nothing floating" state. MOBILE ONLY — the side panel never
-  // obstructs the gradient the way the bottom sheet does, so tapping the
-  // preview there still exits instead of needing a reveal state at all.
-  const chromeHidden = (handleDragging || sheetHidden) && !isDesktop
-  // Save is deliberately NOT gated by the sheet's closed state, unlike the
-  // rest of chromeHidden: tapping the preview to see the full gradient is
-  // itself a reason to save it, and hiding Save there made it reachable only
-  // by reopening the sheet first (or a round trip through the tap toggle) —
-  // still ducks during a handle drag, matching the same transient reasoning
-  // the sheet's own duck uses.
-  const saveHidden = handleDragging && !isDesktop
+  // Duck the floating chrome (FABs, back) while the sheet is closed, so the
+  // gradient can be seen alone with nothing floating over it. MOBILE ONLY —
+  // the side panel never obstructs the gradient the way the bottom sheet
+  // does, so tapping the preview there still exits instead of needing a
+  // reveal state at all.
+  const chromeHidden = sheetHidden && !isDesktop
   // Surface the sheet's real open/closed state to the app shell, so it can
   // bring the tab bar back the moment the sheet is dismissed rather than
   // hiding it for the whole edit-mode duration.
@@ -204,12 +188,6 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
     onSheetHiddenChange?.(sheetHidden)
     return () => onSheetHiddenChange?.(false)
   }, [sheetHidden, onSheetHiddenChange])
-  // The sheet's OWN duck during a handle drag is separate from chromeHidden:
-  // it is a transient opacity fade (the drag ends, it comes right back),
-  // not the drawer's real open/closed state, which only the tap/swipe above
-  // changes. Conflating the two would make releasing a drag re-open a sheet
-  // the user had deliberately closed a moment before.
-  const sheetDuckHidden = handleDragging && !isDesktop
 
   // The title is bare text on the gradient, so it still samples the palette
   // where it sits. The floating buttons no longer do — they carry their own
@@ -217,14 +195,10 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
   // set with the tab bar instead of four differently-tinted chips.
   //
   // Sampled from what is ON SCREEN rather than from the last committed
-  // gradient, which is what made the title look a beat behind the picture.
-  // Two things caused that. A canvas-handle drag deliberately withholds
-  // setCurrentGradient until release (see commit), so `gradient` is stale for
-  // the entire drag while the preview repaints every frame — the ink simply
-  // froze and then snapped. And a colour swap crossfades the background over
-  // 220ms while the ink, read off the committed stops, had already jumped.
-  // animatedStops is precisely what the preview is painting, so the two now
-  // move together by construction.
+  // gradient, which is what made the title look a beat behind the picture: a
+  // colour swap crossfades the background over 220ms while the ink, read off
+  // the committed stops, had already jumped. animatedStops is precisely what
+  // the preview is painting, so the two now move together by construction.
   const painted = useMemo(() => ({ ...gradient, stops: animatedStops }), [gradient, animatedStops])
   const titleColor = titleColorAt(painted, 0.5, 0.06)
 
@@ -338,23 +312,6 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
       goTo(feedSession.index - 1)
     }
   }
-
-  // Measure the canvas up front (and on resize) so handles mount already at
-  // their anchors and dissolve in on hover, instead of sliding in from the
-  // corner the first time the pointer moves and size is first read.
-  useEffect(() => {
-    const el = previewRef.current
-    if (!el) return
-    const measure = () => {
-      const rect = el.getBoundingClientRect()
-      setCanvasSize({ width: rect.width, height: rect.height })
-    }
-    measure()
-    if (typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(measure)
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
 
   // Mobile only — the desktop panel is an in-flow flex sibling that already
   // sizes the preview correctly. Tracks the sheet's real rendered height
@@ -720,12 +677,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
       // re-ranked palette is in colour order, not position order.
       stops: toGradientStops(spaced),
     }
-    if (isDraggingRef.current) {
-      pendingGradientRef.current = nextGrad
-    } else {
-      pendingGradientRef.current = null
-      setCurrentGradient(nextGrad)
-    }
+    setCurrentGradient(nextGrad)
   }
 
   // Switching geometry type or toggling reversed must not disturb the stop
@@ -924,8 +876,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
 
   // Order re-ranks the COLOURS and leaves the placements alone: commit's
   // `reorder` option re-pairs the new colour sequence to the existing sorted
-  // ladder instead of re-spacing evenly, so a sort or a canvas-handle swap
-  // survives custom spacing.
+  // ladder instead of re-spacing evenly, so a sort survives custom spacing.
   function handleSortCycle() {
     const next = ORDER_CYCLE[(ORDER_CYCLE.indexOf(activeOrder) + 1) % ORDER_CYCLE.length]
     if (next === 'original') {
@@ -961,7 +912,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
     // entire preview via position:absolute/inset:0 — excluding it here would
     // swallow every tap on a Turrell gradient specifically, since there'd be
     // nowhere left inside the preview for a tap to land outside it.
-    if ((e.target as HTMLElement).closest('button, [data-testid="palette-title"], [data-testid="canvas-handles"]')) return
+    if ((e.target as HTMLElement).closest('button, [data-testid="palette-title"]')) return
     previewPointerStartRef.current = { x: e.clientX, y: e.clientY }
     editHint.dismiss()
   }
@@ -969,13 +920,12 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
   function handlePreviewPointerUp(e: React.PointerEvent) {
     const start = previewPointerStartRef.current
     previewPointerStartRef.current = null
-    if (isDraggingRef.current || Date.now() - lastHandleDragEndRef.current < 350) return
     // turrell-square is deliberately NOT in this list: it's a purely decorative
     // stack of divs (no buttons, no handlers of its own), but it covers the
     // entire preview via position:absolute/inset:0 — excluding it here would
     // swallow every tap on a Turrell gradient specifically, since there'd be
     // nowhere left inside the preview for a tap to land outside it.
-    if ((e.target as HTMLElement).closest('button, [data-testid="palette-title"], [data-testid="canvas-handles"]')) return
+    if ((e.target as HTMLElement).closest('button, [data-testid="palette-title"]')) return
     if (start) {
       const dx = e.clientX - start.x
       const dy = e.clientY - start.y
@@ -990,17 +940,6 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
       return
     }
     onExit()
-  }
-
-  function handlePreviewPointerMove(e: React.PointerEvent) {
-    const rect = previewRef.current?.getBoundingClientRect()
-    if (!rect) return
-    setCanvasSize({ width: rect.width, height: rect.height })
-    setCanvasCursor({ x: e.clientX - rect.left, y: e.clientY - rect.top })
-  }
-
-  function handlePreviewPointerLeave() {
-    setCanvasCursor(null)
   }
 
   // Built from the COMMITTED stops, not `animatedStops`: the copy box must not
@@ -1159,7 +1098,17 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
         // one motion — and exactly what must not run while a finger is on the
         // sheet, where every frame is already the finished position and
         // easing towards it just lags the drag.
-        className={[styles.preview, sheetFollow.following && styles.previewFollowing]
+        className={[
+          styles.preview,
+          sheetFollow.following && styles.previewFollowing,
+          // The tab bar is only actually hidden behind this preview while the
+          // mobile sheet is open (see TabBar's .overCanvas, which drops to
+          // opacity 0 there and nowhere else) — dismiss the sheet, or sit on
+          // desktop where the bar docks beside the panel instead, and it's on
+          // screen again. Save had no clearance for that case and sat at its
+          // flush 16px resting spot, landing right on top of the bar.
+          (sheetHidden || isDesktop) && styles.tabBarClearance,
+        ]
           .filter(Boolean)
           .join(' ')}
         style={{
@@ -1172,12 +1121,10 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
         }}
         onPointerDown={handlePreviewPointerDown}
         onPointerUp={handlePreviewPointerUp}
-        onPointerMove={handlePreviewPointerMove}
-        onPointerLeave={handlePreviewPointerLeave}
       >
         {/* The gradient paints on its OWN surface inside the preview, and the
             crop clips only that: on the preview itself the clip would also cut
-            the chrome laid over it — the Save pill, the title, the handles.
+            the chrome laid over it — the Save pill, the title.
             The circle's square box comes from the preview's container query
             (see .preview / .previewSurface), which is what `100cqh` reads. */}
         <div
@@ -1216,9 +1163,8 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
           <NoiseOverlay visible={noiseEnabled} />
         </div>
         {/* The tick scroller stays put while scrolling — it's the one bit of
-            chrome that should remain when everything else ducks away — but it
-            still hides during a handle drag so it doesn't sit under the dots. */}
-        {!fromGallery && <ScrollTicker index={tickerIndex} hidden={handleDragging} />}
+            chrome that should remain when everything else ducks away. */}
+        {!fromGallery && <ScrollTicker index={tickerIndex} />}
         <PaletteTitle
           name={gradient.name ?? namePalette(gradient.stops.map((s) => s.hex))}
           onRename={renameCurrentGradient}
@@ -1231,39 +1177,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
         <LikeButton
           liked={isGradientSaved}
           onToggle={() => toggleSaveGradient(gradient)}
-          hidden={saveHidden}
           gradient={gradient}
-        />
-        <CanvasHandles
-          stops={editableStops}
-          type={gradient.type}
-          spoke="up"
-          fanAnchor={gradient.fanAnchor}
-          repeat={gradient.repeatEnabled}
-          angle={gradient.angle}
-          cursor={canvasCursor}
-          size={canvasSize}
-          hidden={scrolling || chromeHidden}
-          onReorder={(next) => commit(next, undefined, { reorder: true })}
-          onResetSpacing={() => {
-            handleResetDistribution()
-            tickHaptic()
-          }}
-          onDraggingChange={(dragging) => {
-            const wasDragging = isDraggingRef.current
-            isDraggingRef.current = dragging
-            // Only stamp the cooldown on a genuine drag→release transition.
-            // CanvasHandles also reports `false` on mount; stamping then would
-            // suppress tap-to-exit for 350ms right after entering edit mode.
-            if (!dragging && wasDragging) {
-              lastHandleDragEndRef.current = Date.now()
-            }
-            setHandleDragging(dragging)
-            if (!dragging && pendingGradientRef.current) {
-              setCurrentGradient(pendingGradientRef.current)
-              pendingGradientRef.current = null
-            }
-          }}
         />
       </div>
       {isDesktop ? (
@@ -1305,7 +1219,7 @@ export function EditMode({ gradient, onExit, onImport = () => {}, onSheetHiddenC
               <Drawer.Popup
                 ref={setSheetPopupEl}
                 data-testid="edit-sheet"
-                className={[styles.sheet, sheetDuckHidden && styles.hidden].filter(Boolean).join(' ')}
+                className={styles.sheet}
                 onPointerDown={handleSheetPointerDown}
               >
                 {/* Outside Drawer.Content on purpose — it's the one part of

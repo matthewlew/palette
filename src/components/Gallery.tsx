@@ -6,6 +6,7 @@ import type { GradientType } from '../lib/gradient'
 import { useCommunityGradients, type CommunityOrder } from '../hooks/useCommunityGradients'
 import { useHint } from '../hooks/useHint'
 import { useMasonryRowSpans } from '../hooks/useMasonryRowSpans'
+import { useSlidingPill } from '../hooks/useSlidingPill'
 import { useFlipReorder } from '../hooks/useFlipReorder'
 import { useAppStore, pickedCarouselGradients, gradientSignature } from '../store/useAppStore'
 import type { GalleryLayout } from '../store/useAppStore'
@@ -871,6 +872,8 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
   const [activeTab, setActiveTab] = useState<'saves' | 'community'>(
     useAppStore.getState().saved.length === 0 ? 'community' : 'saves'
   )
+  // Slides the Yours/Community selection pill — see TabBar's identical use.
+  const { pillRef: tabPillRef, registerItem: registerTabItem } = useSlidingPill(activeTab)
   // Server-side, so it restarts paging — see useCommunityGradients. 'recent'
   // stays the default: a feed people return to should lead with what is new,
   // and an all-time popular list is the same handful of palettes every visit.
@@ -1361,8 +1364,10 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
         </span>
         <div className={styles.titleArea}>
           <div className={styles.toggleGroup}>
+            <span ref={tabPillRef} className={styles.toggleGroupPill} aria-hidden="true" />
             <button
               type="button"
+              ref={registerTabItem('saves')}
               className={activeTab === 'saves' ? styles.toggleBtnActiveTab : styles.toggleBtnTab}
               onClick={() => setActiveTab('saves')}
             >
@@ -1370,6 +1375,7 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
             </button>
             <button
               type="button"
+              ref={registerTabItem('community')}
               className={activeTab === 'community' ? styles.toggleBtnActiveTab : styles.toggleBtnTab}
               onClick={() => setActiveTab('community')}
             >

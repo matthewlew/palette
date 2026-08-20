@@ -372,6 +372,55 @@ p {
   animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* tab-bar/tab-pill (TabBar.module.css) name themselves so a mode switch
+ * doesn't cross-fade them with the rest of the screen. That alone only
+ * controls whether they're captured in the root group — it says nothing
+ * about paint order once every named element is promoted into the view
+ * transition's own top layer. Groups stack there in the order their names
+ * were first captured, so a screen that introduces its own named element
+ * (the gradient card, its close button, the edit sheet) could still end up
+ * appended after tab-bar/tab-pill and paint over the nav for the duration
+ * of the transition — it self-corrects once the transition ends and the
+ * live DOM (z-index 30, see .bar) takes back over, which is what made it
+ * read as "the tab bar flashes back / gets covered mid-switch." Pinning
+ * both groups to the top of the transition's own stack removes the
+ * ordering race entirely. */
+::view-transition-group(tab-bar),
+::view-transition-group(tab-pill) {
+  z-index: 1000;
+}
+
+/* tab-pill's box genuinely changes shape between tabs (Gallery's label/
+ * thumb stack make it wider than Create's), and the browser's default
+ * ::view-transition-group animation interpolates old -> new box via a CSS
+ * transform, which composes width and height change into one non-uniform
+ * scale — visually that reads as the pill swelling on the vertical axis
+ * mid-transition instead of sliding flat, because a transform-based resize
+ * isn't the same motion as animating `width` directly (which is what
+ * TabBar.tsx's own JS-driven transition does everywhere else this pill
+ * moves). Turning the browser's own group/old/new animations off makes a
+ * view-transition-driven move (Gallery <-> Create, always wrapped in
+ * withViewTransition) an instant relocation instead — TabBar's own
+ * transform+width transition already set the pill to its final spot
+ * synchronously before the browser even captured the "new" snapshot, so
+ * there's nothing left to tween here.
+ *
+ * `animation: none` alone stops the OLD and NEW snapshots from fading
+ * against each other, but the default cross-fade is what makes the old one
+ * disappear at all — freeze the animation and both stay permanently
+ * visible, superimposed, for the transition's whole duration: the old
+ * (wider or narrower) pill sat there as a ghost outline until the real DOM
+ * took back over. Same fix as `palette-card` just below: hide the old
+ * snapshot outright instead of freezing its fade. */
+::view-transition-old(tab-pill) {
+  display: none;
+}
+
+::view-transition-group(tab-pill),
+::view-transition-new(tab-pill) {
+  animation: none;
+}
+
 @keyframes sheet-slide-up {
   from {
     transform: translateY(100%);
@@ -417,5 +466,47 @@ p {
 
   ::view-transition-old(edit-sheet) {
     animation: sheet-slide-out-right 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+/* Icon swap — from Transitions.dev. Wrap two `.t-icon` states in
+ * `.t-icon-swap[data-state]`; the matching state fades in while the other
+ * fades out with blur and scale. See src/icons/IconSwap.tsx for the
+ * component that emits this markup. */
+:root {
+  --icon-swap-dur: 250ms;
+  --icon-swap-blur: 2px;
+  --icon-swap-start-scale: 0.25;
+  --icon-swap-ease: ease-in-out;
+}
+
+.t-icon-swap {
+  position: relative;
+  display: inline-grid;
+}
+.t-icon-swap .t-icon {
+  grid-area: 1 / 1;
+  transition:
+    opacity var(--icon-swap-dur) var(--icon-swap-ease),
+    filter var(--icon-swap-dur) var(--icon-swap-ease),
+    transform var(--icon-swap-dur) var(--icon-swap-ease);
+  will-change: opacity, filter, transform;
+}
+.t-icon-swap[data-state='a'] .t-icon[data-icon='a'],
+.t-icon-swap[data-state='b'] .t-icon[data-icon='b'] {
+  opacity: 1;
+  filter: blur(0);
+  transform: scale(1);
+}
+.t-icon-swap[data-state='a'] .t-icon[data-icon='b'],
+.t-icon-swap[data-state='b'] .t-icon[data-icon='a'] {
+  opacity: 0;
+  filter: blur(var(--icon-swap-blur));
+  transform: scale(var(--icon-swap-start-scale));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-icon-swap .t-icon {
+    transition: none !important;
   }
 }
