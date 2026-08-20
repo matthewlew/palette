@@ -192,7 +192,7 @@ function search(votes, iterations = 20000) {
 }
 
 const { url, key } = await config()
-const res = await fetch(`${url}/rest/v1/gradient_votes?select=winner,loser,category`, {
+const res = await fetch(`${url}/rest/v1/gradient_votes?select=winner,loser,category,test_type`, {
   headers: { apikey: key, Authorization: `Bearer ${key}` },
 })
 if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`)
@@ -212,6 +212,9 @@ const votes = rows
     // Bucketed by the winner's shape — a proxy for "does this shape's
     // aesthetic differ", since pairs can mix shapes (e.g. radial vs linear).
     shape: r.winner?.shape ?? 'unknown',
+    testType: r.test_type,
+    winnerVariant: r.winner?.variant,
+    loserVariant: r.loser?.variant,
   }))
 
 console.log(`${votes.length} usable vote(s) of ${rows.length} total.`)
@@ -242,3 +245,24 @@ for (const shape of shapes) {
 
 console.log('\nPaste the overall (or a shape-specific) weight set into src/lib/paletteScore.ts if it looks like a real improvement, not noise.')
 console.log('If per-shape weights consistently diverge from overall, that\'s the signal to add shape-specific ScoreWeights presets rather than a single default.')
+
+// Controlled-variant tests (?vote=true's Stop count / Color order / Shape /
+// Spacing modes): a direct "does mutating this ONE property help" readout,
+// independent of and complementary to the weight search above — a variable
+// can show a strong win rate here even if it's a poor fit for paletteScore's
+// existing 5 factors (e.g. stop count and color order aren't factors at all
+// today).
+const controlled = votes.filter((v) => v.testType && (v.winnerVariant === 'mutated' || v.winnerVariant === 'base'))
+if (controlled.length > 0) {
+  console.log('\n--- Controlled-variant win rates ---')
+  const types = [...new Set(controlled.map((v) => v.testType))]
+  for (const type of types) {
+    const subset = controlled.filter((v) => v.testType === type)
+    const mutatedWins = subset.filter((v) => v.winnerVariant === 'mutated').length
+    const rate = mutatedWins / subset.length
+    const verdict = subset.length < 10 ? '(too few votes to trust)' : rate > 0.5 ? '— the mutation tends to WIN' : '— the base tends to WIN'
+    console.log(`${type} (${subset.length} votes): mutated wins ${(rate * 100).toFixed(1)}% of the time ${verdict}`)
+  }
+} else {
+  console.log('\nNo controlled-variant votes yet — use the Stop count / Color order / Shape / Spacing buttons at ?vote=true to collect them.')
+}
