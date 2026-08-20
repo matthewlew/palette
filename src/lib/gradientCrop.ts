@@ -294,14 +294,15 @@ export function buildCroppedGradientCss(
   reversed: boolean,
   filters: GradientFilters,
   crop: GradientCrop | undefined,
-  /** The render box's width/height, for the one case that needs it: an
-   * angular gradient inside an oval, which has to know how far the oval is
-   * squished before it can be squished the same way. Defaults to 1 — a square
-   * box, where the oval IS a circle and nothing here does anything — so every
-   * caller that has no box to measure keeps exactly its old output. */
+  /** The render box's width/height. Needed by an angular gradient inside an
+   * oval, which has to know how far the oval is squished before it can be
+   * squished the same way — and, since buildGradientCss's own aspect fix,
+   * by an uncropped radial/ring gradient too (see buildGradientCss). Defaults
+   * to 1 — a square box — so every caller with no box to measure keeps
+   * exactly its old output. */
   aspect = 1,
 ): string {
-  if (!crop || crop === 'rectangle') return buildGradientCss(type, stops, reversed, filters)
+  if (!crop || crop === 'rectangle') return buildGradientCss(type, stops, reversed, filters, aspect)
 
   const angle = filters.angle ?? 0
   // The same Smooth/Prism/Hard resolution buildGradientCss applies, so a
