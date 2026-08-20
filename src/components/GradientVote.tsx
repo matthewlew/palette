@@ -202,6 +202,10 @@ export function GradientVote() {
   const [count, setCount] = useState(0)
   const [forcedShape, setForcedShape] = useState<GradientType | null>(null)
   const [testType, setTestType] = useState<TestType>('random')
+  // Purely a render toggle, applied identically to both candidates so it's
+  // never a confound — the stored vote/stops are unaffected either way.
+  // Off by default to match the tool's original behavior.
+  const [smoothEnabled, setSmoothEnabled] = useState(false)
   // Per-shape and per-test-type vote counts, for the coverage graph/labels.
   // Seeded from this session's own past votes on mount, then incremented
   // locally as new votes land — avoids a re-fetch after every single pick.
@@ -309,7 +313,7 @@ export function GradientVote() {
               flex: 1,
               border: 'none',
               cursor: saving ? 'default' : 'pointer',
-              background: buildGradientCss(c.shape, c.stops),
+              background: buildGradientCss(c.shape, c.stops, false, { smooth: smoothEnabled }),
               position: 'relative',
             }}
           >
@@ -321,6 +325,21 @@ export function GradientVote() {
       </div>
       <div style={{ padding: '10px 12px', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', background: '#000', borderBottom: '1px solid #222' }}>
         <span style={{ fontSize: 12, opacity: 0.6 }}>{count} voted</span>
+        <button
+          onClick={() => setSmoothEnabled((s) => !s)}
+          title="Render both candidates with Smooth blending — some pairs (e.g. Stop count) can look artificially banded without it"
+          style={{
+            fontSize: 12,
+            padding: '4px 8px',
+            borderRadius: 12,
+            border: '1px solid #666',
+            background: smoothEnabled ? '#4a9eff' : 'transparent',
+            color: '#fff',
+            cursor: 'pointer',
+          }}
+        >
+          Smooth: {smoothEnabled ? 'On' : 'Off'}
+        </button>
         {TEST_TYPES.map((t) => (
           <button
             key={t.id}
