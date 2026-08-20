@@ -491,6 +491,52 @@
   font-size: 11px;
 }
 
+/* Vote entry banner — shown on the community feed's Ranked sort tab.
+   Same surface language as .starter (the other first-run-style CTA in
+   this file), but a row rather than a column: title + button side by
+   side, since there's no shape strip underneath. */
+.voteBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  margin-bottom: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  flex-shrink: 0;
+}
+
+.voteBannerText {
+  font-family: var(--th-display);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.voteBannerButton {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--control-h);
+  padding: 0 18px;
+  border-radius: var(--pill);
+  border: 0;
+  background: #fff;
+  color: #111;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.voteBannerButton:hover {
+  background: rgba(255, 255, 255, 0.88);
+}
+
 .starterChoices .onboardingSwatch {
   width: 44px;
   height: 44px;
