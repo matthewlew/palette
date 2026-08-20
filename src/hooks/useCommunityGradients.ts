@@ -139,12 +139,21 @@ export function useCommunityGradients(order: CommunityOrder = 'recent') {
 
   const deleteGradient = useCallback(async (id: string) => {
     try {
-      const { error } = await supabase.from('palettes').delete().eq('id', id)
+      // `select()` on the delete forces PostgREST to return the deleted
+      // rows, not just a bare 204 — the only way to tell "deleted one row"
+      // from "RLS matched nothing" (e.g. no delete policy, or a row this
+      // account doesn't own). Both look like `error: null` otherwise, so a
+      // delete that silently affected zero rows would take this same
+      // success path and the row would just reappear on the next fetch.
+      const { data, error } = await supabase.from('palettes').delete().eq('id', id).select('id')
       if (error) throw error
+      if (!data || data.length === 0) {
+        throw new Error('No row was deleted — you may not have permission to delete this palette.')
+      }
       setGradients((prev) => prev.filter((g) => g.id !== id))
     } catch (err) {
       console.error('Failed to delete gradient:', err)
-      alert('Failed to delete gradient.')
+      alert(err instanceof Error ? err.message : 'Failed to delete gradient.')
     }
   }, [])
 

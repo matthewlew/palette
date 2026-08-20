@@ -881,6 +881,13 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
   // The Ranked sort tab is also the entry point into voting — see the CTA
   // banner below and VoteOverlay.tsx.
   const [showVote, setShowVote] = useState(false)
+  // Ranked hides the shape filter UI entirely (see the filterBar below), so
+  // a filter left on from Recent/Popular would otherwise silently keep
+  // narrowing a list that looks like it has nothing left to filter.
+  const selectCommunityOrder = (id: CommunityOrder) => {
+    setCommunityOrder(id)
+    if (id === 'elo') setTypeFilter(null)
+  }
   // Mobile overflow: layout, sort, shape filter and Select, which on desktop
   // are four separate controls strung along the bar.
   const [moreOpen, setMoreOpen] = useState(false)
@@ -1535,7 +1542,7 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
                         onClick={() =>
                           activeTab === 'saves'
                             ? setSavesOrder(id as SavesOrder)
-                            : setCommunityOrder(id as CommunityOrder)
+                            : selectCommunityOrder(id as CommunityOrder)
                         }
                       >
                         {label}
@@ -1680,40 +1687,49 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
           )}
 
           <div className={styles.filterBar}>
-            <div className={styles.filterSelectWrap}>
-              <select
-                data-testid="filter-select"
-                aria-label="Filter by gradient shape"
-                className={styles.filterSelect}
-                value={typeFilter ?? 'all'}
-                onChange={(e) => setTypeFilter(e.target.value === 'all' ? null : e.target.value as GradientType)}
-              >
-                <option value="all">All shapes ({totalCount})</option>
-                {availableTypeChips.map(({ type, label, count }) => (
-                  <option key={type} value={type}>{label} ({count})</option>
-                ))}
-              </select>
-            </div>
+            {/* Ranked is a focused "here's the order, go vote" view, not a
+                browse-and-filter one — the shape filter (select + chips)
+                only adds noise on top of a list whose whole point is its
+                order. Sort itself stays (below), so switching back to
+                Recent/Popular is still one tap away. */}
+            {!(activeTab === 'community' && communityOrder === 'elo') && (
+              <>
+                <div className={styles.filterSelectWrap}>
+                  <select
+                    data-testid="filter-select"
+                    aria-label="Filter by gradient shape"
+                    className={styles.filterSelect}
+                    value={typeFilter ?? 'all'}
+                    onChange={(e) => setTypeFilter(e.target.value === 'all' ? null : e.target.value as GradientType)}
+                  >
+                    <option value="all">All shapes ({totalCount})</option>
+                    {availableTypeChips.map(({ type, label, count }) => (
+                      <option key={type} value={type}>{label} ({count})</option>
+                    ))}
+                  </select>
+                </div>
 
-            <div className={styles.chips}>
-              <button
-                type="button"
-                className={!hasFilters ? styles.chipOn : styles.chip}
-                onClick={() => setTypeFilter(null)}
-              >
-                All <span className={styles.chipCount}>{totalCount}</span>
-              </button>
-              {availableTypeChips.map(({ type, label, count }) => (
-                <button
-                  key={type}
-                  type="button"
-                  className={typeFilter === type ? styles.chipOn : styles.chip}
-                  onClick={() => setTypeFilter(typeFilter === type ? null : type)}
-                >
-                  {label} <span className={styles.chipCount}>{count}</span>
-                </button>
-              ))}
-            </div>
+                <div className={styles.chips}>
+                  <button
+                    type="button"
+                    className={!hasFilters ? styles.chipOn : styles.chip}
+                    onClick={() => setTypeFilter(null)}
+                  >
+                    All <span className={styles.chipCount}>{totalCount}</span>
+                  </button>
+                  {availableTypeChips.map(({ type, label, count }) => (
+                    <button
+                      key={type}
+                      type="button"
+                      className={typeFilter === type ? styles.chipOn : styles.chip}
+                      onClick={() => setTypeFilter(typeFilter === type ? null : type)}
+                    >
+                      {label} <span className={styles.chipCount}>{count}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
 
             {/* Both tabs sort, through the same control in the same place, so
                 "how is this ordered" is one idea rather than two. What differs
@@ -1755,7 +1771,7 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
                     aria-pressed={communityOrder === id}
                     title={hint}
                     className={communityOrder === id ? styles.toggleBtnActiveTab : styles.toggleBtnTab}
-                    onClick={() => setCommunityOrder(id)}
+                    onClick={() => selectCommunityOrder(id)}
                   >
                     {label}
                   </button>

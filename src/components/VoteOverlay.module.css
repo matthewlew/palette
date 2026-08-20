@@ -7,27 +7,16 @@
   flex-direction: column;
 }
 
+/* Positioning only — MEDIA_ICON (lib/mediaChrome.ts) supplies the actual
+   button chrome (scrim fill, hairline, currentColor ink), matching the
+   app's other full-bleed-artwork controls (EditMode's back button,
+   Gallery's viewer close). Top-left, like those, not top-right — this is
+   the app's consistent "exit a full-screen view" position. */
 .closeButton {
   position: absolute;
   top: calc(16px + var(--safe-t, 0px));
-  right: 16px;
+  left: var(--edge-l);
   z-index: 2;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 0;
-  background: rgba(0, 0, 0, 0.35);
-  color: #fff;
-  font-size: 15px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(8px);
-}
-
-.closeButton:hover {
-  background: rgba(0, 0, 0, 0.5);
 }
 
 .pair {
@@ -110,6 +99,58 @@
   font-size: var(--size-3);
   color: rgba(255, 255, 255, 0.7);
   max-width: 360px;
+}
+
+/* Session's net Elo movement — which of the gradients you voted on this
+   session got ranked up or down. Only 'community' rounds contribute (see
+   VoteOverlay.tsx's eloChanges), so this is empty on a session that
+   happened not to land any. */
+.eloSummary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 360px;
+  max-height: 240px;
+  overflow-y: auto;
+  text-align: left;
+}
+
+.eloRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px;
+}
+
+.eloSwatch {
+  flex-shrink: 0;
+  width: 40px;
+  height: 28px;
+  border-radius: var(--radius-sm, 6px);
+}
+
+.eloName {
+  flex: 1;
+  font-size: var(--size-2);
+  color: rgba(255, 255, 255, 0.85);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eloUp {
+  font-size: var(--size-2);
+  font-weight: 600;
+  color: #7ac97a;
+  font-variant-numeric: tabular-nums;
+}
+
+.eloDown {
+  font-size: var(--size-2);
+  font-weight: 600;
+  color: #e07a7a;
+  font-variant-numeric: tabular-nums;
 }
 
 .button {
