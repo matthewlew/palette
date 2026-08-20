@@ -22,7 +22,24 @@ describe('buildGradientCss', () => {
 
   it('builds a radial-gradient string', () => {
     const css = buildGradientCss('radial', stops)
-    expect(css).toBe('radial-gradient(circle at center, #ff0000 0%, #00ff00 50%, #0000ff 100%)')
+    // Explicit ellipse size, not the `circle` keyword — at the default aspect
+    // (1, a square box) the two axes are equal, so this renders identically
+    // to a plain `circle`. See buildGradientCss's aspect param: an unsized
+    // `circle` stretches with the box's diagonal on a non-square box, making
+    // the same ring/radial stops render visibly denser on a square masonry
+    // tile than on a tall full-screen viewer.
+    expect(css).toBe('radial-gradient(70.71% 70.71% at center, #ff0000 0%, #00ff00 50%, #0000ff 100%)')
+  })
+
+  it('sizes a radial-gradient to the box\'s shorter side on a non-square aspect', () => {
+    // Wide box (aspect > 1): rx shrinks (relative to the wider width), ry
+    // stays at the full square-box radius (relative to the shorter height) —
+    // so the absolute radius stays pinned to the shorter side either way.
+    const wide = buildGradientCss('radial', stops, false, {}, 2)
+    expect(wide).toBe('radial-gradient(35.36% 70.71% at center, #ff0000 0%, #00ff00 50%, #0000ff 100%)')
+    // Tall box (aspect < 1): mirror image.
+    const tall = buildGradientCss('radial', stops, false, {}, 0.5)
+    expect(tall).toBe('radial-gradient(70.71% 35.36% at center, #ff0000 0%, #00ff00 50%, #0000ff 100%)')
   })
 
   it('builds a conic-gradient string for angular type that blends the seam back to the first color', () => {

@@ -642,11 +642,25 @@ export function densifierFor(filters: GradientFilters, type?: GradientType): (s:
   return (s) => s
 }
 
+/** Half-diagonal of a unit square, as a percentage — the radius a plain
+ * `circle at <keyword>` resolves to (farthest-corner) on a SQUARE box. Used
+ * below to reproduce that exact look on non-square boxes too. */
+const SQUARE_FARTHEST_CORNER_PERCENT = (Math.SQRT2 / 2) * 100
+
 export function buildGradientCss(
   type: GradientType,
   stops: GradientStop[],
   reversed = false,
-  filters: GradientFilters = {}
+  filters: GradientFilters = {},
+  /** Render box width/height. CSS's `circle` isoline sizing (farthest-corner)
+   * is not aspect-independent: on a portrait or landscape box its radius
+   * stretches with the diagonal, so the same ring/radial stop list renders
+   * visibly denser on a near-square box (e.g. a masonry tile) than on a tall
+   * one (e.g. the full-screen viewer) — same CSS, different apparent ring
+   * count. An explicit `ellipse rx% ry%` sized to the box's SHORTER side
+   * reproduces the square-box look on any aspect. Defaults to 1 (square) so
+   * every caller with no box to measure keeps its old output exactly. */
+  aspect = 1
 ): string {
   assertStops(stops)
   const orderedStops = applyStopFilters(type, applyReversed(stops, reversed), filters)
@@ -661,7 +675,12 @@ export function buildGradientCss(
       return `linear-gradient(${180 + angle}deg, ${stopsToCss(densify(orderedStops))})`
     case 'radial': {
       const { css } = getRadialConfig(filters.angle)
-      return `radial-gradient(circle at ${css}, ${stopsToCss(densify(orderedStops))})`
+      // rx (of width) and ry (of height) sized so their resolved absolute
+      // radius is equal — a true circle spanning the box's shorter side —
+      // matching aspect === 1's plain `circle` output when aspect is 1.
+      const rx = SQUARE_FARTHEST_CORNER_PERCENT / Math.max(1, aspect)
+      const ry = SQUARE_FARTHEST_CORNER_PERCENT * Math.min(1, aspect)
+      return `radial-gradient(${rx.toFixed(2)}% ${ry.toFixed(2)}% at ${css}, ${stopsToCss(densify(orderedStops))})`
     }
     case 'angular':
       return buildAngularGradient(orderedStops, filters.hard, angle, densify)

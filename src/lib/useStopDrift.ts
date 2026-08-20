@@ -15,12 +15,16 @@ import type { Gradient } from '../store/types'
  *
  * Returns the ref to attach to the element painting the gradient.
  */
-export function useStopDrift(gradient: Gradient, enabled: boolean) {
+export function useStopDrift(gradient: Gradient, enabled: boolean, aspect = 1) {
   const ref = useRef<HTMLDivElement>(null)
   // Accumulated animation time, held in a ref so a gradient change mid-drift
   // continues from where it was rather than snapping home.
   const elapsedRef = useRef(0)
   const lastRef = useRef<number | null>(null)
+  // Read fresh per frame, same reasoning as gradientRef below — a resize
+  // mid-drift (rotate, split-view) shouldn't tear the rAF loop down.
+  const aspectRef = useRef(aspect)
+  aspectRef.current = aspect
   // Latest gradient, read fresh inside the rAF loop below instead of closed
   // over at effect-start. Keeping `gradient` out of the effect's dependency
   // array means a mid-play edit (new shape, new stops, a toggled filter) no
@@ -104,7 +108,7 @@ export function useStopDrift(gradient: Gradient, enabled: boolean) {
         ring: g.ringEnabled,
         fanAnchor: g.fanAnchor,
         angle: g.angle,
-      }, g.crop)
+      }, g.crop, aspectRef.current)
       if (css) el.style.backgroundImage = css
       frame = requestAnimationFrame(draw)
     }

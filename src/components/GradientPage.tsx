@@ -37,6 +37,7 @@ interface GradientPageProps {
 
 export function GradientPage({ gradient, liked, onToggleLike, onEdit, onBack, chromeVisible = true }: GradientPageProps) {
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null)
+  const surfaceAspectRef = useRef(1)
   const noiseEnabled = useAppStore((s) => s.noiseEnabled)
   const motionEnabled = useAppStore((s) => s.motionEnabled)
   const toggleMotion = useAppStore((s) => s.toggleMotion)
@@ -46,9 +47,18 @@ export function GradientPage({ gradient, liked, onToggleLike, onEdit, onBack, ch
   const clearPositionLocks = useAppStore((s) => s.clearPositionLocks)
   // Writes background-image straight to the element each frame, so the drift
   // never re-renders the tree (and never re-samples the title's ink).
-  const driftRef = useStopDrift(gradient, motionEnabled)
-  // Only an oval-cropped angular gradient reads this; see buildCroppedGradientCss.
+  //
+  // surfaceAspect is read off the SAME ref useStopDrift returns, then fed
+  // back into it below — a one-render lag while it settles from its
+  // measure-on-mount default of 1, same as every other reader of this hook.
+  // Also feeds buildCroppedGradientCss for an oval-cropped angular gradient
+  // (needs to know how far the oval is squished) and for an uncropped
+  // radial/ring gradient (needs the box's aspect to keep its ring density
+  // consistent whether the box is a square masonry tile or a tall
+  // full-screen viewer — see buildGradientCss).
+  const driftRef = useStopDrift(gradient, motionEnabled, surfaceAspectRef.current)
   const surfaceAspect = useElementAspect(driftRef)
+  surfaceAspectRef.current = surfaceAspect
   const driftable = canDrift(gradient.stops, gradient.type)
   const renameCurrentGradient = useAppStore((s) => s.renameCurrentGradient)
 
