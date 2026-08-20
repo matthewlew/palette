@@ -192,7 +192,7 @@ function search(votes, iterations = 20000) {
 }
 
 const { url, key } = await config()
-const res = await fetch(`${url}/rest/v1/gradient_votes?select=winner,loser,category,test_type`, {
+const res = await fetch(`${url}/rest/v1/gradient_votes?select=winner,loser,category,test_type,strategy`, {
   headers: { apikey: key, Authorization: `Bearer ${key}` },
 })
 if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`)
@@ -213,6 +213,7 @@ const votes = rows
     // aesthetic differ", since pairs can mix shapes (e.g. radial vs linear).
     shape: r.winner?.shape ?? 'unknown',
     testType: r.test_type,
+    strategy: r.strategy,
     winnerVariant: r.winner?.variant,
     loserVariant: r.loser?.variant,
   }))
@@ -263,6 +264,23 @@ if (controlled.length > 0) {
     const verdict = subset.length < 10 ? '(too few votes to trust)' : rate > 0.5 ? '— the mutation tends to WIN' : '— the base tends to WIN'
     console.log(`${type} (${subset.length} votes): mutated wins ${(rate * 100).toFixed(1)}% of the time ${verdict}`)
   }
+
+  // Strategy breakdown, within order/spacing/symmetry — the actual
+  // per-claim evidence table (e.g. "does a mirrored arrangement win" is a
+  // different, more specific question than "does ANY reorder win").
+  const withStrategy = controlled.filter((v) => v.strategy)
+  if (withStrategy.length > 0) {
+    console.log('\n--- Strategy win rates (within order/spacing/symmetry) ---')
+    const strategies = [...new Set(withStrategy.map((v) => `${v.testType} / ${v.strategy}`))].sort()
+    for (const key of strategies) {
+      const [type, strat] = key.split(' / ')
+      const subset = withStrategy.filter((v) => v.testType === type && v.strategy === strat)
+      const mutatedWins = subset.filter((v) => v.winnerVariant === 'mutated').length
+      const rate = mutatedWins / subset.length
+      const verdict = subset.length < 10 ? '(too few votes to trust)' : rate > 0.5 ? '— WINS' : '— LOSES'
+      console.log(`${key} (${subset.length} votes): mutated wins ${(rate * 100).toFixed(1)}% of the time ${verdict}`)
+    }
+  }
 } else {
-  console.log('\nNo controlled-variant votes yet — use the Stop count / Color order / Shape / Spacing buttons at ?vote=true to collect them.')
+  console.log('\nNo controlled-variant votes yet — use the Stop count / Color order / Shape / Spacing / Symmetry buttons at ?vote=true to collect them.')
 }

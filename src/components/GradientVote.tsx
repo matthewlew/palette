@@ -7,6 +7,12 @@ import { DEFAULT_COLOR_SET } from '../lib/colorSets'
 import { buildGradientCss, SELECTABLE_GEOMETRY, type GradientStop, type GradientType } from '../lib/gradient'
 import { hexToOklch } from '../lib/oklch'
 import { scorePalette } from '../lib/paletteScore'
+import {
+  orderByHueWalk,
+  spacingBufferNeutral,
+  spacingDominantBand,
+  mirrorStops,
+} from '../lib/gradientComposition'
 import type { Gradient } from '../store/types'
 
 /** 'random' is the original mode: two independently chosen candidates,
@@ -14,7 +20,7 @@ import type { Gradient } from '../store/types'
  * ONE base candidate fixed and mutates exactly one property of it for the
  * second candidate, so a win/loss isolates that single variable instead of
  * "which of these two unrelated gradients is better". */
-type TestType = 'random' | 'stops' | 'order' | 'shape' | 'spacing'
+type TestType = 'random' | 'stops' | 'order' | 'shape' | 'spacing' | 'symmetry'
 
 const TEST_TYPES: { id: TestType; label: string; hint: string }[] = [
   { id: 'random', label: 'Random pair', hint: 'two independent candidates, same shape' },
@@ -22,7 +28,56 @@ const TEST_TYPES: { id: TestType; label: string; hint: string }[] = [
   { id: 'order', label: 'Color order', hint: 'same colors, reordered' },
   { id: 'shape', label: 'Shape', hint: 'same colors and stops, different geometry' },
   { id: 'spacing', label: 'Spacing', hint: 'same colors, different stop positions' },
+  { id: 'symmetry', label: 'Symmetry', hint: 'same colors, mirrored arrangement' },
 ]
+
+/** Sub-variants within 'order'/'spacing'/'symmetry' — each tests one
+ * specific, articulable theory about composition rather than pure
+ * randomness. See src/lib/gradientComposition.ts. Absent key = no
+ * strategy picker for that test type (stops/shape/random).
+ *
+ * Deliberately shape-agnostic only: light-center/light-edges/saturation-
+ * center/saturation-edges were dropped after review — "edges" isn't a
+ * coherent concept for `angular` (wraps in a circle, no true edge) or
+ * `square` (solid wedges, no continuous blend to place a standout
+ * within), so voting on them under those shapes was noise, not signal.
+ * hue-walk/buffer-neutral/dominant-band/mirror all apply to every shape
+ * the same way. */
+const STRATEGIES_BY_TYPE: Partial<Record<TestType, { id: string; label: string; hint: string }[]>> = {
+  order: [
+    { id: 'shuffle', label: 'Shuffle', hint: 'random reassignment (baseline)' },
+    { id: 'hue-walk', label: 'Hue walk', hint: 'colors ordered to minimize hue jumps between neighbors' },
+  ],
+  spacing: [
+    { id: 'random', label: 'Random', hint: 'random re-position (baseline)' },
+    { id: 'buffer-neutral', label: 'Buffer neutral', hint: 'widen the gaps around the least-saturated stop' },
+    { id: 'dominant-band', label: 'Dominant band', hint: 'widen the gaps around the lightest stop' },
+  ],
+  symmetry: [
+    { id: 'mirror', label: 'Mirror', hint: 'palindrome arrangement from the first half, reflected' },
+  ],
+}
+
+function randomStrategyFor(testType: TestType): string | null {
+  const options = STRATEGIES_BY_TYPE[testType]
+  if (!options || options.length === 0) return null
+  return options[Math.floor(Math.random() * options.length)].id
+}
+
+function applyOrderStrategy(stops: GradientStop[], strategy: string): GradientStop[] {
+  switch (strategy) {
+    case 'hue-walk': return orderByHueWalk(stops)
+    default: return reorderColors(stops)
+  }
+}
+
+function applySpacingStrategy(stops: GradientStop[], strategy: string): GradientStop[] {
+  switch (strategy) {
+    case 'buffer-neutral': return spacingBufferNeutral(stops)
+    case 'dominant-band': return spacingDominantBand(stops)
+    default: return varySpacing(stops)
+  }
+}
 
 interface Candidate {
   source: 'community' | 'generated'
@@ -113,7 +168,16 @@ export function varySpacing(stops: GradientStop[]): GradientStop[] {
  * Any other test type: ONE base candidate, mutated along exactly the
  * property under test for the second candidate — everything else held
  * fixed, so a win/loss isolates that one variable. */
-function pickPair(pool: Gradient[], forcedShape: GradientType | null, testType: TestType): [Candidate, Candidate] {
+function pickPair(
+  pool: Gradient[],
+  forcedShape: GradientType | null,
+  testType: TestType,
+  /** Resolved strategy for 'order'/'spacing'/'symmetry' rounds — the
+   * caller decides this (possibly by random pick) so it's known, not
+   * re-randomized here, and can be logged on the vote. Ignored for every
+   * other test type. */
+  strategy: string | null,
+): [Candidate, Candidate] {
   const shape = forcedShape ?? SELECTABLE_GEOMETRY[Math.floor(Math.random() * SELECTABLE_GEOMETRY.length)]
 
   if (testType === 'random') {
@@ -127,8 +191,9 @@ function pickPair(pool: Gradient[], forcedShape: GradientType | null, testType: 
   let mutatedStops = base.stops
   let mutatedShape = base.shape
   if (testType === 'stops') mutatedStops = dropRandomStop(base.stops)
-  else if (testType === 'order') mutatedStops = reorderColors(base.stops)
-  else if (testType === 'spacing') mutatedStops = varySpacing(base.stops)
+  else if (testType === 'order') mutatedStops = applyOrderStrategy(base.stops, strategy ?? 'shuffle')
+  else if (testType === 'spacing') mutatedStops = applySpacingStrategy(base.stops, strategy ?? 'random')
+  else if (testType === 'symmetry') mutatedStops = mirrorStops(base.stops)
   else if (testType === 'shape') {
     const others = SELECTABLE_GEOMETRY.filter((s) => s !== base.shape)
     mutatedShape = others[Math.floor(Math.random() * others.length)]
@@ -202,17 +267,27 @@ export function GradientVote() {
   const [count, setCount] = useState(0)
   const [forcedShape, setForcedShape] = useState<GradientType | null>(null)
   const [testType, setTestType] = useState<TestType>('random')
+  // Pinned strategy for 'order'/'spacing'/'symmetry' — null means "pick
+  // randomly among that type's strategies each round", same null-means-
+  // random convention as forcedShape.
+  const [strategy, setStrategy] = useState<string | null>(null)
+  // The strategy actually used for the CURRENT round — resolved once when
+  // the pair is generated (random pick if strategy is unpinned) so it's
+  // known for logging/tallying rather than re-randomized on every read.
+  const [roundStrategy, setRoundStrategy] = useState<string | null>(null)
   // Purely a render toggle, applied identically to both candidates so it's
   // never a confound — the stored vote/stops are unaffected either way.
   // Off by default to match the tool's original behavior.
   const [smoothEnabled, setSmoothEnabled] = useState(false)
-  // Per-shape and per-test-type vote counts, for the coverage graph/labels.
-  // Seeded from this session's own past votes on mount, then incremented
-  // locally as new votes land — avoids a re-fetch after every single pick.
+  // Per-shape, per-test-type, and per-strategy vote counts, for the
+  // coverage graphs/labels. Seeded from this session's own past votes on
+  // mount, then incremented locally as new votes land — avoids a re-fetch
+  // after every single pick.
   const [shapeCounts, setShapeCounts] = useState<Record<string, number>>({})
   const [testTypeCounts, setTestTypeCounts] = useState<Record<TestType, number>>({
-    random: 0, stops: 0, order: 0, shape: 0, spacing: 0,
+    random: 0, stops: 0, order: 0, shape: 0, spacing: 0, symmetry: 0,
   })
+  const [strategyCounts, setStrategyCounts] = useState<Record<string, number>>({})
 
   useEffect(() => {
     let cancelled = false
@@ -220,18 +295,22 @@ export function GradientVote() {
       const { data: session } = await supabase.auth.getSession()
       const voterId = session.session?.user.id
       if (!voterId) return
-      const { data } = await supabase.from('gradient_votes').select('winner,test_type').eq('voter_id', voterId)
+      const { data } = await supabase.from('gradient_votes').select('winner,test_type,strategy').eq('voter_id', voterId)
       if (cancelled || !data) return
       const shapeC: Record<string, number> = {}
-      const testC: Record<TestType, number> = { random: 0, stops: 0, order: 0, shape: 0, spacing: 0 }
+      const testC: Record<TestType, number> = { random: 0, stops: 0, order: 0, shape: 0, spacing: 0, symmetry: 0 }
+      const strategyC: Record<string, number> = {}
       for (const row of data) {
         const shape = (row.winner as { shape?: string } | null)?.shape
         if (shape) shapeC[shape] = (shapeC[shape] ?? 0) + 1
         const type = (row.test_type as TestType | null) ?? 'random'
         testC[type] = (testC[type] ?? 0) + 1
+        const strat = row.strategy as string | null
+        if (strat) strategyC[strat] = (strategyC[strat] ?? 0) + 1
       }
       setShapeCounts(shapeC)
       setTestTypeCounts(testC)
+      setStrategyCounts(strategyC)
     })
     return () => {
       cancelled = true
@@ -239,9 +318,11 @@ export function GradientVote() {
   }, [])
 
   const nextPair = useCallback(() => {
-    setPair(pickPair(gradients, forcedShape, testType))
+    const resolved = strategy ?? randomStrategyFor(testType)
+    setRoundStrategy(resolved)
+    setPair(pickPair(gradients, forcedShape, testType, resolved))
     setNote('')
-  }, [gradients, forcedShape, testType])
+  }, [gradients, forcedShape, testType, strategy])
 
   useEffect(() => {
     if (!pair) nextPair()
@@ -264,6 +345,7 @@ export function GradientVote() {
         category: null,
         note: finalNote || null,
         test_type: testType === 'random' ? null : testType,
+        strategy: roundStrategy,
       })
       if (error) console.error('Failed to save gradient vote:', error)
     } else {
@@ -271,6 +353,9 @@ export function GradientVote() {
     }
     setShapeCounts((prev) => ({ ...prev, [winner.shape]: (prev[winner.shape] ?? 0) + 1 }))
     setTestTypeCounts((prev) => ({ ...prev, [testType]: (prev[testType] ?? 0) + 1 }))
+    if (roundStrategy) {
+      setStrategyCounts((prev) => ({ ...prev, [roundStrategy]: (prev[roundStrategy] ?? 0) + 1 }))
+    }
     setCount((c) => c + 1)
     setSaving(false)
     nextPair()
@@ -278,13 +363,28 @@ export function GradientVote() {
 
   const chooseShape = (shape: GradientType | null) => {
     setForcedShape(shape)
-    setPair(pickPair(gradients, shape, testType))
+    const resolved = strategy ?? randomStrategyFor(testType)
+    setRoundStrategy(resolved)
+    setPair(pickPair(gradients, shape, testType, resolved))
     setNote('')
   }
 
   const chooseTestType = (type: TestType) => {
     setTestType(type)
-    setPair(pickPair(gradients, forcedShape, type))
+    // Strategies are specific to a test type — a pinned 'hue-walk' means
+    // nothing once you've switched to Spacing, so it resets here.
+    setStrategy(null)
+    const resolved = randomStrategyFor(type)
+    setRoundStrategy(resolved)
+    setPair(pickPair(gradients, forcedShape, type, resolved))
+    setNote('')
+  }
+
+  const chooseStrategy = (s: string | null) => {
+    setStrategy(s)
+    const resolved = s ?? randomStrategyFor(testType)
+    setRoundStrategy(resolved)
+    setPair(pickPair(gradients, forcedShape, testType, resolved))
     setNote('')
   }
 
@@ -318,7 +418,7 @@ export function GradientVote() {
             }}
           >
             <span style={{ position: 'absolute', top: 12, left: 12, fontSize: 12, opacity: 0.7, background: 'rgba(0,0,0,0.4)', padding: '2px 6px', borderRadius: 4 }}>
-              [{i === 0 ? 'A' : 'B'}] {c.variant ?? c.source} · {c.shape} · score {scoreOf(c).toFixed(1)}
+              [{i === 0 ? 'A' : 'B'}] {c.variant ?? c.source} · {c.shape}{roundStrategy && c.variant === 'mutated' ? ` · ${roundStrategy}` : ''} · score {scoreOf(c).toFixed(1)}
             </span>
           </button>
         ))}
@@ -374,6 +474,60 @@ export function GradientVote() {
           )
         })}
       </div>
+      {STRATEGIES_BY_TYPE[testType] && (
+        <>
+          <div style={{ padding: '10px 12px', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', background: '#000', borderBottom: '1px solid #222' }}>
+            <button
+              onClick={() => chooseStrategy(null)}
+              style={{
+                fontSize: 12,
+                padding: '4px 8px',
+                borderRadius: 12,
+                border: '1px solid #7a5',
+                background: strategy === null ? '#7ac97a' : 'transparent',
+                color: strategy === null ? '#000' : '#fff',
+                cursor: 'pointer',
+              }}
+            >
+              Random strategy
+            </button>
+            {STRATEGIES_BY_TYPE[testType]!.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => chooseStrategy(s.id)}
+                title={s.hint}
+                style={{
+                  fontSize: 12,
+                  padding: '4px 8px',
+                  borderRadius: 12,
+                  border: '1px solid #7a5',
+                  background: strategy === s.id ? '#7ac97a' : 'transparent',
+                  color: strategy === s.id ? '#000' : '#fff',
+                  cursor: 'pointer',
+                }}
+              >
+                {s.label} · {strategyCounts[s.id] ?? 0}
+              </button>
+            ))}
+          </div>
+          {/* Coverage graph — relative bar per strategy WITHIN the current
+              test type, so a session can see e.g. "buffer-neutral: 3,
+              dominant-band: 11" at a glance and steer toward whichever
+              theory still needs votes. */}
+          <div style={{ padding: '6px 12px', display: 'flex', gap: 4, alignItems: 'flex-end', height: 36, background: '#000', borderBottom: '1px solid #222' }}>
+            {STRATEGIES_BY_TYPE[testType]!.map((s) => {
+              const options = STRATEGIES_BY_TYPE[testType]!
+              const max = Math.max(1, ...options.map((o) => strategyCounts[o.id] ?? 0))
+              const n = strategyCounts[s.id] ?? 0
+              return (
+                <div key={s.id} title={`${s.label}: ${n}`} style={{ flex: 1, height: '100%', display: 'flex', alignItems: 'flex-end' }}>
+                  <div style={{ width: '100%', height: `${(n / max) * 100}%`, minHeight: n > 0 ? 3 : 0, background: s.id === roundStrategy ? '#7ac97a' : '#555', borderRadius: '2px 2px 0 0' }} />
+                </div>
+              )
+            })}
+          </div>
+        </>
+      )}
       <div style={{ padding: '10px 12px', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', background: '#000', borderBottom: '1px solid #222' }}>
         <button
           onClick={() => chooseShape(null)}
