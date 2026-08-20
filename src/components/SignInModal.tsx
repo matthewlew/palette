@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { linkGoogle } from '../lib/auth'
 import styles from './SignInModal.module.css'
 
-export type SignInContext = 'nav' | 'publish' | 'degraded'
+export type SignInContext = 'nav' | 'publish' | 'degraded' | 'vote'
 
 interface SignInModalProps {
   context: SignInContext
@@ -13,6 +13,7 @@ const BODY: Record<SignInContext, string> = {
   nav: 'Your gradients live on this browser. Sign in to keep them, put your name on what you publish, and pick up where you left off anywhere.',
   publish: "Published gradients carry their author's name. Sign in to publish this one.",
   degraded: "Sign in to save gradients. This browser isn't holding onto them right now.",
+  vote: 'Sign in to vote and help rank the best gradients.',
 }
 
 /**

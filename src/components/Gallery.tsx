@@ -28,6 +28,7 @@ import { CarouselDock } from './CarouselDock'
 import { Hint } from './Hint'
 import { LoadingBar } from './LoadingBar'
 import { AuthNav } from './AuthNav'
+import { VoteOverlay } from './VoteOverlay'
 import JSZip from 'jszip'
 import { renderVignetteToCanvas } from '../lib/vignette'
 import { MEDIA_CHIP, MEDIA_ICON, MEDIA_ON } from '../lib/mediaChrome'
@@ -155,6 +156,7 @@ const Tile = memo(function Tile({
   isHero = false,
   viewerOpen = false,
   pick,
+  rank,
 }: {
   gradient: Gradient
   index: number
@@ -165,6 +167,12 @@ const Tile = memo(function Tile({
    * make assembling nine gradients eighteen taps. `order` is the 1-based slide
    * number, or null when unpicked. */
   pick?: { order: number | null; onToggle: (gradient: Gradient) => void }
+  /** 1-based position in the Elo-ranked ('elo' CommunityOrder) list. Shown
+   * as a badge in the same top-left slot as the carousel pick badge — the
+   * two are mutually exclusive in practice (ranking and carousel-building
+   * are different flows), so `rank` is simply skipped whenever `pick` is
+   * also present rather than trying to share the corner. */
+  rank?: number
   galleryLayout: GalleryLayout
   onRiff: (gradient: Gradient) => void
   onDelete?: (id: string) => void
@@ -321,6 +329,11 @@ const Tile = memo(function Tile({
             aria-hidden="true"
           >
             {pick.order ?? ''}
+          </span>
+        )}
+        {!pick && rank != null && (
+          <span className={styles.pickBadgeOn} data-testid="rank-badge" aria-hidden="true">
+            {rank}
           </span>
         )}
         {/* Clicks anywhere except the Edit button bubble to the tile and
@@ -797,6 +810,7 @@ const SAVES_ORDERS: { id: SavesOrder; label: string; hint: string }[] = [
 const COMMUNITY_ORDERS: { id: CommunityOrder; label: string; hint: string }[] = [
   { id: 'recent', label: 'Recent', hint: 'Newest palettes first' },
   { id: 'popular', label: 'Popular', hint: 'Most liked first' },
+  { id: 'elo', label: 'Ranked', hint: 'Top palettes by vote' },
 ]
 
 /** The three grid densities, in the order they appear everywhere they appear:
@@ -861,6 +875,9 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
   // stays the default: a feed people return to should lead with what is new,
   // and an all-time popular list is the same handful of palettes every visit.
   const [communityOrder, setCommunityOrder] = useState<CommunityOrder>('recent')
+  // The Ranked sort tab is also the entry point into voting — see the CTA
+  // banner below and VoteOverlay.tsx.
+  const [showVote, setShowVote] = useState(false)
   // Mobile overflow: layout, sort, shape filter and Select, which on desktop
   // are four separate controls strung along the bar.
   const [moreOpen, setMoreOpen] = useState(false)
@@ -1645,6 +1662,17 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
             </div>
           )}
 
+          {/* The Ranked sort tab IS the voting entry point — ranking and
+              voting are one feature, not a hidden page and a separate list. */}
+          {activeTab === 'community' && !searchFlat && communityOrder === 'elo' && (
+            <div className={styles.voteBanner} data-testid="vote-banner">
+              <p className={styles.voteBannerText}>Vote to help rank these gradients</p>
+              <button type="button" className={styles.voteBannerButton} onClick={() => setShowVote(true)}>
+                Vote
+              </button>
+            </div>
+          )}
+
           <div className={styles.filterBar}>
             <div className={styles.filterSelectWrap}>
               <select
@@ -1781,6 +1809,7 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
                     isHero={heroId === gradient.id}
                     viewerOpen={open !== null}
                     pick={pickApi ? pickApi(gradient) : undefined}
+                    rank={activeTab === 'community' && communityOrder === 'elo' ? index + 1 : undefined}
                   />
                 </TileBoundary>
               ))}
@@ -1864,6 +1893,8 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
           }}
         />
       )}
+
+      {showVote && <VoteOverlay onClose={() => setShowVote(false)} />}
     </div>
   )
 }

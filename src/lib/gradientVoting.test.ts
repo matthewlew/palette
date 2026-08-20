@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { dropRandomStop, reorderColors, varySpacing } from './GradientVote'
-import type { GradientStop } from '../lib/gradient'
+import { dropRandomStop, reorderColors, varySpacing } from './gradientVoting'
+import type { GradientStop } from './gradient'
 
 const stops: GradientStop[] = [
   { hex: '#ff0000', position: 0 },
