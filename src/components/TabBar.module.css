@@ -87,8 +87,55 @@
    neighbour. Padding used to be 20 vs 22 AND the weight 500 vs 600, so
    "Gallery" grew on both counts every time it became current; see .tabText for
    how the weight change is stopped from resizing anything. */
+/* The pill that slides between tabs, standing in for .tabOn's old
+   per-button fill/border/shadow — see .tab, .tabOn below, which now
+   contribute ink only. Position and width are written inline by TabBar.tsx
+   (measured off the selected button's own box) so the transition tweens
+   between the previous and next real layout rather than a guessed one.
+   Sits behind the tab buttons (z-index 0 vs. 1) so labels read on top. */
+.pill {
+  /* .bar names itself so mode switches don't cross-fade it with the rest of
+   * the screen (see .bar's comment) — but that pulls the whole bar,
+   * including this pill, into ONE snapshot. Without its own name, a mode
+   * switch (always wrapped in a view transition — see TabBar's onChange)
+   * captured the pill already at its final position (our resize effect
+   * runs inside the transition's synchronous flushSync) and simply
+   * cross-faded old bar -> new bar as flat pixels, so the slide never
+   * showed: the bar just blinked off and back on. Naming the pill too
+   * splits it into its own transition group, which the View Transitions
+   * API morphs — position and width both — between the old and new
+   * snapshot on its own, independent of (and smoother than) the CSS
+   * transition below, which only drives the non-view-transition fallback
+   * (Safari, or a mode change outside withViewTransition). */
+  view-transition-name: tab-pill;
+  position: absolute;
+  top: 6px;
+  left: 0;
+  height: var(--target-min);
+  width: 0;
+  border-radius: var(--pill);
+  border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+  background: color-mix(in srgb, currentColor 18%, rgba(20, 20, 24, 0.45));
+  box-shadow: var(--shadow-sm);
+  transform: translateX(0);
+  transition:
+    transform 250ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 250ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, width;
+  z-index: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill {
+    transition: none;
+  }
+}
+
 .tab,
 .tabOn {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -104,7 +151,14 @@
   font-weight: var(--weight-medium);
   white-space: nowrap;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  /* Selection now reads entirely through .pill sliding underneath — these
+     buttons carry no fill of their own to show it. Without this, mobile
+     Safari/Chrome's default tap-highlight (a flat blue-grey overlay) was
+     the only visible feedback on press, flashing over the transparent
+     button before fading — never intentional here, just unmasked by .tabOn
+     no longer painting its own background. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Reserves the BOLD width whatever the current weight is.
@@ -136,13 +190,12 @@
   background: color-mix(in srgb, currentColor 8%, transparent);
 }
 
-/* Selected: ink, fill and edge only — the box is .tab's, unchanged. */
+/* Selected: ink only now — fill, edge and shadow live on .pill, which
+   slides beneath whichever tab is current instead of each tab drawing its
+   own copy. */
 .tabOn {
-  border-color: color-mix(in srgb, currentColor 28%, transparent);
-  background: color-mix(in srgb, currentColor 18%, rgba(20, 20, 24, 0.45));
   color: currentColor;
   font-weight: var(--weight-semibold);
-  box-shadow: var(--shadow-sm);
 }
 
 .tabContent {
@@ -320,5 +373,13 @@
   .action {
     height: 36px;
     padding: 0 16px;
+  }
+
+  /* .pill's height was hardcoded to var(--target-min) (44px) with no
+     landscape override, so it kept sitting 4px taller than the 36px tabs it
+     slides beneath here — overhanging the button top and bottom instead of
+     matching its box. */
+  .pill {
+    height: 36px;
   }
 }

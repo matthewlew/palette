@@ -70,7 +70,6 @@ export function TurrellSquare({ stops: initialStops, reversed = false, blurPx, r
   // To prevent smaller inner layers from being covered by larger outer layers, we must
   // render them in DOM order from largest to smallest (descending size).
   const sortedLayers = [...layers].sort((a, b) => b.factor - a.factor)
-  const outerHex = sortedLayers.length > 0 ? sortedLayers[0].hex : 'transparent'
 
   // Cropped (circle/oval): the outer fill is clipped too, so the ambient
   // --crop-backdrop behind the preview shows through the corners instead of
@@ -78,8 +77,14 @@ export function TurrellSquare({ stops: initialStops, reversed = false, blurPx, r
   const clip = cropped ? cropClipPath(crop) : undefined
 
   return (
-    // The container is painted in the outermost layer's color to prevent stale
-    // texture gaps at the edges when the blurred layers are GPU composited.
+    // NOT painted in the outermost layer's color: that blanket fill covered
+    // GPU-compositing seams at the layer edges, but it is pixel-identical to
+    // the outermost layer itself, so moving that stop's position off 100 —
+    // shrinking its square — left the "gap" backfilled with the exact same
+    // colour, making the drag look like a no-op. The outermost layer already
+    // grows by its own blur radius (see isOutermost below), which is the
+    // actual fix for a seam at ITS edge and scales correctly with whatever
+    // position it's dragged to, unlike a flat full-container fill.
     <div
       data-testid="turrell-square"
       className={styles.container}
@@ -87,7 +92,6 @@ export function TurrellSquare({ stops: initialStops, reversed = false, blurPx, r
         position: 'absolute',
         inset: 0,
         overflow: 'hidden',
-        backgroundColor: outerHex,
         clipPath: clip,
       }}
     >

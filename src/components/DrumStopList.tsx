@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Icon } from '../icons'
+import { Icon, IconSwap } from '../icons'
 import { coverageToHex } from '../lib/riso'
 import type { DrumEditableStop, Coverage } from '../lib/riso'
 import styles from './DrumStopList.module.css'
@@ -242,7 +242,7 @@ export function DrumStopList({
                 title={positionLocked ? 'Position pinned' : 'Pin this position'}
                 onClick={() => onTogglePositionLock(index, Math.round(stop.position))}
               >
-                <Icon name={positionLocked ? 'pin-fill' : 'pin'} size="sm" />
+                <IconSwap a="pin" b="pin-fill" active={positionLocked} size="sm" />
               </button>
 
               <button
@@ -254,7 +254,7 @@ export function DrumStopList({
                 title={coverageLocked ? 'Locked — kept when you browse for new palettes' : 'Lock this coverage'}
                 onClick={() => onToggleCoverageLock(index, stop.coverage)}
               >
-                <Icon name={coverageLocked ? 'lock' : 'lock-open'} size="sm" />
+                <IconSwap a="lock-open" b="lock" active={coverageLocked} size="sm" />
               </button>
 
               <button

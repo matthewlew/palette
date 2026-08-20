@@ -1,4 +1,4 @@
-import { Icon } from '../icons'
+import { Icon, IconSwap } from '../icons'
 import styles from './HeartButton.module.css'
 import { MEDIA_CHIP } from '../lib/mediaChrome'
 
@@ -64,7 +64,7 @@ export function HeartButton({
       {/* The set draws the two states as two glyphs rather than one path with
           fill toggled: the solid heart is a shade smaller so it carries the
           same optical weight as the outline. */}
-      <Icon name={liked ? 'heart-fill' : 'heart'} size="sm" />
+      <IconSwap a="heart" b="heart-fill" active={liked} size="sm" />
       {count > 0 && <span className={styles.count}>{formatLikeCount(count)}</span>}
     </button>
   )

@@ -10,6 +10,7 @@
 }
 
 .sectionTabs {
+  position: relative;
   display: flex;
   gap: 4px;
   align-self: center;
@@ -19,8 +20,34 @@
   border: 1px solid var(--border);
 }
 
+/* Slides beneath whichever section is active instead of it drawing its own
+   fill — see useSlidingPill and TabBar's identical .pill. */
+.sectionTabPill {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  height: 28px;
+  width: 0;
+  border-radius: var(--pill);
+  background: var(--text);
+  transform: translateX(0);
+  transition: transform var(--dur-fast) var(--ease-standard),
+    width var(--dur-fast) var(--ease-standard);
+  will-change: transform, width;
+  z-index: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sectionTabPill {
+    transition: none;
+  }
+}
+
 .sectionTab,
 .sectionTabActive {
+  position: relative;
+  z-index: 1;
   min-height: 28px;
   padding: 0 18px;
   border: none;
@@ -31,12 +58,12 @@
   font-size: var(--text-body);
   font-weight: var(--weight-semibold);
   cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-standard),
-    color var(--dur-fast) var(--ease-standard);
+  transition: color var(--dur-fast) var(--ease-standard);
+  -webkit-tap-highlight-color: transparent;
 }
 
+/* Ink only now — the fill lives on .sectionTabPill. */
 .sectionTabActive {
-  background: var(--text);
   color: var(--c-950);
 }
 

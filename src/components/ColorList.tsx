@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useCopyFeedback } from '../hooks/useCopyFeedback'
-import { Icon } from '../icons'
+import { Icon, IconSwap } from '../icons'
 import type { EditableStop } from '../lib/stopOrdering'
 import styles from './ColorList.module.css'
 
@@ -291,7 +291,7 @@ export function ColorList({
               >
                 {/* Filled once the position is held — the same line/fill pair
                     every other toggle in the app uses for off/on. */}
-                <Icon name={positionLocked ? 'pin-fill' : 'pin'} size="sm" />
+                <IconSwap a="pin" b="pin-fill" active={positionLocked} size="sm" />
               </button>
 
               <button
@@ -301,7 +301,7 @@ export function ColorList({
                 aria-label={`Copy ${stop.hex.toUpperCase()}`}
                 onClick={() => copyHex(stop)}
               >
-                <Icon name={copiedId === stop.id ? 'check' : 'copy'} size="sm" />
+                <IconSwap a="copy" b="check" active={copiedId === stop.id} size="sm" />
               </button>
 
               <button
@@ -313,7 +313,7 @@ export function ColorList({
                 title={locked ? 'Locked — kept when you browse for new palettes' : 'Lock this color'}
                 onClick={() => onToggleLock(index, stop.hex)}
               >
-                <Icon name={locked ? 'lock' : 'lock-open'} size="sm" />
+                <IconSwap a="lock-open" b="lock" active={locked} size="sm" />
               </button>
 
               <button

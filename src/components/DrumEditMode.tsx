@@ -32,7 +32,6 @@ import { DrumStopList } from './DrumStopList'
 import { DrumPreflight } from './DrumPreflight'
 import { ScrollTicker } from './ScrollTicker'
 import { GeometryTabs } from './GeometryTabs'
-import { CanvasHandles } from './CanvasHandles'
 import { FlowEditor } from './FlowEditor'
 import { BoardShare } from './BoardShare'
 import { NoiseOverlay } from './NoiseOverlay'
@@ -142,26 +141,8 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
   const previewRef = useRef<HTMLDivElement>(null)
   const PREVIEW_TAP_THRESHOLD_PX = 10
 
-  // CanvasHandles (drag-to-reposition stops, the horizontal scrub bar EditMode
-  // has) needs the preview's live pixel size and pointer position to place its
-  // dots; isHandleDraggingRef mutes the scroll-variant-feed accumulation below
-  // while a handle drag is in progress, so dragging a stop doesn't also scrub
-  // through generated variants.
-  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 })
-  const [canvasCursor, setCanvasCursor] = useState<{ x: number; y: number } | null>(null)
-  const isHandleDraggingRef = useRef(false)
-  const lastHandleDragEndRef = useRef(0)
-  // State twin of isHandleDraggingRef — the ref alone doesn't re-render, but
-  // ducking the floating chrome (back/share/title/save) out of a drag's way
-  // needs one, matching EditMode's chromeHidden.
-  const [handleDragging, setHandleDragging] = useState(false)
-  // Mobile only: the side panel never covers the gradient the way the bottom
-  // sheet does, so desktop has nothing to duck for — see EditMode's identical
-  // exemption.
-  const chromeHidden = handleDragging && !isDesktop
   // The standalone horizontal scrub bar (FlowEditor) — same strip-with-dots
-  // control the palette side has, distinct from CanvasHandles' on-gradient
-  // dots. Lives in the sheet, not on the preview.
+  // control the palette side has. Lives in the sheet, not on the preview.
   const blockContainerRef = useRef<HTMLDivElement>(null) as RefObject<HTMLDivElement>
 
   // Scroll-through-variants feed, mirroring the Create feed (Feed.tsx):
@@ -185,23 +166,6 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
   lockedCoverageRef.current = lockedCoverage
   const lockedDrumPositionsRef = useRef(lockedDrumPositions)
   lockedDrumPositionsRef.current = lockedDrumPositions
-
-  // Measure the canvas up front (and on resize) so handles mount already at
-  // their anchors instead of sliding in from the corner the first time the
-  // pointer moves and size is first read — same fix as EditMode.
-  useEffect(() => {
-    const el = previewRef.current
-    if (!el) return
-    const measure = () => {
-      const rect = el.getBoundingClientRect()
-      setCanvasSize({ width: rect.width, height: rect.height })
-    }
-    measure()
-    if (typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(measure)
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
 
   const onExitRef = useRef(onExit)
   onExitRef.current = onExit
@@ -562,31 +526,21 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
     }
   }
 
-  // A tap/drag that started or lands on a canvas handle is that handle's own
-  // gesture, not the preview's — same guard EditMode uses for its FlowEditor
-  // dots.
-  const PREVIEW_INTERACTIVE_SELECTOR = 'button, [data-testid="canvas-handles"]'
-
   /** Matches EditMode's own preview tap: a genuine tap (not a scroll/drag)
    * toggles the sheet on mobile, or exits straight out on desktop, where the
    * side panel never covers the gradient so there's nothing to reveal. A
    * drag past the tap threshold instead scrubs through the variant feed —
    * see goToVariant/consumeScrollAccum. */
   function handlePreviewPointerDown(e: React.PointerEvent) {
-    if ((e.target as HTMLElement).closest(PREVIEW_INTERACTIVE_SELECTOR)) return
+    if ((e.target as HTMLElement).closest('button')) return
     previewPointerStartRef.current = { x: e.clientX, y: e.clientY }
     previewLastYRef.current = e.clientY
     scrollAccumRef.current = 0
   }
 
   function handlePreviewPointerMove(e: React.PointerEvent) {
-    const rect = previewRef.current?.getBoundingClientRect()
-    if (rect) {
-      setCanvasSize({ width: rect.width, height: rect.height })
-      setCanvasCursor({ x: e.clientX - rect.left, y: e.clientY - rect.top })
-    }
-    if (previewPointerStartRef.current === null || isHandleDraggingRef.current) return
-    if ((e.target as HTMLElement).closest(PREVIEW_INTERACTIVE_SELECTOR)) return
+    if (previewPointerStartRef.current === null) return
+    if ((e.target as HTMLElement).closest('button')) return
     const lastY = previewLastYRef.current
     if (lastY === null) return
     // Dragging up (finger/cursor moves to smaller Y) steps forward, matching
@@ -597,16 +551,11 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
     consumeScrollAccum()
   }
 
-  function handlePreviewPointerLeave() {
-    setCanvasCursor(null)
-  }
-
   function handlePreviewPointerUp(e: React.PointerEvent) {
     const start = previewPointerStartRef.current
     previewPointerStartRef.current = null
     previewLastYRef.current = null
-    if (isHandleDraggingRef.current || Date.now() - lastHandleDragEndRef.current < 350) return
-    if ((e.target as HTMLElement).closest(PREVIEW_INTERACTIVE_SELECTOR)) return
+    if ((e.target as HTMLElement).closest('button')) return
     if (start) {
       const dx = e.clientX - start.x
       const dy = e.clientY - start.y
@@ -619,26 +568,15 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
     onExit()
   }
 
-  // CanvasHandles works over EditableStop (id/hex/position) rather than
+  // FlowEditor works over EditableStop (id/hex/position) rather than
   // DrumEditableStop (id/coverage/position) — hex here is only for the dot's
   // display color, derived the same way the preview itself resolves a stop's
-  // composite. Reordering only ever changes `position`; the coverage that
-  // came in on each id is looked back up and carried through untouched.
+  // composite.
   const canvasStops: EditableStop[] = editableStops.map((s) => ({
     id: s.id,
     hex: coverageToHex(s.coverage, inkHexes),
     position: s.position,
   }))
-
-  function handleCanvasReorder(next: EditableStop[]) {
-    const byId = new Map(editableStops.map((s) => [s.id, s]))
-    const nextStops = next.map((ns) => ({
-      id: ns.id,
-      coverage: byId.get(ns.id)?.coverage ?? inkNames.map(() => 0),
-      position: ns.position,
-    }))
-    commit(nextStops)
-  }
 
   /** Clears the active stop when the sheet's own background (not a child
    * control) is pressed — same handler EditMode uses on its sheet. */
@@ -673,10 +611,8 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
           onResetDrums={handleResetDrums}
         />
         {/* The standalone scrub bar — a strip of the gradient with circle
-            handles, same control the palette side's EditMode uses (FlowEditor),
-            distinct from the drag dots living on the preview itself
-            (CanvasHandles). Repositioning here and on the preview are the same
-            action; both funnel through handleReposition/commit. */}
+            handles, same control the palette side's EditMode uses (FlowEditor).
+            Repositioning here funnels through handleReposition/commit. */}
         <div className={styles.blockArea}>
           <FlowEditor
             stops={canvasStops}
@@ -690,9 +626,8 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
         </div>
         <div className={styles.stopActions}>
           <span className={styles.stopHint}>Tap a blank spot to add · drag down to remove</span>
-          {/* Only when the spacing has actually drifted off the even ladder —
-              CanvasHandles offers the same reset as a gesture; this is the
-              discoverable button counterpart, matching EditMode's. */}
+          {/* Only when the spacing has actually drifted off the even ladder,
+              matching EditMode's discoverable reset button. */}
           {!isEvenlyDistributed(editableStops) && (
             <button
               type="button"
@@ -858,12 +793,12 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
         type="button"
         data-testid="drum-edit-back"
         aria-label="Back"
-        className={[styles.backButton, MEDIA_ICON, chromeHidden && styles.hidden].filter(Boolean).join(' ')}
+        className={[styles.backButton, MEDIA_ICON].filter(Boolean).join(' ')}
         onClick={onExit}
       >
         <Icon name="chevron-left" size="md" />
       </button>
-      <BoardShare saved={saved} current={gradient} onImport={onImport} chromeVisible={!chromeHidden} position="editor" />
+      <BoardShare saved={saved} current={gradient} onImport={onImport} chromeVisible position="editor" />
       <div
         ref={previewRef}
         data-testid="drum-edit-preview"
@@ -886,13 +821,9 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
         onPointerDown={handlePreviewPointerDown}
         onPointerMove={handlePreviewPointerMove}
         onPointerUp={handlePreviewPointerUp}
-        onPointerLeave={handlePreviewPointerLeave}
         onWheel={handlePreviewWheel}
       >
-        {/* Stays put during a handle drag — the one bit of chrome that
-            should remain when everything else ducks away, matching
-            EditMode's ScrollTicker. */}
-        <ScrollTicker index={scrollIndex} hidden={handleDragging} />
+        <ScrollTicker index={scrollIndex} />
         {/* Turrell reads "Hard" as crisp: no blur between the nested squares. */}
         {gradient.type === 'square' && (
           <TurrellSquare
@@ -907,7 +838,6 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
         <PaletteTitle
           name={gradient.name ?? namePalette(gradient.stops.map((s) => s.hex))}
           onRename={renameCurrentGradient}
-          hidden={chromeHidden}
         />
         {/* The persistent save toggle EditMode keeps on the gradient itself —
             separate from (and safe alongside) the save that also fires when
@@ -915,26 +845,7 @@ export function DrumEditMode({ gradient, onExit, onImport = () => {} }: DrumEdit
         <LikeButton
           liked={isGradientSaved}
           onToggle={() => toggleSaveGradient(gradient)}
-          hidden={chromeHidden}
           gradient={gradient}
-        />
-        <CanvasHandles
-          stops={canvasStops}
-          type={gradient.type}
-          spoke="up"
-          fanAnchor={gradient.fanAnchor}
-          repeat={gradient.repeatEnabled}
-          angle={gradient.angle}
-          cursor={canvasCursor}
-          size={canvasSize}
-          onReorder={handleCanvasReorder}
-          onResetSpacing={handleResetSpacing}
-          onDraggingChange={(dragging) => {
-            const wasDragging = isHandleDraggingRef.current
-            isHandleDraggingRef.current = dragging
-            setHandleDragging(dragging)
-            if (!dragging && wasDragging) lastHandleDragEndRef.current = Date.now()
-          }}
         />
       </div>
       {isDesktop ? (

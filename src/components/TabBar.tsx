@@ -5,6 +5,7 @@ import { buildGradientCss } from '../lib/gradient'
 import { onSaveFlight, onSaveFlightArrival } from '../lib/saveFlight'
 import { TurrellSquare } from './TurrellSquare'
 import { useScrolling } from '../hooks/useScrolling'
+import { useSlidingPill } from '../hooks/useSlidingPill'
 import styles from './TabBar.module.css'
 
 interface TabBarProps {
@@ -76,6 +77,10 @@ export function TabBar({
   const revealTimer = useRef<number | null>(null)
   const landedTimer = useRef<number | null>(null)
 
+  // Slides the selection pill under whichever tab is current instead of each
+  // tab drawing its own static fill — see .pill in TabBar.module.css.
+  const { pillRef, registerItem } = useSlidingPill(mode === 'gallery' ? 'gallery' : 'create')
+
   useEffect(() => {
     const stopFlight = onSaveFlight(() => {
       setRevealed(true)
@@ -114,8 +119,10 @@ export function TabBar({
         .filter(Boolean)
         .join(' ')}
     >
+      <span ref={pillRef} className={styles.pill} aria-hidden="true" />
       <button
         type="button"
+        ref={registerItem('gallery')}
         data-testid="tab-gallery"
         className={mode === 'gallery' ? styles.tabOn : styles.tab}
         aria-current={mode === 'gallery' ? 'page' : undefined}
@@ -159,6 +166,7 @@ export function TabBar({
       </button>
       <button
         type="button"
+        ref={registerItem('create')}
         data-testid="tab-create"
         className={mode === 'create' ? styles.tabOn : styles.tab}
         aria-current={mode === 'create' ? 'page' : undefined}

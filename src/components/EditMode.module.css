@@ -71,6 +71,19 @@
   transition: none;
 }
 
+/* Applied whenever the tab bar could actually be on screen behind this
+ * preview: the mobile sheet is dismissed, or we're at desktop width (where
+ * the bar docks beside the panel regardless of sheet state) — see the
+ * `sheetHidden || isDesktop` check in EditMode.tsx. Save's own base rule
+ * (LikeButton.module.css) sits flush at 16px, which is only clear of the bar
+ * while the mobile sheet is open (TabBar's `.overCanvas` is the ONLY thing
+ * that drops it to opacity 0, and only there) — everywhere else Save landed
+ * right on top of it. Same lift GradientPage.module.css uses for its own
+ * Save/Play, so the pill ends up in the same place either surface renders it. */
+.tabBarClearance :global([data-testid='like-button']) {
+  bottom: calc(var(--tabbar-top) + 16px);
+}
+
 /* The gradient picture itself, separate from .preview so a circle/oval crop
    clips the picture without also clipping the chrome sitting over it (Save,
    title, back, share, handles). Centred, because a circle crop is narrower
@@ -131,15 +144,6 @@
   .sheet {
     transition: none;
   }
-}
-
-/* Purely a transient duck (a canvas-handle drag near the bottom edge) — the
-   drawer's own open/closed state is untouched, so releasing the drag can't
-   accidentally reopen a sheet the user had deliberately closed. Opacity
-   only: layering a transform here would fight the one above. */
-.sheet.hidden {
-  opacity: 0;
-  pointer-events: none;
 }
 
 /* The actual scrollable area, separate from the handle above it — see the
@@ -223,11 +227,6 @@
     margin-right: 0;
   }
 
-  .sheet.hidden {
-    transform: translateX(100%);
-    margin-right: calc(-1 * var(--edit-panel-w));
-  }
-
   /* Right-anchored chrome on the canvas is against the PANEL, not the screen,
      so the notch inset baked into --edge-r does not belong to it. On a phone
      in landscape that inset is 59px, which pushed Save most of a thumb's width
@@ -267,8 +266,7 @@
   .sheet {
     /* No fill mode on purpose: the animation is active from frame zero (no
        delay), so the first paint is already the `from` value, and leaving it
-       unfilled means nothing pins `transform` afterwards — `.sheet.hidden`
-       must stay free to use it. */
+       unfilled means nothing pins `transform` afterwards. */
     animation: panel-in var(--dur-slow) var(--ease-decelerate);
   }
 

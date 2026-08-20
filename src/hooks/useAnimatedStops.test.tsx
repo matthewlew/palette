@@ -7,7 +7,7 @@ const A: GradientStop[] = [
   { hex: '#ff0000', position: 0 },
   { hex: '#0000ff', position: 100 },
 ]
-// Same layout, swapped colors — the shape a canvas-handle swap produces.
+// Same layout, swapped colors — the shape a sort/reorder produces.
 const B: GradientStop[] = [
   { hex: '#0000ff', position: 0 },
   { hex: '#ff0000', position: 100 },

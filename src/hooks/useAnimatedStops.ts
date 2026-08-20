@@ -23,7 +23,7 @@ function stopsKey(stops: GradientStop[]): string {
 /**
  * Returns stops to render for `stops`, crossfading each slot's color in OKLCH
  * over DURATION_MS whenever the colors change but the slot layout (count +
- * positions) doesn't — which is exactly what a canvas-handle swap does. So the
+ * positions) doesn't — which is exactly what a sort/reorder does. So the
  * gradient's color blocks visibly trade places instead of hard-jumping.
  * Layout changes (add/remove/position drags) apply instantly: positions
  * already track the pointer live. Interrupting an animation restarts from the
