@@ -12,8 +12,8 @@ import { toGradient, paletteDna as dna, PALETTE_SELECT, attachAuthors, type Pale
  * that changed when the window was resized would page over a moving offset. */
 export const COMMUNITY_PAGE_SIZE = 100
 
-/** How the community feed is ordered. Both are server-side — see below. */
-export type CommunityOrder = 'recent' | 'popular'
+/** How the community feed is ordered. All server-side — see below. */
+export type CommunityOrder = 'recent' | 'popular' | 'elo'
 
 /**
  * The community feed, one page at a time.
@@ -69,6 +69,8 @@ export function useCommunityGradients(order: CommunityOrder = 'recent') {
       // the many palettes sharing a like count the fresh ones come first.
       if (order === 'popular') {
         query = query.order('likes', { ascending: false, nullsFirst: false })
+      } else if (order === 'elo') {
+        query = query.order('elo_rating', { ascending: false, nullsFirst: false })
       }
       // `id` last, always. offset/limit paging over a non-unique sort key has
       // no defined order between equal rows, so the database is free to return

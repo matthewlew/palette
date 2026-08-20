@@ -45,6 +45,10 @@ export interface Gradient {
   /** How many people have liked this in the community feed. Only meaningful on
    * gradients read from the shared table — a local save has no row to count. */
   likeCount?: number
+  /** Elo rating from head-to-head 'community' votes at ?vote=true (see
+   * supabase/migrations/0013_palette_elo.sql). Only meaningful on gradients
+   * read from the shared table, like likeCount — a local save has no rating. */
+  eloRating?: number
   /** Who published this. Absent on local saves (nothing has been published
    * yet) and on legacy rows, which nobody signed — see the accounts plan §5.
    * Absent is rendered as no byline rather than as "unknown". */
