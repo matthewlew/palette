@@ -16,20 +16,49 @@ import {
 import type { Gradient } from '../store/types'
 
 /** 'random' is the original mode: two independently chosen candidates,
- * sharing one shape so geometry isn't a confound. Every other value holds
+ * sharing one shape so geometry isn't a confound. 'community' pits two
+ * DIFFERENT saved community palettes against each other, same shape — the
+ * only test type that produces a genuine head-to-head between two real,
+ * independently-rankable gradients (needed to feed the Elo leaderboard;
+ * see supabase/migrations/0013_palette_elo.sql). Every other value holds
  * ONE base candidate fixed and mutates exactly one property of it for the
  * second candidate, so a win/loss isolates that single variable instead of
  * "which of these two unrelated gradients is better". */
-type TestType = 'random' | 'stops' | 'order' | 'shape' | 'spacing' | 'symmetry'
+type TestType = 'random' | 'community' | 'stops' | 'order' | 'shape' | 'spacing' | 'symmetry'
 
 const TEST_TYPES: { id: TestType; label: string; hint: string }[] = [
   { id: 'random', label: 'Random pair', hint: 'two independent candidates, same shape' },
+  { id: 'community', label: 'Palette vs. palette', hint: 'two saved community gradients, same shape' },
   { id: 'stops', label: 'Stop count', hint: 'same colors, one fewer stop' },
   { id: 'order', label: 'Color order', hint: 'same colors, reordered' },
   { id: 'shape', label: 'Shape', hint: 'same colors and stops, different geometry' },
   { id: 'spacing', label: 'Spacing', hint: 'same colors, different stop positions' },
   { id: 'symmetry', label: 'Symmetry', hint: 'same colors, mirrored arrangement' },
 ]
+
+const EMPTY_COUNTS: Record<string, number> = {}
+
+/** Rounds per voting session before the "session complete" panel appears —
+ * a rough 5-minute-ask budget (a couple seconds per round). "Keep going"
+ * raises the running target by another SESSION_TARGET rather than
+ * removing the cap entirely. */
+const SESSION_TARGET = 20
+
+/** Picks one item weighted toward scarcity: an item voted on `n` times has
+ * relative weight `1 / (n + 1)`, so cells with fewer votes are more likely
+ * to come up — without ever fully excluding a well-covered cell. Used to
+ * fill session-budgeted rounds evenly across shape/strategy instead of
+ * uniform randomness, which tends to over-sample whatever's already ahead. */
+function weightedPick<T extends string>(items: readonly T[], counts: Record<string, number>): T {
+  const weights = items.map((item) => 1 / ((counts[item] ?? 0) + 1))
+  const total = weights.reduce((a, b) => a + b, 0)
+  let r = Math.random() * total
+  for (let i = 0; i < items.length; i++) {
+    r -= weights[i]
+    if (r <= 0) return items[i]
+  }
+  return items[items.length - 1]
+}
 
 /** Sub-variants within 'order'/'spacing'/'symmetry' — each tests one
  * specific, articulable theory about composition rather than pure
@@ -58,10 +87,10 @@ const STRATEGIES_BY_TYPE: Partial<Record<TestType, { id: string; label: string; 
   ],
 }
 
-function randomStrategyFor(testType: TestType): string | null {
+function randomStrategyFor(testType: TestType, strategyCounts: Record<string, number> = EMPTY_COUNTS): string | null {
   const options = STRATEGIES_BY_TYPE[testType]
   if (!options || options.length === 0) return null
-  return options[Math.floor(Math.random() * options.length)].id
+  return weightedPick(options.map((o) => o.id), strategyCounts)
 }
 
 function applyOrderStrategy(stops: GradientStop[], strategy: string): GradientStop[] {
@@ -177,10 +206,31 @@ function pickPair(
    * re-randomized here, and can be logged on the vote. Ignored for every
    * other test type. */
   strategy: string | null,
+  /** Per-shape vote counts, used to weight an unforced shape pick toward
+   * scarcity (see weightedPick) instead of uniform randomness. Omit for
+   * plain uniform behavior (e.g. in tests). */
+  shapeCounts: Record<string, number> = EMPTY_COUNTS,
 ): [Candidate, Candidate] {
-  const shape = forcedShape ?? SELECTABLE_GEOMETRY[Math.floor(Math.random() * SELECTABLE_GEOMETRY.length)]
+  const shape = forcedShape ?? weightedPick(SELECTABLE_GEOMETRY, shapeCounts)
 
   if (testType === 'random') {
+    const a = baseCandidate(pool, shape)
+    const b = generated(shape)
+    return Math.random() < 0.5 ? [a, b] : [b, a]
+  }
+
+  if (testType === 'community') {
+    const sameShape = pool.filter((g) => g.type === shape)
+    if (sameShape.length >= 2) {
+      const i = Math.floor(Math.random() * sameShape.length)
+      let j = Math.floor(Math.random() * (sameShape.length - 1))
+      if (j >= i) j += 1
+      const a = { ...fromCommunity(sameShape[i]), shape }
+      const b = { ...fromCommunity(sameShape[j]), shape }
+      return Math.random() < 0.5 ? [a, b] : [b, a]
+    }
+    // Not enough saved palettes of this shape yet to form a real pair —
+    // fall back to 'random' behavior rather than crashing or looping.
     const a = baseCandidate(pool, shape)
     const b = generated(shape)
     return Math.random() < 0.5 ? [a, b] : [b, a]
@@ -285,9 +335,15 @@ export function GradientVote() {
   // after every single pick.
   const [shapeCounts, setShapeCounts] = useState<Record<string, number>>({})
   const [testTypeCounts, setTestTypeCounts] = useState<Record<TestType, number>>({
-    random: 0, stops: 0, order: 0, shape: 0, spacing: 0, symmetry: 0,
+    random: 0, community: 0, stops: 0, order: 0, shape: 0, spacing: 0, symmetry: 0,
   })
   const [strategyCounts, setStrategyCounts] = useState<Record<string, number>>({})
+  // Session budgeting: `count` (below) already tracks rounds voted on since
+  // mount, so it doubles as the session round counter — once it reaches
+  // sessionTarget, the pair view gives way to a "session complete" panel
+  // instead of an endless stream, so "vote for 5 minutes" has a natural
+  // end. "Keep going" just raises the target by another SESSION_TARGET.
+  const [sessionTarget, setSessionTarget] = useState(SESSION_TARGET)
 
   useEffect(() => {
     let cancelled = false
@@ -298,7 +354,7 @@ export function GradientVote() {
       const { data } = await supabase.from('gradient_votes').select('winner,test_type,strategy').eq('voter_id', voterId)
       if (cancelled || !data) return
       const shapeC: Record<string, number> = {}
-      const testC: Record<TestType, number> = { random: 0, stops: 0, order: 0, shape: 0, spacing: 0, symmetry: 0 }
+      const testC: Record<TestType, number> = { random: 0, community: 0, stops: 0, order: 0, shape: 0, spacing: 0, symmetry: 0 }
       const strategyC: Record<string, number> = {}
       for (const row of data) {
         const shape = (row.winner as { shape?: string } | null)?.shape
@@ -318,11 +374,11 @@ export function GradientVote() {
   }, [])
 
   const nextPair = useCallback(() => {
-    const resolved = strategy ?? randomStrategyFor(testType)
+    const resolved = strategy ?? randomStrategyFor(testType, strategyCounts)
     setRoundStrategy(resolved)
-    setPair(pickPair(gradients, forcedShape, testType, resolved))
+    setPair(pickPair(gradients, forcedShape, testType, resolved, shapeCounts))
     setNote('')
-  }, [gradients, forcedShape, testType, strategy])
+  }, [gradients, forcedShape, testType, strategy, shapeCounts, strategyCounts])
 
   useEffect(() => {
     if (!pair) nextPair()
@@ -356,16 +412,17 @@ export function GradientVote() {
     if (roundStrategy) {
       setStrategyCounts((prev) => ({ ...prev, [roundStrategy]: (prev[roundStrategy] ?? 0) + 1 }))
     }
-    setCount((c) => c + 1)
+    const newCount = count + 1
+    setCount(newCount)
     setSaving(false)
-    nextPair()
+    if (newCount < sessionTarget) nextPair()
   }
 
   const chooseShape = (shape: GradientType | null) => {
     setForcedShape(shape)
-    const resolved = strategy ?? randomStrategyFor(testType)
+    const resolved = strategy ?? randomStrategyFor(testType, strategyCounts)
     setRoundStrategy(resolved)
-    setPair(pickPair(gradients, shape, testType, resolved))
+    setPair(pickPair(gradients, shape, testType, resolved, shapeCounts))
     setNote('')
   }
 
@@ -374,19 +431,21 @@ export function GradientVote() {
     // Strategies are specific to a test type — a pinned 'hue-walk' means
     // nothing once you've switched to Spacing, so it resets here.
     setStrategy(null)
-    const resolved = randomStrategyFor(type)
+    const resolved = randomStrategyFor(type, strategyCounts)
     setRoundStrategy(resolved)
-    setPair(pickPair(gradients, forcedShape, type, resolved))
+    setPair(pickPair(gradients, forcedShape, type, resolved, shapeCounts))
     setNote('')
   }
 
   const chooseStrategy = (s: string | null) => {
     setStrategy(s)
-    const resolved = s ?? randomStrategyFor(testType)
+    const resolved = s ?? randomStrategyFor(testType, strategyCounts)
     setRoundStrategy(resolved)
-    setPair(pickPair(gradients, forcedShape, testType, resolved))
+    setPair(pickPair(gradients, forcedShape, testType, resolved, shapeCounts))
     setNote('')
   }
+
+  const keepGoing = () => setSessionTarget((t) => t + SESSION_TARGET)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -398,6 +457,23 @@ export function GradientVote() {
     return () => window.removeEventListener('keydown', onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pair, saving])
+
+  if (count >= sessionTarget) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, background: '#111', color: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, zIndex: 9999 }}>
+        <div style={{ fontSize: 20 }}>Session complete — {count} voted</div>
+        <div style={{ fontSize: 13, opacity: 0.7, maxWidth: 480, textAlign: 'center' }}>
+          {TEST_TYPES.map((t) => `${t.label}: ${testTypeCounts[t.id] ?? 0}`).join(' · ')}
+        </div>
+        <button
+          onClick={keepGoing}
+          style={{ fontSize: 14, padding: '8px 16px', borderRadius: 8, border: '1px solid #4a9eff', background: '#4a9eff', color: '#fff', cursor: 'pointer' }}
+        >
+          Keep going (+{SESSION_TARGET})
+        </button>
+      </div>
+    )
+  }
 
   if (!pair) return null
 

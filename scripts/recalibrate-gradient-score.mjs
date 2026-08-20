@@ -284,3 +284,35 @@ if (controlled.length > 0) {
 } else {
   console.log('\nNo controlled-variant votes yet — use the Stop count / Color order / Shape / Spacing / Symmetry buttons at ?vote=true to collect them.')
 }
+
+// Leaderboard sanity check — a quick CLI cross-check of what ?leaderboard=true
+// shows in-app, using palettes.elo_rating (migration 0013) and the count of
+// palette_elo_history rows as a rough "how much data backs this rank" signal.
+const eloRes = await fetch(`${url}/rest/v1/palettes?select=id,colors,elo_rating&order=elo_rating.desc&limit=20`, {
+  headers: { apikey: key, Authorization: `Bearer ${key}` },
+})
+if (eloRes.ok) {
+  const top = await eloRes.json()
+  if (top.length > 0 && top.some((p) => p.elo_rating !== 1200)) {
+    console.log('\n--- Leaderboard sanity check (top 20 by Elo) ---')
+    const ids = top.map((p) => p.id)
+    const historyRes = await fetch(
+      `${url}/rest/v1/palette_elo_history?select=palette_id&palette_id=in.(${ids.join(',')})`,
+      { headers: { apikey: key, Authorization: `Bearer ${key}` } },
+    )
+    const historyCounts = {}
+    if (historyRes.ok) {
+      for (const row of await historyRes.json()) {
+        historyCounts[row.palette_id] = (historyCounts[row.palette_id] ?? 0) + 1
+      }
+    }
+    top.forEach((p, i) => {
+      const n = historyCounts[p.id] ?? 0
+      console.log(`${i + 1}. ${p.elo_rating} (${n} rating change${n === 1 ? '' : 's'}) — ${p.colors.join(', ')}`)
+    })
+  } else {
+    console.log('\nNo Elo-rated palettes yet — cast some "Palette vs. palette" votes at ?vote=true to populate the leaderboard.')
+  }
+} else {
+  console.log('\nSkipping leaderboard sanity check — palettes.elo_rating not queryable (has migration 0013 been applied?).')
+}

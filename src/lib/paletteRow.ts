@@ -38,6 +38,9 @@ export interface PaletteRow {
   render?: unknown
   /** Cached like count. Absent until migration 0002 has been applied. */
   likes?: number | null
+  /** Elo rating from head-to-head votes. Absent until migration 0013 has
+   * been applied; defaults to 1200 server-side once it has. */
+  elo_rating?: number | null
   /** Who published this. Null on legacy rows, and on rows whose author has
    * since deleted their account (`on delete set null`, migration 0003). */
   author_id?: string | null
@@ -152,6 +155,7 @@ function unsafeToGradient(row: PaletteRow): Gradient {
     ...render,
     createdAt: new Date(row.created_at).getTime(),
     likeCount: row.likes ?? 0,
+    eloRating: row.elo_rating ?? undefined,
     // Both halves have to be present: author_id without a profile means the
     // handle was never claimed, and a byline needs something to say.
     ...(row.author_id && row.author?.username
