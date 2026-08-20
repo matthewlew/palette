@@ -316,7 +316,17 @@ export function GradientVote() {
   const [saving, setSaving] = useState(false)
   const [count, setCount] = useState(0)
   const [forcedShape, setForcedShape] = useState<GradientType | null>(null)
-  const [testType, setTestType] = useState<TestType>('random')
+  // Pinned test type — null means "auto-rotate, weighted toward whichever
+  // type has fewest votes" (same null-means-random convention as
+  // forcedShape/strategy). This used to be a plain sticky `testType` that
+  // defaulted to 'random' and only changed on a manual click — in practice
+  // that meant a whole session's worth of votes could go by without ever
+  // touching 'community', starving the Elo leaderboard of the only vote
+  // type that feeds it. Defaulting to auto-rotate fixes that.
+  const [pinnedTestType, setPinnedTestType] = useState<TestType | null>(null)
+  // The test type actually used for the CURRENT round — resolved once per
+  // round (weighted pick if unpinned), same pattern as roundStrategy below.
+  const [roundTestType, setRoundTestType] = useState<TestType>('random')
   // Pinned strategy for 'order'/'spacing'/'symmetry' — null means "pick
   // randomly among that type's strategies each round", same null-means-
   // random convention as forcedShape.
@@ -374,11 +384,13 @@ export function GradientVote() {
   }, [])
 
   const nextPair = useCallback(() => {
-    const resolved = strategy ?? randomStrategyFor(testType, strategyCounts)
-    setRoundStrategy(resolved)
-    setPair(pickPair(gradients, forcedShape, testType, resolved, shapeCounts))
+    const resolvedType = pinnedTestType ?? weightedPick(TEST_TYPES.map((t) => t.id), testTypeCounts)
+    setRoundTestType(resolvedType)
+    const resolvedStrategy = strategy ?? randomStrategyFor(resolvedType, strategyCounts)
+    setRoundStrategy(resolvedStrategy)
+    setPair(pickPair(gradients, forcedShape, resolvedType, resolvedStrategy, shapeCounts))
     setNote('')
-  }, [gradients, forcedShape, testType, strategy, shapeCounts, strategyCounts])
+  }, [gradients, forcedShape, pinnedTestType, strategy, shapeCounts, strategyCounts, testTypeCounts])
 
   useEffect(() => {
     if (!pair) nextPair()
@@ -400,7 +412,7 @@ export function GradientVote() {
         loser: { source: loser.source, paletteId: loser.paletteId, colors: loser.colors, offsets: loser.offsets, shape: loser.shape, variant: loser.variant },
         category: null,
         note: finalNote || null,
-        test_type: testType === 'random' ? null : testType,
+        test_type: roundTestType === 'random' ? null : roundTestType,
         strategy: roundStrategy,
       })
       if (error) console.error('Failed to save gradient vote:', error)
@@ -408,7 +420,7 @@ export function GradientVote() {
       console.error('Failed to save gradient vote: no signed-in session (voterId missing)')
     }
     setShapeCounts((prev) => ({ ...prev, [winner.shape]: (prev[winner.shape] ?? 0) + 1 }))
-    setTestTypeCounts((prev) => ({ ...prev, [testType]: (prev[testType] ?? 0) + 1 }))
+    setTestTypeCounts((prev) => ({ ...prev, [roundTestType]: (prev[roundTestType] ?? 0) + 1 }))
     if (roundStrategy) {
       setStrategyCounts((prev) => ({ ...prev, [roundStrategy]: (prev[roundStrategy] ?? 0) + 1 }))
     }
@@ -420,28 +432,32 @@ export function GradientVote() {
 
   const chooseShape = (shape: GradientType | null) => {
     setForcedShape(shape)
-    const resolved = strategy ?? randomStrategyFor(testType, strategyCounts)
+    const resolved = strategy ?? randomStrategyFor(roundTestType, strategyCounts)
     setRoundStrategy(resolved)
-    setPair(pickPair(gradients, shape, testType, resolved, shapeCounts))
+    setPair(pickPair(gradients, shape, roundTestType, resolved, shapeCounts))
     setNote('')
   }
 
-  const chooseTestType = (type: TestType) => {
-    setTestType(type)
+  // type === null pins nothing, i.e. "Auto rotate" — resolved fresh below,
+  // same null-means-random convention as chooseShape(null)/chooseStrategy(null).
+  const chooseTestType = (type: TestType | null) => {
+    setPinnedTestType(type)
+    const resolvedType = type ?? weightedPick(TEST_TYPES.map((t) => t.id), testTypeCounts)
+    setRoundTestType(resolvedType)
     // Strategies are specific to a test type — a pinned 'hue-walk' means
     // nothing once you've switched to Spacing, so it resets here.
     setStrategy(null)
-    const resolved = randomStrategyFor(type, strategyCounts)
+    const resolved = randomStrategyFor(resolvedType, strategyCounts)
     setRoundStrategy(resolved)
-    setPair(pickPair(gradients, forcedShape, type, resolved, shapeCounts))
+    setPair(pickPair(gradients, forcedShape, resolvedType, resolved, shapeCounts))
     setNote('')
   }
 
   const chooseStrategy = (s: string | null) => {
     setStrategy(s)
-    const resolved = s ?? randomStrategyFor(testType, strategyCounts)
+    const resolved = s ?? randomStrategyFor(roundTestType, strategyCounts)
     setRoundStrategy(resolved)
-    setPair(pickPair(gradients, forcedShape, testType, resolved, shapeCounts))
+    setPair(pickPair(gradients, forcedShape, roundTestType, resolved, shapeCounts))
     setNote('')
   }
 
@@ -516,6 +532,21 @@ export function GradientVote() {
         >
           Smooth: {smoothEnabled ? 'On' : 'Off'}
         </button>
+        <button
+          onClick={() => chooseTestType(null)}
+          title="Rotate test types automatically, weighted toward whichever has fewest votes so far"
+          style={{
+            fontSize: 12,
+            padding: '4px 8px',
+            borderRadius: 12,
+            border: '1px solid #7a5',
+            background: pinnedTestType === null ? '#7ac97a' : 'transparent',
+            color: pinnedTestType === null ? '#000' : '#fff',
+            cursor: 'pointer',
+          }}
+        >
+          Auto rotate
+        </button>
         {TEST_TYPES.map((t) => (
           <button
             key={t.id}
@@ -526,7 +557,7 @@ export function GradientVote() {
               padding: '4px 8px',
               borderRadius: 12,
               border: '1px solid #666',
-              background: testType === t.id ? '#4a9eff' : 'transparent',
+              background: pinnedTestType === t.id ? '#4a9eff' : roundTestType === t.id ? '#2a5580' : 'transparent',
               color: '#fff',
               cursor: 'pointer',
             }}
@@ -545,12 +576,12 @@ export function GradientVote() {
           const n = testTypeCounts[t.id] ?? 0
           return (
             <div key={t.id} title={`${t.label}: ${n}`} style={{ flex: 1, height: '100%', display: 'flex', alignItems: 'flex-end' }}>
-              <div style={{ width: '100%', height: `${(n / max) * 100}%`, minHeight: n > 0 ? 3 : 0, background: t.id === testType ? '#4a9eff' : '#555', borderRadius: '2px 2px 0 0' }} />
+              <div style={{ width: '100%', height: `${(n / max) * 100}%`, minHeight: n > 0 ? 3 : 0, background: t.id === roundTestType ? '#4a9eff' : '#555', borderRadius: '2px 2px 0 0' }} />
             </div>
           )
         })}
       </div>
-      {STRATEGIES_BY_TYPE[testType] && (
+      {STRATEGIES_BY_TYPE[roundTestType] && (
         <>
           <div style={{ padding: '10px 12px', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', background: '#000', borderBottom: '1px solid #222' }}>
             <button
@@ -567,7 +598,7 @@ export function GradientVote() {
             >
               Random strategy
             </button>
-            {STRATEGIES_BY_TYPE[testType]!.map((s) => (
+            {STRATEGIES_BY_TYPE[roundTestType]!.map((s) => (
               <button
                 key={s.id}
                 onClick={() => chooseStrategy(s.id)}
@@ -591,8 +622,8 @@ export function GradientVote() {
               dominant-band: 11" at a glance and steer toward whichever
               theory still needs votes. */}
           <div style={{ padding: '6px 12px', display: 'flex', gap: 4, alignItems: 'flex-end', height: 36, background: '#000', borderBottom: '1px solid #222' }}>
-            {STRATEGIES_BY_TYPE[testType]!.map((s) => {
-              const options = STRATEGIES_BY_TYPE[testType]!
+            {STRATEGIES_BY_TYPE[roundTestType]!.map((s) => {
+              const options = STRATEGIES_BY_TYPE[roundTestType]!
               const max = Math.max(1, ...options.map((o) => strategyCounts[o.id] ?? 0))
               const n = strategyCounts[s.id] ?? 0
               return (
