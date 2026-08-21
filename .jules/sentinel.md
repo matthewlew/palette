@@ -1,0 +1,4 @@
+## 2026-08-21 - CDATA Breakout Vulnerability in SVG Copy Payload
+**Vulnerability:** XSS vulnerability via CDATA breakout in SVG copy payload. User-provided JSON strings (like gradient names or tags) containing `]]>` were embedded directly into an SVG `<metadata><![CDATA[...]]></metadata>` block without sanitization.
+**Learning:** XML parsers terminate CDATA sections at the first occurrence of `]]>`. If user input contains this sequence, they can close the CDATA block prematurely and inject arbitrary XML/SVG content (such as `<script>alert(1)</script>`) into the document, leading to Cross-Site Scripting (XSS) if the SVG is opened in a browser.
+**Prevention:** Always escape or sanitize `]]>` (e.g., using Unicode escapes like `\u005D\u005D\u003E` for JSON strings) when embedding untrusted data inside a CDATA block.
