@@ -1,0 +1,4 @@
+## 2025-02-18 - Prevent Supabase Filter Injection in SearchBar
+**Vulnerability:** The application took un-sanitized user search terms in `src/components/SearchBar.tsx` and used them directly in `.or()` and `.ilike()` Supabase filters (e.g. `queryBuilder.ilike('display_name', \`%\${word}%\`)`). A user could input LIKE wildcards such as `%` and `_` or PostgREST filter delimiters `,` and `.`, which would break the query or bypass the intended substring search logic.
+**Learning:** Supabase JavaScript client translates `.or()` string arguments directly into PostgREST query parameters. If a user's term contains commas, it accidentally creates unintended OR clauses.
+**Prevention:** Always sanitize input passed to PostgREST/Supabase filter arguments, specifically stripping `%, _, ., ,` when they are embedded inside template literals mapping to LIKE filters or `.or` queries.
