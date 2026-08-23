@@ -63,6 +63,7 @@ function PositionField({
         className={styles.position}
         data-testid="drum-stop-position"
         aria-label={`Position of stop, percent`}
+        placeholder="50"
         spellCheck={false}
         autoComplete="off"
         value={value}
@@ -119,6 +120,7 @@ function CoverageField({
         className={styles.coverage}
         data-testid="drum-stop-coverage"
         aria-label={`${inkName} coverage for stop, percent`}
+        placeholder="50"
         spellCheck={false}
         autoComplete="off"
         value={value}

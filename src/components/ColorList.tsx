@@ -74,6 +74,7 @@ function HexField({
       className={styles.hex}
       data-testid="color-list-hex"
       aria-label={`Hex value for stop ${stop.hex}`}
+      placeholder="#FFFFFF"
       spellCheck={false}
       autoComplete="off"
       value={value}
@@ -125,6 +126,7 @@ function PositionField({
         className={styles.position}
         data-testid="color-list-position"
         aria-label={`Position of stop ${stop.hex}, percent`}
+        placeholder="50"
         spellCheck={false}
         autoComplete="off"
         value={value}
