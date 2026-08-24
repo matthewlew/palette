@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, memo, useCallback } from 'react'
+import { useEffect, useRef, useState, memo, useCallback, useMemo } from 'react'
 import { flushSync } from 'react-dom'
 import { buildGradientCss } from '../lib/gradient'
 import { tileBackground } from '../lib/tileBackground'
@@ -1147,9 +1147,22 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
     onSelectionActiveChange?.(selectionVisible || studioOpen)
   }, [selectionVisible, studioOpen, onSelectionActiveChange])
 
-  const filteredSaves = saved.filter((gradient) => matchesFilters(gradient, typeFilter))
-  const filtered = savesOrder === 'recent' ? byMostRecent(filteredSaves) : filteredSaves
-  const filteredCommunity = communityGradients.filter((gradient) => matchesFilters(gradient, typeFilter))
+  // Performance: wrap derived state arrays and Sets in useMemo to prevent
+  // expensive operations (array filtering, copying, Set allocations) every
+  // render during 60fps drag-and-drop operations, where dragOverId changing
+  // forces re-rendering of this entire component.
+  const filteredSaves = useMemo(
+    () => saved.filter((gradient) => matchesFilters(gradient, typeFilter)),
+    [saved, typeFilter]
+  )
+  const filtered = useMemo(
+    () => savesOrder === 'recent' ? byMostRecent(filteredSaves) : filteredSaves,
+    [savesOrder, filteredSaves]
+  )
+  const filteredCommunity = useMemo(
+    () => communityGradients.filter((gradient) => matchesFilters(gradient, typeFilter)),
+    [communityGradients, typeFilter]
+  )
   const hasFilters = typeFilter !== null
   // Dragging writes into the hand-arranged order, so it can only mean anything
   // while that order is what's on screen. Under Recent a drop would either be
@@ -1162,26 +1175,29 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
   // selects it.
   const filterPool = activeTab === 'community' ? communityGradients : saved
   const totalCount = filterPool.length
-  const availableTypeChips = TYPE_CHIPS
+  const availableTypeChips = useMemo(() => TYPE_CHIPS
     .map(({ type, label }) => ({ type, label, count: filterPool.filter((g) => g.type === type).length }))
-    .filter(({ type, count }) => count > 0 || typeFilter === type)
+    .filter(({ type, count }) => count > 0 || typeFilter === type), [filterPool, typeFilter])
 
   // Search results are rendered in their own grouped branch below; this is the
   // browse list. Flattening the groups here would lose the Yours/Community
   // split the results are meant to show.
-  const searchFlat = searchResults ? [...searchResults.mine, ...searchResults.community] : null
+  const searchFlat = useMemo(
+    () => searchResults ? [...searchResults.mine, ...searchResults.community] : null,
+    [searchResults]
+  )
   const currentViewGradients = searchFlat
     ?? (activeTab === 'community' ? filteredCommunity : filtered)
 
   // A like needs a row in the shared table to attach to, so only palettes that
   // came from it can carry one. Your own saves have local ids and no row —
   // "liking" one would be a heart nobody else could ever see.
-  const communityIds = new Set([
+  const communityIds = useMemo(() => new Set([
     ...communityGradients.map((g) => g.id),
     ...(searchResults?.community.map((g) => g.id) ?? []),
-  ])
+  ]), [communityGradients, searchResults])
 
-  const likes: LikeApi = {
+  const likes: LikeApi = useMemo(() => ({
     canLike: (gradient) => communityIds.has(gradient.id),
     isLiked: (id) => likedPaletteIds.includes(id),
     countFor: (gradient) => Math.max(0, (gradient.likeCount ?? 0) + (likeDeltas[gradient.id] ?? 0)),
@@ -1200,7 +1216,7 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
       toggleLikedPalette(id)
       setLikeDeltas((prev) => ({ ...prev, [id]: (prev[id] ?? 0) - delta }))
     },
-  }
+  }), [communityIds, likedPaletteIds, likeDeltas, toggleLikedPalette, setLikeDeltas])
 
 
 
