@@ -24,7 +24,10 @@ const PAYLOAD_RE = /<!\[CDATA\[palette:([\s\S]*?)\]\]>/
  * (for design tools) and a lossless Palette payload. CDATA carries the JSON
  * verbatim; JSON never contains the "]]>" terminator, so it stays valid XML. */
 function embedPayload(svg: string, json: string): string {
-  const metadata = `<metadata><![CDATA[${PAYLOAD_PREFIX}${json}]]></metadata>`
+  // Escape "]]>" as \u005D\u005D\u003E to prevent breaking out of CDATA if user input
+  // (e.g. palette name) maliciously includes the sequence. JSON.parse will decode it.
+  const safeJson = json.replace(/\]\]>/g, '\\u005D\\u005D\\u003E')
+  const metadata = `<metadata><![CDATA[${PAYLOAD_PREFIX}${safeJson}]]></metadata>`
   // Insert right after the opening <svg ...> tag.
   return svg.replace(/(<svg[^>]*>)/, `$1${metadata}`)
 }
