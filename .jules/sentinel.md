@@ -1,0 +1,4 @@
+## 2024-05-24 - CDATA XSS via Embedded JSON in SVG
+**Vulnerability:** XSS vulnerability in `clipboard.ts` where unsanitized JSON was embedded into an SVG `<metadata>` CDATA block. An attacker could craft a payload containing `]]>` inside a JSON string value, prematurely closing the CDATA block and injecting malicious scripts into the SVG.
+**Learning:** There was a false assumption that `JSON never contains the "]]>" terminator`. While JSON syntax doesn't reserve `]]>`, string values within the JSON payload can absolutely contain this sequence.
+**Prevention:** When embedding JSON payloads into SVG `<metadata>` via CDATA, always sanitize user-provided strings or explicitly escape `]]>` (e.g., as `\u005D\u005D\u003E` within the JSON string) to prevent XSS vulnerabilities if the SVG is opened in a browser.
