@@ -79,7 +79,13 @@ export function SearchBar({ onResults, saved = [], onActiveChange, onCancel }: S
           queryBuilder = queryBuilder.in('shape', shapes)
         }
 
-        for (const word of terms) {
+        for (const rawWord of terms) {
+          // Escape LIKE wildcards to prevent query abuse and slow searches,
+          // and strip PostgREST reserved characters (,) to prevent filter injection.
+          // PostgREST .or() uses comma to separate clauses.
+          const word = rawWord.replace(/[,.()"]/g, '').replace(/[%_\\]/g, '\\$&')
+          if (!word) continue
+
           const lowerWord = word.toLowerCase()
 
           let familyKey: HueFamily | null = null
