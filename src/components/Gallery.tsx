@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, memo, useCallback } from 'react'
+import { useEffect, useRef, useState, memo, useCallback, useMemo } from 'react'
 import { flushSync } from 'react-dom'
 import { buildGradientCss } from '../lib/gradient'
 import { tileBackground } from '../lib/tileBackground'
@@ -1147,9 +1147,22 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
     onSelectionActiveChange?.(selectionVisible || studioOpen)
   }, [selectionVisible, studioOpen, onSelectionActiveChange])
 
-  const filteredSaves = saved.filter((gradient) => matchesFilters(gradient, typeFilter))
-  const filtered = savesOrder === 'recent' ? byMostRecent(filteredSaves) : filteredSaves
-  const filteredCommunity = communityGradients.filter((gradient) => matchesFilters(gradient, typeFilter))
+  // Optimization: derived lists and Sets are wrapped in useMemo to prevent
+  // expensive O(n) filtering and instantiations on every single render.
+  // This is especially critical during drag-and-drop operations, where
+  // hovering triggers a full re-render at 60fps.
+  const filteredSaves = useMemo(
+    () => saved.filter((gradient) => matchesFilters(gradient, typeFilter)),
+    [saved, typeFilter]
+  )
+  const filtered = useMemo(
+    () => (savesOrder === 'recent' ? byMostRecent(filteredSaves) : filteredSaves),
+    [savesOrder, filteredSaves]
+  )
+  const filteredCommunity = useMemo(
+    () => communityGradients.filter((gradient) => matchesFilters(gradient, typeFilter)),
+    [communityGradients, typeFilter]
+  )
   const hasFilters = typeFilter !== null
   // Dragging writes into the hand-arranged order, so it can only mean anything
   // while that order is what's on screen. Under Recent a drop would either be
@@ -1160,26 +1173,44 @@ export function Gallery({ onRiff, onImport, onStartType, onStartDrum, onViewerOp
   // than rendered as a dead "0" option — but the CURRENTLY selected shape is
   // always kept, or selecting it would make it vanish from the control that
   // selects it.
-  const filterPool = activeTab === 'community' ? communityGradients : saved
+  const filterPool = useMemo(
+    () => (activeTab === 'community' ? communityGradients : saved),
+    [activeTab, communityGradients, saved]
+  )
   const totalCount = filterPool.length
-  const availableTypeChips = TYPE_CHIPS
-    .map(({ type, label }) => ({ type, label, count: filterPool.filter((g) => g.type === type).length }))
-    .filter(({ type, count }) => count > 0 || typeFilter === type)
+  const availableTypeChips = useMemo(
+    () =>
+      TYPE_CHIPS.map(({ type, label }) => ({
+        type,
+        label,
+        count: filterPool.filter((g) => g.type === type).length,
+      })).filter(({ type, count }) => count > 0 || typeFilter === type),
+    [filterPool, typeFilter]
+  )
 
   // Search results are rendered in their own grouped branch below; this is the
   // browse list. Flattening the groups here would lose the Yours/Community
   // split the results are meant to show.
-  const searchFlat = searchResults ? [...searchResults.mine, ...searchResults.community] : null
-  const currentViewGradients = searchFlat
-    ?? (activeTab === 'community' ? filteredCommunity : filtered)
+  const searchFlat = useMemo(
+    () => (searchResults ? [...searchResults.mine, ...searchResults.community] : null),
+    [searchResults]
+  )
+  const currentViewGradients = useMemo(
+    () => searchFlat ?? (activeTab === 'community' ? filteredCommunity : filtered),
+    [searchFlat, activeTab, filteredCommunity, filtered]
+  )
 
   // A like needs a row in the shared table to attach to, so only palettes that
   // came from it can carry one. Your own saves have local ids and no row —
   // "liking" one would be a heart nobody else could ever see.
-  const communityIds = new Set([
-    ...communityGradients.map((g) => g.id),
-    ...(searchResults?.community.map((g) => g.id) ?? []),
-  ])
+  const communityIds = useMemo(
+    () =>
+      new Set([
+        ...communityGradients.map((g) => g.id),
+        ...(searchResults?.community.map((g) => g.id) ?? []),
+      ]),
+    [communityGradients, searchResults]
+  )
 
   const likes: LikeApi = {
     canLike: (gradient) => communityIds.has(gradient.id),
